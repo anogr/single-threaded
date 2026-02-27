@@ -1,13 +1,13 @@
 const clients = [
   { name: "Atlas Copco", description: "Industrial manufacturing" },
   { name: "Tele2", description: "Telecommunications" },
-  { name: "Svenska Spel", description: "Gaming & entertainment" },
+  { name: "Svenska Spel", description: "Sports betting" },
   { name: "SEB", description: "Banking & finance" }
 ];
 
 const Experience = () => {
   return (
-    <section id="experience" className="bg-card">
+    <section id="experience" className="bg-card scroll-mt-8 md:scroll-mt-0">
       <div className="section-container">
         <p className="section-title">Selected Clients</p>
         

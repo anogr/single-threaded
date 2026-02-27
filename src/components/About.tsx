@@ -2,11 +2,11 @@ import andreasPhoto from "@/assets/andreas-ogren.jpg";
 
 const About = () => {
   return (
-    <section id="about" className="bg-card">
+    <section id="about" className="bg-card scroll-mt-8 md:scroll-mt-0">
       <div className="section-container">
         <p className="section-title">About</p>
         
-        <div className="grid md:grid-cols-3 gap-12 items-start">
+        <div className="grid md:grid-cols-3 gap-12 items-start md:items-center">
           <div className="md:col-span-1">
             <div className="aspect-square bg-muted rounded-lg overflow-hidden">
               <img 
@@ -23,11 +23,7 @@ const About = () => {
             </h2>
             <div className="space-y-4 text-muted-foreground leading-relaxed">
               <p>
-                Single Threaded specializes in frontend platforms and architecture. 
-                Two decades of experience helping teams build scalable, maintainable solutions.
-              </p>
-              <p>
-                Based in Stockholm. M.Sc. Computing Science, Umeå University.
+                Specializing in front-end architecture and development, Andreas helps teams design and deliver reliable, maintainable web applications. He focuses on creating platforms that handles complex requirements and support teams in delivering high-quality solutions efficiently. With extensive experience guiding React-based initiatives at leading Swedish companies, he combines deep technical expertise with a practical, collaborative approach that ensures architectural decisions are sound and solutions are sustainable.
               </p>
             </div>
           </div>

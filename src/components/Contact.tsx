@@ -1,6 +1,6 @@
 const Contact = () => {
   return (
-    <section id="contact">
+    <section id="contact" className="scroll-mt-8 md:scroll-mt-0">
       <div className="section-container">
         <p className="section-title">Contact</p>
         
@@ -18,7 +18,7 @@ const Contact = () => {
               className="block p-4 rounded-lg border border-border card-hover"
             >
               <p className="text-sm text-muted-foreground mb-1">Email</p>
-              <p className="text-foreground">hello@singlethreaded.se</p>
+              <p className="text-foreground">andreas.ogren@singlethreaded.se</p>
             </a>
             
             <a 

@@ -5,11 +5,11 @@ const Header = () => {
         <a href="#" className="text-lg font-semibold text-foreground">
           Single Threaded
         </a>
-        <ul className="flex items-center gap-8 text-sm">
+        <ul className="flex items-center gap-2 md:gap-8 text-sm">
           <li>
             <a 
               href="#about" 
-              className="text-muted-foreground hover:text-foreground transition-colors duration-200"
+              className="text-muted-foreground hover:text-foreground transition-colors duration-200 px-1 py-1"
             >
               About
             </a>
@@ -17,7 +17,7 @@ const Header = () => {
           <li>
             <a 
               href="#services" 
-              className="text-muted-foreground hover:text-foreground transition-colors duration-200"
+              className="text-muted-foreground hover:text-foreground transition-colors duration-200 px-1 py-1"
             >
               Services
             </a>
@@ -25,7 +25,7 @@ const Header = () => {
           <li>
             <a 
               href="#experience" 
-              className="text-muted-foreground hover:text-foreground transition-colors duration-200"
+              className="text-muted-foreground hover:text-foreground transition-colors duration-200 px-1 py-1"
             >
               Experience
             </a>
@@ -33,7 +33,7 @@ const Header = () => {
           <li>
             <a 
               href="#contact" 
-              className="text-muted-foreground hover:text-foreground transition-colors duration-200"
+              className="text-muted-foreground hover:text-foreground transition-colors duration-200 px-1 py-1"
             >
               Contact
             </a>

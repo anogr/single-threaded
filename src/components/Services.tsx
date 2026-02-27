@@ -1,25 +1,25 @@
 const services = [
   {
     title: "Software Architecture",
-    description: "Scalable system design, documentation, and implementation guidance."
+    description: "Design and structure front-end platforms for maintainable, robust, and adaptable solutions. Ensure teams can deliver efficiently and confidently."
   },
   {
     title: "Front-End Development",
-    description: "Modern web applications with React and TypeScript. Performance and accessibility."
+    description: "Build modern web applications with React and TypeScript. Focus on performance, reliability, and long-term maintainability."
   },
   {
     title: "Technical Leadership",
-    description: "Team guidance, best practices, and engineering culture."
+    description: "Guide teams in architectural decisions, best practices, and engineering culture to improve collaboration and delivery quality."
   },
   {
     title: "Code Review & Assessment",
-    description: "Codebase evaluation and technical debt reduction."
+    description: "Evaluate codebases, identify technical debt, and provide actionable recommendations to improve reliability and maintainability."
   }
 ];
 
 const Services = () => {
   return (
-    <section id="services">
+    <section id="services" className="scroll-mt-8 md:scroll-mt-0">
       <div className="section-container">
         <p className="section-title">Services</p>
         

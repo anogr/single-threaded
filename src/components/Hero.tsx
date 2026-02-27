@@ -17,10 +17,10 @@ const Hero = () => {
       <div className="section-container relative z-10">
         <div className="max-w-2xl">
           <h1 className="text-4xl md:text-5xl font-semibold text-foreground leading-tight mb-6 text-balance">
-            Software Architecture & Front-End Development
+            Experienced <span className="whitespace-nowrap">Front-End</span> Architect
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground leading-relaxed mb-8">
-            Independent consultant in Stockholm. Scalable solutions, decades of experience.
+            Helping teams design, build, and maintain reliable front-end applications.
           </p>
           <a 
             href="#contact"
