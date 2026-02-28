@@ -1,6 +1,6 @@
 const Header = () => {
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-xs border-b border-border">
       <nav className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
         <a href="#" className="text-base md:text-lg font-semibold text-foreground">
           Single Threaded
