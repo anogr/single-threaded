@@ -5,7 +5,7 @@ const services = [
   },
   {
     title: "Front-End Development",
-    description: "Build modern web applications with React and TypeScript. Focus on performance, reliability, and long-term maintainability."
+    description: "Build modern web applications with React and TypeScript. Use structured AI-assisted workflows to accelerate development and maintainability."
   },
   {
     title: "Technical Leadership",
@@ -13,7 +13,7 @@ const services = [
   },
   {
     title: "Code Review & Assessment",
-    description: "Evaluate codebases, identify technical debt, and provide actionable recommendations to improve reliability and maintainability."
+    description: "Evaluate codebases, identify technical debt, and provide recommendations that improve reliability, maintainability, and AI-assisted development."
   }
 ];
 

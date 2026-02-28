@@ -5,7 +5,7 @@ const Header = () => {
         <a href="#" className="text-base md:text-lg font-semibold text-foreground">
           Single Threaded
         </a>
-        <ul className="flex items-center gap-1 md:gap-8 text-sm">
+        <ul className="hidden md:flex items-center gap-8 text-sm">
           <li>
             <a 
               href="#about" 
