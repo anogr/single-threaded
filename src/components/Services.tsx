@@ -1,7 +1,7 @@
 const services = [
   {
     title: "Software Architecture",
-    description: "Design and structure front-end platforms for maintainable, robust, and adaptable solutions. Ensure teams can deliver efficiently and confidently."
+    description: "Design and structure front-end platforms for maintainable, robust, and adaptable solutions."
   },
   {
     title: "Front-End Development",
@@ -13,7 +13,7 @@ const services = [
   },
   {
     title: "Code Review & Assessment",
-    description: "Evaluate codebases, identify technical debt, and provide recommendations that improve reliability, maintainability, and AI-assisted development."
+    description: "Review codebases, identify technical debt, and provide recommendations to improve reliability and maintainability."
   }
 ];
 

@@ -1,15 +1,15 @@
 const clients = [
-  { name: "Atlas Copco", description: "Industrial manufacturing" },
+  { name: "Atlas Copco", description: "Industrial Manufacturing" },
   { name: "Tele2", description: "Telecommunications" },
-  { name: "Svenska Spel", description: "Sports betting" },
-  { name: "SEB", description: "Banking & finance" }
+  { name: "Svenska Spel", description: "Sports Betting" },
+  { name: "SEB", description: "Banking & Finance" }
 ];
 
 const Experience = () => {
   return (
     <section id="experience" className="bg-card scroll-mt-8 md:scroll-mt-0">
       <div className="section-container">
-        <p className="section-title">Selected Clients</p>
+        <p className="section-title">Experience</p>
         
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           {clients.map((client, index) => (
