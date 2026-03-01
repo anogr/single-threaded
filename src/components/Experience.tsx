@@ -1,6 +1,6 @@
 const clients = [
   { name: "Atlas Copco", description: "Industrial Manufacturing" },
-  { name: "Tele2", description: "Telecommunications" },
+  { name: "Tele2", description: "Telecom" },
   { name: "Svenska Spel", description: "Sports Betting" },
   { name: "SEB", description: "Banking & Finance" }
 ];
