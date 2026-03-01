@@ -27,7 +27,7 @@ const About = () => {
               </p>
 
               <p>
-                I combine deep technical expertise with structured AI-assisted workflows with disciplined prompting techniques to accelerate planning, implementation, and testing to ensure long-term maintainability.
+                I combine deep technical expertise with structured AI-assisted workflows to accelerate delivery while ensuring that solutions remain clear, maintainable, and aligned with long-term goals.
               </p>
 
               <p>
