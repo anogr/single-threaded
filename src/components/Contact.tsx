@@ -14,7 +14,7 @@ const Contact = () => {
           
           <div className="space-y-4">
             <a 
-              href="mailto:hello@singlethreaded.se"
+              href="mailto:andreas.ogren@singlethreaded.se"
               className="block p-4 rounded-lg border border-border card-hover"
             >
               <p className="text-sm text-muted-foreground mb-1">Email</p>
