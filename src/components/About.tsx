@@ -23,19 +23,11 @@ const About = () => {
             </h2>
             <div className="space-y-4 text-muted-foreground leading-relaxed">
               <p>
-                I am a civil engineer in computer science with 26 years of experience in software development and architecture.
+                I am a civil engineer in computer science with 26 years of experience in software architecture and development. I specialize in front-end platforms, combining architectural responsibility with hands-on development to build scalable, maintainable systems in complex enterprise environments.
               </p>
 
               <p>
-                I specialize in front-end architecture, helping teams design and build scalable, maintainable web platforms in complex enterprise environments.
-              </p>
-
-              <p>
-                I combine deep technical expertise with structured AI-assisted workflows to accelerate delivery while maintaining long-term clarity and quality.
-              </p>
-
-              <p>
-                With extensive experience leading React-based initiatives at major Swedish companies, I bring a pragmatic, collaborative approach that turns architectural decisions into sustainable systems.
+                I leverage deep technical expertise with structured AI-assisted workflows to accelerate delivery and ensure long-term clarity and quality. With extensive experience shaping React-based initiatives at major Swedish companies, I bring a pragmatic, collaborative approach that turns architectural decisions into sustainable systems.
               </p>
             </div>
           </div>
