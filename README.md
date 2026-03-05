@@ -9,4 +9,4 @@ Web site deployed to singlethreaded.se.
 - TypeScript
 - React
 - Tailwind
-- ESLint
+- Biome
