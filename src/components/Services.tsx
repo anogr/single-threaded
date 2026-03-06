@@ -13,7 +13,7 @@ const Services = () => {
 					{services.map((service) => (
 						<div
 							key={service.title}
-							className="p-6 rounded-lg border border-border card-hover"
+							className="p-6 rounded-lg border border-border"
 						>
 							<h3 className="text-lg font-semibold text-foreground mb-3">
 								{service.title}

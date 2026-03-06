@@ -20,7 +20,7 @@ const Hero = () => {
 					</p>
 					<a
 						href="#contact"
-						className="inline-block px-6 py-3 bg-primary text-primary-foreground text-sm font-medium rounded transition-opacity duration-200 hover:opacity-90"
+						className="inline-block px-6 py-3 bg-primary text-primary-foreground text-sm font-medium rounded transition-opacity duration-200 hover:bg-primary/80 active:bg-primary/70"
 					>
 						{t("getInTouch")}
 					</a>
