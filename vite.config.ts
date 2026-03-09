@@ -7,6 +7,22 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+function copyCarWars() {
+	return {
+		name: "copy-car-wars",
+		writeBundle: async () => {
+			const src = path.join(__dirname, "public/car-wars");
+			const dest = path.join(__dirname, "dist/car-wars");
+			try {
+				await fs.cp(src, dest, { recursive: true });
+				console.log("Copied public/car-wars to dist/car-wars");
+			} catch (e) {
+				console.warn("Could not copy public/car-wars to dist/car-wars:", e);
+			}
+		},
+	};
+}
+
 function copyIndexTo404() {
 	return {
 		name: "copy-index-to-404",
@@ -36,6 +52,7 @@ export default defineConfig({
 		tailwindcss(),
 		react(),
 		copyIndexTo404(),
+		copyCarWars(),
 	],
 	resolve: {
 		alias: {
