@@ -1,4 +1,10 @@
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import {
+	BrowserRouter,
+	Navigate,
+	Route,
+	Routes,
+	useLocation,
+} from "react-router-dom";
 import Index from "./pages/Index";
 import { langLoader } from "./pages/langLoader";
 import NotFound from "./pages/NotFound";

@@ -1,9 +1,9 @@
+import { promises as fs } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react-swc";
 import { defineConfig } from "vite";
-import { promises as fs } from "node:fs";
-import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -48,12 +48,7 @@ export default defineConfig({
 			overlay: false,
 		},
 	},
-	plugins: [
-		tailwindcss(),
-		react(),
-		copyIndexTo404(),
-		copyCarWars(),
-	],
+	plugins: [tailwindcss(), react(), copyIndexTo404(), copyCarWars()],
 	resolve: {
 		alias: {
 			"@": path.resolve(__dirname, "./src"),

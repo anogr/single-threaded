@@ -1,4 +1,6 @@
 import { useTranslation } from "react-i18next";
+import iconLinkedin from "@/assets/icon-linkedin.svg";
+import iconMail from "@/assets/icon-mail.svg";
 
 const Contact = () => {
 	const { t } = useTranslation();
@@ -20,7 +22,10 @@ const Contact = () => {
 							className="block p-4 rounded-lg border border-border card-hover"
 						>
 							<p className="text-sm text-muted-foreground mb-1">{t("email")}</p>
-							<p className="text-foreground">andreas.ogren@singlethreaded.se</p>
+							<div className="flex items-center gap-2">
+								<img src={iconMail} alt="" width={20} height={20} aria-hidden="true" />
+								<p className="text-foreground">andreas.ogren@singlethreaded.se</p>
+							</div>
 						</a>
 						<a
 							href="https://www.linkedin.com/in/andreasogren/"
@@ -31,7 +36,34 @@ const Contact = () => {
 							<p className="text-sm text-muted-foreground mb-1">
 								{t("linkedin")}
 							</p>
-							<p className="text-foreground">linkedin.com/in/andreasogren</p>
+							<div className="flex items-center gap-2">
+								<img src={iconLinkedin} alt="" width={20} height={20} aria-hidden="true" />
+								<p className="text-foreground">linkedin.com/in/andreasogren</p>
+							</div>
+						</a>
+						<a
+							href="https://www.brainville.com/SE/SingleThreaded"
+							target="_blank"
+							rel="noopener"
+							className="block p-4 rounded-lg border border-border card-hover"
+						>
+							<p className="text-sm text-muted-foreground mb-1">
+								{t("brainville")}
+							</p>
+							<div className="flex items-center gap-2">
+								<picture>
+									<source
+										srcSet="https://www.brainville.com/Content/Images/SocialMedia/OnDark_Flat.svg"
+										media="(prefers-color-scheme: dark)"
+									/>
+									<img
+										src="https://www.brainville.com/Content/Images/SocialMedia/OnLight_Flat.svg"
+										alt="Check out our company profile in Brainville"
+										style={{ width: "20px" }}
+									/>
+								</picture>
+								<p className="text-foreground">www.brainville.com/SE/SingleThreaded</p>
+							</div>
 						</a>
 					</div>
 				</div>
