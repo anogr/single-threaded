@@ -94,7 +94,7 @@
   /* ── Typography ── */
   h1 {
     font-family: var(--font-disp);
-    font-size: 42px;
+    font-size: 44px;
     font-weight: 700;
     line-height: 1.15;
     letter-spacing: -.02em;
@@ -104,21 +104,47 @@
 
   .subtitle {
     color: var(--muted);
-    font-size: 16px;
-    margin-bottom: 56px;
+    font-size: 17px;
+    margin-bottom: 18px;
     font-weight: 300;
+    max-width: 640px;
   }
+
+  .byline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 56px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--border);
+  }
+  .byline .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--muted); }
+  .byline strong { color: var(--text); font-weight: 500; }
 
   h2 {
     font-family: var(--font-disp);
-    font-size: 26px;
+    font-size: 28px;
     font-weight: 700;
-    margin: 64px 0 20px;
+    margin: 64px 0 8px;
     padding-top: 64px;
     border-top: 1px solid var(--border);
     scroll-margin-top: 24px;
+    letter-spacing: -.01em;
   }
   h2:first-of-type { margin-top: 0; }
+
+  .lede {
+    font-family: var(--font-disp);
+    font-style: italic;
+    font-size: 19px;
+    line-height: 1.6;
+    color: #adbac7;
+    font-weight: 300;
+    margin: 4px 0 22px;
+    max-width: 680px;
+  }
 
   h3 {
     font-size: 14px;
@@ -129,7 +155,9 @@
     margin: 32px 0 12px;
   }
 
-  p { margin-bottom: 14px; color: #c9d1d9; }
+  p { margin-bottom: 16px; color: #c9d1d9; max-width: 700px; }
+  p.wide { max-width: none; }
+  p strong { color: var(--text); font-weight: 600; }
 
   /* ── Concept Cards ── */
   .concept-grid {
@@ -527,65 +555,73 @@
 <!-- ── Main Content ── -->
 <main>
 
-  <h1>OAuth 2.0 &amp; <em>OIDC</em></h1>
-  <p class="subtitle">Every important concept, explained clearly — from tokens to threat models.</p>
+  <h1>The Engineer's Guide to <em>OAuth 2.0 &amp; OIDC</em></h1>
+  <p class="subtitle">Two specifications quietly run the login button on nearly every app you use. Here's what's actually happening behind it — the actors, the tokens, the endpoints, and the attacks they're designed to stop.</p>
+  <div class="byline"><strong>A field guide</strong><div class="dot"></div><span>~22 min read</span><div class="dot"></div><span>For developers building real auth</span></div>
+
+  <p class="wide" style="max-width:700px;">If you've ever clicked "Sign in with Google" and wondered what happens between that click and landing back on the app, logged in, you've already met OAuth 2.0 and OpenID Connect. They're two of the most widely deployed specifications on the internet, and also two of the most widely misunderstood — partly because they were designed by committee over more than a decade, and partly because most of us learn them by copy-pasting a working example rather than reading the RFCs. This guide walks through both specs from the ground up: who the actors are, what each token is for, how the most common flow actually works end to end, and which mistakes turn a textbook-correct implementation into a security hole. By the end you should be able to read an OAuth library's source code and know exactly what it's doing and why.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="roles">Roles &amp; Actors</h2>
-  <p>OAuth defines four parties. Every flow is just these four talking to each other.</p>
+  <p class="lede">Every OAuth conversation, no matter how complex, is really just four parties talking to each other in a fixed pattern.</p>
+  <p>Before any of the redirects and tokens make sense, it helps to fix the cast of characters firmly in your head, because the entire specification is written in terms of these four roles, and almost every security property in OAuth exists to keep one of them from impersonating or deceiving another.</p>
 
   <div class="concept-grid">
     <div class="card blue">
       <div class="card-label">Resource Owner</div>
       <div class="card-title">The User</div>
-      <p>The human (or system) who owns the data. They grant or deny access. They authenticate to the Auth Server — never to the client app.</p>
+      <p>The human (or in machine-to-machine cases, the system) who actually owns the protected data. The resource owner is the one who decides whether to grant or deny access, and critically, they authenticate directly with the authorization server — never with the client app. This is the whole point of OAuth: the app asking for access never sees the resource owner's password.</p>
     </div>
     <div class="card purple">
       <div class="card-label">Client</div>
       <div class="card-title">Your Application</div>
-      <p>The app requesting access on the user's behalf. Could be a web app, SPA, mobile app, or CLI. It receives tokens but should never see the user's password.</p>
+      <p>The application requesting access on the user's behalf — a web app, a single-page app, a mobile app, a CLI tool, or a background service. The client receives tokens once the user has granted access, but it is never supposed to see the user's credentials at any point. How much the spec trusts a given client depends heavily on whether it's "public" or "confidential," a distinction covered later on.</p>
     </div>
     <div class="card green">
       <div class="card-label">Authorization Server</div>
       <div class="card-title">The Auth Server (IdP)</div>
-      <p>Issues tokens after authenticating the user and getting consent. Examples: Auth0, Okta, Keycloak, Google Identity, Azure AD.</p>
+      <p>The system that authenticates the user, captures their consent, and issues tokens. In the identity world this is usually called an Identity Provider, or IdP. Auth0, Okta, Keycloak, Google Identity, and Azure AD/Entra ID are all examples. This is the component most teams choose to outsource rather than build, because getting it wrong is expensive.</p>
     </div>
     <div class="card orange">
       <div class="card-label">Resource Server</div>
       <div class="card-title">The API</div>
-      <p>The server hosting the protected data (e.g. Google Drive API, your own backend). It validates incoming access tokens before serving data.</p>
+      <p>The server that actually hosts the protected data — the Google Drive API, a payments API, or your own backend. Its only real job in this story is to accept an access token on incoming requests, validate it, and decide whether the scopes attached to that token permit the requested operation.</p>
     </div>
   </div>
 
+  <p>It's worth sitting with the distinction between the last two roles for a moment, because in small setups they often live on the same physical server and that can blur the conceptual line. The authorization server's entire responsibility is issuing tokens; the resource server's entire responsibility is consuming them. A single company might run both, or might use a third-party authorization server (like Auth0) in front of their own resource server (their own API) — both architectures are completely normal.</p>
+
   <div class="callout info">
     <div class="callout-title">Authorization vs Authentication</div>
-    <p><strong>OAuth 2.0</strong> is an <em>authorization</em> framework — it answers "what is this app allowed to do?" It says nothing about who the user is.<br>
-    <strong>OIDC</strong> adds <em>authentication</em> on top — it answers "who is this user?" by introducing the ID token.</p>
+    <p><strong>OAuth 2.0</strong> is, at its core, an <em>authorization</em> framework — it exists to answer the question "what is this app allowed to do on the user's behalf?" Read the original RFC and you'll notice it never actually defines who the user is; identity simply isn't OAuth's job.<br><br>
+    <strong>OIDC</strong> was built specifically to close that gap. It layers <em>authentication</em> on top of OAuth's authorization mechanics, answering "who is this user, exactly?" by introducing a new artifact: the ID token. This is also why you'll sometimes hear OIDC described as "OAuth 2.0 plus an identity layer" rather than a competing standard — it reuses OAuth's flows almost entirely and just adds a few extra pieces.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="tokens">Tokens</h2>
-  <p>Three types of token exist in OAuth/OIDC. Each has a distinct job.</p>
+  <p class="lede">Three tokens, three jobs. Confusing them is the single most common source of OAuth bugs.</p>
+  <p>If there's one mental model worth memorizing from this entire guide, it's this: the access token is for machines, the ID token is for your app, and the refresh token is for staying logged in quietly. Mixing these up — for instance, sending an ID token to an API, or treating an access token as proof of identity — is responsible for a surprising share of real-world OAuth bugs.</p>
 
   <div class="concept-grid" style="grid-template-columns:1fr 1fr 1fr;">
     <div class="card blue">
       <div class="card-label">Access Token</div>
       <div class="card-title">API Credential</div>
-      <p>Sent with every API call. Short-lived (minutes–hours). Proves the client has permission for certain scopes. Usually a JWT, sometimes opaque.</p>
+      <p>The credential you attach to every API request, typically as <code>Authorization: Bearer &lt;token&gt;</code>. It's intentionally short-lived — usually minutes to a couple of hours — so that if one leaks, the damage window is small. It may be a JWT that the resource server can verify locally, or an opaque string that requires a call back to the authorization server to validate. Either way, its only job is proving the bearer has permission for a given set of scopes.</p>
     </div>
     <div class="card purple">
       <div class="card-label">ID Token</div>
       <div class="card-title">Identity Proof (OIDC)</div>
-      <p>A JWT that proves who the user is. Contains claims like <code>sub</code>, <code>email</code>, <code>name</code>. For your app to consume — not to send to APIs.</p>
+      <p>Always a JWT, and always meant for your application to consume directly rather than forward anywhere. It carries claims about who just authenticated — a stable subject identifier, maybe an email or name — and its presence is what turns a plain OAuth exchange into an OIDC login. A useful rule of thumb: if you're tempted to send a token to an API, it should be the access token, never the ID token.</p>
     </div>
     <div class="card green">
       <div class="card-label">Refresh Token</div>
       <div class="card-title">Silent Re-auth</div>
-      <p>Long-lived (days–months). Used to get new access tokens without re-prompting the user. Must be stored securely. Never sent to resource servers.</p>
+      <p>A long-lived credential — days, weeks, sometimes months — that the client exchanges for a fresh access token once the old one expires, without bothering the user to log in again. Because it lives so much longer than the other tokens, it's also the most sensitive one to leak, and the spec treats it accordingly: it should never be sent to a resource server, and it should never end up in a place JavaScript can read it.</p>
     </div>
   </div>
 
   <h3>Token Lifetimes (relative)</h3>
+  <p>Lifetimes vary by provider, but the relative ordering below is close to universal, and it's a useful intuition to carry around: the shorter-lived a token is, the more freely it can be passed around; the longer-lived it is, the more carefully it needs to be guarded.</p>
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:24px;margin:16px 0;">
     <div class="lifetime-row">
       <div class="lifetime-label">Auth Code</div>
@@ -613,46 +649,59 @@
     </div>
   </div>
 
+  <h3>JWT vs Opaque Access Tokens</h3>
+  <p>One detail that trips people up: the spec never actually mandates a token <em>format</em>. An access token can be a self-contained JWT that any resource server can verify on its own using a public key, or it can be a short, meaningless-looking opaque string that only the authorization server knows how to interpret. Opaque tokens require the resource server to call back to the authorization server's <strong>introspection endpoint</strong> on every request to check validity — slower, but it means a token can be instantly revoked. JWTs are faster to validate locally but, by nature, can't be revoked before they expire unless you build a separate denylist. Many production systems use JWTs for access tokens precisely because that local-validation speed matters at API scale, while accepting the tradeoff that revocation isn't instant.</p>
+
+  <div class="callout info">
+    <div class="callout-title">Don't decode access tokens in your client code</div>
+    <p>Even when an access token happens to be a JWT, treat it as opaque from the client's perspective. Its format and contents are a contract between the authorization server and the resource server, not something your frontend should depend on or parse. Use the ID token for identity information instead.</p>
+  </div>
+
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="scopes">Scopes</h2>
-  <p>Scopes are strings that define what access the client is requesting. The user sees them on the consent screen. The auth server encodes them into the access token. The resource server checks them.</p>
+  <p class="lede">Scopes are how OAuth implements the principle of least privilege — they let a client ask for exactly what it needs, nothing more.</p>
+  <p>A scope is simply a string that names a unit of access. When your app sends the user to the authorization server, it lists the scopes it wants, and the consent screen the user sees is essentially a human-readable translation of that list — "this app wants to see your name and email" is the scope <code>profile email</code> rendered for a person rather than a machine. Once granted, the requested scopes get baked into the access token, and it's the resource server's job to check, on every request, that the token actually carries the scope required for that operation.</p>
 
   <h3>OIDC Standard Scopes</h3>
+  <p>OIDC defines a small set of standard scopes so that identity providers don't all invent their own conventions for "give me the user's email." These are worth memorizing since you'll see them in nearly every integration:</p>
   <div class="scope-grid">
     <div class="scope-item">
       <div class="scope-name">openid</div>
-      <div class="scope-desc">Required to trigger OIDC. Returns an ID token with a <code>sub</code> claim.</div>
+      <div class="scope-desc">The scope that turns a plain OAuth request into an OIDC request. Required to receive an ID token at all — without it, you just get OAuth's access token and nothing more.</div>
     </div>
     <div class="scope-item">
       <div class="scope-name">profile</div>
-      <div class="scope-desc">Name, picture, website, locale, birthdate, etc.</div>
+      <div class="scope-desc">Name, picture, website, locale, birthdate, and similar non-sensitive profile fields.</div>
     </div>
     <div class="scope-item">
       <div class="scope-name">email</div>
-      <div class="scope-desc">Email address and whether it's verified.</div>
+      <div class="scope-desc">The user's email address along with whether it has been verified.</div>
     </div>
     <div class="scope-item">
       <div class="scope-name">address</div>
-      <div class="scope-desc">Physical mailing address.</div>
+      <div class="scope-desc">The user's physical mailing address, when the provider stores one.</div>
     </div>
     <div class="scope-item">
       <div class="scope-name">phone</div>
-      <div class="scope-desc">Phone number and verification status.</div>
+      <div class="scope-desc">Phone number and its verification status.</div>
     </div>
     <div class="scope-item">
       <div class="scope-name">offline_access</div>
-      <div class="scope-desc">Requests a refresh token for long-lived access.</div>
+      <div class="scope-desc">Tells the server you'd like a refresh token back, so the user doesn't need to log in again every time their access token expires.</div>
     </div>
   </div>
 
+  <p>Beyond these standard ones, real applications almost always define their own custom scopes shaped around their own API — things like <code>read:orders</code> or <code>admin:users</code>. Designing good scopes is really an exercise in API design: think in terms of the operations a client should be allowed to perform, then name a scope for each meaningful grouping of those operations rather than handing out blanket access.</p>
+
   <div class="callout info">
-    <div class="callout-title">Custom Scopes</div>
-    <p>Real-world apps define their own scopes: <code>read:orders</code>, <code>write:invoices</code>, <code>admin:users</code>. Scope design is API design — think in terms of what operations the client needs permission to perform.</p>
+    <div class="callout-title">Scopes are not a substitute for fine-grained authorization</div>
+    <p>Scopes tell you what categories of action a token is allowed to attempt — they're a coarse-grained gate. They generally don't express "can this user edit <em>this specific</em> document." That kind of fine-grained, resource-level authorization is usually handled separately, inside your application logic, after the scope check has already passed.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="grants">Grant Types</h2>
-  <p>A grant type is the mechanism by which a client obtains tokens. Use the right one for your context.</p>
+  <p class="lede">A grant type is just a recipe — the specific sequence of requests a client follows to walk away with tokens.</p>
+  <p>OAuth defines several of these recipes because "getting a token" looks completely different depending on what kind of client you're building. A web app with a logged-in human in front of it has very different constraints than a cron job with no user at all, or a smart TV with no keyboard. Picking the wrong grant type for your situation is one of the most common OAuth mistakes, so it's worth understanding what each one was actually designed for before reaching for it.</p>
 
   <div class="tabs" id="grant-tabs">
     <button class="tab active" data-panel="grant-code">Authorization Code + PKCE</button>
@@ -665,14 +714,14 @@
     <div class="tab-panel active" id="grant-code">
       <span class="badge badge-green">Recommended for most apps</span>
       <h3 style="margin-top:16px;">Authorization Code + PKCE</h3>
-      <p>The user is redirected to the auth server, authenticates, then redirected back with a short-lived <em>authorization code</em>. The code is exchanged back-channel for tokens. PKCE prevents the code from being stolen in transit.</p>
-      <p><strong>Use when:</strong> Web apps with a backend, SPAs, mobile apps — any flow where a human user is present.</p>
+      <p>This is the workhorse flow, and almost certainly the one you should reach for unless you have a specific reason not to. The user is redirected away to the authorization server, where they authenticate and consent, and is then redirected back carrying a short-lived <em>authorization code</em> rather than a token. That code is then traded for actual tokens through a separate, back-channel request — one that never touches the browser. PKCE sits alongside this exchange specifically to stop that authorization code from being usable by anyone other than the client that requested it, even if it gets intercepted along the way.</p>
+      <p><strong>Use when:</strong> you're building a web app with a backend, a single-page app, or a mobile app — essentially any flow where a real human is sitting in front of a browser or device.</p>
     </div>
     <div class="tab-panel" id="grant-cc">
       <span class="badge badge-blue">Machine-to-machine</span>
       <h3 style="margin-top:16px;">Client Credentials</h3>
-      <p>No user involved. The client authenticates directly with its <code>client_id</code> + <code>client_secret</code> and gets an access token. Pure machine-to-machine.</p>
-      <p><strong>Use when:</strong> Background jobs, microservices, daemons, cron tasks calling APIs with no user context.</p>
+      <p>There's no user anywhere in this flow — it's the client authenticating as itself, using its own <code>client_id</code> and <code>client_secret</code>, to get an access token that represents the application's own identity rather than any person's. It's the simplest grant in the spec because there's no redirect, no consent screen, and no browser involved at all; it's a single back-channel request.</p>
+      <p><strong>Use when:</strong> you have background jobs, microservices, or daemons that need to call an API with no user context attached — a nightly batch job pulling data from a partner API is the textbook case.</p>
       <pre class="code-block"><span class="cm">// POST /token (back-channel)</span>
 <span class="cn">grant_type</span>=client_credentials
 <span class="cn">&amp;client_id</span>=my-service
@@ -682,30 +731,31 @@
     <div class="tab-panel" id="grant-device">
       <span class="badge badge-orange">Input-constrained devices</span>
       <h3 style="margin-top:16px;">Device Authorization Grant</h3>
-      <p>For devices with no browser (Smart TVs, CLIs, IoT). The device shows a code and a URL. The user visits the URL on their phone/computer, enters the code, and the device polls until it gets a token.</p>
-      <p><strong>Use when:</strong> CLI tools (like <code>gh auth login</code>), smart TVs, printers, anything without a usable browser.</p>
+      <p>Designed for devices that have no convenient way to handle a browser redirect — think smart TVs, CLI tools, or IoT devices with no keyboard. Instead of opening a browser on the device itself, it displays a short code and a URL. The user picks up their phone or laptop, visits that URL, types in the code, and authenticates there instead, while the original device quietly polls the token endpoint in the background until that approval comes through.</p>
+      <p><strong>Use when:</strong> you're building a CLI tool (this is exactly how <code>gh auth login</code> works), a smart TV app, or any other device without a practical way to render a full browser-based login screen.</p>
     </div>
     <div class="tab-panel" id="grant-implicit">
       <span class="badge badge-red">Deprecated</span>
       <h3 style="margin-top:16px;">Implicit Flow</h3>
-      <p>Tokens were returned directly in the URL fragment (<code>#access_token=...</code>) — no code exchange step. This was designed for SPAs before PKCE existed. Now considered insecure because tokens in URLs leak via browser history, referrer headers, and server logs.</p>
+      <p>This was OAuth's original answer for single-page apps, back before PKCE existed: rather than returning a code that gets exchanged for tokens, the authorization server returned the access token directly in the URL fragment, as in <code>#access_token=...</code>. It seemed reasonable at the time, but tokens sitting in a URL turn out to leak in all sorts of mundane ways — browser history, referrer headers sent to third-party scripts, and server access logs all end up holding a live credential.</p>
       <div class="callout danger" style="margin-top:12px;">
         <div class="callout-title">Do not use</div>
-        <p>Use Authorization Code + PKCE for SPAs instead. The implicit flow has been removed from the OAuth 2.1 draft spec.</p>
+        <p>Use Authorization Code + PKCE for SPAs instead — it solves the same problem without exposing tokens in the URL. The implicit flow has been formally dropped from the OAuth 2.1 draft specification.</p>
       </div>
     </div>
     <div class="tab-panel" id="grant-ropc">
       <span class="badge badge-red">Avoid</span>
       <h3 style="margin-top:16px;">Resource Owner Password Credentials</h3>
-      <p>The client collects the user's username and password and sends them directly to the token endpoint. This breaks the core OAuth promise — the user's password is exposed to the client app, and you can't use MFA or social login.</p>
+      <p>In this grant, the client itself collects the user's username and password through its own form and sends them straight to the token endpoint. It quietly defeats the entire premise of OAuth, which is that the client app should never see the user's actual credentials. It also makes multi-factor authentication and social login effectively impossible to support, since the auth server never gets to show its own login UI.</p>
       <div class="callout danger" style="margin-top:12px;">
         <div class="callout-title">Only for legacy migration</div>
-        <p>The only valid use case is migrating an existing system that already stores user passwords. For all new systems, use Authorization Code + PKCE.</p>
+        <p>About the only legitimate use case left is a temporary bridge while migrating an existing system that already stores user passwords directly. For any new system, Authorization Code + PKCE is the right choice.</p>
       </div>
     </div>
   </div>
 
   <h3>Grant Type Comparison</h3>
+  <p>Laid side by side, the deciding factors usually come down to two questions: is a human present to authenticate, and can the client be trusted with a secret? Answer those two and the right grant type tends to fall out naturally.</p>
   <table class="grant-table">
     <thead>
       <tr>
@@ -751,7 +801,8 @@
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="endpoints">Endpoints</h2>
-  <p>Auth servers expose a standard set of endpoints. Discovery makes finding them automatic.</p>
+  <p class="lede">Every authorization server exposes the same small handful of URLs. Learn these four and you can read any OAuth integration.</p>
+  <p>One of the nicer things about OAuth and OIDC is that despite the dozens of providers out there, they all converge on the same basic set of endpoints, doing the same basic jobs. Once you've worked with one provider's <code>/authorize</code> and <code>/token</code> endpoints, you've effectively worked with all of them — the parameter names and behavior are remarkably consistent across vendors. Click each one below to expand it.</p>
 
   <div class="endpoint">
     <div class="endpoint-header" onclick="toggleEndpoint(this)">
@@ -761,7 +812,7 @@
       <span class="chevron">▶</span>
     </div>
     <div class="endpoint-body">
-      <p>Returns a JSON document listing all other endpoint URLs, supported scopes, signing algorithms, and capabilities. Always start here — hard-coding endpoint URLs is fragile. Fetch this once on startup and cache it.</p>
+      <p>This is usually the very first request your application makes, and it's worth starting every integration here. It returns a single JSON document listing the URLs of every other endpoint, the scopes and claims the provider supports, the signing algorithms it uses, and a number of other capability flags. Fetch it once on startup, cache the result, and resolve every other endpoint from it rather than hardcoding URLs — providers do occasionally restructure their infrastructure, and discovery is what insulates your app from that.</p>
       <pre class="code-block"><span class="cm">// Returned JSON includes:</span>
 {
   <span class="str">"issuer"</span>: <span class="str">"https://auth.example.com"</span>,
@@ -783,7 +834,7 @@
       <span class="chevron">▶</span>
     </div>
     <div class="endpoint-body">
-      <p>The user's browser is redirected here. The auth server authenticates the user and gets consent. This is never called as a <code>fetch()</code> — it must be a full browser navigation so the auth server can set its own cookies and show its UI.</p>
+      <p>This is the endpoint the user's browser actually navigates to — never something your code calls with <code>fetch()</code>. It needs to be a genuine, full browser navigation because the authorization server has to render its own login UI, set its own cookies, and possibly redirect through a federated identity provider of its own. Trying to call it programmatically defeats the entire security model, since the whole point is that the user is interacting directly with a server they (hopefully) trust, on a domain the client app can't tamper with.</p>
       <h3 style="margin-top:16px;">Key Parameters</h3>
       <ul class="param-list">
         <li><span class="param-name">client_id</span><span class="param-desc">Identifies your app to the auth server.</span><span class="param-req">required</span></li>
@@ -808,7 +859,7 @@
       <span class="chevron">▶</span>
     </div>
     <div class="endpoint-body">
-      <p>Called server-to-server (back-channel) to exchange a code for tokens, or to refresh an access token. Never called from the browser directly — that would expose tokens to browser history and extensions.</p>
+      <p>Where the actual tokens get issued — by exchanging an authorization code for tokens after a login, or later by exchanging a refresh token for a fresh access token. Crucially, this call happens server-to-server, in the back channel, never from code running in the browser. Keeping it server-side means the response — including any client secret used to authenticate the request — never passes through the user's browser, where it could end up in history, dev tools, or a malicious extension's view.</p>
       <ul class="param-list">
         <li><span class="param-name">grant_type</span><span class="param-desc"><code>authorization_code</code>, <code>refresh_token</code>, or <code>client_credentials</code>.</span><span class="param-req">required</span></li>
         <li><span class="param-name">code</span><span class="param-desc">The authorization code from the redirect callback.</span><span class="param-req">required (code flow)</span></li>
@@ -829,7 +880,7 @@
       <span class="chevron">▶</span>
     </div>
     <div class="endpoint-body">
-      <p>Returns the auth server's public keys. Your resource server fetches these to verify the signatures of JWTs. Keys are cached locally and only re-fetched when a token arrives signed with an unknown key ID (<code>kid</code>).</p>
+      <p>The authorization server signs JWTs with a private key it never shares — but it publishes the matching public keys here, in a standard format called a JSON Web Key Set. Your resource server fetches this once and caches it, then uses it to verify the signature on every JWT it sees, locally, with no network call required per request. Each key carries a <code>kid</code> (key ID), and that's how a verifier matches an incoming token to the right public key — it's also how providers can rotate signing keys over time without breaking already-issued tokens.</p>
       <pre class="code-block">{
   <span class="str">"keys"</span>: [{
     <span class="str">"kty"</span>: <span class="str">"RSA"</span>,
@@ -843,9 +894,22 @@
     </div>
   </div>
 
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggleEndpoint(this)">
+      <span class="method method-post">POST</span>
+      <span class="endpoint-path">/revoke</span>
+      <span class="endpoint-desc">Revocation endpoint — back-channel fetch</span>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="endpoint-body">
+      <p>The counterpart to issuing tokens is being able to take them back, and that's what this endpoint is for. Call it with a refresh token (or, on some providers, an access token) when a user logs out, and the authorization server invalidates it immediately rather than waiting for it to expire naturally. This matters most for refresh tokens, since they otherwise stay valid for a long time — a proper "log out everywhere" feature is really just a call to this endpoint.</p>
+    </div>
+  </div>
+
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="pkce">PKCE — Proof Key for Code Exchange</h2>
-  <p>PKCE prevents authorization code interception attacks. Even if an attacker intercepts the <code>code</code> in the redirect, they can't use it without the <code>code_verifier</code> that was never sent over the network in a form they could capture.</p>
+  <p class="lede">A clever cryptographic handshake that turns a stealable authorization code into something useless to anyone but you.</p>
+  <p>PKCE — pronounced "pixie" — exists to solve a very specific problem: how do you prove that whoever is redeeming an authorization code is the exact same client that originally requested it, when that client has no secret it can use to prove its identity? The trick is to generate a secret on the fly, for that one login attempt only, and only ever reveal it at the very last step.</p>
 
   <div class="pkce-vis">
     <div class="pkce-step">
@@ -882,13 +946,20 @@
     </div>
   </div>
 
+  <p>Notice the asymmetry baked into this design: the <em>hash</em> of the secret travels in the open, in a URL, where it could plausibly be observed. The secret itself only ever appears once, in the back-channel request to the token endpoint, which is a far more controlled environment. That ordering is the whole trick — by the time anyone could intercept the code from step three, the verifier needed to redeem it was never exposed alongside it.</p>
+
   <div class="callout ok">
     <div class="callout-title">Why this stops code theft</div>
     <p>An attacker who intercepts the <code>code</code> in the redirect URL doesn't have the <code>code_verifier</code> — it was never in a URL. They'd need to break SHA-256 to derive it from the challenge. That's computationally infeasible.</p>
   </div>
 
+  <p>It's also worth knowing that while PKCE was originally specified as a mitigation for public clients — apps that can't hold a secret — modern guidance, including the emerging OAuth 2.1 spec, recommends using it everywhere, even for confidential server-side clients that do have a client secret. It's cheap to implement and closes off an entire class of attack, so there's little reason not to use it universally.</p>
+
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="client-types">Client Types</h2>
+  <p class="lede">Not all OAuth clients can be trusted equally — and the spec splits them into two categories precisely so it can treat them differently.</p>
+  <p>The single question that determines which category a client falls into is simple: can this application keep a secret from the end user it's running on, or in front of? A server-side app's code runs somewhere the user can never inspect, so it can hold a real secret. Anything running on the user's own device or in their own browser — a JavaScript bundle, a native mobile binary, a CLI tool — can always be decompiled, inspected, or read directly, so it cannot.</p>
+
   <div class="concept-grid">
     <div class="card green">
       <div class="card-label">Confidential Client</div>
@@ -902,6 +973,8 @@
     </div>
   </div>
 
+  <p>This distinction is also why PKCE exists at all: it was designed to give public clients a way to prove their requests are legitimate without needing a secret they're structurally incapable of protecting. A confidential client authenticates itself to the token endpoint with its client secret; a public client authenticates the specific transaction with PKCE instead.</p>
+
   <div class="callout warn">
     <div class="callout-title">Client secrets in frontend code</div>
     <p>If you embed a <code>client_secret</code> in a JavaScript bundle, it's not secret — anyone can find it in DevTools. Public clients must use PKCE, and no client secret.</p>
@@ -909,7 +982,8 @@
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="state">State Parameter &amp; CSRF</h2>
-  <p>The <code>state</code> parameter is your CSRF protection for the OAuth flow.</p>
+  <p class="lede">A single random string is all that stands between your login flow and a class of attack that links the wrong account to the wrong session.</p>
+  <p>The <code>state</code> parameter looks almost too simple to matter — it's just an opaque random value you generate, send along with the authorization request, and check still matches when the user comes back. But that simple round trip is exactly what defeats a CSRF attack against the OAuth flow itself: it proves that the browser completing the login is the same browser that initiated it.</p>
 
   <pre class="code-block"><span class="cm">// Before redirect: generate and store</span>
 <span class="kw">const</span> state = crypto.<span class="fn">randomUUID</span>();
@@ -928,9 +1002,12 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
     <p>Without <code>state</code>, an attacker could trick a victim into completing an OAuth flow that logs them into the attacker's account, then steal their session actions (payment, data entry). Always verify state on every callback.</p>
   </div>
 
+  <p>That last scenario is worth spelling out, because it's not always obvious why it's dangerous: imagine an attacker starts an OAuth login flow themselves, captures the resulting authorization code, and then tricks a victim into visiting the callback URL with the attacker's code attached. If the app never checks <code>state</code>, it happily logs the victim in as the attacker — and anything the victim subsequently does, like linking a payment method or uploading a sensitive file, ends up associated with the attacker's account instead of their own. Verifying state, generated fresh per attempt and tied to the user's own browser session, closes that gap entirely.</p>
+
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="oidc">What OIDC Adds to OAuth 2.0</h2>
-  <p>OpenID Connect (OIDC) is a thin layer on top of OAuth 2.0. You opt in by including the <code>openid</code> scope.</p>
+  <p class="lede">OIDC doesn't replace anything in OAuth — it's a small, deliberate set of additions layered on top.</p>
+  <p>If you already understand OAuth's authorization code flow, you essentially already understand OIDC's login flow too — the redirects, the back-channel token exchange, PKCE, the state parameter, all of it carries over unchanged. What OIDC contributes is a handful of new, standardized pieces bolted onto that same foundation, all aimed at one goal: letting the client walk away knowing exactly who just logged in, in a way that's portable across providers. You opt into all of it simply by including the <code>openid</code> scope in your authorization request.</p>
 
   <div class="concept-grid">
     <div class="card purple">
@@ -955,9 +1032,12 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
     </div>
   </div>
 
+  <p>It's this last point — standardization — that's arguably OIDC's biggest practical contribution. Plain OAuth 2.0 leaves a lot of room for interpretation: providers were free to invent their own ways of representing user profile data, their own discovery mechanisms, their own conventions for everything beyond the bare authorization mechanics. OIDC pins all of that down, which is exactly why a single OIDC client library can talk to Google, Microsoft, Okta, and a dozen other providers with barely any provider-specific code.</p>
+
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="jwt">JWT &amp; ID Token Anatomy</h2>
-  <p>A JWT is three Base64URL-encoded JSON objects joined by dots. Click any part to decode it.</p>
+  <p class="lede">A JWT is just three pieces of JSON, base64-encoded and glued together — but each piece carries a very specific job.</p>
+  <p>JSON Web Tokens look intimidating as a long string of seemingly random characters, but they're built from nothing more exotic than JSON. Split on the two dots and you get three Base64URL-encoded segments: a header describing how the token is signed, a payload containing the actual claims, and a signature that lets anyone holding the right public key verify the first two segments haven't been tampered with since they were issued. Click any part of the token below to see it decoded.</p>
 
   <div class="token-box" id="jwt-box">
     <div style="margin-bottom:12px;color:var(--muted);font-size:11px;">EXAMPLE ID TOKEN — click a part to decode</div>
@@ -1009,7 +1089,10 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
     </div>
   </div>
 
+  <p>The header and payload are only Base64URL-<em>encoded</em>, not encrypted — anyone can decode them and read the claims inside without any key at all, which is why a JWT is described as tamper-evident rather than confidential. The signature is what actually does the protective work: it's computed over the exact bytes of the encoded header and payload, so changing even a single character anywhere in either one — say, swapping <code>"sub": "user_123"</code> for someone else's ID — invalidates the signature and any honest verifier will reject the token outright.</p>
+
   <h3>ID Token Validation Checklist</h3>
+  <p>Decoding a JWT and trusting its contents are two very different things, and skipping validation is one of the most common ways teams accidentally build an authentication bypass. A library can do the cryptographic verification for you, but it still needs to be told what to check — every item below should be confirmed before you treat the claims inside as true.</p>
   <div class="callout warn">
     <div class="callout-title">Always validate these — never trust a JWT you didn't verify</div>
     <p>
@@ -1025,7 +1108,8 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="claims">Claims</h2>
-  <p>Claims are the key-value pairs inside a JWT. Standard OIDC claims:</p>
+  <p class="lede">Claims are the actual statements a token makes — and OIDC standardizes the most important ones so providers don't reinvent them.</p>
+  <p>Every key-value pair inside a JWT's payload is technically a "claim" — the spec borrows the term from the broader world of identity assertions, where a claim is simply a statement one party makes about another. OIDC defines a baseline set that any compliant provider should expose consistently, which is exactly what lets you write one piece of code that pulls a user's name and email regardless of whether they signed in with Google, Okta, or a custom IdP.</p>
   <div class="scope-grid" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr));">
     <div class="scope-item"><div class="scope-name">sub</div><div class="scope-desc">Unique identifier for the user at this issuer. Use as your primary user key — never email (email can change).</div></div>
     <div class="scope-item"><div class="scope-name">iss</div><div class="scope-desc">Issuer URL. The auth server that issued this token.</div></div>
@@ -1041,9 +1125,12 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
     <div class="scope-item"><div class="scope-name">at_hash</div><div class="scope-desc">Hash of the access token. Binds the ID token to a specific access token.</div></div>
   </div>
 
+  <p>The <code>sub</code> claim deserves a special callout, because it's one of the most common sources of subtle bugs in real systems: it's tempting to use a user's email address as their primary key in your own database, since it feels stable and human-readable, but email addresses change, get recycled, or get re-verified under a different identity over time. The <code>sub</code> claim is specifically designed to be a permanent, opaque identifier for one user at one issuer, and that's what you should be storing as your foreign key, with email treated as just another mutable profile field.</p>
+
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="userinfo">UserInfo Endpoint</h2>
-  <p>An OIDC-specified endpoint returning fresh profile data for the currently authenticated user. Call it with a Bearer access token (must include the <code>openid</code> scope).</p>
+  <p class="lede">The ID token is a snapshot taken at login. Sometimes you need to know what's true right now instead.</p>
+  <p>An OIDC-specified endpoint returning fresh profile data for the currently authenticated user. Call it with a Bearer access token (must include the <code>openid</code> scope). It exists as a separate call rather than just stuffing everything into the ID token because ID tokens are meant to stay reasonably small and are only minted at login time, while profile data — a changed display name, a newly uploaded avatar — can drift over the course of a long session.</p>
 
   <pre class="code-block"><span class="cm">// Frontend or backend fetch — requires a valid access token</span>
 <span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'https://auth.example.com/userinfo'</span>, {
@@ -1059,6 +1146,8 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="token-storage">Token Storage</h2>
+  <p class="lede">Where you put a token after you receive it matters just as much as how you got it in the first place.</p>
+  <p>A surprising amount of real-world OAuth insecurity has nothing to do with the protocol flow itself and everything to do with what happens after tokens land in the browser. The honest answer to "where should I store this?" is "it depends on what kind of attack you're most worried about" — every storage location trades off resistance to one attack class against resistance to another, so it's worth understanding the table below as a set of tradeoffs rather than a single right answer.</p>
   <table class="grant-table">
     <thead>
       <tr><th>Location</th><th>XSS Safe?</th><th>CSRF Safe?</th><th>Verdict</th></tr>
@@ -1097,6 +1186,8 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
     </tbody>
   </table>
 
+  <p>The pattern to notice is that <code>localStorage</code> and <code>sessionStorage</code> are convenient precisely because any JavaScript on the page can read and write them — and that's also exactly why they're dangerous, because any JavaScript on the page includes a malicious script injected through an XSS vulnerability anywhere in your app's dependency tree. HttpOnly cookies flip that tradeoff: the browser will send them automatically with requests, but no script, malicious or otherwise, can ever read their contents directly.</p>
+
   <div class="callout ok">
     <div class="callout-title">Best practice: BFF pattern</div>
     <p>Use a Backend for Frontend (BFF) — your server handles the OAuth flow and stores tokens. The browser only gets a session cookie. Tokens never touch the browser's storage, eliminating the entire XSS token theft surface.</p>
@@ -1104,6 +1195,8 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="attacks">Common Attacks &amp; Mitigations</h2>
+  <p class="lede">Most OAuth vulnerabilities aren't flaws in the specification — they're implementations that quietly skip a step the spec assumes you'll do.</p>
+  <p>It's worth approaching this section as a list of "what happens if you skip the boring part," because that's genuinely what most of these come down to. PKCE, state validation, careful token storage, and signature verification can all feel like ceremony when you're just trying to get a login button working — but each one exists because someone, somewhere, shipped a version without it and got burned.</p>
 
   <div class="endpoint">
     <div class="endpoint-header" onclick="toggleEndpoint(this)">
@@ -1165,9 +1258,40 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
     </div>
   </div>
 
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggleEndpoint(this)">
+      <span class="badge badge-red" style="font-size:12px;">ATTACK</span>
+      <span class="endpoint-path" style="margin-left:8px;">Open Redirect via redirect_uri</span>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="endpoint-body">
+      <p>If an authorization server validates <code>redirect_uri</code> loosely — say, only checking that it starts with the right domain — an attacker can register a lookalike path and trick the server into sending a freshly issued authorization code straight to an attacker-controlled endpoint instead of the legitimate app.</p>
+      <div class="callout ok" style="margin-top:12px;">
+        <div class="callout-title">Mitigation: exact-match redirect URI allowlists</div>
+        <p>Authorization servers should require the <code>redirect_uri</code> sent at login to exactly match one pre-registered for that client — no wildcards, no prefix matching. This is configuration on the auth server side, but it's worth understanding as a client developer, since it's why you register your callback URLs ahead of time rather than passing them freely.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggleEndpoint(this)">
+      <span class="badge badge-red" style="font-size:12px;">ATTACK</span>
+      <span class="endpoint-path" style="margin-left:8px;">ID Token Replay Without a Nonce</span>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Without a <code>nonce</code>, a previously issued, still-unexpired ID token could in principle be captured and replayed by an attacker to impersonate a login session, since nothing ties that specific token to a specific, fresh authorization request.</p>
+      <div class="callout ok" style="margin-top:12px;">
+        <div class="callout-title">Mitigation: nonce verification</div>
+        <p>Generate a fresh, random <code>nonce</code> for every authorization request, store it client-side, and verify the value embedded in the returned ID token matches it exactly before trusting the token. This is the same one-time-use pattern as <code>state</code>, just scoped specifically to the ID token rather than the whole flow.</p>
+      </div>
+    </div>
+  </div>
+
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="refresh">Refresh Tokens &amp; Rotation</h2>
-  <p>Refresh tokens are long-lived credentials for getting new access tokens silently. They need careful handling.</p>
+  <p class="lede">The mechanism that lets users stay logged in for weeks without ever re-typing a password — and the part that needs the most careful handling.</p>
+  <p>Refresh tokens solve a real tension in the design of short-lived access tokens: you want access tokens to expire quickly so a leaked one does limited damage, but you don't want users re-authenticating every hour either. A refresh token is the answer — a long-lived credential that, kept safely on the server, can be silently traded for a brand-new access token whenever the old one runs out, with the user never noticing a thing.</p>
 
   <pre class="code-block"><span class="cm">// POST /token — refresh grant (back-channel, server-side)</span>
 <span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'https://auth.example.com/token'</span>, {
@@ -1182,6 +1306,8 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
 <span class="kw">const</span> { access_token, refresh_token } = <span class="kw">await</span> res.<span class="fn">json</span>();
 <span class="cm">// store new refresh_token — old one is now invalid (rotation)</span></pre>
 
+  <p>Because that long lifetime is also what makes a refresh token dangerous if it's ever stolen, modern providers layer two additional protections on top of the basic exchange, both worth understanding even if you're using a library that implements them for you under the hood:</p>
+
   <div class="concept-grid">
     <div class="card green">
       <div class="card-label">Refresh Token Rotation</div>
@@ -1195,10 +1321,14 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
     </div>
   </div>
 
+  <p>The elegance of rotation is that it converts theft from a silent, invisible problem into a detectable event: under normal operation, every refresh token gets used exactly once before being replaced, so if your server ever sees the <em>same</em> refresh token presented twice, that's a strong signal something has gone wrong — either an attacker has a copy, or a client retried a request it shouldn't have. Treating that signal as a reason to revoke the entire token family, rather than just rejecting the one bad request, is what turns detection into actual containment.</p>
+
   <div class="callout warn">
     <div class="callout-title">Refresh token storage</div>
     <p>Refresh tokens are as sensitive as passwords. Store them server-side only (database or encrypted store). Never in <code>localStorage</code>, never in the browser. Treat exposure of a refresh token as equivalent to account compromise.</p>
   </div>
+
+  <p class="wide" style="max-width:700px;margin-top:40px;color:var(--muted);font-size:14px;border-top:1px solid var(--border);padding-top:24px;">That's the shape of OAuth 2.0 and OIDC in practice: four roles, three tokens, one well-trodden flow, and a handful of small but load-bearing details — PKCE, state, nonce, rotation — that exist because each one closes a specific, real attack. Most of the libraries you'll use handle these mechanics for you, but knowing what they're doing under the hood is what lets you debug a broken integration, audit someone else's implementation, or make an informed call the day a library doesn't quite fit your situation.</p>
 
 </main>
 </div>
