@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OAuth 2.0 & OIDC — Complete Reference</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300&display=swap');
+
+  :root {
+    --bg:        #0d1117;
+    --surface:   #161b22;
+    --surface2:  #1c2330;
+    --border:    #30363d;
+    --text:      #e6edf3;
+    --muted:     #7d8590;
+    --accent:    #58a6ff;
+    --accent2:   #bc8cff;
+    --green:     #3fb950;
+    --orange:    #d29922;
+    --red:       #f85149;
+    --teal:      #39d0b8;
+    --font-mono: 'IBM Plex Mono', monospace;
+    --font-sans: 'IBM Plex Sans', sans-serif;
+    --font-disp: 'Fraunces', serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  /* ── Layout ── */
+  .shell { display: flex; min-height: 100vh; }
+
+  nav {
+    width: 260px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 28px 0 40px;
+  }
+
+  nav .logo {
+    font-family: var(--font-disp);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    padding: 0 22px 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+    line-height: 1.3;
+  }
+  nav .logo span { color: var(--accent); }
+
+  nav ul { list-style: none; }
+  nav ul li a {
+    display: block;
+    padding: 6px 22px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 400;
+    border-left: 2px solid transparent;
+    transition: color .15s, border-color .15s;
+  }
+  nav ul li a:hover { color: var(--text); }
+  nav ul li a.active { color: var(--accent); border-left-color: var(--accent); }
+
+  nav .nav-section {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 18px 22px 6px;
+  }
+
+  main {
+    flex: 1;
+    max-width: 860px;
+    padding: 60px 56px 120px;
+  }
+
+  /* ── Typography ── */
+  h1 {
+    font-family: var(--font-disp);
+    font-size: 42px;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -.02em;
+    margin-bottom: 12px;
+  }
+  h1 em { font-style: italic; color: var(--accent2); }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 16px;
+    margin-bottom: 56px;
+    font-weight: 300;
+  }
+
+  h2 {
+    font-family: var(--font-disp);
+    font-size: 26px;
+    font-weight: 700;
+    margin: 64px 0 20px;
+    padding-top: 64px;
+    border-top: 1px solid var(--border);
+    scroll-margin-top: 24px;
+  }
+  h2:first-of-type { margin-top: 0; }
+
+  h3 {
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--accent);
+    margin: 32px 0 12px;
+  }
+
+  p { margin-bottom: 14px; color: #c9d1d9; }
+
+  /* ── Concept Cards ── */
+  .concept-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 20px 0;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .card.blue::before  { background: var(--accent); }
+  .card.purple::before { background: var(--accent2); }
+  .card.green::before { background: var(--green); }
+  .card.orange::before { background: var(--orange); }
+  .card.red::before   { background: var(--red); }
+  .card.teal::before  { background: var(--teal); }
+
+  .card-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .card.blue   .card-label { color: var(--accent); }
+  .card.purple .card-label { color: var(--accent2); }
+  .card.green  .card-label { color: var(--green); }
+  .card.orange .card-label { color: var(--orange); }
+  .card.red    .card-label { color: var(--red); }
+  .card.teal   .card-label { color: var(--teal); }
+
+  .card-title {
+    font-weight: 600;
+    font-size: 15px;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+  .card p { font-size: 13px; margin: 0; color: var(--muted); line-height: 1.6; }
+
+  /* ── Token anatomy ── */
+  .token-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    margin: 20px 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    word-break: break-all;
+  }
+  .token-part { cursor: pointer; padding: 2px 4px; border-radius: 4px; transition: opacity .15s; }
+  .token-part:hover { opacity: .75; }
+  .part-header  { background: rgba(248,81,73,.2);  color: #f85149; }
+  .part-payload { background: rgba(88,166,255,.2); color: #58a6ff; }
+  .part-sig     { background: rgba(63,185,80,.2);  color: #3fb950; }
+  .token-dot    { color: var(--muted); }
+
+  .token-legend { display: flex; gap: 20px; margin-top: 12px; flex-wrap: wrap; }
+  .token-legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+  .token-legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  .decoded-box {
+    margin-top: 16px;
+    display: none;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+  }
+  .decoded-box.open { display: block; }
+  .decoded-section { margin-bottom: 16px; }
+  .decoded-section:last-child { margin-bottom: 0; }
+  .decoded-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .decoded-section-title.red { color: var(--red); }
+  .decoded-section-title.blue { color: var(--accent); }
+  .decoded-section-title.green { color: var(--green); }
+  pre.json {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.6;
+    color: #c9d1d9;
+  }
+  .json-key   { color: var(--accent2); }
+  .json-str   { color: var(--green); }
+  .json-num   { color: var(--orange); }
+  .json-bool  { color: var(--teal); }
+
+  /* ── Code blocks ── */
+  pre.code-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 1.7;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  .kw  { color: #ff7b72; }
+  .fn  { color: #d2a8ff; }
+  .str { color: #a5d6ff; }
+  .cm  { color: #8b949e; font-style: italic; }
+  .cn  { color: #ffa657; }
+
+  /* ── Scope pills ── */
+  .scope-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px,1fr));
+    gap: 10px;
+    margin: 16px 0;
+  }
+  .scope-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+  }
+  .scope-name {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--teal);
+    margin-bottom: 4px;
+  }
+  .scope-desc { font-size: 12px; color: var(--muted); }
+
+  /* ── Flow toggle tabs ── */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin: 20px 0 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .tab {
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    border-radius: 6px 6px 0 0;
+    border: 1px solid transparent;
+    border-bottom: none;
+    background: none;
+    transition: color .15s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active {
+    color: var(--text);
+    background: var(--surface);
+    border-color: var(--border);
+    border-bottom-color: var(--surface);
+    margin-bottom: -1px;
+  }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  .tab-content {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+
+  /* ── Grant type comparison ── */
+  .grant-table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+  .grant-table th {
+    text-align: left;
+    padding: 10px 14px;
+    background: var(--surface2);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    border-bottom: 1px solid var(--border);
+  }
+  .grant-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    color: #c9d1d9;
+    vertical-align: top;
+  }
+  .grant-table tr:last-child td { border-bottom: none; }
+  .grant-table tr:hover td { background: var(--surface2); }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+  }
+  .badge-green  { background: rgba(63,185,80,.15);  color: var(--green); }
+  .badge-orange { background: rgba(210,153,34,.15); color: var(--orange); }
+  .badge-red    { background: rgba(248,81,73,.15);  color: var(--red); }
+  .badge-blue   { background: rgba(88,166,255,.15); color: var(--accent); }
+  .badge-muted  { background: rgba(125,133,144,.15); color: var(--muted); }
+
+  /* ── Endpoint anatomy ── */
+  .endpoint {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin: 14px 0;
+    overflow: hidden;
+  }
+  .endpoint-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+  }
+  .method {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .method-get  { background: rgba(63,185,80,.2);  color: var(--green); }
+  .method-post { background: rgba(88,166,255,.2); color: var(--accent); }
+  .endpoint-path {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text);
+    flex: 1;
+  }
+  .endpoint-desc { font-size: 12px; color: var(--muted); }
+  .chevron { color: var(--muted); transition: transform .2s; font-size: 12px; }
+  .endpoint-header.open .chevron { transform: rotate(90deg); }
+  .endpoint-body { padding: 18px; display: none; font-size: 13px; }
+  .endpoint-body.open { display: block; }
+
+  .param-list { list-style: none; margin: 8px 0; }
+  .param-list li {
+    display: flex;
+    gap: 12px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+    align-items: baseline;
+  }
+  .param-list li:last-child { border-bottom: none; }
+  .param-name {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--accent2);
+    min-width: 160px;
+    flex-shrink: 0;
+  }
+  .param-desc { color: var(--muted); font-size: 13px; }
+  .param-req { color: var(--red); font-size: 11px; flex-shrink: 0; }
+  .param-opt { color: var(--muted); font-size: 11px; flex-shrink: 0; }
+
+  /* ── Security callouts ── */
+  .callout {
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 16px 0;
+    font-size: 13px;
+    line-height: 1.6;
+    border: 1px solid;
+  }
+  .callout-title { font-weight: 600; margin-bottom: 4px; font-size: 13px; }
+  .callout p { margin: 0; }
+  .callout.warn  { background: rgba(210,153,34,.08); border-color: rgba(210,153,34,.3); color: #c9d1d9; }
+  .callout.warn  .callout-title { color: var(--orange); }
+  .callout.danger { background: rgba(248,81,73,.08); border-color: rgba(248,81,73,.3); color: #c9d1d9; }
+  .callout.danger .callout-title { color: var(--red); }
+  .callout.info  { background: rgba(88,166,255,.08); border-color: rgba(88,166,255,.3); color: #c9d1d9; }
+  .callout.info  .callout-title { color: var(--accent); }
+  .callout.ok    { background: rgba(63,185,80,.08);  border-color: rgba(63,185,80,.3); color: #c9d1d9; }
+  .callout.ok    .callout-title { color: var(--green); }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: .88em;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: var(--teal);
+  }
+
+  /* ── PKCE visualizer ── */
+  .pkce-vis {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    margin: 16px 0;
+  }
+  .pkce-step { display: flex; gap: 16px; margin-bottom: 20px; align-items: flex-start; }
+  .pkce-step:last-child { margin-bottom: 0; }
+  .pkce-num {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #0d1117;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .pkce-content { flex: 1; }
+  .pkce-content strong { display: block; margin-bottom: 4px; font-size: 14px; }
+  .pkce-content p { font-size: 13px; color: var(--muted); margin: 0; }
+  .pkce-arrow {
+    text-align: center;
+    color: var(--muted);
+    font-size: 20px;
+    margin: -8px 0 -8px 14px;
+  }
+
+  /* ── Token lifetime diagram ── */
+  .lifetime-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; font-size: 13px; }
+  .lifetime-label { width: 120px; color: var(--muted); text-align: right; flex-shrink: 0; }
+  .lifetime-bar-wrap { flex: 1; background: var(--surface2); border-radius: 4px; height: 20px; overflow: hidden; position: relative; }
+  .lifetime-bar { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; font-size: 11px; font-weight: 600; font-family: var(--font-mono); }
+  .bar-code  { background: rgba(248,81,73,.4);  color: var(--red);    width: 2%; }
+  .bar-at    { background: rgba(88,166,255,.4); color: var(--accent); width: 15%; }
+  .bar-id    { background: rgba(188,140,255,.4);color: var(--accent2);width: 15%; }
+  .bar-rt    { background: rgba(63,185,80,.4);  color: var(--green);  width: 100%; }
+
+  /* ── responsive ── */
+  @media (max-width: 900px) {
+    nav { display: none; }
+    main { padding: 32px 20px 80px; }
+    .concept-grid { grid-template-columns: 1fr; }
+    h1 { font-size: 30px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+<!-- ── Sidebar Nav ── -->
+<nav>
+  <div class="logo">OAuth 2.0<br><span>&amp; OIDC</span> Reference</div>
+  <ul>
+    <div class="nav-section">Foundations</div>
+    <li><a href="#roles">Roles &amp; Actors</a></li>
+    <li><a href="#tokens">Tokens</a></li>
+    <li><a href="#scopes">Scopes</a></li>
+
+    <div class="nav-section">OAuth 2.0</div>
+    <li><a href="#grants">Grant Types</a></li>
+    <li><a href="#endpoints">Endpoints</a></li>
+    <li><a href="#pkce">PKCE</a></li>
+    <li><a href="#client-types">Client Types</a></li>
+    <li><a href="#state">State &amp; CSRF</a></li>
+
+    <div class="nav-section">OIDC</div>
+    <li><a href="#oidc">What OIDC Adds</a></li>
+    <li><a href="#jwt">JWT &amp; ID Token</a></li>
+    <li><a href="#claims">Claims</a></li>
+    <li><a href="#userinfo">UserInfo Endpoint</a></li>
+
+    <div class="nav-section">Security</div>
+    <li><a href="#token-storage">Token Storage</a></li>
+    <li><a href="#attacks">Common Attacks</a></li>
+    <li><a href="#refresh">Refresh &amp; Rotation</a></li>
+  </ul>
+</nav>
+
+<!-- ── Main Content ── -->
+<main>
+
+  <h1>OAuth 2.0 &amp; <em>OIDC</em></h1>
+  <p class="subtitle">Every important concept, explained clearly — from tokens to threat models.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="roles">Roles &amp; Actors</h2>
+  <p>OAuth defines four parties. Every flow is just these four talking to each other.</p>
+
+  <div class="concept-grid">
+    <div class="card blue">
+      <div class="card-label">Resource Owner</div>
+      <div class="card-title">The User</div>
+      <p>The human (or system) who owns the data. They grant or deny access. They authenticate to the Auth Server — never to the client app.</p>
+    </div>
+    <div class="card purple">
+      <div class="card-label">Client</div>
+      <div class="card-title">Your Application</div>
+      <p>The app requesting access on the user's behalf. Could be a web app, SPA, mobile app, or CLI. It receives tokens but should never see the user's password.</p>
+    </div>
+    <div class="card green">
+      <div class="card-label">Authorization Server</div>
+      <div class="card-title">The Auth Server (IdP)</div>
+      <p>Issues tokens after authenticating the user and getting consent. Examples: Auth0, Okta, Keycloak, Google Identity, Azure AD.</p>
+    </div>
+    <div class="card orange">
+      <div class="card-label">Resource Server</div>
+      <div class="card-title">The API</div>
+      <p>The server hosting the protected data (e.g. Google Drive API, your own backend). It validates incoming access tokens before serving data.</p>
+    </div>
+  </div>
+
+  <div class="callout info">
+    <div class="callout-title">Authorization vs Authentication</div>
+    <p><strong>OAuth 2.0</strong> is an <em>authorization</em> framework — it answers "what is this app allowed to do?" It says nothing about who the user is.<br>
+    <strong>OIDC</strong> adds <em>authentication</em> on top — it answers "who is this user?" by introducing the ID token.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="tokens">Tokens</h2>
+  <p>Three types of token exist in OAuth/OIDC. Each has a distinct job.</p>
+
+  <div class="concept-grid" style="grid-template-columns:1fr 1fr 1fr;">
+    <div class="card blue">
+      <div class="card-label">Access Token</div>
+      <div class="card-title">API Credential</div>
+      <p>Sent with every API call. Short-lived (minutes–hours). Proves the client has permission for certain scopes. Usually a JWT, sometimes opaque.</p>
+    </div>
+    <div class="card purple">
+      <div class="card-label">ID Token</div>
+      <div class="card-title">Identity Proof (OIDC)</div>
+      <p>A JWT that proves who the user is. Contains claims like <code>sub</code>, <code>email</code>, <code>name</code>. For your app to consume — not to send to APIs.</p>
+    </div>
+    <div class="card green">
+      <div class="card-label">Refresh Token</div>
+      <div class="card-title">Silent Re-auth</div>
+      <p>Long-lived (days–months). Used to get new access tokens without re-prompting the user. Must be stored securely. Never sent to resource servers.</p>
+    </div>
+  </div>
+
+  <h3>Token Lifetimes (relative)</h3>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:24px;margin:16px 0;">
+    <div class="lifetime-row">
+      <div class="lifetime-label">Auth Code</div>
+      <div class="lifetime-bar-wrap">
+        <div class="lifetime-bar bar-code">~1 min</div>
+      </div>
+    </div>
+    <div class="lifetime-row">
+      <div class="lifetime-label">Access Token</div>
+      <div class="lifetime-bar-wrap">
+        <div class="lifetime-bar bar-at">~1 hour</div>
+      </div>
+    </div>
+    <div class="lifetime-row">
+      <div class="lifetime-label">ID Token</div>
+      <div class="lifetime-bar-wrap">
+        <div class="lifetime-bar bar-id">~1 hour</div>
+      </div>
+    </div>
+    <div class="lifetime-row">
+      <div class="lifetime-label">Refresh Token</div>
+      <div class="lifetime-bar-wrap">
+        <div class="lifetime-bar bar-rt">days – months</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="scopes">Scopes</h2>
+  <p>Scopes are strings that define what access the client is requesting. The user sees them on the consent screen. The auth server encodes them into the access token. The resource server checks them.</p>
+
+  <h3>OIDC Standard Scopes</h3>
+  <div class="scope-grid">
+    <div class="scope-item">
+      <div class="scope-name">openid</div>
+      <div class="scope-desc">Required to trigger OIDC. Returns an ID token with a <code>sub</code> claim.</div>
+    </div>
+    <div class="scope-item">
+      <div class="scope-name">profile</div>
+      <div class="scope-desc">Name, picture, website, locale, birthdate, etc.</div>
+    </div>
+    <div class="scope-item">
+      <div class="scope-name">email</div>
+      <div class="scope-desc">Email address and whether it's verified.</div>
+    </div>
+    <div class="scope-item">
+      <div class="scope-name">address</div>
+      <div class="scope-desc">Physical mailing address.</div>
+    </div>
+    <div class="scope-item">
+      <div class="scope-name">phone</div>
+      <div class="scope-desc">Phone number and verification status.</div>
+    </div>
+    <div class="scope-item">
+      <div class="scope-name">offline_access</div>
+      <div class="scope-desc">Requests a refresh token for long-lived access.</div>
+    </div>
+  </div>
+
+  <div class="callout info">
+    <div class="callout-title">Custom Scopes</div>
+    <p>Real-world apps define their own scopes: <code>read:orders</code>, <code>write:invoices</code>, <code>admin:users</code>. Scope design is API design — think in terms of what operations the client needs permission to perform.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="grants">Grant Types</h2>
+  <p>A grant type is the mechanism by which a client obtains tokens. Use the right one for your context.</p>
+
+  <div class="tabs" id="grant-tabs">
+    <button class="tab active" data-panel="grant-code">Authorization Code + PKCE</button>
+    <button class="tab" data-panel="grant-cc">Client Credentials</button>
+    <button class="tab" data-panel="grant-device">Device Code</button>
+    <button class="tab" data-panel="grant-implicit">Implicit (legacy)</button>
+    <button class="tab" data-panel="grant-ropc">ROPC (legacy)</button>
+  </div>
+  <div class="tab-content">
+    <div class="tab-panel active" id="grant-code">
+      <span class="badge badge-green">Recommended for most apps</span>
+      <h3 style="margin-top:16px;">Authorization Code + PKCE</h3>
+      <p>The user is redirected to the auth server, authenticates, then redirected back with a short-lived <em>authorization code</em>. The code is exchanged back-channel for tokens. PKCE prevents the code from being stolen in transit.</p>
+      <p><strong>Use when:</strong> Web apps with a backend, SPAs, mobile apps — any flow where a human user is present.</p>
+    </div>
+    <div class="tab-panel" id="grant-cc">
+      <span class="badge badge-blue">Machine-to-machine</span>
+      <h3 style="margin-top:16px;">Client Credentials</h3>
+      <p>No user involved. The client authenticates directly with its <code>client_id</code> + <code>client_secret</code> and gets an access token. Pure machine-to-machine.</p>
+      <p><strong>Use when:</strong> Background jobs, microservices, daemons, cron tasks calling APIs with no user context.</p>
+      <pre class="code-block"><span class="cm">// POST /token (back-channel)</span>
+<span class="cn">grant_type</span>=client_credentials
+<span class="cn">&amp;client_id</span>=my-service
+<span class="cn">&amp;client_secret</span>=••••••••
+<span class="cn">&amp;scope</span>=read:reports</pre>
+    </div>
+    <div class="tab-panel" id="grant-device">
+      <span class="badge badge-orange">Input-constrained devices</span>
+      <h3 style="margin-top:16px;">Device Authorization Grant</h3>
+      <p>For devices with no browser (Smart TVs, CLIs, IoT). The device shows a code and a URL. The user visits the URL on their phone/computer, enters the code, and the device polls until it gets a token.</p>
+      <p><strong>Use when:</strong> CLI tools (like <code>gh auth login</code>), smart TVs, printers, anything without a usable browser.</p>
+    </div>
+    <div class="tab-panel" id="grant-implicit">
+      <span class="badge badge-red">Deprecated</span>
+      <h3 style="margin-top:16px;">Implicit Flow</h3>
+      <p>Tokens were returned directly in the URL fragment (<code>#access_token=...</code>) — no code exchange step. This was designed for SPAs before PKCE existed. Now considered insecure because tokens in URLs leak via browser history, referrer headers, and server logs.</p>
+      <div class="callout danger" style="margin-top:12px;">
+        <div class="callout-title">Do not use</div>
+        <p>Use Authorization Code + PKCE for SPAs instead. The implicit flow has been removed from the OAuth 2.1 draft spec.</p>
+      </div>
+    </div>
+    <div class="tab-panel" id="grant-ropc">
+      <span class="badge badge-red">Avoid</span>
+      <h3 style="margin-top:16px;">Resource Owner Password Credentials</h3>
+      <p>The client collects the user's username and password and sends them directly to the token endpoint. This breaks the core OAuth promise — the user's password is exposed to the client app, and you can't use MFA or social login.</p>
+      <div class="callout danger" style="margin-top:12px;">
+        <div class="callout-title">Only for legacy migration</div>
+        <p>The only valid use case is migrating an existing system that already stores user passwords. For all new systems, use Authorization Code + PKCE.</p>
+      </div>
+    </div>
+  </div>
+
+  <h3>Grant Type Comparison</h3>
+  <table class="grant-table">
+    <thead>
+      <tr>
+        <th>Grant Type</th>
+        <th>User present?</th>
+        <th>Client secret needed?</th>
+        <th>Recommended?</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Auth Code + PKCE</td>
+        <td>Yes</td>
+        <td>No (PKCE replaces it)</td>
+        <td><span class="badge badge-green">Yes</span></td>
+      </tr>
+      <tr>
+        <td>Client Credentials</td>
+        <td>No</td>
+        <td>Yes</td>
+        <td><span class="badge badge-green">For M2M</span></td>
+      </tr>
+      <tr>
+        <td>Device Code</td>
+        <td>Yes (on another device)</td>
+        <td>No</td>
+        <td><span class="badge badge-green">For devices</span></td>
+      </tr>
+      <tr>
+        <td>Implicit</td>
+        <td>Yes</td>
+        <td>No</td>
+        <td><span class="badge badge-red">Deprecated</span></td>
+      </tr>
+      <tr>
+        <td>ROPC</td>
+        <td>Yes (password exposed)</td>
+        <td>Sometimes</td>
+        <td><span class="badge badge-red">Avoid</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="endpoints">Endpoints</h2>
+  <p>Auth servers expose a standard set of endpoints. Discovery makes finding them automatic.</p>
+
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggleEndpoint(this)">
+      <span class="method method-get">GET</span>
+      <span class="endpoint-path">/.well-known/openid-configuration</span>
+      <span class="endpoint-desc">Discovery document</span>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Returns a JSON document listing all other endpoint URLs, supported scopes, signing algorithms, and capabilities. Always start here — hard-coding endpoint URLs is fragile. Fetch this once on startup and cache it.</p>
+      <pre class="code-block"><span class="cm">// Returned JSON includes:</span>
+{
+  <span class="str">"issuer"</span>: <span class="str">"https://auth.example.com"</span>,
+  <span class="str">"authorization_endpoint"</span>: <span class="str">"https://auth.example.com/authorize"</span>,
+  <span class="str">"token_endpoint"</span>: <span class="str">"https://auth.example.com/token"</span>,
+  <span class="str">"userinfo_endpoint"</span>: <span class="str">"https://auth.example.com/userinfo"</span>,
+  <span class="str">"jwks_uri"</span>: <span class="str">"https://auth.example.com/.well-known/jwks.json"</span>,
+  <span class="str">"scopes_supported"</span>: [<span class="str">"openid"</span>, <span class="str">"profile"</span>, <span class="str">"email"</span>],
+  <span class="str">"id_token_signing_alg_values_supported"</span>: [<span class="str">"RS256"</span>]
+}</pre>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggleEndpoint(this)">
+      <span class="method method-get">GET</span>
+      <span class="endpoint-path">/authorize</span>
+      <span class="endpoint-desc">Authorization endpoint — browser redirect</span>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="endpoint-body">
+      <p>The user's browser is redirected here. The auth server authenticates the user and gets consent. This is never called as a <code>fetch()</code> — it must be a full browser navigation so the auth server can set its own cookies and show its UI.</p>
+      <h3 style="margin-top:16px;">Key Parameters</h3>
+      <ul class="param-list">
+        <li><span class="param-name">client_id</span><span class="param-desc">Identifies your app to the auth server.</span><span class="param-req">required</span></li>
+        <li><span class="param-name">redirect_uri</span><span class="param-desc">Where to send the user after auth. Must match an allow-list on the server.</span><span class="param-req">required</span></li>
+        <li><span class="param-name">response_type</span><span class="param-desc">Always <code>code</code> for auth code flow.</span><span class="param-req">required</span></li>
+        <li><span class="param-name">scope</span><span class="param-desc">Space-separated scopes. Include <code>openid</code> for OIDC.</span><span class="param-req">required</span></li>
+        <li><span class="param-name">state</span><span class="param-desc">Random value to prevent CSRF. Must be verified when the callback arrives.</span><span class="param-req">required</span></li>
+        <li><span class="param-name">code_challenge</span><span class="param-desc">SHA-256 hash of your PKCE code verifier.</span><span class="param-req">required (PKCE)</span></li>
+        <li><span class="param-name">code_challenge_method</span><span class="param-desc">Always <code>S256</code>. Never use <code>plain</code>.</span><span class="param-req">required (PKCE)</span></li>
+        <li><span class="param-name">nonce</span><span class="param-desc">Random value embedded in the ID token to prevent replay attacks.</span><span class="param-opt">optional (OIDC)</span></li>
+        <li><span class="param-name">prompt</span><span class="param-desc"><code>none</code> (silent), <code>login</code> (force re-login), <code>consent</code> (force re-consent), <code>select_account</code>.</span><span class="param-opt">optional</span></li>
+        <li><span class="param-name">max_age</span><span class="param-desc">Max seconds since last user authentication. Forces re-auth if exceeded.</span><span class="param-opt">optional</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggleEndpoint(this)">
+      <span class="method method-post">POST</span>
+      <span class="endpoint-path">/token</span>
+      <span class="endpoint-desc">Token endpoint — back-channel fetch</span>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Called server-to-server (back-channel) to exchange a code for tokens, or to refresh an access token. Never called from the browser directly — that would expose tokens to browser history and extensions.</p>
+      <ul class="param-list">
+        <li><span class="param-name">grant_type</span><span class="param-desc"><code>authorization_code</code>, <code>refresh_token</code>, or <code>client_credentials</code>.</span><span class="param-req">required</span></li>
+        <li><span class="param-name">code</span><span class="param-desc">The authorization code from the redirect callback.</span><span class="param-req">required (code flow)</span></li>
+        <li><span class="param-name">redirect_uri</span><span class="param-desc">Must exactly match what was sent to /authorize.</span><span class="param-req">required (code flow)</span></li>
+        <li><span class="param-name">code_verifier</span><span class="param-desc">The original random PKCE value. Server hashes and compares to stored challenge.</span><span class="param-req">required (PKCE)</span></li>
+        <li><span class="param-name">client_id</span><span class="param-desc">Your app's identifier.</span><span class="param-req">required</span></li>
+        <li><span class="param-name">client_secret</span><span class="param-desc">Secret for confidential clients. Never include in browser code.</span><span class="param-opt">confidential only</span></li>
+        <li><span class="param-name">refresh_token</span><span class="param-desc">Used when <code>grant_type=refresh_token</code>.</span><span class="param-opt">refresh only</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggleEndpoint(this)">
+      <span class="method method-get">GET</span>
+      <span class="endpoint-path">/.well-known/jwks.json</span>
+      <span class="endpoint-desc">JSON Web Key Set — public keys for JWT verification</span>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Returns the auth server's public keys. Your resource server fetches these to verify the signatures of JWTs. Keys are cached locally and only re-fetched when a token arrives signed with an unknown key ID (<code>kid</code>).</p>
+      <pre class="code-block">{
+  <span class="str">"keys"</span>: [{
+    <span class="str">"kty"</span>: <span class="str">"RSA"</span>,
+    <span class="str">"kid"</span>: <span class="str">"key-id-2024"</span>,    <span class="cm">// match to token header's "kid"</span>
+    <span class="str">"use"</span>: <span class="str">"sig"</span>,
+    <span class="str">"alg"</span>: <span class="str">"RS256"</span>,
+    <span class="str">"n"</span>: <span class="str">"...base64url modulus..."</span>,
+    <span class="str">"e"</span>: <span class="str">"AQAB"</span>
+  }]
+}</pre>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="pkce">PKCE — Proof Key for Code Exchange</h2>
+  <p>PKCE prevents authorization code interception attacks. Even if an attacker intercepts the <code>code</code> in the redirect, they can't use it without the <code>code_verifier</code> that was never sent over the network in a form they could capture.</p>
+
+  <div class="pkce-vis">
+    <div class="pkce-step">
+      <div class="pkce-num">1</div>
+      <div class="pkce-content">
+        <strong>Generate <code>code_verifier</code></strong>
+        <p>A cryptographically random 43–128 character string. Stays in the client. Never sent to the auth server directly.</p>
+      </div>
+    </div>
+    <div class="pkce-arrow">↓</div>
+    <div class="pkce-step">
+      <div class="pkce-num">2</div>
+      <div class="pkce-content">
+        <strong>Hash it → <code>code_challenge</code></strong>
+        <p><code>code_challenge = BASE64URL(SHA256(code_verifier))</code><br>
+        This hash is sent to the auth server in the /authorize request.</p>
+      </div>
+    </div>
+    <div class="pkce-arrow">↓</div>
+    <div class="pkce-step">
+      <div class="pkce-num">3</div>
+      <div class="pkce-content">
+        <strong>Auth server stores the challenge</strong>
+        <p>It ties the <code>code_challenge</code> to the authorization code it issues. The challenge is a commitment — you can't back-compute the verifier from it.</p>
+      </div>
+    </div>
+    <div class="pkce-arrow">↓</div>
+    <div class="pkce-step">
+      <div class="pkce-num">4</div>
+      <div class="pkce-content">
+        <strong>Token exchange: send the verifier</strong>
+        <p>POST to /token with <code>code_verifier</code>. The server hashes it and checks it matches the stored challenge. If not, it rejects the request.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout ok">
+    <div class="callout-title">Why this stops code theft</div>
+    <p>An attacker who intercepts the <code>code</code> in the redirect URL doesn't have the <code>code_verifier</code> — it was never in a URL. They'd need to break SHA-256 to derive it from the challenge. That's computationally infeasible.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="client-types">Client Types</h2>
+  <div class="concept-grid">
+    <div class="card green">
+      <div class="card-label">Confidential Client</div>
+      <div class="card-title">Can keep a secret</div>
+      <p>Server-side apps where code runs in a trusted environment. Can safely store a <code>client_secret</code>. Examples: Express, Django, Rails, Spring Boot apps.</p>
+    </div>
+    <div class="card orange">
+      <div class="card-label">Public Client</div>
+      <div class="card-title">Cannot keep a secret</div>
+      <p>Code runs on the user's device — they could inspect it. Cannot use a client secret. Use PKCE instead. Examples: SPAs, React/Vue apps, mobile apps, CLIs.</p>
+    </div>
+  </div>
+
+  <div class="callout warn">
+    <div class="callout-title">Client secrets in frontend code</div>
+    <p>If you embed a <code>client_secret</code> in a JavaScript bundle, it's not secret — anyone can find it in DevTools. Public clients must use PKCE, and no client secret.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="state">State Parameter &amp; CSRF</h2>
+  <p>The <code>state</code> parameter is your CSRF protection for the OAuth flow.</p>
+
+  <pre class="code-block"><span class="cm">// Before redirect: generate and store</span>
+<span class="kw">const</span> state = crypto.<span class="fn">randomUUID</span>();
+sessionStorage.<span class="fn">setItem</span>(<span class="str">'oauth_state'</span>, state);
+<span class="cm">// Include in /authorize URL</span>
+
+<span class="cm">// In callback handler: verify</span>
+<span class="kw">const</span> returnedState = <span class="kw">new</span> <span class="fn">URLSearchParams</span>(location.search).<span class="fn">get</span>(<span class="str">'state'</span>);
+<span class="kw">if</span> (returnedState !== sessionStorage.<span class="fn">getItem</span>(<span class="str">'oauth_state'</span>)) {
+  <span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'CSRF attack detected — state mismatch'</span>);
+}
+sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state'</span>); <span class="cm">// use once</span></pre>
+
+  <div class="callout danger">
+    <div class="callout-title">Attack without state</div>
+    <p>Without <code>state</code>, an attacker could trick a victim into completing an OAuth flow that logs them into the attacker's account, then steal their session actions (payment, data entry). Always verify state on every callback.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="oidc">What OIDC Adds to OAuth 2.0</h2>
+  <p>OpenID Connect (OIDC) is a thin layer on top of OAuth 2.0. You opt in by including the <code>openid</code> scope.</p>
+
+  <div class="concept-grid">
+    <div class="card purple">
+      <div class="card-label">ID Token</div>
+      <div class="card-title">A JWT about the user</div>
+      <p>Returned alongside the access token. Contains <em>who</em> the user is: their subject identifier, email, name. Your app reads this — it does not send it to APIs.</p>
+    </div>
+    <div class="card teal">
+      <div class="card-label">UserInfo Endpoint</div>
+      <div class="card-title">Fetch more claims</div>
+      <p>An authenticated GET endpoint that returns user profile data. Use it when you need claims that aren't in the ID token, or want fresh data.</p>
+    </div>
+    <div class="card blue">
+      <div class="card-label">Nonce</div>
+      <div class="card-title">Replay protection</div>
+      <p>A random value sent in /authorize, embedded in the ID token. Your app verifies it matches, preventing an old token from being replayed.</p>
+    </div>
+    <div class="card orange">
+      <div class="card-label">Discovery</div>
+      <div class="card-title">Auto-configuration</div>
+      <p>OIDC standardizes the <code>/.well-known/openid-configuration</code> endpoint so clients can auto-discover all endpoints and capabilities without hardcoding URLs.</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="jwt">JWT &amp; ID Token Anatomy</h2>
+  <p>A JWT is three Base64URL-encoded JSON objects joined by dots. Click any part to decode it.</p>
+
+  <div class="token-box" id="jwt-box">
+    <div style="margin-bottom:12px;color:var(--muted);font-size:11px;">EXAMPLE ID TOKEN — click a part to decode</div>
+    <span class="token-part part-header" onclick="showDecoded('header')">eyJhbGciOiJSUzI1NiIsImtpZCI6ImtleS0yMDI0IiwidHlwIjoiSldUIn0</span><span class="token-dot">.</span><span class="token-part part-payload" onclick="showDecoded('payload')">eyJpc3MiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJzdWIiOiJ1c2VyXzEyMyIsImF1ZCI6Im15LWFwcCIsImV4cCI6MTczNTY4OTYwMCwiaWF0IjoxNzM1Njg2MDAwLCJub25jZSI6ImFiYzEyMyIsImVtYWlsIjoiamFuZUBleGFtcGxlLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJuYW1lIjoiSmFuZSBEb2UifQ</span><span class="token-dot">.</span><span class="token-part part-sig" onclick="showDecoded('sig')">SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c</span>
+
+    <div class="token-legend">
+      <div class="token-legend-item"><div class="token-legend-dot" style="background:var(--red)"></div><span style="color:var(--red)">Header</span> — algorithm &amp; key ID</div>
+      <div class="token-legend-item"><div class="token-legend-dot" style="background:var(--accent)"></div><span style="color:var(--accent)">Payload</span> — claims (the data)</div>
+      <div class="token-legend-item"><div class="token-legend-dot" style="background:var(--green)"></div><span style="color:var(--green)">Signature</span> — tamper-proof seal</div>
+    </div>
+
+    <div class="decoded-box" id="decoded-header">
+      <div class="decoded-section">
+        <div class="decoded-section-title red">Header (decoded)</div>
+        <pre class="json">{
+  <span class="json-key">"alg"</span>: <span class="json-str">"RS256"</span>,   <span class="cm">// RS256 = RSA + SHA-256. Always verify this matches expected.</span>
+  <span class="json-key">"kid"</span>: <span class="json-str">"key-2024"</span>, <span class="cm">// Key ID — look up in JWKS to find the right public key</span>
+  <span class="json-key">"typ"</span>: <span class="json-str">"JWT"</span>
+}</pre>
+      </div>
+    </div>
+
+    <div class="decoded-box" id="decoded-payload">
+      <div class="decoded-section">
+        <div class="decoded-section-title blue">Payload — Claims (decoded)</div>
+        <pre class="json">{
+  <span class="json-key">"iss"</span>: <span class="json-str">"https://auth.example.com"</span>, <span class="cm">// Issuer — must match your auth server</span>
+  <span class="json-key">"sub"</span>: <span class="json-str">"user_123"</span>,               <span class="cm">// Subject — stable unique user ID. Use as your user key.</span>
+  <span class="json-key">"aud"</span>: <span class="json-str">"my-app"</span>,                 <span class="cm">// Audience — must match your client_id</span>
+  <span class="json-key">"exp"</span>: <span class="json-num">1735689600</span>,              <span class="cm">// Expiry (Unix timestamp) — reject if in the past</span>
+  <span class="json-key">"iat"</span>: <span class="json-num">1735686000</span>,              <span class="cm">// Issued At — when the token was created</span>
+  <span class="json-key">"nonce"</span>: <span class="json-str">"abc123"</span>,               <span class="cm">// Must match nonce you sent in /authorize</span>
+  <span class="json-key">"email"</span>: <span class="json-str">"jane@example.com"</span>,     <span class="cm">// From 'email' scope</span>
+  <span class="json-key">"email_verified"</span>: <span class="json-bool">true</span>,       <span class="cm">// Don't trust unverified emails</span>
+  <span class="json-key">"name"</span>: <span class="json-str">"Jane Doe"</span>              <span class="cm">// From 'profile' scope</span>
+}</pre>
+      </div>
+    </div>
+
+    <div class="decoded-box" id="decoded-sig">
+      <div class="decoded-section">
+        <div class="decoded-section-title green">Signature</div>
+        <pre class="json"><span class="cm">// RSA-SHA256 signature over (base64url(header) + "." + base64url(payload))
+// Signed with the auth server's PRIVATE key.
+// Verified with the auth server's PUBLIC key from /jwks.json.
+// If ANY byte of header or payload changes, signature verification fails.
+// This makes JWTs tamper-evident without a database lookup.</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <h3>ID Token Validation Checklist</h3>
+  <div class="callout warn">
+    <div class="callout-title">Always validate these — never trust a JWT you didn't verify</div>
+    <p>
+      ✔ <code>iss</code> matches your expected auth server<br>
+      ✔ <code>aud</code> contains your <code>client_id</code><br>
+      ✔ <code>exp</code> is in the future<br>
+      ✔ <code>iat</code> is not too far in the past<br>
+      ✔ <code>nonce</code> matches what you sent (if used)<br>
+      ✔ Signature verified with the correct public key from JWKS<br>
+      ✔ <code>alg</code> header matches an algorithm you accept (reject <code>none</code>!)
+    </p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="claims">Claims</h2>
+  <p>Claims are the key-value pairs inside a JWT. Standard OIDC claims:</p>
+  <div class="scope-grid" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr));">
+    <div class="scope-item"><div class="scope-name">sub</div><div class="scope-desc">Unique identifier for the user at this issuer. Use as your primary user key — never email (email can change).</div></div>
+    <div class="scope-item"><div class="scope-name">iss</div><div class="scope-desc">Issuer URL. The auth server that issued this token.</div></div>
+    <div class="scope-item"><div class="scope-name">aud</div><div class="scope-desc">Audience. The client(s) this token is intended for.</div></div>
+    <div class="scope-item"><div class="scope-name">exp</div><div class="scope-desc">Expiration time (Unix timestamp). Reject tokens past this time.</div></div>
+    <div class="scope-item"><div class="scope-name">iat</div><div class="scope-desc">Issued At. When the token was created.</div></div>
+    <div class="scope-item"><div class="scope-name">email</div><div class="scope-desc">User's email. Check <code>email_verified</code> before trusting it.</div></div>
+    <div class="scope-item"><div class="scope-name">email_verified</div><div class="scope-desc">Boolean. Whether the auth server has verified the email.</div></div>
+    <div class="scope-item"><div class="scope-name">name</div><div class="scope-desc">Full display name.</div></div>
+    <div class="scope-item"><div class="scope-name">picture</div><div class="scope-desc">URL to profile photo.</div></div>
+    <div class="scope-item"><div class="scope-name">locale</div><div class="scope-desc">BCP 47 language tag, e.g. <code>en-US</code>.</div></div>
+    <div class="scope-item"><div class="scope-name">nonce</div><div class="scope-desc">Replay protection value — verify it matches what you sent.</div></div>
+    <div class="scope-item"><div class="scope-name">at_hash</div><div class="scope-desc">Hash of the access token. Binds the ID token to a specific access token.</div></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="userinfo">UserInfo Endpoint</h2>
+  <p>An OIDC-specified endpoint returning fresh profile data for the currently authenticated user. Call it with a Bearer access token (must include the <code>openid</code> scope).</p>
+
+  <pre class="code-block"><span class="cm">// Frontend or backend fetch — requires a valid access token</span>
+<span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'https://auth.example.com/userinfo'</span>, {
+  headers: { <span class="str">'Authorization'</span>: <span class="str">`Bearer <span class="cn">${accessToken}</span>`</span> }
+});
+<span class="kw">const</span> user = <span class="kw">await</span> res.<span class="fn">json</span>();
+<span class="cm">// { sub, email, name, picture, ... }</span></pre>
+
+  <div class="callout info">
+    <div class="callout-title">ID token vs UserInfo</div>
+    <p>The ID token is a snapshot at login time. The UserInfo endpoint returns the current state. If you show the user's avatar and it might change, call UserInfo. For simply establishing identity at login, the ID token is enough.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="token-storage">Token Storage</h2>
+  <table class="grant-table">
+    <thead>
+      <tr><th>Location</th><th>XSS Safe?</th><th>CSRF Safe?</th><th>Verdict</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>localStorage</code></td>
+        <td><span class="badge badge-red">No</span> — any JS can read it</td>
+        <td><span class="badge badge-green">Yes</span></td>
+        <td><span class="badge badge-red">Avoid for tokens</span></td>
+      </tr>
+      <tr>
+        <td><code>sessionStorage</code></td>
+        <td><span class="badge badge-red">No</span> — any JS can read it</td>
+        <td><span class="badge badge-green">Yes</span></td>
+        <td><span class="badge badge-orange">Acceptable for PKCE state only</span></td>
+      </tr>
+      <tr>
+        <td>HttpOnly Cookie</td>
+        <td><span class="badge badge-green">Yes</span> — JS can't read it</td>
+        <td><span class="badge badge-red">No</span> — requires CSRF tokens</td>
+        <td><span class="badge badge-green">Best for session tokens</span></td>
+      </tr>
+      <tr>
+        <td>In-memory (JS var)</td>
+        <td><span class="badge badge-green">Yes</span> — lost on tab close</td>
+        <td><span class="badge badge-green">Yes</span></td>
+        <td><span class="badge badge-blue">Good for access tokens in SPAs</span></td>
+      </tr>
+      <tr>
+        <td>Server session</td>
+        <td><span class="badge badge-green">Yes</span></td>
+        <td><span class="badge badge-green">Yes</span> (with SameSite cookies)</td>
+        <td><span class="badge badge-green">Best overall</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout ok">
+    <div class="callout-title">Best practice: BFF pattern</div>
+    <p>Use a Backend for Frontend (BFF) — your server handles the OAuth flow and stores tokens. The browser only gets a session cookie. Tokens never touch the browser's storage, eliminating the entire XSS token theft surface.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="attacks">Common Attacks &amp; Mitigations</h2>
+
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggleEndpoint(this)">
+      <span class="badge badge-red" style="font-size:12px;">ATTACK</span>
+      <span class="endpoint-path" style="margin-left:8px;">Authorization Code Interception</span>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="endpoint-body">
+      <p>An attacker intercepts the <code>code</code> in the redirect URI (via referrer headers, browser history, or a malicious app registering the same custom URI scheme).</p>
+      <div class="callout ok" style="margin-top:12px;">
+        <div class="callout-title">Mitigation: PKCE</div>
+        <p>PKCE binds the code to the verifier. An intercepted code is useless without the verifier, which was never transmitted in the vulnerable channel.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggleEndpoint(this)">
+      <span class="badge badge-red" style="font-size:12px;">ATTACK</span>
+      <span class="endpoint-path" style="margin-left:8px;">CSRF / Open Redirect</span>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Attacker initiates an OAuth flow and tricks the victim into completing it, linking the victim's identity to the attacker's account.</p>
+      <div class="callout ok" style="margin-top:12px;">
+        <div class="callout-title">Mitigation: state parameter</div>
+        <p>Validate <code>state</code> on every callback. The attacker can't forge a valid state value because it's stored in the victim's browser session.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggleEndpoint(this)">
+      <span class="badge badge-red" style="font-size:12px;">ATTACK</span>
+      <span class="endpoint-path" style="margin-left:8px;">Token Theft via XSS</span>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="endpoint-body">
+      <p>A Cross-Site Scripting vulnerability lets an attacker run JavaScript that reads tokens from <code>localStorage</code> or <code>sessionStorage</code> and exfiltrates them.</p>
+      <div class="callout ok" style="margin-top:12px;">
+        <div class="callout-title">Mitigation: HttpOnly cookies + BFF</div>
+        <p>Store tokens server-side. Issue the browser an <code>HttpOnly</code> session cookie — JS cannot access it regardless of XSS. Combine with <code>SameSite=Strict</code> or <code>SameSite=Lax</code> for CSRF protection.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggleEndpoint(this)">
+      <span class="badge badge-red" style="font-size:12px;">ATTACK</span>
+      <span class="endpoint-path" style="margin-left:8px;">JWT Algorithm Confusion (<code>alg:none</code>)</span>
+      <span class="chevron">▶</span>
+    </div>
+    <div class="endpoint-body">
+      <p>An attacker crafts a token with <code>"alg":"none"</code> and no signature. Naive verifiers that trust the <code>alg</code> header accept it as valid.</p>
+      <div class="callout ok" style="margin-top:12px;">
+        <div class="callout-title">Mitigation: allowlist algorithms</div>
+        <p>Never use the <code>alg</code> field in the token header to decide how to verify — always specify the expected algorithm in your verifier code. Reject <code>none</code> always. Prefer RS256 over HS256 for multi-party scenarios.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="refresh">Refresh Tokens &amp; Rotation</h2>
+  <p>Refresh tokens are long-lived credentials for getting new access tokens silently. They need careful handling.</p>
+
+  <pre class="code-block"><span class="cm">// POST /token — refresh grant (back-channel, server-side)</span>
+<span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'https://auth.example.com/token'</span>, {
+  method: <span class="str">'POST'</span>,
+  body: <span class="kw">new</span> <span class="fn">URLSearchParams</span>({
+    grant_type:    <span class="str">'refresh_token'</span>,
+    refresh_token: storedRefreshToken,
+    client_id:     <span class="str">'my-app'</span>,
+    client_secret: process.env.<span class="cn">CLIENT_SECRET</span>,
+  })
+});
+<span class="kw">const</span> { access_token, refresh_token } = <span class="kw">await</span> res.<span class="fn">json</span>();
+<span class="cm">// store new refresh_token — old one is now invalid (rotation)</span></pre>
+
+  <div class="concept-grid">
+    <div class="card green">
+      <div class="card-label">Refresh Token Rotation</div>
+      <div class="card-title">Single-use refresh tokens</div>
+      <p>Each time a refresh token is used, a new one is issued and the old one invalidated. If a stolen token is used, the legitimate user's next refresh fails — alerting you to the theft.</p>
+    </div>
+    <div class="card orange">
+      <div class="card-label">Refresh Token Families</div>
+      <div class="card-title">Reuse detection</div>
+      <p>Servers track "families" of rotated tokens. If an already-used token is presented (indicating theft), the entire family is revoked — logging out all devices for that user.</p>
+    </div>
+  </div>
+
+  <div class="callout warn">
+    <div class="callout-title">Refresh token storage</div>
+    <p>Refresh tokens are as sensitive as passwords. Store them server-side only (database or encrypted store). Never in <code>localStorage</code>, never in the browser. Treat exposure of a refresh token as equivalent to account compromise.</p>
+  </div>
+
+</main>
+</div>
+
+<script>
+  // ── Tab switching ──
+  document.querySelectorAll('.tabs').forEach(tabGroup => {
+    tabGroup.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const panel = tab.dataset.panel;
+        tabGroup.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const content = tabGroup.nextElementSibling;
+        content.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        content.querySelector('#' + panel).classList.add('active');
+      });
+    });
+  });
+
+  // ── Endpoint accordion ──
+  function toggleEndpoint(header) {
+    header.classList.toggle('open');
+    header.nextElementSibling.classList.toggle('open');
+  }
+
+  // ── JWT decoder ──
+  let currentDecoded = null;
+  function showDecoded(part) {
+    const ids = ['decoded-header', 'decoded-payload', 'decoded-sig'];
+    const map = { header: 'decoded-header', payload: 'decoded-payload', sig: 'decoded-sig' };
+    const target = map[part];
+
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (id === target) {
+        if (el.classList.contains('open')) {
+          el.classList.remove('open');
+          currentDecoded = null;
+        } else {
+          el.classList.add('open');
+          currentDecoded = id;
+        }
+      } else {
+        el.classList.remove('open');
+      }
+    });
+  }
+
+  // ── Active nav on scroll ──
+  const sections = document.querySelectorAll('h2[id]');
+  const navLinks = document.querySelectorAll('nav a');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active'));
+        const link = document.querySelector(`nav a[href="#${entry.target.id}"]`);
+        if (link) link.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
