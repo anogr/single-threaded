@@ -3,163 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OAuth 2.0 & OIDC — Complete Reference</title>
+<title>OAuth 2.1 &amp; OIDC — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="docs.css">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300&display=swap');
-
-  :root {
-    --bg:        #0d1117;
-    --surface:   #161b22;
-    --surface2:  #1c2330;
-    --border:    #30363d;
-    --text:      #e6edf3;
-    --muted:     #7d8590;
-    --accent:    #58a6ff;
-    --accent2:   #bc8cff;
-    --green:     #3fb950;
-    --orange:    #d29922;
-    --red:       #f85149;
-    --teal:      #39d0b8;
-    --font-mono: 'IBM Plex Mono', monospace;
-    --font-sans: 'IBM Plex Sans', sans-serif;
-    --font-disp: 'Fraunces', serif;
-  }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--font-sans);
-    font-size: 15px;
-    line-height: 1.7;
-  }
-
-  /* ── Layout ── */
-  .shell { display: flex; min-height: 100vh; }
-
-  nav {
-    width: 260px;
-    flex-shrink: 0;
-    background: var(--surface);
-    border-right: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    height: 100vh;
-    overflow-y: auto;
-    padding: 28px 0 40px;
-  }
-
-  nav .logo {
-    font-family: var(--font-disp);
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--text);
-    padding: 0 22px 24px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 16px;
-    line-height: 1.3;
-  }
-  nav .logo span { color: var(--accent); }
-
-  nav ul { list-style: none; }
-  nav ul li a {
-    display: block;
-    padding: 6px 22px;
-    color: var(--muted);
-    text-decoration: none;
-    font-size: 13px;
-    font-weight: 400;
-    border-left: 2px solid transparent;
-    transition: color .15s, border-color .15s;
-  }
-  nav ul li a:hover { color: var(--text); }
-  nav ul li a.active { color: var(--accent); border-left-color: var(--accent); }
-
-  nav .nav-section {
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: .1em;
-    text-transform: uppercase;
-    color: var(--muted);
-    padding: 18px 22px 6px;
-  }
-
-  main {
-    flex: 1;
-    max-width: 860px;
-    padding: 60px 56px 120px;
-  }
-
-  /* ── Typography ── */
-  h1 {
-    font-family: var(--font-disp);
-    font-size: 44px;
-    font-weight: 700;
-    line-height: 1.15;
-    letter-spacing: -.02em;
-    margin-bottom: 12px;
-  }
-  h1 em { font-style: italic; color: var(--accent2); }
-
-  .subtitle {
-    color: var(--muted);
-    font-size: 17px;
-    margin-bottom: 18px;
-    font-weight: 300;
-    max-width: 640px;
-  }
-
-  .byline {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    color: var(--muted);
-    font-size: 13px;
-    margin-bottom: 56px;
-    padding-bottom: 28px;
-    border-bottom: 1px solid var(--border);
-  }
-  .byline .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--muted); }
-  .byline strong { color: var(--text); font-weight: 500; }
-
-  h2 {
-    font-family: var(--font-disp);
-    font-size: 28px;
-    font-weight: 700;
-    margin: 64px 0 8px;
-    padding-top: 64px;
-    border-top: 1px solid var(--border);
-    scroll-margin-top: 24px;
-    letter-spacing: -.01em;
-  }
-  h2:first-of-type { margin-top: 0; }
-
-  .lede {
-    font-family: var(--font-disp);
-    font-style: italic;
-    font-size: 19px;
-    line-height: 1.6;
-    color: #adbac7;
-    font-weight: 300;
-    margin: 4px 0 22px;
-    max-width: 680px;
-  }
-
-  h3 {
-    font-size: 14px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .08em;
-    color: var(--accent);
-    margin: 32px 0 12px;
-  }
-
-  p { margin-bottom: 16px; color: #c9d1d9; max-width: 700px; }
-  p.wide { max-width: none; }
-  p strong { color: var(--text); font-weight: 600; }
-
-  /* ── Concept Cards ── */
+  /* ── Concept card grid ── */
   .concept-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -167,51 +16,7 @@
     margin: 20px 0;
   }
 
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 20px;
-    position: relative;
-    overflow: hidden;
-  }
-  .card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-  }
-  .card.blue::before  { background: var(--accent); }
-  .card.purple::before { background: var(--accent2); }
-  .card.green::before { background: var(--green); }
-  .card.orange::before { background: var(--orange); }
-  .card.red::before   { background: var(--red); }
-  .card.teal::before  { background: var(--teal); }
-
-  .card-label {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-    margin-bottom: 8px;
-  }
-  .card.blue   .card-label { color: var(--accent); }
-  .card.purple .card-label { color: var(--accent2); }
-  .card.green  .card-label { color: var(--green); }
-  .card.orange .card-label { color: var(--orange); }
-  .card.red    .card-label { color: var(--red); }
-  .card.teal   .card-label { color: var(--teal); }
-
-  .card-title {
-    font-weight: 600;
-    font-size: 15px;
-    margin-bottom: 8px;
-    color: var(--text);
-  }
-  .card p { font-size: 13px; margin: 0; color: var(--muted); line-height: 1.6; }
-
-  /* ── Token anatomy ── */
+  /* ── JWT token anatomy ── */
   .token-box {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -227,7 +32,7 @@
   .part-header  { background: rgba(248,81,73,.2);  color: #f85149; }
   .part-payload { background: rgba(88,166,255,.2); color: #58a6ff; }
   .part-sig     { background: rgba(63,185,80,.2);  color: #3fb950; }
-  .token-dot    { color: var(--muted); }
+  .token-dot    { color: var(--text-dim); }
 
   .token-legend { display: flex; gap: 20px; margin-top: 12px; flex-wrap: wrap; }
   .token-legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; }
@@ -236,7 +41,7 @@
   .decoded-box {
     margin-top: 16px;
     display: none;
-    background: var(--surface2);
+    background: var(--surface-2);
     border: 1px solid var(--border);
     border-radius: 6px;
     padding: 16px;
@@ -244,44 +49,15 @@
   .decoded-box.open { display: block; }
   .decoded-section { margin-bottom: 16px; }
   .decoded-section:last-child { margin-bottom: 0; }
-  .decoded-section-title {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-    margin-bottom: 8px;
-  }
-  .decoded-section-title.red { color: var(--red); }
-  .decoded-section-title.blue { color: var(--accent); }
+  .decoded-section-title { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 8px; }
+  .decoded-section-title.red   { color: var(--red); }
+  .decoded-section-title.blue  { color: var(--accent); }
   .decoded-section-title.green { color: var(--green); }
-  pre.json {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    line-height: 1.6;
-    color: #c9d1d9;
-  }
-  .json-key   { color: var(--accent2); }
-  .json-str   { color: var(--green); }
-  .json-num   { color: var(--orange); }
-  .json-bool  { color: var(--teal); }
-
-  /* ── Code blocks ── */
-  pre.code-block {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 20px;
-    font-family: var(--font-mono);
-    font-size: 12.5px;
-    line-height: 1.7;
-    overflow-x: auto;
-    margin: 16px 0;
-  }
-  .kw  { color: #ff7b72; }
-  .fn  { color: #d2a8ff; }
-  .str { color: #a5d6ff; }
-  .cm  { color: #8b949e; font-style: italic; }
-  .cn  { color: #ffa657; }
+  pre.json { font-family: var(--font-mono); font-size: 12px; line-height: 1.6; color: #c9d1d9; white-space: pre-wrap; word-break: break-word; }
+  .json-key  { color: var(--accent2); }
+  .json-str  { color: var(--green); }
+  .json-num  { color: var(--orange); }
+  .json-bool { color: var(--teal); }
 
   /* ── Scope pills ── */
   .scope-grid {
@@ -290,20 +66,9 @@
     gap: 10px;
     margin: 16px 0;
   }
-  .scope-item {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 12px 14px;
-  }
-  .scope-name {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--teal);
-    margin-bottom: 4px;
-  }
-  .scope-desc { font-size: 12px; color: var(--muted); }
+  .scope-item { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; }
+  .scope-name { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--teal); margin-bottom: 4px; }
+  .scope-desc { font-size: 12px; color: var(--text-dim); }
 
   /* ── Flow toggle tabs ── */
   .tabs {
@@ -311,244 +76,144 @@
     gap: 4px;
     margin: 20px 0 0;
     border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
   }
+  .tabs::-webkit-scrollbar { display: none; }
   .tab {
-    padding: 8px 16px;
+    padding: 8px 14px;
     font-size: 13px;
     font-weight: 500;
-    color: var(--muted);
+    color: var(--text-dim);
     cursor: pointer;
     border-radius: 6px 6px 0 0;
     border: 1px solid transparent;
     border-bottom: none;
     background: none;
     transition: color .15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-family: var(--font-sans);
   }
   .tab:hover { color: var(--text); }
-  .tab.active {
-    color: var(--text);
-    background: var(--surface);
-    border-color: var(--border);
-    border-bottom-color: var(--surface);
-    margin-bottom: -1px;
-  }
-
+  .tab.active { color: var(--text); background: var(--surface); border-color: var(--border); border-bottom-color: var(--surface); margin-bottom: -1px; }
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
-  .tab-content {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-top: none;
-    border-radius: 0 0 8px 8px;
-    padding: 24px;
-    margin-bottom: 20px;
-  }
+  .tab-content { background: var(--surface); border: 1px solid var(--border); border-top: none; border-radius: 0 0 8px 8px; padding: 24px; margin-bottom: 20px; }
 
-  /* ── Grant type comparison ── */
-  .grant-table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
-  .grant-table th {
-    text-align: left;
-    padding: 10px 14px;
-    background: var(--surface2);
-    color: var(--muted);
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .06em;
-    border-bottom: 1px solid var(--border);
-  }
-  .grant-table td {
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--border);
-    color: #c9d1d9;
-    vertical-align: top;
-  }
+  /* ── Grant table ── */
+  .grant-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 460px; }
+  .grant-table th { text-align: left; padding: 10px 14px; background: var(--surface-2); color: var(--text-dim); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--border); font-family: var(--font-mono); }
+  .grant-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: #c9d1d9; vertical-align: top; }
   .grant-table tr:last-child td { border-bottom: none; }
-  .grant-table tr:hover td { background: var(--surface2); }
-
-  .badge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 100px;
-    font-size: 11px;
-    font-weight: 600;
-    font-family: var(--font-mono);
-  }
-  .badge-green  { background: rgba(63,185,80,.15);  color: var(--green); }
-  .badge-orange { background: rgba(210,153,34,.15); color: var(--orange); }
-  .badge-red    { background: rgba(248,81,73,.15);  color: var(--red); }
-  .badge-blue   { background: rgba(88,166,255,.15); color: var(--accent); }
-  .badge-muted  { background: rgba(125,133,144,.15); color: var(--muted); }
+  .grant-table tr:hover td { background: var(--surface-2); }
 
   /* ── Endpoint anatomy ── */
-  .endpoint {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    margin: 14px 0;
-    overflow: hidden;
-  }
-  .endpoint-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 18px;
-    background: var(--surface2);
-    border-bottom: 1px solid var(--border);
-    cursor: pointer;
-    user-select: none;
-  }
-  .method {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 4px;
-  }
+  .endpoint { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin: 14px 0; overflow: hidden; }
+  .endpoint-header { display: flex; align-items: center; gap: 12px; padding: 12px 18px; background: var(--surface-2); border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; flex-wrap: wrap; }
+  .method { font-family: var(--font-mono); font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 4px; flex-shrink: 0; }
   .method-get  { background: rgba(63,185,80,.2);  color: var(--green); }
   .method-post { background: rgba(88,166,255,.2); color: var(--accent); }
-  .endpoint-path {
-    font-family: var(--font-mono);
-    font-size: 13px;
-    color: var(--text);
-    flex: 1;
-  }
-  .endpoint-desc { font-size: 12px; color: var(--muted); }
-  .chevron { color: var(--muted); transition: transform .2s; font-size: 12px; }
+  .endpoint-path { font-family: var(--font-mono); font-size: 13px; color: var(--text); flex: 1; word-break: break-word; }
+  .endpoint-desc { font-size: 12px; color: var(--text-dim); }
+  .chevron { color: var(--text-dim); transition: transform .2s; font-size: 12px; flex-shrink: 0; }
   .endpoint-header.open .chevron { transform: rotate(90deg); }
   .endpoint-body { padding: 18px; display: none; font-size: 13px; }
   .endpoint-body.open { display: block; }
-
   .param-list { list-style: none; margin: 8px 0; }
-  .param-list li {
-    display: flex;
-    gap: 12px;
-    padding: 7px 0;
-    border-bottom: 1px solid var(--border);
-    align-items: baseline;
-  }
+  .param-list li { display: flex; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--border); align-items: baseline; flex-wrap: wrap; }
   .param-list li:last-child { border-bottom: none; }
-  .param-name {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--accent2);
-    min-width: 160px;
-    flex-shrink: 0;
-  }
-  .param-desc { color: var(--muted); font-size: 13px; }
-  .param-req { color: var(--red); font-size: 11px; flex-shrink: 0; }
-  .param-opt { color: var(--muted); font-size: 11px; flex-shrink: 0; }
-
-  /* ── Security callouts ── */
-  .callout {
-    border-radius: 8px;
-    padding: 16px 20px;
-    margin: 16px 0;
-    font-size: 13px;
-    line-height: 1.6;
-    border: 1px solid;
-  }
-  .callout-title { font-weight: 600; margin-bottom: 4px; font-size: 13px; }
-  .callout p { margin: 0; }
-  .callout.warn  { background: rgba(210,153,34,.08); border-color: rgba(210,153,34,.3); color: #c9d1d9; }
-  .callout.warn  .callout-title { color: var(--orange); }
-  .callout.danger { background: rgba(248,81,73,.08); border-color: rgba(248,81,73,.3); color: #c9d1d9; }
-  .callout.danger .callout-title { color: var(--red); }
-  .callout.info  { background: rgba(88,166,255,.08); border-color: rgba(88,166,255,.3); color: #c9d1d9; }
-  .callout.info  .callout-title { color: var(--accent); }
-  .callout.ok    { background: rgba(63,185,80,.08);  border-color: rgba(63,185,80,.3); color: #c9d1d9; }
-  .callout.ok    .callout-title { color: var(--green); }
-
-  code {
-    font-family: var(--font-mono);
-    font-size: .88em;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    padding: 1px 5px;
-    border-radius: 4px;
-    color: var(--teal);
-  }
+  .param-name { font-family: var(--font-mono); font-size: 12px; color: var(--accent2); min-width: 160px; flex-shrink: 0; }
+  .param-desc { color: var(--text-dim); font-size: 13px; flex: 1; }
+  .param-req { color: var(--red);      font-size: 11px; flex-shrink: 0; }
+  .param-opt { color: var(--text-dim); font-size: 11px; flex-shrink: 0; }
 
   /* ── PKCE visualizer ── */
-  .pkce-vis {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 24px;
-    margin: 16px 0;
-  }
+  .pkce-vis { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 24px; margin: 16px 0; }
   .pkce-step { display: flex; gap: 16px; margin-bottom: 20px; align-items: flex-start; }
   .pkce-step:last-child { margin-bottom: 0; }
-  .pkce-num {
-    width: 28px; height: 28px;
-    border-radius: 50%;
-    background: var(--accent);
-    color: #0d1117;
-    font-size: 13px;
-    font-weight: 700;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-    margin-top: 2px;
-  }
-  .pkce-content { flex: 1; }
+  .pkce-num { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #0d1117; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+  .pkce-content { flex: 1; min-width: 0; }
   .pkce-content strong { display: block; margin-bottom: 4px; font-size: 14px; }
-  .pkce-content p { font-size: 13px; color: var(--muted); margin: 0; }
-  .pkce-arrow {
-    text-align: center;
-    color: var(--muted);
-    font-size: 20px;
-    margin: -8px 0 -8px 14px;
-  }
+  .pkce-content p { font-size: 13px; color: var(--text-dim); margin: 0; word-break: break-word; }
+  .pkce-arrow { text-align: center; color: var(--text-dim); font-size: 20px; margin: -8px 0 -8px 14px; }
 
   /* ── Token lifetime diagram ── */
   .lifetime-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; font-size: 13px; }
-  .lifetime-label { width: 120px; color: var(--muted); text-align: right; flex-shrink: 0; }
-  .lifetime-bar-wrap { flex: 1; background: var(--surface2); border-radius: 4px; height: 20px; overflow: hidden; position: relative; }
-  .lifetime-bar { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; font-size: 11px; font-weight: 600; font-family: var(--font-mono); }
-  .bar-code  { background: rgba(248,81,73,.4);  color: var(--red);    width: 2%; }
-  .bar-at    { background: rgba(88,166,255,.4); color: var(--accent); width: 15%; }
-  .bar-id    { background: rgba(188,140,255,.4);color: var(--accent2);width: 15%; }
-  .bar-rt    { background: rgba(63,185,80,.4);  color: var(--green);  width: 100%; }
+  .lifetime-label { width: 120px; color: var(--text-dim); text-align: right; flex-shrink: 0; }
+  .lifetime-bar-wrap { flex: 1; background: var(--surface-2); border-radius: 4px; height: 20px; overflow: hidden; }
+  .lifetime-bar { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; font-size: 11px; font-weight: 600; font-family: var(--font-mono); white-space: nowrap; }
+  .bar-code { background: rgba(248,81,73,.4);  color: var(--red);    width: 2%; }
+  .bar-at   { background: rgba(88,166,255,.4); color: var(--accent); width: 15%; }
+  .bar-id   { background: rgba(188,140,255,.4);color: var(--accent2);width: 15%; }
+  .bar-rt   { background: rgba(63,185,80,.4);  color: var(--green);  width: 100%; }
 
-  /* ── responsive ── */
+  /* ── DPoP flow ── */
+  .dpop-flow { display: flex; flex-direction: column; margin: 20px 0; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .dpop-row { display: flex; align-items: flex-start; gap: 16px; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .dpop-row:last-child { border-bottom: none; }
+  .dpop-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; margin-top: 2px; }
+  .dpop-icon.client { background: rgba(88,166,255,.2); color: var(--accent); }
+  .dpop-icon.server { background: rgba(63,185,80,.2);  color: var(--green); }
+  .dpop-icon.api    { background: rgba(188,140,255,.2); color: var(--accent2); }
+  .dpop-text strong { display: block; font-size: 14px; margin-bottom: 4px; }
+  .dpop-text p      { font-size: 13px; color: var(--text-dim); margin: 0; }
+
   @media (max-width: 900px) {
-    nav { display: none; }
-    main { padding: 32px 20px 80px; }
     .concept-grid { grid-template-columns: 1fr; }
-    h1 { font-size: 30px; }
+    .token-box { font-size: 10.5px; padding: 16px; }
+  }
+  @media (max-width: 480px) {
+    .param-name { min-width: 100%; }
   }
 </style>
 </head>
 <body>
 
+<!-- Mobile header -->
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Docs</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
 <div class="shell">
 
 <!-- ── Sidebar Nav ── -->
-<nav>
-  <div class="logo">OAuth 2.0<br><span>&amp; OIDC</span> Reference</div>
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-logo" href="index.html">OAuth 2.0<br><span>&amp; OIDC</span></a>
   <ul>
-    <div class="nav-section">Foundations</div>
+    <div class="sidebar-section">Foundations</div>
     <li><a href="#roles">Roles &amp; Actors</a></li>
     <li><a href="#tokens">Tokens</a></li>
     <li><a href="#scopes">Scopes</a></li>
 
-    <div class="nav-section">OAuth 2.0</div>
+    <div class="sidebar-section">OAuth 2.0</div>
     <li><a href="#grants">Grant Types</a></li>
+    <li><a href="#oauth21">OAuth 2.1 — What's New</a></li>
     <li><a href="#endpoints">Endpoints</a></li>
     <li><a href="#pkce">PKCE</a></li>
+    <li><a href="#par">PAR</a></li>
     <li><a href="#client-types">Client Types</a></li>
     <li><a href="#state">State &amp; CSRF</a></li>
 
-    <div class="nav-section">OIDC</div>
+    <div class="sidebar-section">OIDC</div>
     <li><a href="#oidc">What OIDC Adds</a></li>
     <li><a href="#jwt">JWT &amp; ID Token</a></li>
     <li><a href="#claims">Claims</a></li>
     <li><a href="#userinfo">UserInfo Endpoint</a></li>
 
-    <div class="nav-section">Security</div>
+    <div class="sidebar-section">Security</div>
+    <li><a href="#dpop">DPoP — Sender Binding</a></li>
     <li><a href="#token-storage">Token Storage</a></li>
     <li><a href="#attacks">Common Attacks</a></li>
     <li><a href="#refresh">Refresh &amp; Rotation</a></li>
+
+    <div class="sidebar-section">2026 Topics</div>
+    <li><a href="#agentic">Agentic &amp; AI Auth</a></li>
+    <li><a href="#fapi">FAPI &amp; High Security</a></li>
   </ul>
 </nav>
 
@@ -556,14 +221,15 @@
 <main>
 
   <h1>The Engineer's Guide to <em>OAuth 2.0 &amp; OIDC</em></h1>
-  <p class="subtitle">Two specifications quietly run the login button on nearly every app you use. Here's what's actually happening behind it — the actors, the tokens, the endpoints, and the attacks they're designed to stop.</p>
-  <div class="byline"><strong>A field guide</strong><div class="dot"></div><span>~22 min read</span><div class="dot"></div><span>For developers building real auth</span></div>
+  <p class="subtitle">Two specifications quietly run the login button on nearly every app you use. Here's what's actually happening behind it — the actors, the tokens, the endpoints, and the attacks they're designed to stop. Updated for 2026.</p>
+  <div class="byline"><strong>A field guide</strong><div class="dot"></div><span>~28 min read</span><div class="dot"></div><span>For developers building real auth</span><div class="dot"></div><span>Updated June 2026</span></div>
 
-  <p class="wide" style="max-width:700px;">If you've ever clicked "Sign in with Google" and wondered what happens between that click and landing back on the app, logged in, you've already met OAuth 2.0 and OpenID Connect. They're two of the most widely deployed specifications on the internet, and also two of the most widely misunderstood — partly because they were designed by committee over more than a decade, and partly because most of us learn them by copy-pasting a working example rather than reading the RFCs. This guide walks through both specs from the ground up: who the actors are, what each token is for, how the most common flow actually works end to end, and which mistakes turn a textbook-correct implementation into a security hole. By the end you should be able to read an OAuth library's source code and know exactly what it's doing and why.</p>
+  <p class="wide" style="max-width:700px;">If you've ever clicked "Sign in with Google" and wondered what happens between that click and landing back on the app, logged in, you've already met OAuth 2.0 and OpenID Connect. They're two of the most widely deployed specifications on the internet, and also two of the most widely misunderstood. This guide walks through both specs from the ground up: who the actors are, what each token is for, how the most common flow actually works end to end, and which mistakes turn a textbook-correct implementation into a security hole. It also covers what's new in 2026: OAuth 2.1 consolidation, DPoP sender-binding, PAR, and the emerging challenges of authorizing AI agents. By the end you should be able to read an OAuth library's source code and know exactly what it's doing and why.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="roles">Roles &amp; Actors</h2>
   <p class="lede">Every OAuth conversation, no matter how complex, is really just four parties talking to each other in a fixed pattern.</p>
+
   <p>Before any of the redirects and tokens make sense, it helps to fix the cast of characters firmly in your head, because the entire specification is written in terms of these four roles, and almost every security property in OAuth exists to keep one of them from impersonating or deceiving another.</p>
 
   <div class="concept-grid">
@@ -575,12 +241,12 @@
     <div class="card purple">
       <div class="card-label">Client</div>
       <div class="card-title">Your Application</div>
-      <p>The application requesting access on the user's behalf — a web app, a single-page app, a mobile app, a CLI tool, or a background service. The client receives tokens once the user has granted access, but it is never supposed to see the user's credentials at any point. How much the spec trusts a given client depends heavily on whether it's "public" or "confidential," a distinction covered later on.</p>
+      <p>The application requesting access on the user's behalf — a web app, a single-page app, a mobile app, a CLI tool, or a background service. The client receives tokens once the user has granted access, but it is never supposed to see the user's credentials at any point. In 2026, this increasingly includes AI agents acting autonomously on a user's behalf.</p>
     </div>
     <div class="card green">
       <div class="card-label">Authorization Server</div>
       <div class="card-title">The Auth Server (IdP)</div>
-      <p>The system that authenticates the user, captures their consent, and issues tokens. In the identity world this is usually called an Identity Provider, or IdP. Auth0, Okta, Keycloak, Google Identity, and Azure AD/Entra ID are all examples. This is the component most teams choose to outsource rather than build, because getting it wrong is expensive.</p>
+      <p>The system that authenticates the user, captures their consent, and issues tokens. In the identity world this is usually called an Identity Provider, or IdP. Auth0, Okta, Keycloak, Google Identity, and Microsoft Entra ID are all examples. This is the component most teams choose to outsource rather than build, because getting it wrong is expensive.</p>
     </div>
     <div class="card orange">
       <div class="card-label">Resource Server</div>
@@ -588,8 +254,6 @@
       <p>The server that actually hosts the protected data — the Google Drive API, a payments API, or your own backend. Its only real job in this story is to accept an access token on incoming requests, validate it, and decide whether the scopes attached to that token permit the requested operation.</p>
     </div>
   </div>
-
-  <p>It's worth sitting with the distinction between the last two roles for a moment, because in small setups they often live on the same physical server and that can blur the conceptual line. The authorization server's entire responsibility is issuing tokens; the resource server's entire responsibility is consuming them. A single company might run both, or might use a third-party authorization server (like Auth0) in front of their own resource server (their own API) — both architectures are completely normal.</p>
 
   <div class="callout info">
     <div class="callout-title">Authorization vs Authentication</div>
@@ -606,92 +270,54 @@
     <div class="card blue">
       <div class="card-label">Access Token</div>
       <div class="card-title">API Credential</div>
-      <p>The credential you attach to every API request, typically as <code>Authorization: Bearer &lt;token&gt;</code>. It's intentionally short-lived — usually minutes to a couple of hours — so that if one leaks, the damage window is small. It may be a JWT that the resource server can verify locally, or an opaque string that requires a call back to the authorization server to validate. Either way, its only job is proving the bearer has permission for a given set of scopes.</p>
+      <p>The credential you attach to every API request, typically as <code>Authorization: Bearer &lt;token&gt;</code>. Intentionally short-lived — usually minutes to a couple of hours. It may be a JWT the resource server verifies locally, or an opaque string requiring an introspection call. Either way, its only job is proving the bearer has permission for a given set of scopes.</p>
     </div>
     <div class="card purple">
       <div class="card-label">ID Token</div>
       <div class="card-title">Identity Proof (OIDC)</div>
-      <p>Always a JWT, and always meant for your application to consume directly rather than forward anywhere. It carries claims about who just authenticated — a stable subject identifier, maybe an email or name — and its presence is what turns a plain OAuth exchange into an OIDC login. A useful rule of thumb: if you're tempted to send a token to an API, it should be the access token, never the ID token.</p>
+      <p>Always a JWT, always meant for your application to consume directly rather than forward anywhere. It carries claims about who just authenticated — a stable subject identifier, maybe an email or name — and its presence is what turns a plain OAuth exchange into an OIDC login. Never send this to an API; that's the access token's job.</p>
     </div>
     <div class="card green">
       <div class="card-label">Refresh Token</div>
       <div class="card-title">Silent Re-auth</div>
-      <p>A long-lived credential — days, weeks, sometimes months — that the client exchanges for a fresh access token once the old one expires, without bothering the user to log in again. Because it lives so much longer than the other tokens, it's also the most sensitive one to leak, and the spec treats it accordingly: it should never be sent to a resource server, and it should never end up in a place JavaScript can read it.</p>
+      <p>A long-lived credential — days, weeks, sometimes months — that the client exchanges for a fresh access token once the old one expires, without bothering the user to re-authenticate. Because it lives so much longer, it's also the most sensitive one to leak. It should never be sent to a resource server, and should never end up where JavaScript can read it.</p>
     </div>
   </div>
 
   <h3>Token Lifetimes (relative)</h3>
-  <p>Lifetimes vary by provider, but the relative ordering below is close to universal, and it's a useful intuition to carry around: the shorter-lived a token is, the more freely it can be passed around; the longer-lived it is, the more carefully it needs to be guarded.</p>
+  <p>Lifetimes vary by provider, but the relative ordering below is close to universal. The shorter-lived a token is, the more freely it can be passed around; the longer-lived it is, the more carefully it needs to be guarded.</p>
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:24px;margin:16px 0;">
-    <div class="lifetime-row">
-      <div class="lifetime-label">Auth Code</div>
-      <div class="lifetime-bar-wrap">
-        <div class="lifetime-bar bar-code">~1 min</div>
-      </div>
-    </div>
-    <div class="lifetime-row">
-      <div class="lifetime-label">Access Token</div>
-      <div class="lifetime-bar-wrap">
-        <div class="lifetime-bar bar-at">~1 hour</div>
-      </div>
-    </div>
-    <div class="lifetime-row">
-      <div class="lifetime-label">ID Token</div>
-      <div class="lifetime-bar-wrap">
-        <div class="lifetime-bar bar-id">~1 hour</div>
-      </div>
-    </div>
-    <div class="lifetime-row">
-      <div class="lifetime-label">Refresh Token</div>
-      <div class="lifetime-bar-wrap">
-        <div class="lifetime-bar bar-rt">days – months</div>
-      </div>
-    </div>
+    <div class="lifetime-row"><div class="lifetime-label">Auth Code</div><div class="lifetime-bar-wrap"><div class="lifetime-bar bar-code">~1 min</div></div></div>
+    <div class="lifetime-row"><div class="lifetime-label">Access Token</div><div class="lifetime-bar-wrap"><div class="lifetime-bar bar-at">~1 hour</div></div></div>
+    <div class="lifetime-row"><div class="lifetime-label">ID Token</div><div class="lifetime-bar-wrap"><div class="lifetime-bar bar-id">~1 hour</div></div></div>
+    <div class="lifetime-row"><div class="lifetime-label">Refresh Token</div><div class="lifetime-bar-wrap"><div class="lifetime-bar bar-rt">days – months</div></div></div>
   </div>
 
   <h3>JWT vs Opaque Access Tokens</h3>
-  <p>One detail that trips people up: the spec never actually mandates a token <em>format</em>. An access token can be a self-contained JWT that any resource server can verify on its own using a public key, or it can be a short, meaningless-looking opaque string that only the authorization server knows how to interpret. Opaque tokens require the resource server to call back to the authorization server's <strong>introspection endpoint</strong> on every request to check validity — slower, but it means a token can be instantly revoked. JWTs are faster to validate locally but, by nature, can't be revoked before they expire unless you build a separate denylist. Many production systems use JWTs for access tokens precisely because that local-validation speed matters at API scale, while accepting the tradeoff that revocation isn't instant.</p>
+  <p>The spec never mandates a token format. An access token can be a self-contained JWT that any resource server can verify using a public key, or it can be a short opaque string that only the authorization server knows how to interpret. Opaque tokens require a call to the <strong>introspection endpoint</strong> on every request — slower, but tokens can be instantly revoked. JWTs are faster to validate locally but can't be revoked before expiry unless you build a separate denylist. Many production systems use JWTs for access tokens precisely because local-validation speed matters at API scale, while accepting that revocation isn't instant.</p>
 
   <div class="callout info">
     <div class="callout-title">Don't decode access tokens in your client code</div>
-    <p>Even when an access token happens to be a JWT, treat it as opaque from the client's perspective. Its format and contents are a contract between the authorization server and the resource server, not something your frontend should depend on or parse. Use the ID token for identity information instead.</p>
+    <p>Even when an access token happens to be a JWT, treat it as opaque from the client's perspective. Its format and contents are a contract between the authorization server and the resource server, not something your frontend should depend on. Use the ID token for identity information instead.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="scopes">Scopes</h2>
   <p class="lede">Scopes are how OAuth implements the principle of least privilege — they let a client ask for exactly what it needs, nothing more.</p>
-  <p>A scope is simply a string that names a unit of access. When your app sends the user to the authorization server, it lists the scopes it wants, and the consent screen the user sees is essentially a human-readable translation of that list — "this app wants to see your name and email" is the scope <code>profile email</code> rendered for a person rather than a machine. Once granted, the requested scopes get baked into the access token, and it's the resource server's job to check, on every request, that the token actually carries the scope required for that operation.</p>
+  <p>A scope is simply a string that names a unit of access. When your app sends the user to the authorization server, it lists the scopes it wants, and the consent screen is essentially a human-readable translation of that list. Once granted, the requested scopes get baked into the access token, and the resource server checks, on every request, that the token carries the scope required for that operation.</p>
 
   <h3>OIDC Standard Scopes</h3>
   <p>OIDC defines a small set of standard scopes so that identity providers don't all invent their own conventions for "give me the user's email." These are worth memorizing since you'll see them in nearly every integration:</p>
   <div class="scope-grid">
-    <div class="scope-item">
-      <div class="scope-name">openid</div>
-      <div class="scope-desc">The scope that turns a plain OAuth request into an OIDC request. Required to receive an ID token at all — without it, you just get OAuth's access token and nothing more.</div>
-    </div>
-    <div class="scope-item">
-      <div class="scope-name">profile</div>
-      <div class="scope-desc">Name, picture, website, locale, birthdate, and similar non-sensitive profile fields.</div>
-    </div>
-    <div class="scope-item">
-      <div class="scope-name">email</div>
-      <div class="scope-desc">The user's email address along with whether it has been verified.</div>
-    </div>
-    <div class="scope-item">
-      <div class="scope-name">address</div>
-      <div class="scope-desc">The user's physical mailing address, when the provider stores one.</div>
-    </div>
-    <div class="scope-item">
-      <div class="scope-name">phone</div>
-      <div class="scope-desc">Phone number and its verification status.</div>
-    </div>
-    <div class="scope-item">
-      <div class="scope-name">offline_access</div>
-      <div class="scope-desc">Tells the server you'd like a refresh token back, so the user doesn't need to log in again every time their access token expires.</div>
-    </div>
+    <div class="scope-item"><div class="scope-name">openid</div><div class="scope-desc">Turns a plain OAuth request into an OIDC request. Required to receive an ID token at all — without it, you get only an access token.</div></div>
+    <div class="scope-item"><div class="scope-name">profile</div><div class="scope-desc">Name, picture, website, locale, birthdate, and similar non-sensitive profile fields.</div></div>
+    <div class="scope-item"><div class="scope-name">email</div><div class="scope-desc">The user's email address along with whether it has been verified.</div></div>
+    <div class="scope-item"><div class="scope-name">address</div><div class="scope-desc">The user's physical mailing address, when the provider stores one.</div></div>
+    <div class="scope-item"><div class="scope-name">phone</div><div class="scope-desc">Phone number and its verification status.</div></div>
+    <div class="scope-item"><div class="scope-name">offline_access</div><div class="scope-desc">Requests a refresh token back, so the user doesn't need to log in again every time their access token expires.</div></div>
   </div>
 
-  <p>Beyond these standard ones, real applications almost always define their own custom scopes shaped around their own API — things like <code>read:orders</code> or <code>admin:users</code>. Designing good scopes is really an exercise in API design: think in terms of the operations a client should be allowed to perform, then name a scope for each meaningful grouping of those operations rather than handing out blanket access.</p>
+  <p>Beyond these standard ones, real applications almost always define their own custom scopes shaped around their API — things like <code>read:orders</code> or <code>admin:users</code>. Designing good scopes is really an exercise in API design: think in terms of the operations a client should be allowed to perform, then name a scope for each meaningful grouping of those operations rather than handing out blanket access.</p>
 
   <div class="callout info">
     <div class="callout-title">Scopes are not a substitute for fine-grained authorization</div>
@@ -701,10 +327,10 @@
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="grants">Grant Types</h2>
   <p class="lede">A grant type is just a recipe — the specific sequence of requests a client follows to walk away with tokens.</p>
-  <p>OAuth defines several of these recipes because "getting a token" looks completely different depending on what kind of client you're building. A web app with a logged-in human in front of it has very different constraints than a cron job with no user at all, or a smart TV with no keyboard. Picking the wrong grant type for your situation is one of the most common OAuth mistakes, so it's worth understanding what each one was actually designed for before reaching for it.</p>
+  <p>OAuth defines several of these recipes because "getting a token" looks completely different depending on what kind of client you're building. A web app with a logged-in human in front of it has very different constraints than a cron job with no user at all, or a smart TV with no keyboard. Picking the wrong grant type for your situation is one of the most common OAuth mistakes.</p>
 
   <div class="tabs" id="grant-tabs">
-    <button class="tab active" data-panel="grant-code">Authorization Code + PKCE</button>
+    <button class="tab active" data-panel="grant-code">Auth Code + PKCE</button>
     <button class="tab" data-panel="grant-cc">Client Credentials</button>
     <button class="tab" data-panel="grant-device">Device Code</button>
     <button class="tab" data-panel="grant-implicit">Implicit (legacy)</button>
@@ -715,138 +341,117 @@
       <span class="badge badge-green">Recommended for most apps</span>
       <h3 style="margin-top:16px;">Authorization Code + PKCE</h3>
       <p>This is the workhorse flow, and almost certainly the one you should reach for unless you have a specific reason not to. The user is redirected away to the authorization server, where they authenticate and consent, and is then redirected back carrying a short-lived <em>authorization code</em> rather than a token. That code is then traded for actual tokens through a separate, back-channel request — one that never touches the browser. PKCE sits alongside this exchange specifically to stop that authorization code from being usable by anyone other than the client that requested it, even if it gets intercepted along the way.</p>
-      <p><strong>Use when:</strong> you're building a web app with a backend, a single-page app, or a mobile app — essentially any flow where a real human is sitting in front of a browser or device.</p>
+      <p><strong>Use when:</strong> you're building a web app with a backend, a single-page app, or a mobile app — essentially any flow where a real human is sitting in front of a browser or device. In OAuth 2.1, PKCE is required for all authorization code flows regardless of client type.</p>
     </div>
     <div class="tab-panel" id="grant-cc">
       <span class="badge badge-blue">Machine-to-machine</span>
       <h3 style="margin-top:16px;">Client Credentials</h3>
-      <p>There's no user anywhere in this flow — it's the client authenticating as itself, using its own <code>client_id</code> and <code>client_secret</code>, to get an access token that represents the application's own identity rather than any person's. It's the simplest grant in the spec because there's no redirect, no consent screen, and no browser involved at all; it's a single back-channel request.</p>
-      <p><strong>Use when:</strong> you have background jobs, microservices, or daemons that need to call an API with no user context attached — a nightly batch job pulling data from a partner API is the textbook case.</p>
+      <p>There's no user anywhere in this flow — it's the client authenticating as itself, using its own <code>client_id</code> and <code>client_secret</code> (or a private key JWT), to get an access token that represents the application's own identity rather than any person's. It's the simplest grant in the spec: a single back-channel request, no redirect, no consent screen, no browser.</p>
+      <p><strong>Use when:</strong> you have background jobs, microservices, or daemons that need to call an API with no user context attached — a nightly batch job pulling data from a partner API is the textbook case. Also heavily used by AI agents calling APIs on a pre-authorized basis.</p>
       <pre class="code-block"><span class="cm">// POST /token (back-channel)</span>
 <span class="cn">grant_type</span>=client_credentials
-<span class="cn">&amp;client_id</span>=my-service
-<span class="cn">&amp;client_secret</span>=••••••••
-<span class="cn">&amp;scope</span>=read:reports</pre>
+<span class="cn">&client_id</span>=my-service
+<span class="cn">&client_secret</span>=••••••••
+<span class="cn">&scope</span>=read:reports</pre>
     </div>
     <div class="tab-panel" id="grant-device">
       <span class="badge badge-orange">Input-constrained devices</span>
       <h3 style="margin-top:16px;">Device Authorization Grant</h3>
-      <p>Designed for devices that have no convenient way to handle a browser redirect — think smart TVs, CLI tools, or IoT devices with no keyboard. Instead of opening a browser on the device itself, it displays a short code and a URL. The user picks up their phone or laptop, visits that URL, types in the code, and authenticates there instead, while the original device quietly polls the token endpoint in the background until that approval comes through.</p>
-      <p><strong>Use when:</strong> you're building a CLI tool (this is exactly how <code>gh auth login</code> works), a smart TV app, or any other device without a practical way to render a full browser-based login screen.</p>
+      <p>Designed for devices that have no convenient way to handle a browser redirect — think smart TVs, CLI tools, or IoT devices with no keyboard. Instead of opening a browser on the device itself, it displays a short code and a URL. The user picks up their phone or laptop, visits that URL, types in the code, and authenticates there instead, while the original device quietly polls the token endpoint in the background until approval comes through.</p>
+      <p><strong>Use when:</strong> you're building a CLI tool (this is exactly how <code>gh auth login</code> works), a smart TV app, or any other device without a practical way to render a full browser-based login screen. Increasingly also used for headless AI agent authorization.</p>
     </div>
     <div class="tab-panel" id="grant-implicit">
       <span class="badge badge-red">Deprecated</span>
       <h3 style="margin-top:16px;">Implicit Flow</h3>
       <p>This was OAuth's original answer for single-page apps, back before PKCE existed: rather than returning a code that gets exchanged for tokens, the authorization server returned the access token directly in the URL fragment, as in <code>#access_token=...</code>. It seemed reasonable at the time, but tokens sitting in a URL turn out to leak in all sorts of mundane ways — browser history, referrer headers sent to third-party scripts, and server access logs all end up holding a live credential.</p>
       <div class="callout danger" style="margin-top:12px;">
-        <div class="callout-title">Do not use</div>
-        <p>Use Authorization Code + PKCE for SPAs instead — it solves the same problem without exposing tokens in the URL. The implicit flow has been formally dropped from the OAuth 2.1 draft specification.</p>
+        <div class="callout-title">Do not use — removed in OAuth 2.1</div>
+        <p>Use Authorization Code + PKCE for SPAs instead — it solves the same problem without exposing tokens in the URL. The implicit flow has been formally removed from the OAuth 2.1 specification.</p>
       </div>
     </div>
     <div class="tab-panel" id="grant-ropc">
       <span class="badge badge-red">Avoid</span>
       <h3 style="margin-top:16px;">Resource Owner Password Credentials</h3>
-      <p>In this grant, the client itself collects the user's username and password through its own form and sends them straight to the token endpoint. It quietly defeats the entire premise of OAuth, which is that the client app should never see the user's actual credentials. It also makes multi-factor authentication and social login effectively impossible to support, since the auth server never gets to show its own login UI.</p>
+      <p>In this grant, the client itself collects the user's username and password through its own form and sends them straight to the token endpoint. It quietly defeats the entire premise of OAuth, which is that the client app should never see the user's actual credentials. It also makes multi-factor authentication and social login effectively impossible to support.</p>
       <div class="callout danger" style="margin-top:12px;">
-        <div class="callout-title">Only for legacy migration</div>
-        <p>About the only legitimate use case left is a temporary bridge while migrating an existing system that already stores user passwords directly. For any new system, Authorization Code + PKCE is the right choice.</p>
+        <div class="callout-title">Removed in OAuth 2.1</div>
+        <p>ROPC has been formally dropped from OAuth 2.1. The only legitimate use case left is a temporary bridge while migrating an existing system that already stores user passwords directly. For any new system, Authorization Code + PKCE is the right choice.</p>
       </div>
     </div>
   </div>
 
   <h3>Grant Type Comparison</h3>
-  <p>Laid side by side, the deciding factors usually come down to two questions: is a human present to authenticate, and can the client be trusted with a secret? Answer those two and the right grant type tends to fall out naturally.</p>
-  <table class="grant-table">
-    <thead>
-      <tr>
-        <th>Grant Type</th>
-        <th>User present?</th>
-        <th>Client secret needed?</th>
-        <th>Recommended?</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Auth Code + PKCE</td>
-        <td>Yes</td>
-        <td>No (PKCE replaces it)</td>
-        <td><span class="badge badge-green">Yes</span></td>
-      </tr>
-      <tr>
-        <td>Client Credentials</td>
-        <td>No</td>
-        <td>Yes</td>
-        <td><span class="badge badge-green">For M2M</span></td>
-      </tr>
-      <tr>
-        <td>Device Code</td>
-        <td>Yes (on another device)</td>
-        <td>No</td>
-        <td><span class="badge badge-green">For devices</span></td>
-      </tr>
-      <tr>
-        <td>Implicit</td>
-        <td>Yes</td>
-        <td>No</td>
-        <td><span class="badge badge-red">Deprecated</span></td>
-      </tr>
-      <tr>
-        <td>ROPC</td>
-        <td>Yes (password exposed)</td>
-        <td>Sometimes</td>
-        <td><span class="badge badge-red">Avoid</span></td>
-      </tr>
-    </tbody>
-  </table>
+  <div class="table-wrap">
+    <table class="grant-table">
+      <thead>
+        <tr><th>Grant Type</th><th>User present?</th><th>Client secret needed?</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Auth Code + PKCE</td><td>Yes</td><td>No (PKCE replaces it for public clients)</td><td><span class="badge badge-green">Recommended</span></td></tr>
+        <tr><td>Client Credentials</td><td>No</td><td>Yes</td><td><span class="badge badge-green">For M2M</span></td></tr>
+        <tr><td>Device Code</td><td>Yes (on another device)</td><td>No</td><td><span class="badge badge-green">For devices / CLI</span></td></tr>
+        <tr><td>Implicit</td><td>Yes</td><td>No</td><td><span class="badge badge-red">Removed in 2.1</span></td></tr>
+        <tr><td>ROPC</td><td>Yes (password exposed)</td><td>Sometimes</td><td><span class="badge badge-red">Removed in 2.1</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="oauth21">OAuth 2.1 — What's New <span class="badge-new">2026</span></h2>
+  <p class="lede">OAuth 2.1 is not a new protocol — it's a curated consolidation of a decade of security best practices into a single, tighter document.</p>
+  <p>The OAuth 2.1 draft (RFC-in-progress) folds in the most important security BCP (RFC 9700) and several other RFCs into one coherent specification, removing the footguns that experience has shown developers tend to stumble into. If your implementation already follows current best practices, you're probably already compliant with 2.1. The key changes are:</p>
+
+  <div class="concept-grid">
+    <div class="card green">
+      <div class="card-label">PKCE — Mandatory</div>
+      <div class="card-title">Required for all auth code flows</div>
+      <p>Previously PKCE was specifically recommended for public clients. In OAuth 2.1 it's required for every client using the authorization code grant — confidential clients included. PKCE is now table stakes.</p>
+    </div>
+    <div class="card red">
+      <div class="card-label">Implicit &amp; ROPC — Removed</div>
+      <div class="card-title">Two grants eliminated</div>
+      <p>The implicit flow and Resource Owner Password Credentials grant are no longer part of the specification. If you encounter code that still uses them, that's a clear signal the implementation needs updating.</p>
+    </div>
+    <div class="card blue">
+      <div class="card-label">Redirect URI</div>
+      <div class="card-title">Exact-match only</div>
+      <p>OAuth 2.1 mandates exact-match redirect URI comparison — no wildcards, no prefix matching. This closes off a class of authorization code redirect attacks that loose matching enabled.</p>
+    </div>
+    <div class="card orange">
+      <div class="card-label">Refresh Token Rotation</div>
+      <div class="card-title">Default, not optional</div>
+      <p>Refresh token rotation is now the expected default for public clients. Sender-constrained refresh tokens — tied to a specific client via DPoP or mTLS — are the recommended approach for confidential clients.</p>
+    </div>
+  </div>
+
+  <div class="callout new">
+    <div class="callout-title">Is my app OAuth 2.1 compliant?</div>
+    <p>Check four things: (1) you're using Authorization Code + PKCE, (2) you've dropped Implicit and ROPC, (3) your redirect URIs are registered exactly, and (4) you're rotating refresh tokens. If all four are true, you're effectively already compliant — 2.1 codifies existing best practice rather than introducing new requirements.</p>
+  </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="endpoints">Endpoints</h2>
   <p class="lede">Every authorization server exposes the same small handful of URLs. Learn these four and you can read any OAuth integration.</p>
-  <p>One of the nicer things about OAuth and OIDC is that despite the dozens of providers out there, they all converge on the same basic set of endpoints, doing the same basic jobs. Once you've worked with one provider's <code>/authorize</code> and <code>/token</code> endpoints, you've effectively worked with all of them — the parameter names and behavior are remarkably consistent across vendors. Click each one below to expand it.</p>
-
-  <div class="endpoint">
-    <div class="endpoint-header" onclick="toggleEndpoint(this)">
-      <span class="method method-get">GET</span>
-      <span class="endpoint-path">/.well-known/openid-configuration</span>
-      <span class="endpoint-desc">Discovery document</span>
-      <span class="chevron">▶</span>
-    </div>
-    <div class="endpoint-body">
-      <p>This is usually the very first request your application makes, and it's worth starting every integration here. It returns a single JSON document listing the URLs of every other endpoint, the scopes and claims the provider supports, the signing algorithms it uses, and a number of other capability flags. Fetch it once on startup, cache the result, and resolve every other endpoint from it rather than hardcoding URLs — providers do occasionally restructure their infrastructure, and discovery is what insulates your app from that.</p>
-      <pre class="code-block"><span class="cm">// Returned JSON includes:</span>
-{
-  <span class="str">"issuer"</span>: <span class="str">"https://auth.example.com"</span>,
-  <span class="str">"authorization_endpoint"</span>: <span class="str">"https://auth.example.com/authorize"</span>,
-  <span class="str">"token_endpoint"</span>: <span class="str">"https://auth.example.com/token"</span>,
-  <span class="str">"userinfo_endpoint"</span>: <span class="str">"https://auth.example.com/userinfo"</span>,
-  <span class="str">"jwks_uri"</span>: <span class="str">"https://auth.example.com/.well-known/jwks.json"</span>,
-  <span class="str">"scopes_supported"</span>: [<span class="str">"openid"</span>, <span class="str">"profile"</span>, <span class="str">"email"</span>],
-  <span class="str">"id_token_signing_alg_values_supported"</span>: [<span class="str">"RS256"</span>]
-}</pre>
-    </div>
-  </div>
 
   <div class="endpoint">
     <div class="endpoint-header" onclick="toggleEndpoint(this)">
       <span class="method method-get">GET</span>
       <span class="endpoint-path">/authorize</span>
       <span class="endpoint-desc">Authorization endpoint — browser redirect</span>
-      <span class="chevron">▶</span>
+      <span class="chevron">&#9658;</span>
     </div>
     <div class="endpoint-body">
-      <p>This is the endpoint the user's browser actually navigates to — never something your code calls with <code>fetch()</code>. It needs to be a genuine, full browser navigation because the authorization server has to render its own login UI, set its own cookies, and possibly redirect through a federated identity provider of its own. Trying to call it programmatically defeats the entire security model, since the whole point is that the user is interacting directly with a server they (hopefully) trust, on a domain the client app can't tamper with.</p>
-      <h3 style="margin-top:16px;">Key Parameters</h3>
+      <p>The endpoint where the browser flow begins. The client redirects the user here, the authorization server authenticates them and shows a consent screen, then redirects back to the client with an authorization code attached. This is the only endpoint that speaks directly to the user — every other endpoint in OAuth is a back-channel machine-to-machine call.</p>
       <ul class="param-list">
-        <li><span class="param-name">client_id</span><span class="param-desc">Identifies your app to the auth server.</span><span class="param-req">required</span></li>
-        <li><span class="param-name">redirect_uri</span><span class="param-desc">Where to send the user after auth. Must match an allow-list on the server.</span><span class="param-req">required</span></li>
-        <li><span class="param-name">response_type</span><span class="param-desc">Always <code>code</code> for auth code flow.</span><span class="param-req">required</span></li>
-        <li><span class="param-name">scope</span><span class="param-desc">Space-separated scopes. Include <code>openid</code> for OIDC.</span><span class="param-req">required</span></li>
-        <li><span class="param-name">state</span><span class="param-desc">Random value to prevent CSRF. Must be verified when the callback arrives.</span><span class="param-req">required</span></li>
-        <li><span class="param-name">code_challenge</span><span class="param-desc">SHA-256 hash of your PKCE code verifier.</span><span class="param-req">required (PKCE)</span></li>
-        <li><span class="param-name">code_challenge_method</span><span class="param-desc">Always <code>S256</code>. Never use <code>plain</code>.</span><span class="param-req">required (PKCE)</span></li>
-        <li><span class="param-name">nonce</span><span class="param-desc">Random value embedded in the ID token to prevent replay attacks.</span><span class="param-opt">optional (OIDC)</span></li>
-        <li><span class="param-name">prompt</span><span class="param-desc"><code>none</code> (silent), <code>login</code> (force re-login), <code>consent</code> (force re-consent), <code>select_account</code>.</span><span class="param-opt">optional</span></li>
-        <li><span class="param-name">max_age</span><span class="param-desc">Max seconds since last user authentication. Forces re-auth if exceeded.</span><span class="param-opt">optional</span></li>
+        <li><span class="param-name">response_type</span><span class="param-desc">Always <code>code</code> for the authorization code flow.</span><span class="param-req">Required</span></li>
+        <li><span class="param-name">client_id</span><span class="param-desc">Identifies your application to the authorization server.</span><span class="param-req">Required</span></li>
+        <li><span class="param-name">redirect_uri</span><span class="param-desc">Where to send the user back with the code. Must exactly match a pre-registered URI in OAuth 2.1.</span><span class="param-req">Required</span></li>
+        <li><span class="param-name">scope</span><span class="param-desc">Space-separated list of permissions your app is requesting. Include <code>openid</code> for OIDC.</span><span class="param-req">Required</span></li>
+        <li><span class="param-name">state</span><span class="param-desc">A random value you generate, stored client-side, and verified on return. Defeats CSRF attacks against the login flow.</span><span class="param-req">Required</span></li>
+        <li><span class="param-name">code_challenge</span><span class="param-desc">The SHA-256 hash of your PKCE code_verifier. Required in OAuth 2.1.</span><span class="param-req">Required</span></li>
+        <li><span class="param-name">code_challenge_method</span><span class="param-desc">Should always be <code>S256</code>. Never use <code>plain</code>.</span><span class="param-req">Required</span></li>
+        <li><span class="param-name">nonce</span><span class="param-desc">OIDC-specific. A random value embedded in the returned ID token to prevent replay attacks.</span><span class="param-opt">OIDC</span></li>
+        <li><span class="param-name">request_uri</span><span class="param-desc">PAR-specific. Replaces all other params with a reference to a pushed request object. See PAR section below.</span><span class="param-opt">PAR</span></li>
       </ul>
     </div>
   </div>
@@ -856,18 +461,16 @@
       <span class="method method-post">POST</span>
       <span class="endpoint-path">/token</span>
       <span class="endpoint-desc">Token endpoint — back-channel fetch</span>
-      <span class="chevron">▶</span>
+      <span class="chevron">&#9658;</span>
     </div>
     <div class="endpoint-body">
-      <p>Where the actual tokens get issued — by exchanging an authorization code for tokens after a login, or later by exchanging a refresh token for a fresh access token. Crucially, this call happens server-to-server, in the back channel, never from code running in the browser. Keeping it server-side means the response — including any client secret used to authenticate the request — never passes through the user's browser, where it could end up in history, dev tools, or a malicious extension's view.</p>
+      <p>The endpoint where authorization codes get redeemed for actual tokens — and where refresh tokens get exchanged for new access tokens. Everything here happens as a direct server-to-server (or SPA-to-server) request, not a browser redirect, which is why this endpoint never exposes tokens in a URL. If you're using DPoP, your JWT proof header is bound to this endpoint.</p>
       <ul class="param-list">
-        <li><span class="param-name">grant_type</span><span class="param-desc"><code>authorization_code</code>, <code>refresh_token</code>, or <code>client_credentials</code>.</span><span class="param-req">required</span></li>
-        <li><span class="param-name">code</span><span class="param-desc">The authorization code from the redirect callback.</span><span class="param-req">required (code flow)</span></li>
-        <li><span class="param-name">redirect_uri</span><span class="param-desc">Must exactly match what was sent to /authorize.</span><span class="param-req">required (code flow)</span></li>
-        <li><span class="param-name">code_verifier</span><span class="param-desc">The original random PKCE value. Server hashes and compares to stored challenge.</span><span class="param-req">required (PKCE)</span></li>
-        <li><span class="param-name">client_id</span><span class="param-desc">Your app's identifier.</span><span class="param-req">required</span></li>
-        <li><span class="param-name">client_secret</span><span class="param-desc">Secret for confidential clients. Never include in browser code.</span><span class="param-opt">confidential only</span></li>
-        <li><span class="param-name">refresh_token</span><span class="param-desc">Used when <code>grant_type=refresh_token</code>.</span><span class="param-opt">refresh only</span></li>
+        <li><span class="param-name">grant_type</span><span class="param-desc">One of: <code>authorization_code</code>, <code>refresh_token</code>, <code>client_credentials</code>, or the device code URN.</span><span class="param-req">Required</span></li>
+        <li><span class="param-name">code</span><span class="param-desc">The authorization code from the /authorize callback. One use only — it expires in seconds.</span><span class="param-req">auth_code only</span></li>
+        <li><span class="param-name">code_verifier</span><span class="param-desc">The PKCE secret you generated before the redirect. The server hashes it and checks it against the stored challenge.</span><span class="param-req">PKCE required</span></li>
+        <li><span class="param-name">redirect_uri</span><span class="param-desc">Must exactly match the URI used in /authorize. Just a validation parameter, not a new redirect.</span><span class="param-req">Required</span></li>
+        <li><span class="param-name">client_id</span><span class="param-desc">Your application's identifier. Confidential clients authenticate here with a secret or private key JWT.</span><span class="param-req">Required</span></li>
       </ul>
     </div>
   </div>
@@ -875,22 +478,24 @@
   <div class="endpoint">
     <div class="endpoint-header" onclick="toggleEndpoint(this)">
       <span class="method method-get">GET</span>
-      <span class="endpoint-path">/.well-known/jwks.json</span>
-      <span class="endpoint-desc">JSON Web Key Set — public keys for JWT verification</span>
-      <span class="chevron">▶</span>
+      <span class="endpoint-path">/.well-known/openid-configuration</span>
+      <span class="endpoint-desc">Discovery endpoint — auto-configuration</span>
+      <span class="chevron">&#9658;</span>
     </div>
     <div class="endpoint-body">
-      <p>The authorization server signs JWTs with a private key it never shares — but it publishes the matching public keys here, in a standard format called a JSON Web Key Set. Your resource server fetches this once and caches it, then uses it to verify the signature on every JWT it sees, locally, with no network call required per request. Each key carries a <code>kid</code> (key ID), and that's how a verifier matches an incoming token to the right public key — it's also how providers can rotate signing keys over time without breaking already-issued tokens.</p>
-      <pre class="code-block">{
-  <span class="str">"keys"</span>: [{
-    <span class="str">"kty"</span>: <span class="str">"RSA"</span>,
-    <span class="str">"kid"</span>: <span class="str">"key-id-2024"</span>,    <span class="cm">// match to token header's "kid"</span>
-    <span class="str">"use"</span>: <span class="str">"sig"</span>,
-    <span class="str">"alg"</span>: <span class="str">"RS256"</span>,
-    <span class="str">"n"</span>: <span class="str">"...base64url modulus..."</span>,
-    <span class="str">"e"</span>: <span class="str">"AQAB"</span>
-  }]
-}</pre>
+      <p>OIDC's discovery endpoint. Returns a JSON document listing every endpoint, supported algorithm, scope, and capability of this authorization server. This is how a client library can talk to Google, Okta, and Keycloak with no provider-specific code — it just reads this document and configures itself. Every modern OIDC provider exposes this URL. Use it rather than hardcoding endpoint URLs in your config.</p>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggleEndpoint(this)">
+      <span class="method method-get">GET</span>
+      <span class="endpoint-path">/.well-known/jwks.json</span>
+      <span class="endpoint-desc">JWKS endpoint — public keys for JWT verification</span>
+      <span class="chevron">&#9658;</span>
+    </div>
+    <div class="endpoint-body">
+      <p>The JSON Web Key Set endpoint. Returns the authorization server's current public keys in a standardized format. When you receive a JWT, your library fetches this document to find the right key, identified by the <code>kid</code> claim in the JWT header, and uses it to verify the signature. Most libraries cache this document and only re-fetch when they encounter an unknown key ID.</p>
     </div>
   </div>
 
@@ -899,10 +504,10 @@
       <span class="method method-post">POST</span>
       <span class="endpoint-path">/revoke</span>
       <span class="endpoint-desc">Revocation endpoint — back-channel fetch</span>
-      <span class="chevron">▶</span>
+      <span class="chevron">&#9658;</span>
     </div>
     <div class="endpoint-body">
-      <p>The counterpart to issuing tokens is being able to take them back, and that's what this endpoint is for. Call it with a refresh token (or, on some providers, an access token) when a user logs out, and the authorization server invalidates it immediately rather than waiting for it to expire naturally. This matters most for refresh tokens, since they otherwise stay valid for a long time — a proper "log out everywhere" feature is really just a call to this endpoint.</p>
+      <p>The counterpart to issuing tokens is being able to take them back. Call it with a refresh token (or, on some providers, an access token) when a user logs out, and the authorization server invalidates it immediately rather than waiting for it to expire naturally. This matters most for refresh tokens — a proper "log out everywhere" feature is really just a call to this endpoint.</p>
     </div>
   </div>
 
@@ -919,16 +524,15 @@
         <p>A cryptographically random 43–128 character string. Stays in the client. Never sent to the auth server directly.</p>
       </div>
     </div>
-    <div class="pkce-arrow">↓</div>
+    <div class="pkce-arrow">&#8595;</div>
     <div class="pkce-step">
       <div class="pkce-num">2</div>
       <div class="pkce-content">
-        <strong>Hash it → <code>code_challenge</code></strong>
-        <p><code>code_challenge = BASE64URL(SHA256(code_verifier))</code><br>
-        This hash is sent to the auth server in the /authorize request.</p>
+        <strong>Hash it &#8594; <code>code_challenge</code></strong>
+        <p><code>code_challenge = BASE64URL(SHA256(code_verifier))</code><br>This hash is sent to the auth server in the /authorize request.</p>
       </div>
     </div>
-    <div class="pkce-arrow">↓</div>
+    <div class="pkce-arrow">&#8595;</div>
     <div class="pkce-step">
       <div class="pkce-num">3</div>
       <div class="pkce-content">
@@ -936,48 +540,80 @@
         <p>It ties the <code>code_challenge</code> to the authorization code it issues. The challenge is a commitment — you can't back-compute the verifier from it.</p>
       </div>
     </div>
-    <div class="pkce-arrow">↓</div>
+    <div class="pkce-arrow">&#8595;</div>
     <div class="pkce-step">
       <div class="pkce-num">4</div>
       <div class="pkce-content">
         <strong>Token exchange: send the verifier</strong>
-        <p>POST to /token with <code>code_verifier</code>. The server hashes it and checks it matches the stored challenge. If not, it rejects the request.</p>
+        <p>POST to /token with <code>code_verifier</code>. The server hashes it and checks it matches the stored challenge. If not, the request is rejected.</p>
       </div>
     </div>
   </div>
-
-  <p>Notice the asymmetry baked into this design: the <em>hash</em> of the secret travels in the open, in a URL, where it could plausibly be observed. The secret itself only ever appears once, in the back-channel request to the token endpoint, which is a far more controlled environment. That ordering is the whole trick — by the time anyone could intercept the code from step three, the verifier needed to redeem it was never exposed alongside it.</p>
 
   <div class="callout ok">
     <div class="callout-title">Why this stops code theft</div>
     <p>An attacker who intercepts the <code>code</code> in the redirect URL doesn't have the <code>code_verifier</code> — it was never in a URL. They'd need to break SHA-256 to derive it from the challenge. That's computationally infeasible.</p>
   </div>
 
-  <p>It's also worth knowing that while PKCE was originally specified as a mitigation for public clients — apps that can't hold a secret — modern guidance, including the emerging OAuth 2.1 spec, recommends using it everywhere, even for confidential server-side clients that do have a client secret. It's cheap to implement and closes off an entire class of attack, so there's little reason not to use it universally.</p>
+  <p>While PKCE was originally specified as a mitigation for public clients, OAuth 2.1 requires it everywhere — even for confidential server-side clients that do have a client secret. It's cheap to implement and closes off an entire class of attack, so there's little reason not to use it universally.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="par">Pushed Authorization Requests (PAR) <span class="badge-new">2026</span></h2>
+  <p class="lede">PAR flips the authorization flow — instead of stuffing everything in a URL, you push the parameters to the server first and get back a reference.</p>
+  <p>Defined in RFC 9126, Pushed Authorization Requests address a subtle weakness in the standard authorization code flow: all your authorization parameters travel in the browser's URL, where they can be logged, intercepted, or tampered with. PAR moves those parameters to a back-channel POST first.</p>
+
+  <div class="pkce-vis">
+    <div class="pkce-step">
+      <div class="pkce-num">1</div>
+      <div class="pkce-content">
+        <strong>Client POSTs parameters to <code>/par</code></strong>
+        <p>All authorization parameters (scope, redirect_uri, PKCE challenge, etc.) are sent as a back-channel POST — authenticated with client credentials. No browser involved yet.</p>
+      </div>
+    </div>
+    <div class="pkce-arrow">&#8595;</div>
+    <div class="pkce-step">
+      <div class="pkce-num">2</div>
+      <div class="pkce-content">
+        <strong>Server returns a <code>request_uri</code></strong>
+        <p>The server stores the parameters and returns a short-lived, one-time-use <code>request_uri</code> reference (e.g. <code>urn:ietf:params:oauth:request_uri:xyz</code>).</p>
+      </div>
+    </div>
+    <div class="pkce-arrow">&#8595;</div>
+    <div class="pkce-step">
+      <div class="pkce-num">3</div>
+      <div class="pkce-content">
+        <strong>Browser redirect uses only the <code>request_uri</code></strong>
+        <p>The redirect to /authorize carries just <code>client_id</code> and <code>request_uri</code>. All the sensitive parameters are already safely stored on the server side.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout new">
+    <div class="callout-title">Why PAR matters in 2026</div>
+    <p>PAR is now mandatory in FAPI 2.0 (Financial-grade API) and strongly recommended by the OAuth Security BCP (RFC 9700). It's also a prerequisite for Rich Authorization Requests (RAR, RFC 9396), which allow structured authorization data — like specifying exactly which bank accounts a fintech app may access — rather than flat scope strings. If you're building high-security or regulated applications, PAR is no longer optional.</p>
+  </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="client-types">Client Types</h2>
   <p class="lede">Not all OAuth clients can be trusted equally — and the spec splits them into two categories precisely so it can treat them differently.</p>
-  <p>The single question that determines which category a client falls into is simple: can this application keep a secret from the end user it's running on, or in front of? A server-side app's code runs somewhere the user can never inspect, so it can hold a real secret. Anything running on the user's own device or in their own browser — a JavaScript bundle, a native mobile binary, a CLI tool — can always be decompiled, inspected, or read directly, so it cannot.</p>
+  <p>The single question that determines which category a client falls into is simple: can this application keep a secret from the end user it's running on, or in front of? A server-side app's code runs somewhere the user can never inspect, so it can hold a real secret. Anything running on the user's own device or in their own browser can always be decompiled, inspected, or read directly, so it cannot.</p>
 
   <div class="concept-grid">
     <div class="card green">
       <div class="card-label">Confidential Client</div>
       <div class="card-title">Can keep a secret</div>
-      <p>Server-side apps where code runs in a trusted environment. Can safely store a <code>client_secret</code>. Examples: Express, Django, Rails, Spring Boot apps.</p>
+      <p>Server-side apps where code runs in a trusted environment. Can safely store a <code>client_secret</code> or use <code>private_key_jwt</code> for stronger client authentication. Examples: Express, Django, Rails, Spring Boot apps.</p>
     </div>
     <div class="card orange">
       <div class="card-label">Public Client</div>
       <div class="card-title">Cannot keep a secret</div>
-      <p>Code runs on the user's device — they could inspect it. Cannot use a client secret. Use PKCE instead. Examples: SPAs, React/Vue apps, mobile apps, CLIs.</p>
+      <p>Code runs on the user's device — they could inspect it. Cannot use a client secret. Use PKCE instead. Examples: SPAs, React/Vue apps, mobile apps, CLIs. In 2026, AI agent runtimes on user devices also fall into this category.</p>
     </div>
   </div>
 
-  <p>This distinction is also why PKCE exists at all: it was designed to give public clients a way to prove their requests are legitimate without needing a secret they're structurally incapable of protecting. A confidential client authenticates itself to the token endpoint with its client secret; a public client authenticates the specific transaction with PKCE instead.</p>
-
   <div class="callout warn">
     <div class="callout-title">Client secrets in frontend code</div>
-    <p>If you embed a <code>client_secret</code> in a JavaScript bundle, it's not secret — anyone can find it in DevTools. Public clients must use PKCE, and no client secret.</p>
+    <p>If you embed a <code>client_secret</code> in a JavaScript bundle, it's not secret — anyone can find it in DevTools. Public clients must use PKCE, and no client secret. For server-side clients, prefer <code>private_key_jwt</code> over shared secrets wherever your auth server supports it — it's phishing-resistant and doesn't require secret rotation.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -1002,8 +638,6 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
     <p>Without <code>state</code>, an attacker could trick a victim into completing an OAuth flow that logs them into the attacker's account, then steal their session actions (payment, data entry). Always verify state on every callback.</p>
   </div>
 
-  <p>That last scenario is worth spelling out, because it's not always obvious why it's dangerous: imagine an attacker starts an OAuth login flow themselves, captures the resulting authorization code, and then tricks a victim into visiting the callback URL with the attacker's code attached. If the app never checks <code>state</code>, it happily logs the victim in as the attacker — and anything the victim subsequently does, like linking a payment method or uploading a sensitive file, ends up associated with the attacker's account instead of their own. Verifying state, generated fresh per attempt and tied to the user's own browser session, closes that gap entirely.</p>
-
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="oidc">What OIDC Adds to OAuth 2.0</h2>
   <p class="lede">OIDC doesn't replace anything in OAuth — it's a small, deliberate set of additions layered on top.</p>
@@ -1018,7 +652,7 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
     <div class="card teal">
       <div class="card-label">UserInfo Endpoint</div>
       <div class="card-title">Fetch more claims</div>
-      <p>An authenticated GET endpoint that returns user profile data. Use it when you need claims that aren't in the ID token, or want fresh data.</p>
+      <p>An authenticated GET endpoint that returns user profile data. Use it when you need claims that aren't in the ID token, or want fresh data since login.</p>
     </div>
     <div class="card blue">
       <div class="card-label">Nonce</div>
@@ -1032,21 +666,21 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
     </div>
   </div>
 
-  <p>It's this last point — standardization — that's arguably OIDC's biggest practical contribution. Plain OAuth 2.0 leaves a lot of room for interpretation: providers were free to invent their own ways of representing user profile data, their own discovery mechanisms, their own conventions for everything beyond the bare authorization mechanics. OIDC pins all of that down, which is exactly why a single OIDC client library can talk to Google, Microsoft, Okta, and a dozen other providers with barely any provider-specific code.</p>
+  <p>It's this last point — standardization — that's arguably OIDC's biggest practical contribution. Plain OAuth 2.0 leaves a lot of room for interpretation: providers were free to invent their own ways of representing user profile data. OIDC pins all of that down, which is exactly why a single OIDC client library can talk to Google, Microsoft, Okta, and a dozen other providers with barely any provider-specific code.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="jwt">JWT &amp; ID Token Anatomy</h2>
   <p class="lede">A JWT is just three pieces of JSON, base64-encoded and glued together — but each piece carries a very specific job.</p>
-  <p>JSON Web Tokens look intimidating as a long string of seemingly random characters, but they're built from nothing more exotic than JSON. Split on the two dots and you get three Base64URL-encoded segments: a header describing how the token is signed, a payload containing the actual claims, and a signature that lets anyone holding the right public key verify the first two segments haven't been tampered with since they were issued. Click any part of the token below to see it decoded.</p>
+  <p>JSON Web Tokens look intimidating as a long string of seemingly random characters, but they're built from nothing more exotic than JSON. Split on the two dots and you get three Base64URL-encoded segments: a header describing how the token is signed, a payload containing the actual claims, and a signature that lets anyone holding the right public key verify the first two segments haven't been tampered with. Tap any part of the token below to see it decoded.</p>
 
   <div class="token-box" id="jwt-box">
-    <div style="margin-bottom:12px;color:var(--muted);font-size:11px;">EXAMPLE ID TOKEN — click a part to decode</div>
-    <span class="token-part part-header" onclick="showDecoded('header')">eyJhbGciOiJSUzI1NiIsImtpZCI6ImtleS0yMDI0IiwidHlwIjoiSldUIn0</span><span class="token-dot">.</span><span class="token-part part-payload" onclick="showDecoded('payload')">eyJpc3MiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJzdWIiOiJ1c2VyXzEyMyIsImF1ZCI6Im15LWFwcCIsImV4cCI6MTczNTY4OTYwMCwiaWF0IjoxNzM1Njg2MDAwLCJub25jZSI6ImFiYzEyMyIsImVtYWlsIjoiamFuZUBleGFtcGxlLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJuYW1lIjoiSmFuZSBEb2UifQ</span><span class="token-dot">.</span><span class="token-part part-sig" onclick="showDecoded('sig')">SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c</span>
+    <div style="margin-bottom:12px;color:var(--text-faint);font-size:11px;">EXAMPLE ID TOKEN — tap a part to decode</div>
+    <span class="token-part part-header" onclick="showDecoded('header')">eyJhbGciOiJSUzI1NiIsImtpZCI6ImtleS0yMDI2IiwidHlwIjoiSldUIn0</span><span class="token-dot">.</span><span class="token-part part-payload" onclick="showDecoded('payload')">eyJpc3MiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJzdWIiOiJ1c2VyXzEyMyIsImF1ZCI6Im15LWFwcCIsImV4cCI6MTc1MDAwMDAwMCwiaWF0IjoxNzQ5OTk2NDAwLCJub25jZSI6ImFiYzEyMyIsImVtYWlsIjoiamFuZUBleGFtcGxlLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJuYW1lIjoiSmFuZSBEb2UifQ</span><span class="token-dot">.</span><span class="token-part part-sig" onclick="showDecoded('sig')">SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c</span>
 
     <div class="token-legend">
-      <div class="token-legend-item"><div class="token-legend-dot" style="background:var(--red)"></div><span style="color:var(--red)">Header</span> — algorithm &amp; key ID</div>
-      <div class="token-legend-item"><div class="token-legend-dot" style="background:var(--accent)"></div><span style="color:var(--accent)">Payload</span> — claims (the data)</div>
-      <div class="token-legend-item"><div class="token-legend-dot" style="background:var(--green)"></div><span style="color:var(--green)">Signature</span> — tamper-proof seal</div>
+      <div class="token-legend-item"><div class="token-legend-dot" style="background:var(--red)"></div><span style="color:var(--red)">Header</span> &mdash; algorithm &amp; key ID</div>
+      <div class="token-legend-item"><div class="token-legend-dot" style="background:var(--accent)"></div><span style="color:var(--accent)">Payload</span> &mdash; claims (the data)</div>
+      <div class="token-legend-item"><div class="token-legend-dot" style="background:var(--green)"></div><span style="color:var(--green)">Signature</span> &mdash; tamper-proof seal</div>
     </div>
 
     <div class="decoded-box" id="decoded-header">
@@ -1054,7 +688,7 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
         <div class="decoded-section-title red">Header (decoded)</div>
         <pre class="json">{
   <span class="json-key">"alg"</span>: <span class="json-str">"RS256"</span>,   <span class="cm">// RS256 = RSA + SHA-256. Always verify this matches expected.</span>
-  <span class="json-key">"kid"</span>: <span class="json-str">"key-2024"</span>, <span class="cm">// Key ID — look up in JWKS to find the right public key</span>
+  <span class="json-key">"kid"</span>: <span class="json-str">"key-2026"</span>, <span class="cm">// Key ID — look up in JWKS to find the right public key</span>
   <span class="json-key">"typ"</span>: <span class="json-str">"JWT"</span>
 }</pre>
       </div>
@@ -1067,8 +701,8 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
   <span class="json-key">"iss"</span>: <span class="json-str">"https://auth.example.com"</span>, <span class="cm">// Issuer — must match your auth server</span>
   <span class="json-key">"sub"</span>: <span class="json-str">"user_123"</span>,               <span class="cm">// Subject — stable unique user ID. Use as your user key.</span>
   <span class="json-key">"aud"</span>: <span class="json-str">"my-app"</span>,                 <span class="cm">// Audience — must match your client_id</span>
-  <span class="json-key">"exp"</span>: <span class="json-num">1735689600</span>,              <span class="cm">// Expiry (Unix timestamp) — reject if in the past</span>
-  <span class="json-key">"iat"</span>: <span class="json-num">1735686000</span>,              <span class="cm">// Issued At — when the token was created</span>
+  <span class="json-key">"exp"</span>: <span class="json-num">1750000000</span>,              <span class="cm">// Expiry (Unix timestamp) — reject if in the past</span>
+  <span class="json-key">"iat"</span>: <span class="json-num">1749996400</span>,              <span class="cm">// Issued At — when the token was created</span>
   <span class="json-key">"nonce"</span>: <span class="json-str">"abc123"</span>,               <span class="cm">// Must match nonce you sent in /authorize</span>
   <span class="json-key">"email"</span>: <span class="json-str">"jane@example.com"</span>,     <span class="cm">// From 'email' scope</span>
   <span class="json-key">"email_verified"</span>: <span class="json-bool">true</span>,       <span class="cm">// Don't trust unverified emails</span>
@@ -1089,43 +723,22 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
     </div>
   </div>
 
-  <p>The header and payload are only Base64URL-<em>encoded</em>, not encrypted — anyone can decode them and read the claims inside without any key at all, which is why a JWT is described as tamper-evident rather than confidential. The signature is what actually does the protective work: it's computed over the exact bytes of the encoded header and payload, so changing even a single character anywhere in either one — say, swapping <code>"sub": "user_123"</code> for someone else's ID — invalidates the signature and any honest verifier will reject the token outright.</p>
-
-  <h3>ID Token Validation Checklist</h3>
-  <p>Decoding a JWT and trusting its contents are two very different things, and skipping validation is one of the most common ways teams accidentally build an authentication bypass. A library can do the cryptographic verification for you, but it still needs to be told what to check — every item below should be confirmed before you treat the claims inside as true.</p>
-  <div class="callout warn">
-    <div class="callout-title">Always validate these — never trust a JWT you didn't verify</div>
-    <p>
-      ✔ <code>iss</code> matches your expected auth server<br>
-      ✔ <code>aud</code> contains your <code>client_id</code><br>
-      ✔ <code>exp</code> is in the future<br>
-      ✔ <code>iat</code> is not too far in the past<br>
-      ✔ <code>nonce</code> matches what you sent (if used)<br>
-      ✔ Signature verified with the correct public key from JWKS<br>
-      ✔ <code>alg</code> header matches an algorithm you accept (reject <code>none</code>!)
-    </p>
-  </div>
-
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="claims">Claims</h2>
-  <p class="lede">Claims are the actual statements a token makes — and OIDC standardizes the most important ones so providers don't reinvent them.</p>
-  <p>Every key-value pair inside a JWT's payload is technically a "claim" — the spec borrows the term from the broader world of identity assertions, where a claim is simply a statement one party makes about another. OIDC defines a baseline set that any compliant provider should expose consistently, which is exactly what lets you write one piece of code that pulls a user's name and email regardless of whether they signed in with Google, Okta, or a custom IdP.</p>
-  <div class="scope-grid" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr));">
-    <div class="scope-item"><div class="scope-name">sub</div><div class="scope-desc">Unique identifier for the user at this issuer. Use as your primary user key — never email (email can change).</div></div>
-    <div class="scope-item"><div class="scope-name">iss</div><div class="scope-desc">Issuer URL. The auth server that issued this token.</div></div>
-    <div class="scope-item"><div class="scope-name">aud</div><div class="scope-desc">Audience. The client(s) this token is intended for.</div></div>
-    <div class="scope-item"><div class="scope-name">exp</div><div class="scope-desc">Expiration time (Unix timestamp). Reject tokens past this time.</div></div>
-    <div class="scope-item"><div class="scope-name">iat</div><div class="scope-desc">Issued At. When the token was created.</div></div>
-    <div class="scope-item"><div class="scope-name">email</div><div class="scope-desc">User's email. Check <code>email_verified</code> before trusting it.</div></div>
-    <div class="scope-item"><div class="scope-name">email_verified</div><div class="scope-desc">Boolean. Whether the auth server has verified the email.</div></div>
-    <div class="scope-item"><div class="scope-name">name</div><div class="scope-desc">Full display name.</div></div>
-    <div class="scope-item"><div class="scope-name">picture</div><div class="scope-desc">URL to profile photo.</div></div>
-    <div class="scope-item"><div class="scope-name">locale</div><div class="scope-desc">BCP 47 language tag, e.g. <code>en-US</code>.</div></div>
-    <div class="scope-item"><div class="scope-name">nonce</div><div class="scope-desc">Replay protection value — verify it matches what you sent.</div></div>
+  <h2 id="claims">ID Token Claims</h2>
+  <p class="lede">Claims are just the key-value pairs inside the payload — each one carries a specific, standardized piece of information about the user or the token itself.</p>
+
+  <div class="scope-grid">
+    <div class="scope-item"><div class="scope-name">iss</div><div class="scope-desc">Issuer — the URL of the authorization server. Validate it matches what you expect.</div></div>
+    <div class="scope-item"><div class="scope-name">sub</div><div class="scope-desc">Subject — the user's stable, unique ID. Use this as your primary key, not email.</div></div>
+    <div class="scope-item"><div class="scope-name">aud</div><div class="scope-desc">Audience — must contain your client_id. Reject tokens issued for someone else.</div></div>
+    <div class="scope-item"><div class="scope-name">exp</div><div class="scope-desc">Expiry — Unix timestamp. Reject any token whose exp is in the past.</div></div>
+    <div class="scope-item"><div class="scope-name">iat</div><div class="scope-desc">Issued At — when the token was created. Useful for detecting stale tokens.</div></div>
+    <div class="scope-item"><div class="scope-name">nonce</div><div class="scope-desc">Replay protection value — verify it matches what you sent in /authorize.</div></div>
     <div class="scope-item"><div class="scope-name">at_hash</div><div class="scope-desc">Hash of the access token. Binds the ID token to a specific access token.</div></div>
+    <div class="scope-item"><div class="scope-name">email_verified</div><div class="scope-desc">Boolean. Don't trust the email claim for authentication unless this is true.</div></div>
   </div>
 
-  <p>The <code>sub</code> claim deserves a special callout, because it's one of the most common sources of subtle bugs in real systems: it's tempting to use a user's email address as their primary key in your own database, since it feels stable and human-readable, but email addresses change, get recycled, or get re-verified under a different identity over time. The <code>sub</code> claim is specifically designed to be a permanent, opaque identifier for one user at one issuer, and that's what you should be storing as your foreign key, with email treated as just another mutable profile field.</p>
+  <p>The <code>sub</code> claim deserves a special callout: it's tempting to use a user's email address as their primary key in your database, since it feels stable and human-readable, but email addresses change, get recycled, or get re-verified under a different identity over time. The <code>sub</code> claim is specifically designed to be a permanent, opaque identifier for one user at one issuer — store this as your foreign key, with email treated as just another mutable profile field.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="userinfo">UserInfo Endpoint</h2>
@@ -1134,7 +747,7 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
 
   <pre class="code-block"><span class="cm">// Frontend or backend fetch — requires a valid access token</span>
 <span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'https://auth.example.com/userinfo'</span>, {
-  headers: { <span class="str">'Authorization'</span>: <span class="str">`Bearer <span class="cn">${accessToken}</span>`</span> }
+  headers: { <span class="str">'Authorization'</span>: <span class="str">`Bearer ${accessToken}`</span> }
 });
 <span class="kw">const</span> user = <span class="kw">await</span> res.<span class="fn">json</span>();
 <span class="cm">// { sub, email, name, picture, ... }</span></pre>
@@ -1145,70 +758,98 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="dpop">DPoP — Demonstrating Proof of Possession <span class="badge-new">2026</span></h2>
+  <p class="lede">Bearer tokens are stolen all the time. DPoP makes a stolen token useless because the thief can't prove they hold the private key that bound it.</p>
+  <p>Standardized in RFC 9449, DPoP solves a fundamental weakness of Bearer tokens: anyone who obtains a Bearer token can use it. DPoP cryptographically binds an access token to a specific private key held by the client, so even a captured token can't be replayed by an attacker who doesn't hold that key.</p>
+
+  <div class="dpop-flow">
+    <div class="dpop-row">
+      <div class="dpop-icon client">&#128273;</div>
+      <div class="dpop-text">
+        <strong>Client generates a key pair</strong>
+        <p>An ephemeral public/private key pair is created by the client. The public key will be embedded in tokens; the private key never leaves the client.</p>
+      </div>
+    </div>
+    <div class="dpop-row">
+      <div class="dpop-icon client">&#128248;</div>
+      <div class="dpop-text">
+        <strong>Client sends a DPoP proof JWT to /token</strong>
+        <p>A short-lived JWT signed by the private key, containing the HTTP method, URI, and a timestamp. Proves the client holds the private key right now.</p>
+      </div>
+    </div>
+    <div class="dpop-row">
+      <div class="dpop-icon server">&#9989;</div>
+      <div class="dpop-text">
+        <strong>Auth server binds the access token to the public key</strong>
+        <p>The issued access token contains a <code>cnf.jkt</code> claim — a thumbprint of the client's public key. The token is now "sender-constrained."</p>
+      </div>
+    </div>
+    <div class="dpop-row">
+      <div class="dpop-icon api">&#128274;</div>
+      <div class="dpop-text">
+        <strong>API verifies DPoP proof on every request</strong>
+        <p>The client attaches both the access token and a fresh DPoP proof JWT to each API call. The resource server verifies the proof's signature matches the key thumbprint in the token. A stolen token without the private key is useless.</p>
+      </div>
+    </div>
+  </div>
+
+  <pre class="code-block"><span class="cm">// API request with DPoP — two headers required</span>
+<span class="fn">fetch</span>(<span class="str">'https://api.example.com/data'</span>, {
+  headers: {
+    <span class="str">'Authorization'</span>: <span class="str">`DPoP ${accessToken}`</span>,  <span class="cm">// Note: DPoP, not Bearer</span>
+    <span class="str">'DPoP'</span>: <span class="kw">await</span> <span class="fn">createDPoPProof</span>({
+      htu: <span class="str">'https://api.example.com/data'</span>,
+      htm: <span class="str">'GET'</span>,
+      privateKey,
+    }),
+  }
+});</pre>
+
+  <div class="callout new">
+    <div class="callout-title">DPoP adoption in 2026</div>
+    <p>DPoP is now mandatory in FAPI 2.0 and increasingly required by financial and healthcare APIs. Major identity providers — Okta, Auth0, Microsoft Entra ID — all support it. If you're building a high-security API or implementing a new OAuth client library, DPoP should be on your roadmap. For most web apps, the BFF pattern achieves similar protection by keeping tokens off the browser entirely, but for SPAs that must hold tokens client-side, DPoP is the strongest mitigation available.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
   <h2 id="token-storage">Token Storage</h2>
   <p class="lede">Where you put a token after you receive it matters just as much as how you got it in the first place.</p>
-  <p>A surprising amount of real-world OAuth insecurity has nothing to do with the protocol flow itself and everything to do with what happens after tokens land in the browser. The honest answer to "where should I store this?" is "it depends on what kind of attack you're most worried about" — every storage location trades off resistance to one attack class against resistance to another, so it's worth understanding the table below as a set of tradeoffs rather than a single right answer.</p>
-  <table class="grant-table">
-    <thead>
-      <tr><th>Location</th><th>XSS Safe?</th><th>CSRF Safe?</th><th>Verdict</th></tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><code>localStorage</code></td>
-        <td><span class="badge badge-red">No</span> — any JS can read it</td>
-        <td><span class="badge badge-green">Yes</span></td>
-        <td><span class="badge badge-red">Avoid for tokens</span></td>
-      </tr>
-      <tr>
-        <td><code>sessionStorage</code></td>
-        <td><span class="badge badge-red">No</span> — any JS can read it</td>
-        <td><span class="badge badge-green">Yes</span></td>
-        <td><span class="badge badge-orange">Acceptable for PKCE state only</span></td>
-      </tr>
-      <tr>
-        <td>HttpOnly Cookie</td>
-        <td><span class="badge badge-green">Yes</span> — JS can't read it</td>
-        <td><span class="badge badge-red">No</span> — requires CSRF tokens</td>
-        <td><span class="badge badge-green">Best for session tokens</span></td>
-      </tr>
-      <tr>
-        <td>In-memory (JS var)</td>
-        <td><span class="badge badge-green">Yes</span> — lost on tab close</td>
-        <td><span class="badge badge-green">Yes</span></td>
-        <td><span class="badge badge-blue">Good for access tokens in SPAs</span></td>
-      </tr>
-      <tr>
-        <td>Server session</td>
-        <td><span class="badge badge-green">Yes</span></td>
-        <td><span class="badge badge-green">Yes</span> (with SameSite cookies)</td>
-        <td><span class="badge badge-green">Best overall</span></td>
-      </tr>
-    </tbody>
-  </table>
-
-  <p>The pattern to notice is that <code>localStorage</code> and <code>sessionStorage</code> are convenient precisely because any JavaScript on the page can read and write them — and that's also exactly why they're dangerous, because any JavaScript on the page includes a malicious script injected through an XSS vulnerability anywhere in your app's dependency tree. HttpOnly cookies flip that tradeoff: the browser will send them automatically with requests, but no script, malicious or otherwise, can ever read their contents directly.</p>
+  <p>A surprising amount of real-world OAuth insecurity has nothing to do with the protocol flow itself and everything to do with what happens after tokens land in the browser. Every storage location trades off resistance to one attack class against resistance to another:</p>
+  <div class="table-wrap">
+    <table class="grant-table">
+      <thead>
+        <tr><th>Location</th><th>XSS Safe?</th><th>CSRF Safe?</th><th>Verdict</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>localStorage</code></td><td><span class="badge badge-red">No</span> — any JS can read it</td><td><span class="badge badge-green">Yes</span></td><td><span class="badge badge-red">Avoid for tokens</span></td></tr>
+        <tr><td><code>sessionStorage</code></td><td><span class="badge badge-red">No</span> — any JS can read it</td><td><span class="badge badge-green">Yes</span></td><td><span class="badge badge-orange">PKCE state only</span></td></tr>
+        <tr><td>HttpOnly Cookie</td><td><span class="badge badge-green">Yes</span> — JS can't read it</td><td><span class="badge badge-red">No</span> — requires CSRF tokens</td><td><span class="badge badge-green">Best for session tokens</span></td></tr>
+        <tr><td>In-memory (JS var)</td><td><span class="badge badge-green">Yes</span> — lost on tab close</td><td><span class="badge badge-green">Yes</span></td><td><span class="badge badge-blue">Good for access tokens in SPAs</span></td></tr>
+        <tr><td>Server session</td><td><span class="badge badge-green">Yes</span></td><td><span class="badge badge-green">Yes</span> (with SameSite cookies)</td><td><span class="badge badge-green">Best overall</span></td></tr>
+      </tbody>
+    </table>
+  </div>
 
   <div class="callout ok">
     <div class="callout-title">Best practice: BFF pattern</div>
-    <p>Use a Backend for Frontend (BFF) — your server handles the OAuth flow and stores tokens. The browser only gets a session cookie. Tokens never touch the browser's storage, eliminating the entire XSS token theft surface.</p>
+    <p>Use a Backend for Frontend (BFF) — your server handles the OAuth flow and stores tokens server-side. The browser only gets a session cookie. Tokens never touch the browser's storage, eliminating the entire XSS token theft surface. In 2026, this is the strongly recommended architecture for any app that can support a server component.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="attacks">Common Attacks &amp; Mitigations</h2>
   <p class="lede">Most OAuth vulnerabilities aren't flaws in the specification — they're implementations that quietly skip a step the spec assumes you'll do.</p>
-  <p>It's worth approaching this section as a list of "what happens if you skip the boring part," because that's genuinely what most of these come down to. PKCE, state validation, careful token storage, and signature verification can all feel like ceremony when you're just trying to get a login button working — but each one exists because someone, somewhere, shipped a version without it and got burned.</p>
+  <p>PKCE, state validation, careful token storage, and signature verification can all feel like ceremony when you're just trying to get a login button working — but each one exists because someone, somewhere, shipped a version without it and got burned.</p>
 
   <div class="endpoint">
     <div class="endpoint-header" onclick="toggleEndpoint(this)">
       <span class="badge badge-red" style="font-size:12px;">ATTACK</span>
       <span class="endpoint-path" style="margin-left:8px;">Authorization Code Interception</span>
-      <span class="chevron">▶</span>
+      <span class="chevron">&#9658;</span>
     </div>
     <div class="endpoint-body">
       <p>An attacker intercepts the <code>code</code> in the redirect URI (via referrer headers, browser history, or a malicious app registering the same custom URI scheme).</p>
       <div class="callout ok" style="margin-top:12px;">
-        <div class="callout-title">Mitigation: PKCE</div>
-        <p>PKCE binds the code to the verifier. An intercepted code is useless without the verifier, which was never transmitted in the vulnerable channel.</p>
+        <div class="callout-title">Mitigation: PKCE (+ PAR)</div>
+        <p>PKCE binds the code to the verifier. An intercepted code is useless without the verifier, which was never transmitted in the vulnerable channel. PAR goes further by removing all parameters from the browser URL entirely.</p>
       </div>
     </div>
   </div>
@@ -1217,7 +858,7 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
     <div class="endpoint-header" onclick="toggleEndpoint(this)">
       <span class="badge badge-red" style="font-size:12px;">ATTACK</span>
       <span class="endpoint-path" style="margin-left:8px;">CSRF / Open Redirect</span>
-      <span class="chevron">▶</span>
+      <span class="chevron">&#9658;</span>
     </div>
     <div class="endpoint-body">
       <p>Attacker initiates an OAuth flow and tricks the victim into completing it, linking the victim's identity to the attacker's account.</p>
@@ -1232,13 +873,13 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
     <div class="endpoint-header" onclick="toggleEndpoint(this)">
       <span class="badge badge-red" style="font-size:12px;">ATTACK</span>
       <span class="endpoint-path" style="margin-left:8px;">Token Theft via XSS</span>
-      <span class="chevron">▶</span>
+      <span class="chevron">&#9658;</span>
     </div>
     <div class="endpoint-body">
       <p>A Cross-Site Scripting vulnerability lets an attacker run JavaScript that reads tokens from <code>localStorage</code> or <code>sessionStorage</code> and exfiltrates them.</p>
       <div class="callout ok" style="margin-top:12px;">
-        <div class="callout-title">Mitigation: HttpOnly cookies + BFF</div>
-        <p>Store tokens server-side. Issue the browser an <code>HttpOnly</code> session cookie — JS cannot access it regardless of XSS. Combine with <code>SameSite=Strict</code> or <code>SameSite=Lax</code> for CSRF protection.</p>
+        <div class="callout-title">Mitigation: HttpOnly cookies + BFF (+ DPoP)</div>
+        <p>Store tokens server-side. Issue the browser an <code>HttpOnly</code> session cookie — JS cannot access it regardless of XSS. Combine with <code>SameSite=Strict</code> or <code>SameSite=Lax</code> for CSRF protection. If tokens must be in the browser, use DPoP to sender-bind them so a stolen token can't be replayed.</p>
       </div>
     </div>
   </div>
@@ -1246,14 +887,14 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
   <div class="endpoint">
     <div class="endpoint-header" onclick="toggleEndpoint(this)">
       <span class="badge badge-red" style="font-size:12px;">ATTACK</span>
-      <span class="endpoint-path" style="margin-left:8px;">JWT Algorithm Confusion (<code>alg:none</code>)</span>
-      <span class="chevron">▶</span>
+      <span class="endpoint-path" style="margin-left:8px;">JWT Algorithm Confusion (alg:none)</span>
+      <span class="chevron">&#9658;</span>
     </div>
     <div class="endpoint-body">
       <p>An attacker crafts a token with <code>"alg":"none"</code> and no signature. Naive verifiers that trust the <code>alg</code> header accept it as valid.</p>
       <div class="callout ok" style="margin-top:12px;">
         <div class="callout-title">Mitigation: allowlist algorithms</div>
-        <p>Never use the <code>alg</code> field in the token header to decide how to verify — always specify the expected algorithm in your verifier code. Reject <code>none</code> always. Prefer RS256 over HS256 for multi-party scenarios.</p>
+        <p>Never use the <code>alg</code> field in the token header to decide how to verify — always specify the expected algorithm in your verifier code. Reject <code>none</code> always. Prefer RS256 or ES256 over HS256 for multi-party scenarios.</p>
       </div>
     </div>
   </div>
@@ -1262,13 +903,13 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
     <div class="endpoint-header" onclick="toggleEndpoint(this)">
       <span class="badge badge-red" style="font-size:12px;">ATTACK</span>
       <span class="endpoint-path" style="margin-left:8px;">Open Redirect via redirect_uri</span>
-      <span class="chevron">▶</span>
+      <span class="chevron">&#9658;</span>
     </div>
     <div class="endpoint-body">
-      <p>If an authorization server validates <code>redirect_uri</code> loosely — say, only checking that it starts with the right domain — an attacker can register a lookalike path and trick the server into sending a freshly issued authorization code straight to an attacker-controlled endpoint instead of the legitimate app.</p>
+      <p>If an authorization server validates <code>redirect_uri</code> loosely — only checking that it starts with the right domain — an attacker can register a lookalike path and redirect a freshly issued authorization code to an attacker-controlled endpoint.</p>
       <div class="callout ok" style="margin-top:12px;">
         <div class="callout-title">Mitigation: exact-match redirect URI allowlists</div>
-        <p>Authorization servers should require the <code>redirect_uri</code> sent at login to exactly match one pre-registered for that client — no wildcards, no prefix matching. This is configuration on the auth server side, but it's worth understanding as a client developer, since it's why you register your callback URLs ahead of time rather than passing them freely.</p>
+        <p>Authorization servers must require the <code>redirect_uri</code> sent at login to exactly match one pre-registered for that client — no wildcards, no prefix matching. This is now mandatory in OAuth 2.1.</p>
       </div>
     </div>
   </div>
@@ -1277,21 +918,36 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
     <div class="endpoint-header" onclick="toggleEndpoint(this)">
       <span class="badge badge-red" style="font-size:12px;">ATTACK</span>
       <span class="endpoint-path" style="margin-left:8px;">ID Token Replay Without a Nonce</span>
-      <span class="chevron">▶</span>
+      <span class="chevron">&#9658;</span>
     </div>
     <div class="endpoint-body">
-      <p>Without a <code>nonce</code>, a previously issued, still-unexpired ID token could in principle be captured and replayed by an attacker to impersonate a login session, since nothing ties that specific token to a specific, fresh authorization request.</p>
+      <p>Without a <code>nonce</code>, a previously issued, still-unexpired ID token could be captured and replayed by an attacker to impersonate a login session.</p>
       <div class="callout ok" style="margin-top:12px;">
         <div class="callout-title">Mitigation: nonce verification</div>
-        <p>Generate a fresh, random <code>nonce</code> for every authorization request, store it client-side, and verify the value embedded in the returned ID token matches it exactly before trusting the token. This is the same one-time-use pattern as <code>state</code>, just scoped specifically to the ID token rather than the whole flow.</p>
+        <p>Generate a fresh, random <code>nonce</code> for every authorization request, store it client-side, and verify the value embedded in the returned ID token matches it exactly before trusting the token.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div class="endpoint-header" onclick="toggleEndpoint(this)">
+      <span class="badge badge-red" style="font-size:12px;">ATTACK</span>
+      <span class="endpoint-path" style="margin-left:8px;">Mix-Up Attack (multi-IdP)</span>
+      <span class="chevron">&#9658;</span>
+    </div>
+    <div class="endpoint-body">
+      <p>In a multi-IdP setup, an attacker tricks the client into sending an authorization code issued by a legitimate IdP to a malicious IdP's token endpoint, or vice versa.</p>
+      <div class="callout ok" style="margin-top:12px;">
+        <div class="callout-title">Mitigation: iss parameter (RFC 9207) + PAR</div>
+        <p>RFC 9207 adds an <code>iss</code> parameter to the authorization response so clients can verify which server issued the response. PAR also significantly reduces this risk by tying the request to a specific server before the redirect happens.</p>
       </div>
     </div>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="refresh">Refresh Tokens &amp; Rotation</h2>
-  <p class="lede">The mechanism that lets users stay logged in for weeks without ever re-typing a password — and the part that needs the most careful handling.</p>
-  <p>Refresh tokens solve a real tension in the design of short-lived access tokens: you want access tokens to expire quickly so a leaked one does limited damage, but you don't want users re-authenticating every hour either. A refresh token is the answer — a long-lived credential that, kept safely on the server, can be silently traded for a brand-new access token whenever the old one runs out, with the user never noticing a thing.</p>
+  <p class="lede">The mechanism that lets users stay logged in for weeks without re-typing a password — and the part that needs the most careful handling.</p>
+  <p>Refresh tokens solve a real tension in the design of short-lived access tokens: you want access tokens to expire quickly so a leaked one does limited damage, but you don't want users re-authenticating every hour either. A refresh token is the answer — a long-lived credential that, kept safely on the server, can be silently traded for a brand-new access token whenever the old one runs out, with the user never noticing.</p>
 
   <pre class="code-block"><span class="cm">// POST /token — refresh grant (back-channel, server-side)</span>
 <span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'https://auth.example.com/token'</span>, {
@@ -1306,34 +962,125 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
 <span class="kw">const</span> { access_token, refresh_token } = <span class="kw">await</span> res.<span class="fn">json</span>();
 <span class="cm">// store new refresh_token — old one is now invalid (rotation)</span></pre>
 
-  <p>Because that long lifetime is also what makes a refresh token dangerous if it's ever stolen, modern providers layer two additional protections on top of the basic exchange, both worth understanding even if you're using a library that implements them for you under the hood:</p>
-
   <div class="concept-grid">
     <div class="card green">
       <div class="card-label">Refresh Token Rotation</div>
       <div class="card-title">Single-use refresh tokens</div>
-      <p>Each time a refresh token is used, a new one is issued and the old one invalidated. If a stolen token is used, the legitimate user's next refresh fails — alerting you to the theft.</p>
+      <p>Each time a refresh token is used, a new one is issued and the old one invalidated. If a stolen token is used, the legitimate user's next refresh fails — alerting you to the theft. Required in OAuth 2.1 for public clients.</p>
     </div>
     <div class="card orange">
       <div class="card-label">Refresh Token Families</div>
       <div class="card-title">Reuse detection</div>
-      <p>Servers track "families" of rotated tokens. If an already-used token is presented (indicating theft), the entire family is revoked — logging out all devices for that user.</p>
+      <p>Servers track "families" of rotated tokens. If an already-used token is presented (indicating theft), the entire family is revoked — logging out all devices for that user. This turns detection into containment.</p>
     </div>
   </div>
-
-  <p>The elegance of rotation is that it converts theft from a silent, invisible problem into a detectable event: under normal operation, every refresh token gets used exactly once before being replaced, so if your server ever sees the <em>same</em> refresh token presented twice, that's a strong signal something has gone wrong — either an attacker has a copy, or a client retried a request it shouldn't have. Treating that signal as a reason to revoke the entire token family, rather than just rejecting the one bad request, is what turns detection into actual containment.</p>
 
   <div class="callout warn">
     <div class="callout-title">Refresh token storage</div>
     <p>Refresh tokens are as sensitive as passwords. Store them server-side only (database or encrypted store). Never in <code>localStorage</code>, never in the browser. Treat exposure of a refresh token as equivalent to account compromise.</p>
   </div>
 
-  <p class="wide" style="max-width:700px;margin-top:40px;color:var(--muted);font-size:14px;border-top:1px solid var(--border);padding-top:24px;">That's the shape of OAuth 2.0 and OIDC in practice: four roles, three tokens, one well-trodden flow, and a handful of small but load-bearing details — PKCE, state, nonce, rotation — that exist because each one closes a specific, real attack. Most of the libraries you'll use handle these mechanics for you, but knowing what they're doing under the hood is what lets you debug a broken integration, audit someone else's implementation, or make an informed call the day a library doesn't quite fit your situation.</p>
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="agentic">Agentic &amp; AI Authorization <span class="badge-new">2026</span></h2>
+  <p class="lede">When an AI agent acts on a user's behalf — booking flights, sending emails, querying databases — the authorization model gets more complex.</p>
+  <p>By 2026, AI agents and LLM-based assistants are a real authorization use case that existing OAuth flows weren't quite designed for. The core challenge: a user delegates authority to an agent, and that agent may need to call many APIs, run for a long time, spawn sub-agents, or operate without the user being present at all. Standard OAuth handles the initial delegation well, but the devil is in the details.</p>
+
+  <div class="concept-grid">
+    <div class="card blue">
+      <div class="card-label">Delegation Problem</div>
+      <div class="card-title">Who is acting — user or agent?</div>
+      <p>When an agent calls an API, the API needs to know both <em>who authorized the action</em> (the user) and <em>which agent is acting</em>. Token Exchange (RFC 8693) allows creating a derived token that chains both identities, creating an auditable delegation trail.</p>
+    </div>
+    <div class="card purple">
+      <div class="card-label">Scope Minimization</div>
+      <div class="card-title">Least privilege for agents</div>
+      <p>Agents should receive narrow, task-scoped tokens rather than broad user-level access. Rich Authorization Requests (RFC 9396) allow structured, resource-specific authorization data — e.g. "access only this Google Doc" rather than "access all Drive files."</p>
+    </div>
+    <div class="card orange">
+      <div class="card-label">Long-lived Sessions</div>
+      <div class="card-title">Agents that outlive a login session</div>
+      <p>An agent running an hours-long task needs refresh tokens and robust rotation. Consider time-boxing agent authority: issue tokens with a max lifetime matching the expected task duration rather than allowing indefinite access.</p>
+    </div>
+    <div class="card teal">
+      <div class="card-label">Human in the Loop</div>
+      <div class="card-title">Step-up auth for sensitive actions</div>
+      <p>Even a pre-authorized agent should trigger step-up authentication for high-impact actions (sending money, deleting data). OIDC's <code>max_age</code> and <code>acr</code> parameters let resource servers demand fresh user authentication when the stakes are high.</p>
+    </div>
+  </div>
+
+  <div class="callout info">
+    <div class="callout-title">Token Exchange (RFC 8693)</div>
+    <p>Allows a service to obtain a new token derived from an existing one, with a potentially different scope or audience. An orchestrator agent can exchange its own token for a narrower token it then passes to a sub-agent, creating an auditable delegation chain. Supported by Keycloak, Auth0, and Microsoft Entra ID.</p>
+  </div>
+
+  <div class="callout info">
+    <div class="callout-title">Rich Authorization Requests — RAR (RFC 9396)</div>
+    <p>Replaces flat scope strings with structured JSON authorization data in the <code>authorization_details</code> parameter. An AI agent can request "create draft emails but not send" rather than "mail:write" — dramatically reducing the blast radius of a compromised agent token. Requires PAR to avoid the authorization_details object being in the browser URL.</p>
+  </div>
+
+  <div class="callout warn">
+    <div class="callout-title">Watch out: token laundering via agents</div>
+    <p>If your agent framework accepts tokens as inputs and passes them to other services, validate the chain carefully. An attacker-controlled agent could present a legitimate user token to escalate privileges. Always verify <code>iss</code>, <code>aud</code>, and <code>scope</code> at every hop, and consider mTLS or DPoP binding throughout the chain.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="fapi">FAPI &amp; High-Security Profiles <span class="badge-new">2026</span></h2>
+  <p class="lede">FAPI 2.0 is what OAuth looks like when the stakes are high enough that every optional best practice becomes mandatory.</p>
+  <p>The Financial-grade API Security Profile (FAPI 2.0), published by the OpenID Foundation, takes the OAuth Security BCP and turns it into a strict, auditable profile. It was designed for open banking (PSD2 in Europe, CDR in Australia, Open Finance in the UK) but is increasingly adopted for any regulated API — healthcare, government, payments. If you're building a FAPI 2.0 compliant integration, you will be using all of the following:</p>
+
+  <div class="scope-grid">
+    <div class="scope-item"><div class="scope-name">PAR</div><div class="scope-desc">Pushed Authorization Requests — mandatory. All authorization parameters travel back-channel.</div></div>
+    <div class="scope-item"><div class="scope-name">DPoP or mTLS</div><div class="scope-desc">Sender-constrained tokens — mandatory. Plain Bearer tokens are not permitted.</div></div>
+    <div class="scope-item"><div class="scope-name">RAR</div><div class="scope-desc">Rich Authorization Requests for structured, resource-specific access data.</div></div>
+    <div class="scope-item"><div class="scope-name">private_key_jwt</div><div class="scope-desc">Client authentication via signed JWTs rather than shared secrets.</div></div>
+    <div class="scope-item"><div class="scope-name">PKCE S256</div><div class="scope-desc">Mandatory for all authorization code flows. plain is not acceptable.</div></div>
+    <div class="scope-item"><div class="scope-name">Exact redirect URIs</div><div class="scope-desc">Pre-registered, exact-match. No wildcards, no prefix matching, no exceptions.</div></div>
+  </div>
+
+  <div class="callout new">
+    <div class="callout-title">Should I care about FAPI if I'm not in fintech?</div>
+    <p>FAPI 2.0 is a useful benchmark even if you're not building a regulated API. Its requirements represent a curated list of the most impactful security controls. Think of it as a security checklist rather than a compliance obligation. The components most worth adopting broadly are PAR (removes parameters from browser URLs), DPoP (stops token replay), and private_key_jwt (eliminates shared secret management).</p>
+  </div>
+
+  <p class="wide" style="max-width:700px;margin-top:40px;color:var(--text-dim);font-size:14px;border-top:1px solid var(--border);padding-top:24px;">That's the shape of OAuth 2.0 and OIDC in 2026: four roles, three tokens, one well-trodden flow, and a growing stack of security enhancements — PKCE, state, nonce, rotation, DPoP, PAR — each closing a specific, real attack. Most libraries handle these mechanics for you, but knowing what they're doing is what lets you debug a broken integration, audit an existing implementation, authorize an AI agent safely, or make an informed call the day a library doesn't quite fit your situation.</p>
 
 </main>
 </div>
 
+<footer>
+  Covers OAuth 2.1 and OIDC as of 2026. For implementation details, consult your auth provider's SDK documentation and the <a href="https://oauth.net/2.1/">OAuth 2.1 draft spec</a>. <a href="index.html">← All docs</a>
+</footer>
+
 <script>
+  // ── Mobile nav toggle ──
+  const navToggle = document.getElementById('nav-toggle');
+  const sidebar   = document.getElementById('sidebar');
+  const overlay   = document.getElementById('nav-overlay');
+
+  function openNav() {
+    sidebar.classList.add('open');
+    overlay.classList.add('open');
+    navToggle.textContent = '\u2715';
+    navToggle.setAttribute('aria-label', 'Close navigation');
+  }
+  function closeNav() {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('open');
+    navToggle.innerHTML = '&#9776;';
+    navToggle.setAttribute('aria-label', 'Open navigation');
+  }
+
+  navToggle.addEventListener('click', () => {
+    sidebar.classList.contains('open') ? closeNav() : openNav();
+  });
+  overlay.addEventListener('click', closeNav);
+
+  sidebar.querySelectorAll('a').forEach(a => {
+    a.addEventListener('click', () => {
+      if (window.innerWidth <= 900) closeNav();
+    });
+  });
+
   // ── Tab switching ──
   document.querySelectorAll('.tabs').forEach(tabGroup => {
     tabGroup.querySelectorAll('.tab').forEach(tab => {
@@ -1385,7 +1132,7 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
     entries.forEach(entry => {
       if (entry.isIntersecting) {
         navLinks.forEach(a => a.classList.remove('active'));
-        const link = document.querySelector(`nav a[href="#${entry.target.id}"]`);
+        const link = document.querySelector('nav a[href="#' + entry.target.id + '"]');
         if (link) link.classList.add('active');
       }
     });
