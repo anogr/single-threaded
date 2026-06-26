@@ -458,6 +458,8 @@
 </head>
 <body>
 
+<div class="progress-bar" id="progress"></div>
+
 <!-- sticky browser chrome — the signature element, reflects the section in view -->
 <div class="chrome-shell">
   <div class="chrome-bar-row">
@@ -835,37 +837,9 @@ location / {
   <div class="wrap">High level by design — for the full detail, running <code>openssl x509 -in cert.pem -noout -text</code> on any real certificate reveals every field described above. <a href="index.html">← All docs</a></div>
 </footer>
 
+<script src="docs.js"></script>
 <script>
 (function(){
-  // ── Mobile nav toggle ──
-  var navToggle = document.getElementById('nav-toggle');
-  var sidebarEl = document.getElementById('sidebar');
-  var overlayEl = document.getElementById('nav-overlay');
-  if(navToggle){
-    navToggle.addEventListener('click', function(){
-      var open = sidebarEl.classList.toggle('open');
-      overlayEl.classList.toggle('open', open);
-      navToggle.textContent = open ? '\u2715' : '\u2630';
-      navToggle.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
-    });
-    overlayEl.addEventListener('click', function(){
-      sidebarEl.classList.remove('open');
-      overlayEl.classList.remove('open');
-      navToggle.innerHTML = '&#9776;';
-      navToggle.setAttribute('aria-label', 'Open navigation');
-    });
-    sidebarEl.querySelectorAll('a').forEach(function(a){
-      a.addEventListener('click', function(){ if(window.innerWidth<=900){ sidebarEl.classList.remove('open'); overlayEl.classList.remove('open'); } });
-    });
-  }
-
-  // ── Active sidebar nav on scroll ──
-  var sectionHeadings = document.querySelectorAll('.sidebar a[href^="#"]');
-  var sectionTargets = [];
-  sectionHeadings.forEach(function(a){ var el = document.querySelector(a.getAttribute('href')); if(el) sectionTargets.push({a:a, el:el}); });
-  var scrollObs = new IntersectionObserver(function(entries){ entries.forEach(function(e){ if(e.isIntersecting){ sectionHeadings.forEach(function(a){ a.classList.remove('active'); }); var match = sectionTargets.find(function(x){ return x.el===e.target; }); if(match) match.a.classList.add('active'); } }); }, { rootMargin:'-20% 0px -70% 0px' });
-  sectionTargets.forEach(function(x){ scrollObs.observe(x.el); });
-
   // ---------------- chrome bar state ----------------
   var chromeField = document.getElementById('chromeField');
   var chromeIcon = document.getElementById('chromeIcon');

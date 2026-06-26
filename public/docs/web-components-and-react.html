@@ -8,17 +8,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="docs.css">
 <style>
-  /* ── Progress bar ── */
-  .progress-bar {
-    position: fixed;
-    top: 0; left: 0;
-    height: 2px;
-    background: var(--accent);
-    width: 0%;
-    z-index: 300;
-    transition: width 0.1s linear;
-  }
-
   /* ── Section mark on h2 ── */
   h2::before {
     content: '§';
@@ -76,9 +65,10 @@
 
 <!-- Main -->
 <main>
-  <div class="post-eyebrow">Deep Dive · Web Platform</div>
+  <div class="eyebrow">Deep Dive · Web Platform</div>
   <h1>Web Components from the Ground Up — and Wrapping Them in React</h1>
-  <div class="post-meta">June 2026 &nbsp;·&nbsp; ~25 min read</div>
+  <p class="subtitle">How custom elements, Shadow DOM, and HTML templates work at the platform level — and how to wrap them in first-class React components with TypeScript, refs, and proper event handling.</p>
+  <div class="byline"><strong>Deep dive</strong><div class="dot"></div><span>~25 min read</span><div class="dot"></div><span>For React and platform developers</span><div class="dot"></div><span>June 2026</span></div>
 
   <!-- ═══════════════════════════════════════════════════
        INTRODUCTION
@@ -579,7 +569,7 @@
   <h3 id="events">Custom events</h3>
 
   <p>
-    Web Components communicate outward through DOM events. The convention is to dispatch a <code>CustomEvent</code> with a namespaced name — prefixing with the component name prevents collisions. Setting <code>composed: true</code> is critical: without it, the event stops at the shadow root boundary and never reaches listeners in the light DOM.
+    Web Components communicate outward through DOM events. The convention is to dispatch a <code>CustomEvent</code> with a namespaced name — prefixing with the component name prevents collisions. Setting <code>composed: true</code> is required when an event originates within a shadow tree and must cross the shadow boundary. It is not strictly necessary when dispatching from the host element itself.
   </p>
 
   <div class="code-block">
@@ -1098,56 +1088,6 @@
   Web Component APIs are stable across all modern browsers as of 2026. For a library-based approach, see <a href="https://lit.dev">Lit</a> and <a href="https://stenciljs.com">Stencil</a>. <a href="index.html">← All docs</a>
 </footer>
 
-<script>
-  // ── Mobile nav toggle ──
-  const navToggle = document.getElementById('nav-toggle');
-  const sidebarEl = document.getElementById('sidebar');
-  const overlayEl = document.getElementById('nav-overlay');
-
-  function openNav() {
-    sidebarEl.classList.add('open');
-    overlayEl.classList.add('open');
-    navToggle.textContent = '\u2715';
-    navToggle.setAttribute('aria-label', 'Close navigation');
-  }
-  function closeNav() {
-    sidebarEl.classList.remove('open');
-    overlayEl.classList.remove('open');
-    navToggle.innerHTML = '&#9776;';
-    navToggle.setAttribute('aria-label', 'Open navigation');
-  }
-
-  navToggle.addEventListener('click', () => {
-    sidebarEl.classList.contains('open') ? closeNav() : openNav();
-  });
-  overlayEl.addEventListener('click', closeNav);
-  sidebarEl.querySelectorAll('a').forEach(a => {
-    a.addEventListener('click', () => { if (window.innerWidth <= 900) closeNav(); });
-  });
-
-  // Progress bar
-  const bar = document.getElementById('progress');
-  window.addEventListener('scroll', () => {
-    const el = document.documentElement;
-    const pct = (el.scrollTop / (el.scrollHeight - el.clientHeight)) * 100;
-    bar.style.width = pct + '%';
-  }, { passive: true });
-
-  // Sidebar active link
-  const links = document.querySelectorAll('.sidebar a');
-  const headings = document.querySelectorAll('h2[id], h3[id], section[id]');
-
-  const obs = new IntersectionObserver((entries) => {
-    entries.forEach(e => {
-      if (e.isIntersecting) {
-        links.forEach(l => l.classList.remove('active'));
-        const a = document.querySelector(`.sidebar a[href="#${e.target.id}"]`);
-        if (a) a.classList.add('active');
-      }
-    });
-  }, { rootMargin: '-20% 0px -70% 0px' });
-
-  headings.forEach(h => obs.observe(h));
-</script>
+<script src="docs.js"></script>
 </body>
 </html>

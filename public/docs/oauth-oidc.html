@@ -112,9 +112,6 @@
   /* ── Endpoint anatomy ── */
   .endpoint { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin: 14px 0; overflow: hidden; }
   .endpoint-header { display: flex; align-items: center; gap: 12px; padding: 12px 18px; background: var(--surface-2); border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; flex-wrap: wrap; }
-  .method { font-family: var(--font-mono); font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 4px; flex-shrink: 0; }
-  .method-get  { background: rgba(63,185,80,.2);  color: var(--green); }
-  .method-post { background: rgba(88,166,255,.2); color: var(--accent); }
   .endpoint-path { font-family: var(--font-mono); font-size: 13px; color: var(--text); flex: 1; word-break: break-word; }
   .endpoint-desc { font-size: 12px; color: var(--text-dim); }
   .chevron { color: var(--text-dim); transition: transform .2s; font-size: 12px; flex-shrink: 0; }
@@ -171,6 +168,8 @@
 </head>
 <body>
 
+<div class="progress-bar" id="progress"></div>
+
 <!-- Mobile header -->
 <header class="mobile-header">
   <a class="mobile-logo" href="index.html">Single Threaded <span>— Docs</span></a>
@@ -184,42 +183,37 @@
 <!-- ── Sidebar Nav ── -->
 <nav class="sidebar" id="sidebar">
   <a class="sidebar-logo" href="index.html">OAuth 2.0<br><span>&amp; OIDC</span></a>
-  <ul>
-    <div class="sidebar-section">Foundations</div>
-    <li><a href="#roles">Roles &amp; Actors</a></li>
-    <li><a href="#tokens">Tokens</a></li>
-    <li><a href="#scopes">Scopes</a></li>
-
-    <div class="sidebar-section">OAuth 2.0</div>
-    <li><a href="#grants">Grant Types</a></li>
-    <li><a href="#oauth21">OAuth 2.1 — What's New</a></li>
-    <li><a href="#endpoints">Endpoints</a></li>
-    <li><a href="#pkce">PKCE</a></li>
-    <li><a href="#par">PAR</a></li>
-    <li><a href="#client-types">Client Types</a></li>
-    <li><a href="#state">State &amp; CSRF</a></li>
-
-    <div class="sidebar-section">OIDC</div>
-    <li><a href="#oidc">What OIDC Adds</a></li>
-    <li><a href="#jwt">JWT &amp; ID Token</a></li>
-    <li><a href="#claims">Claims</a></li>
-    <li><a href="#userinfo">UserInfo Endpoint</a></li>
-
-    <div class="sidebar-section">Security</div>
-    <li><a href="#dpop">DPoP — Sender Binding</a></li>
-    <li><a href="#token-storage">Token Storage</a></li>
-    <li><a href="#attacks">Common Attacks</a></li>
-    <li><a href="#refresh">Refresh &amp; Rotation</a></li>
-
-    <div class="sidebar-section">2026 Topics</div>
-    <li><a href="#agentic">Agentic &amp; AI Auth</a></li>
-    <li><a href="#fapi">FAPI &amp; High Security</a></li>
-  </ul>
+  <div class="sidebar-section">Foundations</div>
+  <a href="#roles">Roles &amp; Actors</a>
+  <a href="#tokens">Tokens</a>
+  <a href="#scopes">Scopes</a>
+  <div class="sidebar-section">OAuth 2.0</div>
+  <a href="#grants">Grant Types</a>
+  <a href="#oauth21">OAuth 2.1 — What's New</a>
+  <a href="#endpoints">Endpoints</a>
+  <a href="#pkce">PKCE</a>
+  <a href="#par">PAR</a>
+  <a href="#client-types">Client Types</a>
+  <a href="#state">State &amp; CSRF</a>
+  <div class="sidebar-section">OIDC</div>
+  <a href="#oidc">What OIDC Adds</a>
+  <a href="#jwt">JWT &amp; ID Token</a>
+  <a href="#claims">Claims</a>
+  <a href="#userinfo">UserInfo Endpoint</a>
+  <div class="sidebar-section">Security</div>
+  <a href="#dpop">DPoP — Sender Binding</a>
+  <a href="#token-storage">Token Storage</a>
+  <a href="#attacks">Common Attacks</a>
+  <a href="#refresh">Refresh &amp; Rotation</a>
+  <div class="sidebar-section">2026 Topics</div>
+  <a href="#agentic">Agentic &amp; AI Auth</a>
+  <a href="#fapi">FAPI &amp; High Security</a>
 </nav>
 
 <!-- ── Main Content ── -->
 <main>
 
+  <div class="eyebrow">Security · Auth</div>
   <h1>The Engineer's Guide to <em>OAuth 2.0 &amp; OIDC</em></h1>
   <p class="subtitle">Two specifications quietly run the login button on nearly every app you use. Here's what's actually happening behind it — the actors, the tokens, the endpoints, and the attacks they're designed to stop. Updated for 2026.</p>
   <div class="byline"><strong>A field guide</strong><div class="dot"></div><span>~28 min read</span><div class="dot"></div><span>For developers building real auth</span><div class="dot"></div><span>Updated June 2026</span></div>
@@ -1051,36 +1045,8 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
   Covers OAuth 2.1 and OIDC as of 2026. For implementation details, consult your auth provider's SDK documentation and the <a href="https://oauth.net/2.1/">OAuth 2.1 draft spec</a>. <a href="index.html">← All docs</a>
 </footer>
 
+<script src="docs.js"></script>
 <script>
-  // ── Mobile nav toggle ──
-  const navToggle = document.getElementById('nav-toggle');
-  const sidebar   = document.getElementById('sidebar');
-  const overlay   = document.getElementById('nav-overlay');
-
-  function openNav() {
-    sidebar.classList.add('open');
-    overlay.classList.add('open');
-    navToggle.textContent = '\u2715';
-    navToggle.setAttribute('aria-label', 'Close navigation');
-  }
-  function closeNav() {
-    sidebar.classList.remove('open');
-    overlay.classList.remove('open');
-    navToggle.innerHTML = '&#9776;';
-    navToggle.setAttribute('aria-label', 'Open navigation');
-  }
-
-  navToggle.addEventListener('click', () => {
-    sidebar.classList.contains('open') ? closeNav() : openNav();
-  });
-  overlay.addEventListener('click', closeNav);
-
-  sidebar.querySelectorAll('a').forEach(a => {
-    a.addEventListener('click', () => {
-      if (window.innerWidth <= 900) closeNav();
-    });
-  });
-
   // ── Tab switching ──
   document.querySelectorAll('.tabs').forEach(tabGroup => {
     tabGroup.querySelectorAll('.tab').forEach(tab => {
@@ -1124,21 +1090,6 @@ sessionStorage.<span class="fn">removeItem</span>(<span class="str">'oauth_state
     });
   }
 
-  // ── Active nav on scroll ──
-  const sections = document.querySelectorAll('h2[id]');
-  const navLinks = document.querySelectorAll('nav a');
-
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        navLinks.forEach(a => a.classList.remove('active'));
-        const link = document.querySelector('nav a[href="#' + entry.target.id + '"]');
-        if (link) link.classList.add('active');
-      }
-    });
-  }, { rootMargin: '-20% 0px -70% 0px' });
-
-  sections.forEach(s => observer.observe(s));
 </script>
 </body>
 </html>
