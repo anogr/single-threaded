@@ -44,17 +44,18 @@
   <div class="sidebar-section">Foundations</div>
   <a href="#intro">Introduction</a>
   <a href="#journey">The Request Path</a>
-  <a href="#components">Four Core Components</a>
 
   <div class="sidebar-section">Infrastructure</div>
   <a href="#edge">CDN and WAF</a>
   <a href="#load-balancing">Load Balancers</a>
   <a href="#tls">TLS Termination</a>
+  <a href="#components">Component Comparison</a>
   <a href="#zones">Network Zones</a>
 
   <div class="sidebar-section">Patterns</div>
   <a href="#internal">Service-to-Service</a>
   <a href="#persistent">Persistent Connections</a>
+  <a href="#summary">Key Takeaways</a>
 </nav>
 
 <main>
@@ -144,98 +145,15 @@
 
   <p>The journey starts with <strong>DNS</strong>, which resolves the hostname to an IP address before any connection is established. The browser then opens a TCP connection and performs a TLS handshake to the destination, which is often a <strong>CDN edge</strong> or <strong>load balancer</strong> rather than the origin server. If a <strong>CDN</strong> is present, it receives the request first and serves cached content when possible. Otherwise, it forwards the request to the origin. A <strong>WAF</strong>, often integrated with the <strong>CDN</strong>, <strong>reverse proxy</strong>, or <strong>load balancer</strong>, inspects HTTP requests for malicious traffic. Network <strong>firewalls</strong> control which connections are allowed to reach the infrastructure. A <strong>reverse proxy</strong> or <strong>API gateway</strong> terminates TLS, routes requests, and handles cross-cutting concerns such as authentication, rate limiting, and logging. A <strong>load balancer</strong> distributes requests across multiple application instances. The <strong>application servers</strong> execute the business logic, communicating with databases and internal services as needed.</p>
 
-  <p>The sections below examine each layer. The four components that cause the most confusion (firewall, reverse proxy, load balancer, and API gateway) are compared first.</p>
-
-  <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="components">Four Core Components</h2>
-  <p class="lede">Firewalls, reverse proxies, load balancers, and API gateways each have a distinct primary job. Products often combine multiple roles, which is why the distinctions matter more at the concept level than at the product level.</p>
-
-  <h3>Firewall</h3>
-  <p>A firewall controls which network connections are permitted. Traditional firewalls operate at the network layer (IP addresses) and transport layer (ports and protocols), allowing or denying traffic based on source address, destination address, port number, and protocol. At this level, a firewall has no knowledge of HTTP or your application's behavior. Modern next-generation firewalls (NGFW) can additionally inspect traffic at the application layer, applying policies based on application type or threat signatures, but the core role is the same: the firewall is a boundary enforcer that decides whether a connection is allowed before any application code runs.</p>
-
-  <p>A firewall is how you express rules like "the database accepts connections only from the application servers, not from the internet." If a connection does not match a permitted rule, it is dropped at the boundary.</p>
-
-  <h3>Reverse Proxy</h3>
-  <p>A reverse proxy sits in front of one or more backend servers, accepting connections on their behalf and forwarding each request onwards. From the client's perspective, it is always talking to the proxy. The actual application servers are not directly reachable. The value of this arrangement is that cross-cutting concerns can be handled at the proxy rather than repeated in every backend: TLS can be terminated there, responses can be cached and compressed, headers can be rewritten, and requests can be routed to entirely different applications based on the URL path. That last point is worth making concrete: a single domain can send <code>/login</code> to an authentication service and <code>/my-account</code> to a profile service, with the proxy directing each request to the right backend. The client sees one address. The proxy decides what runs behind it. These things can also be done within application code, but a reverse proxy lets you centralize them for all backends without changing the applications themselves.</p>
-
-  <p>Nginx is the canonical standalone reverse proxy. Every load balancer, CDN, and API gateway also behaves as a reverse proxy in the sense that it intercepts connections and forwards them. The term names a behavior more than a specific product type.</p>
-
-  <h3>Load Balancer</h3>
-  <p>A load balancer's primary job is to prevent any single server from being overloaded. It distributes incoming traffic across a pool of application instances so capacity scales horizontally: when demand grows you add more instances, and when one fails its health check the load balancer removes it from rotation and traffic continues to the healthy ones automatically.</p>
-
-  <p>Load balancers operate at either Layer 4 (TCP connections) or Layer 7 (HTTP requests). A Layer 4 load balancer distributes connections based on IP address and port without reading HTTP. A Layer 7 load balancer understands HTTP, which enables it to also perform reverse proxy functions such as routing by hostname or path, and TLS termination. Most web application load balancers today operate at Layer 7. AWS Application Load Balancer, GCP Load Balancing, and Azure Application Gateway all work this way. The useful distinction to keep in mind: a load balancer's defining goal is distributing load across instances, while a reverse proxy's defining goal is intercepting and augmenting individual requests. In practice, many products do both.</p>
-
-  <h3>API Gateway</h3>
-  <p>An API gateway is a reverse proxy with application-level policies built in. It sits in front of backend services and enforces cross-cutting concerns centrally: authentication and authorization, rate limiting, routing by API version or path, analytics, and developer-facing features like API key management. Where a general-purpose reverse proxy is neutral about what flows through it, an API gateway is opinionated about API traffic specifically.</p>
-
-  <p>The practical benefit is that these concerns are handled once at the gateway rather than duplicated across every service. Individual services receive already-authenticated requests and can focus on domain logic.</p>
-
-  <figure style="margin:24px 0 8px;">
-    <svg viewBox="0 0 700 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Component comparison showing what each layer sees and does" style="max-width:100%;display:block;background:#161b22;border:1px solid #30363d;border-radius:8px;">
-      <!-- Left column: layers -->
-      <!-- Layer labels -->
-      <text x="14" y="34" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="700" fill="#5f6c8c" letter-spacing="0.08em">LAYER</text>
-      <text x="190" y="34" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="700" fill="#5f6c8c" letter-spacing="0.08em">COMPONENT</text>
-      <text x="400" y="34" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="700" fill="#5f6c8c" letter-spacing="0.08em">CAN SEE / ACT ON</text>
-      <!-- Divider -->
-      <line x1="10" y1="40" x2="690" y2="40" stroke="#30363d"/>
-
-      <!-- Row 1: Firewall (L3/L4) -->
-      <rect x="10" y="50" width="90" height="40" rx="4" fill="rgba(248,81,73,0.1)" stroke="rgba(248,81,73,0.3)"/>
-      <text x="55" y="68" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="#f85149">L3 / L4</text>
-      <text x="55" y="82" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">network</text>
-      <rect x="120" y="50" width="110" height="40" rx="4" fill="rgba(248,81,73,0.1)" stroke="rgba(248,81,73,0.3)"/>
-      <text x="175" y="68" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="#f85149">Firewall</text>
-      <text x="175" y="82" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">network rules</text>
-      <text x="400" y="64" font-family="Inter,system-ui,sans-serif" font-size="11" fill="#e6edf3">Source IP, destination IP, port, protocol</text>
-      <text x="400" y="80" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#5f6c8c">Allow or deny the connection before it opens. No HTTP parsing.</text>
-
-      <!-- Row 2: WAF (L7 security) -->
-      <line x1="10" y1="98" x2="690" y2="98" stroke="#30363d" stroke-dasharray="3,4"/>
-      <rect x="10" y="106" width="90" height="40" rx="4" fill="rgba(210,153,34,0.1)" stroke="rgba(210,153,34,0.3)"/>
-      <text x="55" y="124" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="#d29922">L7</text>
-      <text x="55" y="138" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">application</text>
-      <rect x="120" y="106" width="110" height="40" rx="4" fill="rgba(210,153,34,0.1)" stroke="rgba(210,153,34,0.3)"/>
-      <text x="175" y="124" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="#d29922">WAF</text>
-      <text x="175" y="138" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">security filter</text>
-      <text x="400" y="120" font-family="Inter,system-ui,sans-serif" font-size="11" fill="#e6edf3">Full HTTP request: URL, headers, body, cookies</text>
-      <text x="400" y="136" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#5f6c8c">Block requests matching attack signatures (SQLi, XSS, bot patterns).</text>
-
-      <!-- Row 3: Reverse Proxy / Load Balancer -->
-      <line x1="10" y1="154" x2="690" y2="154" stroke="#30363d" stroke-dasharray="3,4"/>
-      <rect x="10" y="162" width="90" height="40" rx="4" fill="rgba(88,166,255,0.1)" stroke="rgba(88,166,255,0.3)"/>
-      <text x="55" y="180" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="#58a6ff">L7</text>
-      <text x="55" y="194" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">application</text>
-      <rect x="120" y="162" width="110" height="40" rx="4" fill="rgba(88,166,255,0.1)" stroke="rgba(88,166,255,0.3)"/>
-      <text x="175" y="178" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="#58a6ff">Reverse Proxy</text>
-      <text x="175" y="192" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="#58a6ff">Load Balancer</text>
-      <text x="400" y="176" font-family="Inter,system-ui,sans-serif" font-size="11" fill="#e6edf3">Full HTTP request. Upstream health. Connection pool.</text>
-      <text x="400" y="192" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#5f6c8c">Terminate TLS, route to a healthy backend, cache, compress, inject headers.</text>
-
-      <!-- Row 4: API Gateway -->
-      <line x1="10" y1="210" x2="690" y2="210" stroke="#30363d" stroke-dasharray="3,4"/>
-      <rect x="10" y="218" width="90" height="34" rx="4" fill="rgba(63,185,80,0.1)" stroke="rgba(63,185,80,0.3)"/>
-      <text x="55" y="234" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="#3fb950">L7</text>
-      <text x="55" y="246" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">API-aware</text>
-      <rect x="120" y="218" width="110" height="34" rx="4" fill="rgba(63,185,80,0.1)" stroke="rgba(63,185,80,0.3)"/>
-      <text x="175" y="233" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="#3fb950">API Gateway</text>
-      <text x="175" y="247" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">reverse proxy + policies</text>
-      <text x="400" y="232" font-family="Inter,system-ui,sans-serif" font-size="11" fill="#e6edf3">Everything a reverse proxy sees, plus API-specific context</text>
-      <text x="400" y="248" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#5f6c8c">Enforce auth, rate limits, route by version, record usage per API key.</text>
-    </svg>
-    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">Each component operates at a different layer and acts on different information. A product can play multiple roles simultaneously.</figcaption>
-  </figure>
-
-  <div class="callout info">
-    <div class="callout-title">Why these overlap in practice</div>
-    <p>An AWS Application Load Balancer is both a load balancer and a reverse proxy. An Nginx instance can serve as a reverse proxy, load balancer, and static file server simultaneously. The distinctions above are conceptual: they describe a primary job and what the component needs to see to do it. When evaluating a product, ask which of these jobs it covers and whether it covers them well.</p>
-  </div>
+  <p>The sections below examine each layer in turn. A comparison of the four components that cause the most confusion (firewall, reverse proxy, load balancer, and API gateway) follows after the individual deep-dives.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="edge">At the Edge: CDN and WAF</h2>
   <p class="lede">The components furthest from your application handle the highest request volumes and provide the first lines of defense.</p>
 
-  <p>A CDN (Content Delivery Network) is a global network of servers positioned close to users in major population centers. The purpose is latency: a user in Frankfurt connecting to a CDN point-of-presence in Frankfurt gets a response in single-digit milliseconds rather than the 150+ milliseconds a round trip to a US data center would take. For dynamic content that cannot be cached, the CDN still helps: it terminates TLS at the edge node (eliminating the round-trip cost of the handshake) and routes the remaining connection over the CDN's own high-capacity network backbone to the origin.</p>
+  <p>A CDN (Content Delivery Network) is a global network of servers positioned close to users in major population centers. The purpose is latency: a user in Frankfurt connecting to a CDN point-of-presence in Frankfurt gets a response in single-digit milliseconds rather than the 150+ milliseconds a round trip to a US data center would take. For dynamic content that cannot be cached, the CDN still helps: it terminates TLS at the edge node, eliminating the round-trip cost of the handshake, and routes the remaining connection over the CDN's own high-capacity backbone to the origin.</p>
+
+  <p>Traffic reaches the CDN edge through DNS lookup. When a CDN is configured for a domain, the domain's DNS record is pointed at the CDN's infrastructure. The CDN's own authoritative nameservers then respond to DNS queries with the IP address of the nearest edge node, selected based on the requester's geographic location or network proximity. The browser connecting to example.com ends up at a server a few milliseconds away, with no awareness that the origin is elsewhere. CDN traffic redirection is invisible to the client.</p>
 
   <figure style="margin:24px 0 8px;">
     <svg viewBox="0 0 700 195" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="CDN cache hit versus cache miss request paths" style="max-width:100%;display:block;background:#161b22;border:1px solid #30363d;border-radius:8px;">
@@ -302,9 +220,14 @@
     <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">A cache hit never contacts the origin. A miss fetches from the origin and caches the response for subsequent requests.</figcaption>
   </figure>
 
-  <p>The CDN is not just a performance tool. It is the first security layer many applications have. A <strong>WAF</strong> (Web Application Firewall) positioned at the edge inspects HTTP requests for SQL injection patterns, XSS payloads, path traversal attempts, and known bot signatures. DDoS protection also lives here: a volumetric attack large enough to saturate a single data center's network connection is absorbed across the CDN's aggregate capacity in hundreds of edge locations. The application servers never see the traffic.</p>
+  <p>The CDN is not just a performance tool. It is the first security layer many applications have. A <strong>WAF</strong> (Web Application Firewall) positioned at the edge inspects HTTP requests for SQL injection patterns, XSS payloads, path traversal attempts, and known bot signatures. DDoS protection also lives here: a volumetric attack large enough to saturate a single data center's network connection is absorbed across the CDN's aggregate capacity in hundreds of edge locations. The application servers never see the traffic. WAF is also deployed as a standalone appliance in on-premises and regulated environments. Products like F5 and Imperva operate as dedicated hardware or virtual appliances sitting inline in the traffic path, independent of any CDN.</p>
 
   <p>What you put at the edge determines what reaches your infrastructure at all. Cache TTL decisions, which response headers are forwarded, and where TLS terminates all have direct consequences for application behavior and security posture.</p>
+
+  <div class="callout warn">
+    <div class="callout-title">Protecting the origin</div>
+    <p>A CDN that provides WAF and DDoS protection is only effective if attackers cannot bypass it by connecting directly to the origin. If the origin's IP address is publicly discoverable, traffic sent directly to it skips the CDN entirely, along with all the security controls at the edge. The fix is to configure the origin's firewall to accept inbound traffic only from the CDN provider's published IP ranges, and to avoid exposing the origin IP in DNS records, error messages, or email headers. Without this, the CDN is security theater.</p>
+  </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="load-balancing">Load Balancers and Application Design</h2>
@@ -389,7 +312,7 @@
 
   <p>The right answer is designing the application to be stateless. Session data lives in a shared external store (Redis is the most common choice) rather than in process memory. Every server can then handle any request, because session state is not local. The load balancer routes freely. Servers can be added, removed, or restarted without disrupting user sessions.</p>
 
-  <p>Health checks are the other critical piece. A load balancer continuously probes each instance on a dedicated endpoint to verify it is ready to serve traffic. An instance that fails health checks is removed from rotation automatically. The endpoint should verify actual readiness, not just that the process is running. An instance that has started but not yet finished loading configuration or warming up a cache should fail its health check until it is genuinely ready.</p>
+  <p>Health checks are the other critical piece. A load balancer continuously probes each instance on a dedicated endpoint to verify it is ready to serve traffic. An instance that fails health checks is removed from rotation automatically. Two categories of check matter here. A <strong>liveness check</strong> answers whether the process is still running. A failure indicates the instance should be restarted. A <strong>readiness check</strong> answers whether the instance is ready to accept traffic. A failure removes the instance from the load balancer's rotation without restarting it. An instance can be live but not ready: it may have started but not yet connected to its database, loaded required configuration, or completed a cache warmup. A health endpoint that returns 200 OK the moment the process starts, before these conditions are met, will cause the load balancer to route real requests to an instance that will fail them. The check must verify actual readiness, not just process existence.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="tls">TLS Termination</h2>
@@ -465,7 +388,94 @@
 
   <p>The diagram above illustrates a key constraint: any component that needs to inspect or modify HTTP content must be the TLS termination point, or must sit downstream of it. A WAF checking for injection patterns, an API gateway enforcing authorization, or an L7 load balancer routing by path all require access to decrypted HTTP. If the traffic arriving at that component is still an encrypted TLS stream, it cannot see inside it. A traditional network firewall is the exception: it operates on IP addresses and port numbers rather than HTTP content, so it can allow or block HTTPS connections without decrypting them.</p>
 
-  <p>One consequence of reverse proxy termination is that the application server no longer sees the original client IP. It receives only the proxy's IP. The reverse proxy injects the real client address as the <code>X-Forwarded-For</code> header. Application code that uses this for rate limiting, geo-blocking, or fraud detection must handle it carefully: a misconfigured proxy that does not strip existing values allows clients to spoof their address by injecting their own <code>X-Forwarded-For</code> before the proxy appends the real one.</p>
+  <p>One consequence of reverse proxy termination is that the application server no longer sees the original client IP. It receives only the proxy's address. The proxy injects the client's real IP into an <code>X-Forwarded-For</code> header, which accumulates every address in the chain: <code>X-Forwarded-For: client-ip, proxy1-ip, proxy2-ip</code>. Application code that reads the first value in this header is reading client-controlled data. A client can set any value it likes before the proxy appends to it. The correct approach is to trust only the rightmost IP added by a proxy your application explicitly trusts, or to have the proxy strip all incoming <code>X-Forwarded-For</code> headers and set the value fresh from the real connection. Some setups use a dedicated <code>X-Real-IP</code> header that only the proxy can set, which avoids the chain ambiguity entirely.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="components">Four Core Components</h2>
+  <p class="lede">Firewalls, reverse proxies, load balancers, and API gateways each have a distinct primary job. Products often combine multiple roles, which is why the distinctions matter more at the concept level than at the product level.</p>
+
+  <h3>Firewall</h3>
+  <p>A firewall controls which network connections are permitted. Traditional firewalls operate at the network layer (IP addresses) and transport layer (ports and protocols), allowing or denying traffic based on source address, destination address, port number, and protocol. At this level, a firewall has no knowledge of HTTP or your application's behavior. Modern next-generation firewalls (NGFW) can additionally inspect traffic at the application layer, applying policies based on application type or threat signatures, but the core role is the same: the firewall is a boundary enforcer that decides whether a connection is allowed before any application code runs.</p>
+
+  <p>A firewall is how you express rules like "the database accepts connections only from the application servers, not from the internet." If a connection does not match a permitted rule, it is dropped at the boundary.</p>
+
+  <h3>Reverse Proxy</h3>
+  <p>A reverse proxy sits in front of one or more backend servers, accepting connections on their behalf and forwarding each request onwards. From the client's perspective, it is always talking to the proxy. The actual application servers are not directly reachable. The value of this arrangement is that cross-cutting concerns can be handled at the proxy rather than repeated in every backend: TLS can be terminated there, responses can be cached and compressed, headers can be rewritten, and requests can be routed to entirely different applications based on the URL path. That last point is worth making concrete: a single domain can send <code>/login</code> to an authentication service and <code>/my-account</code> to a profile service, with the proxy directing each request to the right backend. The client sees one address. The proxy decides what runs behind it. These things can also be done within application code, but a reverse proxy lets you centralize them for all backends without changing the applications themselves.</p>
+
+  <p>Nginx is the canonical standalone reverse proxy. Every load balancer, CDN, and API gateway also behaves as a reverse proxy in the sense that it intercepts connections and forwards them. The term names a behavior more than a specific product type.</p>
+
+  <h3>Load Balancer</h3>
+  <p>A load balancer's primary job is to prevent any single server from being overloaded. It distributes incoming traffic across a pool of application instances so capacity scales horizontally: when demand grows you add more instances, and when one fails its health check the load balancer removes it from rotation and traffic continues to the healthy ones automatically.</p>
+
+  <p>Load balancers operate at either Layer 4 (TCP connections) or Layer 7 (HTTP requests). A Layer 4 load balancer distributes connections based on IP address and port without reading HTTP. A Layer 7 load balancer understands HTTP, which enables it to also perform reverse proxy functions such as routing by hostname or path, and TLS termination. Most web application load balancers today operate at Layer 7. AWS Application Load Balancer, GCP Load Balancing, and Azure Application Gateway all work this way. The useful distinction to keep in mind: a load balancer's defining goal is distributing load across instances, while a reverse proxy's defining goal is intercepting and augmenting individual requests. In practice, many products do both.</p>
+
+  <h3>API Gateway</h3>
+  <p>An API gateway is a reverse proxy with application-level policies built in. It sits in front of backend services and enforces cross-cutting concerns centrally: authentication and authorization, rate limiting, routing by API version or path, analytics, and developer-facing features like API key management. Where a general-purpose reverse proxy is neutral about what flows through it, an API gateway is opinionated about API traffic specifically.</p>
+
+  <p>The practical benefit is that these concerns are handled once at the gateway rather than duplicated across every service. Individual services receive already-authenticated requests and can focus on domain logic.</p>
+
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 700 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Component comparison showing what each layer sees and does" style="max-width:100%;display:block;background:#161b22;border:1px solid #30363d;border-radius:8px;">
+      <!-- Left column: layers -->
+      <!-- Layer labels -->
+      <text x="14" y="34" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="700" fill="#5f6c8c" letter-spacing="0.08em">LAYER</text>
+      <text x="190" y="34" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="700" fill="#5f6c8c" letter-spacing="0.08em">COMPONENT</text>
+      <text x="400" y="34" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="700" fill="#5f6c8c" letter-spacing="0.08em">CAN SEE / ACT ON</text>
+      <!-- Dividers -->
+      <line x1="10" y1="40" x2="690" y2="40" stroke="#30363d"/>
+      <line x1="240" y1="40" x2="240" y2="252" stroke="#30363d" stroke-dasharray="2,4"/>
+      <line x1="390" y1="40" x2="390" y2="252" stroke="#30363d" stroke-dasharray="2,4"/>
+
+      <!-- Row 1: Firewall (L3/L4) -->
+      <rect x="10" y="50" width="90" height="40" rx="4" fill="rgba(248,81,73,0.1)" stroke="rgba(248,81,73,0.3)"/>
+      <text x="55" y="68" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="#f85149">L3 / L4</text>
+      <text x="55" y="82" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">network</text>
+      <rect x="120" y="50" width="110" height="40" rx="4" fill="rgba(248,81,73,0.1)" stroke="rgba(248,81,73,0.3)"/>
+      <text x="175" y="68" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="#f85149">Firewall</text>
+      <text x="175" y="82" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">boundary enforcer</text>
+      <text x="400" y="64" font-family="Inter,system-ui,sans-serif" font-size="11" fill="#e6edf3">Source IP, destination IP, port, protocol</text>
+      <text x="400" y="80" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#5f6c8c">Allow or deny the connection before it opens. No HTTP parsing.</text>
+
+      <!-- Row 2: WAF (L7 security) -->
+      <line x1="10" y1="98" x2="690" y2="98" stroke="#30363d" stroke-dasharray="3,4"/>
+      <rect x="10" y="106" width="90" height="40" rx="4" fill="rgba(210,153,34,0.1)" stroke="rgba(210,153,34,0.3)"/>
+      <text x="55" y="124" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="#d29922">L7</text>
+      <text x="55" y="138" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">application</text>
+      <rect x="120" y="106" width="110" height="40" rx="4" fill="rgba(210,153,34,0.1)" stroke="rgba(210,153,34,0.3)"/>
+      <text x="175" y="124" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="#d29922">WAF</text>
+      <text x="175" y="138" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">security filter</text>
+      <text x="400" y="120" font-family="Inter,system-ui,sans-serif" font-size="11" fill="#e6edf3">Full HTTP request: URL, headers, body, cookies</text>
+      <text x="400" y="136" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#5f6c8c">Block requests matching attack signatures (SQLi, XSS, bot patterns).</text>
+
+      <!-- Row 3: Reverse Proxy / Load Balancer -->
+      <line x1="10" y1="154" x2="690" y2="154" stroke="#30363d" stroke-dasharray="3,4"/>
+      <rect x="10" y="162" width="90" height="40" rx="4" fill="rgba(88,166,255,0.1)" stroke="rgba(88,166,255,0.3)"/>
+      <text x="55" y="180" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="#58a6ff">L7</text>
+      <text x="55" y="194" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">application</text>
+      <rect x="120" y="162" width="110" height="40" rx="4" fill="rgba(88,166,255,0.1)" stroke="rgba(88,166,255,0.3)"/>
+      <text x="175" y="178" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="#58a6ff">Reverse Proxy</text>
+      <text x="175" y="192" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="#58a6ff">Load Balancer</text>
+      <text x="400" y="176" font-family="Inter,system-ui,sans-serif" font-size="11" fill="#e6edf3">Full HTTP request. Upstream health. Connection pool.</text>
+      <text x="400" y="192" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#5f6c8c">Terminate TLS, route to a healthy backend, cache, compress, inject headers.</text>
+
+      <!-- Row 4: API Gateway -->
+      <line x1="10" y1="210" x2="690" y2="210" stroke="#30363d" stroke-dasharray="3,4"/>
+      <rect x="10" y="218" width="90" height="34" rx="4" fill="rgba(63,185,80,0.1)" stroke="rgba(63,185,80,0.3)"/>
+      <text x="55" y="234" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="#3fb950">L7</text>
+      <text x="55" y="246" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">API-aware</text>
+      <rect x="120" y="218" width="110" height="34" rx="4" fill="rgba(63,185,80,0.1)" stroke="rgba(63,185,80,0.3)"/>
+      <text x="175" y="233" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="#3fb950">API Gateway</text>
+      <text x="175" y="247" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">reverse proxy + policies</text>
+      <text x="400" y="232" font-family="Inter,system-ui,sans-serif" font-size="11" fill="#e6edf3">Everything a reverse proxy sees, plus API-specific context</text>
+      <text x="400" y="248" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#5f6c8c">Enforce auth, rate limits, route by version, record usage per API key.</text>
+    </svg>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">Each component operates at a different layer and acts on different information. A product can play multiple roles simultaneously.</figcaption>
+  </figure>
+
+  <div class="callout info">
+    <div class="callout-title">Why these overlap in practice</div>
+    <p>An AWS Application Load Balancer is both a load balancer and a reverse proxy. An Nginx instance can serve as a reverse proxy, load balancer, and static file server simultaneously. The distinctions above are conceptual: they describe a primary job and what the component needs to see to do it. When evaluating a product, ask which of these jobs it covers and whether it covers them well.</p>
+  </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="zones">Network Zones</h2>
@@ -712,7 +722,13 @@
 
   <p>The infrastructure implications of both are significant. Persistent connections are long-lived, which changes capacity planning fundamentally. A server handling 10,000 short HTTP requests per second and a server holding 10,000 open WebSocket connections have entirely different resource profiles. Load balancers must be configured to support long-lived connections. Many WebSocket problems in production trace back to a proxy closing idle connections on a timeout shorter than the client's reconnection interval. Session affinity is often needed: a client reconnecting to a different backend loses any in-memory state the original instance held, which circles back to the statelessness discussion from the load balancing section.</p>
 
-  <p class="wide" style="max-width:700px;margin-top:40px;color:var(--text-dim);font-size:14px;border-top:1px solid var(--border);padding-top:24px;">Networking infrastructure shapes application design in ways that are easy to underestimate. Stateless servers, external session stores, TLS termination strategy, subnet placement: none of these are operational details to sort out at deployment time. They are architectural decisions that become expensive to change once an application is in production.</p>
+  <h2 id="summary">Key Takeaways</h2>
+  <p><strong>A firewall controls network access, not application behavior.</strong> It allows or denies connections based on IP address, port, and protocol — before any HTTP is parsed.</p>
+  <p><strong>A reverse proxy centralizes what would otherwise be duplicated in every backend.</strong> TLS termination, path-based routing to different applications, caching, header manipulation — these happen at the proxy.</p>
+  <p><strong>A load balancer's primary job is distributing traffic to prevent overload.</strong> It spreads requests across a pool of identical instances so no single server becomes a bottleneck. When an instance fails, the load balancer stops routing to that instance.</p>
+  <p><strong>An API gateway is a reverse proxy with application-level policy built in.</strong> Authentication, rate limiting, routing by API version, and usage tracking are enforced centrally at the gateway. Individual services receive already-authenticated requests and do not need to implement these concerns themselves.</p>
+  <p><strong>A CDN terminates TLS at the edge, close to users.</strong> Cache hits never reach the origin. WAF inspection and DDoS absorption happen here, across aggregate capacity that no single data center can match.</p>
+  <p><strong>Network zones implement defense in depth.</strong> Internet-facing components live in the public subnet. Application servers live in a private subnet with no public IP. Each zone boundary is a firewall rule.</p>
 
 </main>
 </div>
