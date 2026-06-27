@@ -95,9 +95,8 @@
       <text x="457" y="24" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="700" fill="#3fb950" letter-spacing=".07em">YOUR INFRASTRUCTURE</text>
 
       <!-- Firewall gate -->
-      <rect x="203" y="53" width="14" height="32" rx="3" fill="rgba(248,81,73,0.2)" stroke="#f85149"/>
-      <text x="210" y="66" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="7" font-weight="700" fill="#f85149">F</text>
-      <text x="210" y="76" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="7" font-weight="700" fill="#f85149">W</text>
+      <rect x="202" y="57" width="18" height="20" rx="3" fill="rgba(248,81,73,0.2)" stroke="#f85149"/>
+      <text x="211" y="71" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8" font-weight="700" fill="#f85149">FW</text>
 
       <!-- Internet zone boxes -->
       <rect x="12" y="38" width="74" height="38" rx="5" fill="#1c2330" stroke="#30363d"/>
@@ -151,9 +150,14 @@
   <h2 id="edge">At the Edge: CDN and WAF</h2>
   <p class="lede">The components furthest from your application handle the highest request volumes and provide the first lines of defense.</p>
 
-  <p>A CDN (Content Delivery Network) is a global network of servers positioned close to users in major population centers. The purpose is latency: a user in Frankfurt connecting to a CDN point-of-presence in Frankfurt gets a response in single-digit milliseconds rather than the 150+ milliseconds a round trip to a US data center would take. For dynamic content that cannot be cached, the CDN still helps: it terminates TLS at the edge node, eliminating the round-trip cost of the handshake, and routes the remaining connection over the CDN's own high-capacity backbone to the origin.</p>
+  <p>A CDN (Content Delivery Network) is a global network of servers positioned close to users in major population centers. The purpose is latency: a user in Stockholm connecting to a CDN point-of-presence in Stockholm gets a response in single-digit milliseconds rather than the 150+ milliseconds a round trip to a US data center would take. For dynamic content that cannot be cached, the CDN still helps: it terminates TLS at a server close to the user, reducing handshake latency because the TLS exchange happens with a nearby edge node rather than a distant origin, and routes the remaining connection over the CDN's own high-capacity backbone.</p>
 
-  <p>Traffic reaches the CDN edge through DNS lookup. When a CDN is configured for a domain, the domain's DNS record is pointed at the CDN's infrastructure. The CDN's own authoritative nameservers then respond to DNS queries with the IP address of the nearest edge node, selected based on the requester's geographic location or network proximity. The browser connecting to example.com ends up at a server a few milliseconds away, with no awareness that the origin is elsewhere. CDN traffic redirection is invisible to the client.</p>
+  <p>When a CDN is configured for a domain, the domain's DNS record is pointed at the CDN's infrastructure. The CDN's own authoritative nameservers then respond to DNS queries with the IP address of the nearest edge node, selected based on the requester's geographic location or network proximity. The browser connecting to example.com ends up at a server a few milliseconds away, with no awareness that the origin is elsewhere. CDN traffic redirection is invisible to the client.</p>
+
+  <div class="callout info">
+    <div class="callout-title">DNS TTL and CDN routing</div>
+    <p>DNS responses are cached by resolvers and client operating systems for a period set by the TTL (time-to-live) value. A long TTL reduces DNS query volume and improves resolution speed, but it also means changes propagate slowly. If you update a DNS record, clients that cached the old response will continue using it until their TTL expires. CDN operators typically recommend short TTLs (60–300 seconds) on the records that point to the CDN so that failover and edge node changes take effect quickly. For origin IP records that you want to protect from direct access, a very short TTL is also valuable: if the IP must change, the old value ages out faster.</p>
+  </div>
 
   <figure style="margin:24px 0 8px;">
     <svg viewBox="0 0 700 195" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="CDN cache hit versus cache miss request paths" style="max-width:100%;display:block;background:#161b22;border:1px solid #30363d;border-radius:8px;">
@@ -312,13 +316,15 @@
 
   <p>The right answer is designing the application to be stateless. Session data lives in a shared external store (Redis is the most common choice) rather than in process memory. Every server can then handle any request, because session state is not local. The load balancer routes freely. Servers can be added, removed, or restarted without disrupting user sessions.</p>
 
+  <p>How requests are distributed across instances is controlled by the balancing algorithm. <strong>Round robin</strong> cycles through the instance pool in sequence: first request to server A, second to server B, third to server C, then back to A. It works well when requests are similar in cost. <strong>Least connections</strong> routes each new request to whichever instance currently has the fewest active connections. This adapts better to variable workloads where some requests take much longer than others — a slow database query on server A will not keep filling it with new requests while servers B and C sit idle. Most cloud load balancers default to round robin and offer least connections as an alternative.</p>
+
   <p>Health checks are the other critical piece. A load balancer continuously probes each instance on a dedicated endpoint to verify it is ready to serve traffic. An instance that fails health checks is removed from rotation automatically. Two categories of check matter here. A <strong>liveness check</strong> answers whether the process is still running. A failure indicates the instance should be restarted. A <strong>readiness check</strong> answers whether the instance is ready to accept traffic. A failure removes the instance from the load balancer's rotation without restarting it. An instance can be live but not ready: it may have started but not yet connected to its database, loaded required configuration, or completed a cache warmup. A health endpoint that returns 200 OK the moment the process starts, before these conditions are met, will cause the load balancer to route real requests to an instance that will fail them. The check must verify actual readiness, not just process existence.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="tls">TLS Termination</h2>
   <p class="lede">HTTPS is encrypted from the browser to wherever TLS terminates. That point is usually not your application server, and where it is matters.</p>
 
-  <p>TLS is almost always terminated at a reverse proxy or load balancer rather than at the application server itself. After that point, traffic travels as plain HTTP over the internal network. This is practical: certificates are managed in one place, application servers are simpler, and offloading TLS reduces CPU overhead on application instances.</p>
+  <p>TLS is almost always terminated at a reverse proxy or load balancer rather than at the application server itself. After that point, traffic travels as plain HTTP over the internal network. This is practical: certificates are managed in one place, application servers are simpler, and offloading TLS reduces CPU overhead on application instances. The trade-off is that internal traffic is unencrypted. If an attacker gains access to the internal network, they can read traffic between the load balancer and application servers. In high-security or regulated environments, the third model in the diagram below re-encrypts before forwarding to application servers to remove that exposure.</p>
 
   <figure style="margin:24px 0 8px;">
     <svg viewBox="0 0 700 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Three TLS termination models: CDN edge, load balancer, and end-to-end re-encryption" style="max-width:100%;display:block;background:#161b22;border:1px solid #30363d;border-radius:8px;">
@@ -407,7 +413,9 @@
   <h3>Load Balancer</h3>
   <p>A load balancer's primary job is to prevent any single server from being overloaded. It distributes incoming traffic across a pool of application instances so capacity scales horizontally: when demand grows you add more instances, and when one fails its health check the load balancer removes it from rotation and traffic continues to the healthy ones automatically.</p>
 
-  <p>Load balancers operate at either Layer 4 (TCP connections) or Layer 7 (HTTP requests). A Layer 4 load balancer distributes connections based on IP address and port without reading HTTP. A Layer 7 load balancer understands HTTP, which enables it to also perform reverse proxy functions such as routing by hostname or path, and TLS termination. Most web application load balancers today operate at Layer 7. AWS Application Load Balancer, GCP Load Balancing, and Azure Application Gateway all work this way. The useful distinction to keep in mind: a load balancer's defining goal is distributing load across instances, while a reverse proxy's defining goal is intercepting and augmenting individual requests. In practice, many products do both.</p>
+  <p>Load balancers operate at either Layer 4 (TCP connections) or Layer 7 (HTTP requests). These layer numbers come from the OSI networking model: Layer 3 is the network layer (IP routing), Layer 4 is the transport layer (TCP and UDP connections), and Layer 7 is the application layer (HTTP, DNS, and other application protocols). A component described as L3/L4 sees IP addresses, ports, and connection state. An L7 component also sees the HTTP content inside those connections.</p>
+
+  <p>A Layer 4 load balancer distributes connections based on IP address and port without reading HTTP. A Layer 7 load balancer understands HTTP, which enables it to also perform reverse proxy functions such as routing by hostname or path, and TLS termination. Most web application load balancers today operate at Layer 7. AWS Application Load Balancer, GCP Load Balancing, and Azure Application Gateway all work this way. The useful distinction to keep in mind: a load balancer's defining goal is distributing load across instances, while a reverse proxy's defining goal is intercepting and augmenting individual requests. In practice, many products do both.</p>
 
   <h3>API Gateway</h3>
   <p>An API gateway is a reverse proxy with application-level policies built in. It sits in front of backend services and enforces cross-cutting concerns centrally: authentication and authorization, rate limiting, routing by API version or path, analytics, and developer-facing features like API key management. Where a general-purpose reverse proxy is neutral about what flows through it, an API gateway is opinionated about API traffic specifically.</p>
@@ -557,6 +565,8 @@
   </figure>
 
   <p><strong>Public subnets</strong> hold components that accept inbound internet traffic: load balancers, CDN origin connections, and NAT gateways. These have public IP addresses. <strong>Private subnets</strong> hold application servers and internal services that should only be reachable from inside the network. They have no public IP and are not routable from the internet. The data tier goes further still: databases accept connections only from application servers in the private subnet.</p>
+
+  <p>In traditional on-premises architecture, this intermediate zone between the internet and the internal network was called a <strong>DMZ</strong> (demilitarized zone). A DMZ sits between two firewalls: one facing the internet, one facing the internal network. Public-facing servers such as web servers and reverse proxies live in the DMZ, isolated from internal systems even if compromised. The cloud VPC model achieves the same thing with public and private subnets and security group rules, but the underlying principle is identical: public-facing components are separated from internal ones by a firewall boundary, and no direct path from the internet to the internal network exists.</p>
 
   <p>This layering is the network implementation of defense in depth. An attacker who compromises a component in the public subnet still faces firewall boundaries before reaching private instances. A misconfigured load balancer does not automatically expose the database. Compromising the database requires compromising an application server first.</p>
 
