@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API Authentication — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="docs.css">
+<style>
+  /* ── JWT anatomy display ── */
+  .jwt-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 14px 0;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 1.8;
+    max-width: var(--content-w);
+    word-break: break-all;
+  }
+  .jwt-header    { color: var(--red); }
+  .jwt-payload   { color: var(--purple); }
+  .jwt-signature { color: var(--teal); }
+  .jwt-dot       { color: var(--text-faint); }
+  .jwt-legend {
+    display: flex;
+    gap: 20px;
+    margin-top: 10px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+  }
+  .jwt-legend span { display: flex; align-items: center; gap: 6px; }
+  .jwt-legend .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── Two-col grid ── */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 16px 0;
+  }
+  @media (max-width: 900px) {
+    .two-col { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Docs</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-logo" href="index.html">API<br><span>Authentication</span></a>
+  <div class="sidebar-section">Concepts</div>
+  <a href="#authn-authz">AuthN vs AuthZ</a>
+  <a href="#sessions-tokens">Sessions and Tokens</a>
+  <div class="sidebar-section">JWTs</div>
+  <a href="#jwt-structure">Structure</a>
+  <a href="#jwt-validation">Validation</a>
+  <a href="#jwt-pitfalls">Pitfalls</a>
+  <div class="sidebar-section">Credentials</div>
+  <a href="#token-storage">Token Storage</a>
+  <a href="#refresh-tokens">Refresh Tokens</a>
+  <a href="#api-keys">API Keys</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">Security · Auth</div>
+  <h1>API Authentication: <em>Tokens, Keys, and Sessions</em></h1>
+  <p class="subtitle">Sessions, JWTs, refresh tokens, and API keys: the practical layer between authentication flows and running code.</p>
+  <div class="byline">
+    <strong>Deep dive</strong>
+    <div class="dot"></div><span>~15 min read</span>
+    <div class="dot"></div><span>Authentication</span>
+    <div class="dot"></div><span>June 2026</span>
+  </div>
+
+  <p class="wide" style="max-width:700px;">The <a href="oauth-oidc.html">OAuth &amp; OIDC article</a> covers delegated authorization flows: how an application gets permission to act on a user's behalf. This article covers the layer underneath: what credentials actually look like, how they are validated, where they are stored, and the tradeoffs between different approaches. These decisions affect both security and architecture in ways that are hard to change later.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="authn-authz">Authentication vs Authorization</h2>
+  <p class="lede">Two concepts that are frequently conflated and almost as frequently implemented incorrectly.</p>
+
+  <p><strong>Authentication</strong> establishes identity: who is making this request? It answers the question "are you who you claim to be?" through credentials: a password, a token, a certificate, a biometric. Authentication is binary: either the identity is established or it isn't.</p>
+
+  <p><strong>Authorization</strong> establishes permission: given who you are, what are you allowed to do? It answers the question "do you have the right to perform this operation?" Authorization is always relative to an identity: you can't authorize someone you haven't authenticated. But authentication alone is not sufficient for authorization. A valid login doesn't mean you can access every resource.</p>
+
+  <p>Conflating the two is a common source of access control vulnerabilities. An application that checks "is this user logged in?" for every request but not "does this user own this resource?" has authenticated correctly but failed at authorization. The <a href="web-security-principles.html">security principles article</a> covers broken access control in more depth.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="sessions-tokens">Sessions and Tokens</h2>
+  <p class="lede">Two fundamentally different approaches to keeping a user authenticated across requests.</p>
+
+  <p>After a user logs in, every subsequent request needs to prove that they did. HTTP is stateless, so this proof must be carried in the request itself. There are two broad strategies.</p>
+
+  <h3>Server-side sessions</h3>
+  <p>The server creates a session record on login and returns an opaque session ID (a random string with no inherent meaning). The browser stores this ID (typically in a cookie) and sends it with every request. The server looks up the session ID in a store (a database or in-memory cache like Redis) to retrieve the associated user and their permissions.</p>
+
+  <div class="two-col">
+    <div class="card teal">
+      <div class="card-label">Advantage</div>
+      <div class="card-title">Easy to revoke</div>
+      <p>Deleting the session record immediately invalidates the session, everywhere. Logging out, detecting account compromise, or forcing re-authentication is instant and reliable.</p>
+    </div>
+    <div class="card orange">
+      <div class="card-label">Tradeoff</div>
+      <div class="card-title">Shared state required</div>
+      <p>Every server instance must be able to look up any session. In a multi-server environment this requires a shared session store, which becomes a dependency to manage and a potential bottleneck.</p>
+    </div>
+  </div>
+
+  <h3>Token-based authentication</h3>
+  <p>The server encodes all necessary information (user ID, roles, expiry) directly into a signed token and returns it to the client. On subsequent requests, the client sends the token. The server validates the signature and reads the claims without consulting any external store. The server is stateless with respect to authentication.</p>
+
+  <div class="two-col">
+    <div class="card teal">
+      <div class="card-label">Advantage</div>
+      <div class="card-title">Stateless and scalable</div>
+      <p>Any server instance can validate a token independently. No shared session store is required. This makes token-based authentication a natural fit for microservices and horizontally scaled deployments.</p>
+    </div>
+    <div class="card orange">
+      <div class="card-label">Tradeoff</div>
+      <div class="card-title">Difficult to revoke</div>
+      <p>A token is valid until it expires. Revoking a token before expiry requires either a revocation list (which every server must check, reintroducing shared state) or very short token lifetimes paired with refresh tokens.</p>
+    </div>
+  </div>
+
+    <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 700 260" style="max-width:100%;display:block;background:#161b22;border:1px solid #30363d;border-radius:8px;" role="img" aria-label="Session-based versus token-based authentication side-by-side sequence comparison" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="aa-r" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#8b94a0"/>
+        </marker>
+        <marker id="aa-l" markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto">
+          <polygon points="8 0, 0 3, 8 6" fill="#8b94a0"/>
+        </marker>
+        <marker id="aa-rg" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#3fb950"/>
+        </marker>
+        <marker id="aa-lg" markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto">
+          <polygon points="8 0, 0 3, 8 6" fill="#3fb950"/>
+        </marker>
+      </defs>
+      <!-- Panel headers -->
+      <text x="170" y="16" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="#e6edf3">Session-Based</text>
+      <text x="530" y="16" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="#e6edf3">Token-Based (JWT)</text>
+      <line x1="350" y1="6" x2="350" y2="254" stroke="#30363d" stroke-width="1"/>
+      <!-- ── LEFT: Session ── -->
+      <!-- Actors -->
+      <rect x="8" y="22" width="64" height="24" rx="4" fill="#1c2330" stroke="#30363d" stroke-width="1"/>
+      <text x="40" y="38" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#8b94a0">Client</text>
+      <rect x="138" y="22" width="74" height="24" rx="4" fill="#1c2330" stroke="#30363d" stroke-width="1"/>
+      <text x="175" y="38" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#8b94a0">App Server</text>
+      <rect x="258" y="22" width="80" height="24" rx="4" fill="#1c2330" stroke="#f85149" stroke-width="1"/>
+      <text x="298" y="35" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#f85149">Session</text>
+      <text x="298" y="45" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#f85149">Store (DB)</text>
+      <!-- Lifelines -->
+      <line x1="40" y1="46" x2="40" y2="245" stroke="#30363d" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="175" y1="46" x2="175" y2="245" stroke="#30363d" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="298" y1="46" x2="298" y2="245" stroke="#30363d" stroke-width="1" stroke-dasharray="3,3"/>
+      <!-- Login flow -->
+      <line x1="46" y1="68" x2="169" y2="68" stroke="#8b94a0" stroke-width="1.2" marker-end="url(#aa-r)"/>
+      <text x="107" y="65" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#8b94a0">POST /login</text>
+      <line x1="181" y1="84" x2="292" y2="84" stroke="#8b94a0" stroke-width="1.2" marker-end="url(#aa-r)"/>
+      <text x="236" y="81" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#8b94a0">CREATE session</text>
+      <line x1="292" y1="100" x2="181" y2="100" stroke="#8b94a0" stroke-width="1.2" marker-end="url(#aa-l)"/>
+      <text x="236" y="97" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#8b94a0">session_id</text>
+      <line x1="169" y1="116" x2="46" y2="116" stroke="#3fb950" stroke-width="1.2" marker-end="url(#aa-l)"/>
+      <text x="107" y="113" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#3fb950">Set-Cookie: sid=XYZ</text>
+      <!-- Separator -->
+      <line x1="10" y1="130" x2="338" y2="130" stroke="#30363d" stroke-width="1" stroke-dasharray="4,2"/>
+      <!-- API call flow -->
+      <line x1="46" y1="148" x2="169" y2="148" stroke="#8b94a0" stroke-width="1.2" marker-end="url(#aa-r)"/>
+      <text x="107" y="145" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#8b94a0">GET /profile + sid</text>
+      <line x1="181" y1="164" x2="292" y2="164" stroke="#8b94a0" stroke-width="1.2" marker-end="url(#aa-r)"/>
+      <text x="236" y="161" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#f85149">LOOKUP sid</text>
+      <line x1="292" y1="180" x2="181" y2="180" stroke="#8b94a0" stroke-width="1.2" marker-end="url(#aa-l)"/>
+      <text x="236" y="177" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#8b94a0">&#123;user, roles&#125;</text>
+      <line x1="169" y1="196" x2="46" y2="196" stroke="#3fb950" stroke-width="1.2" marker-end="url(#aa-l)"/>
+      <text x="107" y="193" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#3fb950">200 OK</text>
+      <!-- Footer note -->
+      <text x="170" y="218" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#f85149">DB roundtrip on every request</text>
+      <!-- ── RIGHT: JWT ── -->
+      <!-- Actors -->
+      <rect x="362" y="22" width="64" height="24" rx="4" fill="#1c2330" stroke="#30363d" stroke-width="1"/>
+      <text x="394" y="38" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#8b94a0">Client</text>
+      <rect x="574" y="22" width="74" height="24" rx="4" fill="#1c2330" stroke="#58a6ff" stroke-width="1"/>
+      <text x="611" y="38" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#58a6ff">App Server</text>
+      <!-- Lifelines -->
+      <line x1="394" y1="46" x2="394" y2="245" stroke="#30363d" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="611" y1="46" x2="611" y2="245" stroke="#30363d" stroke-width="1" stroke-dasharray="3,3"/>
+      <!-- Login -->
+      <line x1="400" y1="68" x2="605" y2="68" stroke="#8b94a0" stroke-width="1.2" marker-end="url(#aa-rg)"/>
+      <text x="502" y="65" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#8b94a0">POST /login</text>
+      <!-- Server annotation -->
+      <rect x="543" y="78" width="136" height="22" rx="3" fill="rgba(88,166,255,0.07)" stroke="rgba(88,166,255,0.2)" stroke-width="1"/>
+      <text x="611" y="93" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#58a6ff">Sign JWT with private key</text>
+      <line x1="605" y1="114" x2="400" y2="114" stroke="#3fb950" stroke-width="1.2" marker-end="url(#aa-lg)"/>
+      <text x="502" y="111" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#3fb950">&#123;access_token: "eyJ..."&#125;</text>
+      <!-- Separator -->
+      <line x1="362" y1="130" x2="692" y2="130" stroke="#30363d" stroke-width="1" stroke-dasharray="4,2"/>
+      <!-- API call -->
+      <line x1="400" y1="148" x2="605" y2="148" stroke="#8b94a0" stroke-width="1.2" marker-end="url(#aa-rg)"/>
+      <text x="502" y="145" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#8b94a0">GET /profile + Bearer JWT</text>
+      <!-- Server verifies locally -->
+      <rect x="543" y="158" width="136" height="22" rx="3" fill="rgba(63,185,80,0.07)" stroke="rgba(63,185,80,0.2)" stroke-width="1"/>
+      <text x="611" y="173" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#3fb950">Verify signature locally (no DB!)</text>
+      <line x1="605" y1="196" x2="400" y2="196" stroke="#3fb950" stroke-width="1.2" marker-end="url(#aa-lg)"/>
+      <text x="502" y="193" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#3fb950">200 OK</text>
+      <!-- Footer note -->
+      <text x="530" y="218" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#3fb950">No external lookup needed</text>
+    </svg>
+    <figcaption style="font-size:13px;color:#8b94a0;margin-top:8px;line-height:1.5;">Sessions require a DB lookup on every request. Tokens are self-contained: the server verifies the cryptographic signature locally.</figcaption>
+  </figure>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="jwt-structure">JWT Structure</h2>
+  <p class="lede">A JSON Web Token encodes identity claims and a cryptographic signature into a compact, URL-safe string.</p>
+
+  <p>A JWT consists of three base64url-encoded JSON objects separated by dots: a <strong>header</strong>, a <strong>payload</strong>, and a <strong>signature</strong>.</p>
+
+  <div class="jwt-block">
+    <span class="jwt-header">eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9</span><span class="jwt-dot">.</span><span class="jwt-payload">eyJzdWIiOiJ1c2VyXzEyMyIsImlzcyI6ImF1dGguZXhhbXBsZS5jb20iLCJhdWQiOiJhcGkuZXhhbXBsZS5jb20iLCJleHAiOjE3MTk0ODk2MDAsImlhdCI6MTcxOTQ4NjAwMCwicm9sZXMiOlsiZWRpdG9yIl19</span><span class="jwt-dot">.</span><span class="jwt-signature">SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c</span>
+    <div class="jwt-legend">
+      <span><span class="dot" style="background:var(--red)"></span>Header</span>
+      <span><span class="dot" style="background:var(--purple)"></span>Payload</span>
+      <span><span class="dot" style="background:var(--teal)"></span>Signature</span>
+    </div>
+  </div>
+
+  <p>The <strong>header</strong> identifies the token type and signing algorithm. The <strong>payload</strong> contains claims: statements about the user and the token itself. Decoded, a typical payload looks like:</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-lang">JSON — decoded payload</span>
+    </div>
+    <pre><code>{
+  <span class="json-key">"sub"</span>: <span class="json-str">"user_123"</span>,          <span class="cm">// subject — the user's ID</span>
+  <span class="json-key">"iss"</span>: <span class="json-str">"auth.example.com"</span>,  <span class="cm">// issuer — who created this token</span>
+  <span class="json-key">"aud"</span>: <span class="json-str">"api.example.com"</span>,   <span class="cm">// audience — who should accept it</span>
+  <span class="json-key">"exp"</span>: <span class="json-num">1719489600</span>,         <span class="cm">// expiry — Unix timestamp</span>
+  <span class="json-key">"iat"</span>: <span class="json-num">1719486000</span>,         <span class="cm">// issued at — when it was created</span>
+  <span class="json-key">"roles"</span>: [<span class="json-str">"editor"</span>]       <span class="cm">// custom claim — application-specific</span>
+}</code></pre>
+  </div>
+
+  <p>The <strong>signature</strong> is computed over the header and payload using the server's private key (for RSA or ECDSA algorithms) or a shared secret (for HMAC). It allows any holder of the corresponding public key or shared secret to verify that the token hasn't been tampered with.</p>
+
+  <div class="callout warn">
+    <div class="callout-title">The payload is not encrypted</div>
+    <p>Base64url encoding is not encryption. It is reversible by anyone. The payload of a JWT is readable by anyone who intercepts the token. Never put passwords, secrets, or sensitive personal data in JWT claims. The signature prevents <em>tampering</em>, not <em>reading</em>.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="jwt-validation">JWT Validation</h2>
+  <p class="lede">Accepting a JWT without fully validating it is as dangerous as accepting no authentication at all.</p>
+
+  <p>When a server receives a JWT, it must perform several checks before trusting any claim in it:</p>
+
+  <ol style="padding-left: 1.4em; line-height: 2;">
+    <li><strong>Verify the signature.</strong> Compute the expected signature using the header's algorithm and the server's key, and compare it to the token's signature. If they don't match, the token has been tampered with or was not issued by a trusted party.</li>
+    <li><strong>Check <code>exp</code>.</strong> Reject the token if the current time is past the expiry timestamp. Allow a small tolerance (a few seconds) for clock skew between servers.</li>
+    <li><strong>Check <code>iss</code>.</strong> Verify the issuer is one you trust. This prevents tokens from one service being used at another.</li>
+    <li><strong>Check <code>aud</code>.</strong> Verify the audience matches your service. This prevents tokens intended for a different API from being accepted.</li>
+  </ol>
+
+  <p>Most JWT libraries handle these checks if you pass the right options. The risk is misuse of the library: passing the wrong key, skipping validation options, or accepting the token's own claims about which algorithm to use.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="jwt-pitfalls">JWT Pitfalls</h2>
+  <p class="lede">JWTs are frequently misused. The most common mistakes share a theme: trusting the token before validating it.</p>
+
+  <p><strong>Not validating the signature.</strong> This sounds too obvious to be a real mistake, but several high-profile incidents have involved JWT libraries that, depending on configuration, accepted tokens without verifying the signature. Always use a well-maintained library and check that signature verification is not disabled or configurable per-request.</p>
+
+  <p><strong>The <code>alg: none</code> attack.</strong> Some early JWT implementations accepted a token that declared its algorithm as <code>none</code>, meaning no signature was needed. An attacker could set any claims they liked and the server would accept the token as valid. Modern libraries reject <code>alg: none</code> by default, but the lesson is to never accept the algorithm from the token itself. Specify the expected algorithm server-side.</p>
+
+  <p><strong>Overly long expiry.</strong> A JWT that is valid for 30 days cannot be revoked if the user's account is compromised or deleted. Short-lived access tokens (15 minutes to 1 hour) paired with refresh tokens are the standard approach. The access token can't be revoked, but the damage is limited by its short lifetime.</p>
+
+  <p><strong>Storing sensitive data in claims.</strong> As noted above, claims are readable by anyone who can intercept the token. Limit claims to identifiers and roles. Do not include personal data, permissions that shouldn't be visible, or anything you'd consider private.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="token-storage">Token Storage</h2>
+  <p class="lede">Where you store a token determines what kind of attack can steal it. There is no option with no tradeoffs.</p>
+
+  <p>Browser-based applications must store authentication tokens somewhere the application can retrieve them to attach to API requests. The two main options are <code>localStorage</code> (or <code>sessionStorage</code>) and HttpOnly cookies, and they have opposite vulnerability profiles.</p>
+
+  <div class="two-col">
+    <div class="card orange">
+      <div class="card-label">localStorage</div>
+      <div class="card-title">Vulnerable to XSS</div>
+      <p>Any JavaScript running on the page can read <code>localStorage</code>. Even a small XSS vulnerability can exfiltrate the token to an attacker's server. The attacker then has the token and can use it from anywhere, independently of the browser session.</p>
+    </div>
+    <div class="card teal">
+      <div class="card-label">HttpOnly cookie</div>
+      <div class="card-title">Vulnerable to CSRF</div>
+      <p>JavaScript cannot read an HttpOnly cookie, eliminating XSS-based token theft. However, cookies are sent automatically on cross-site requests, so an XSS-free application may still be vulnerable to CSRF unless <code>SameSite</code> is set correctly. See the <a href="browser-security.html">browser security article</a>.</p>
+    </div>
+  </div>
+
+  <p>The practical recommendation for most web applications is <strong>HttpOnly, Secure, SameSite=Strict cookies</strong>. This eliminates XSS-based token theft (cookie is not readable by scripts) and eliminates CSRF (cookie is not sent cross-site). The server sets the cookie on login. The browser attaches it automatically on every subsequent request.</p>
+
+  <div class="callout info">
+    <div class="callout-title">Memory storage for SPAs</div>
+    <p>Some single-page applications store tokens in JavaScript memory (a module-level variable rather than any persistent storage). This prevents both XSS theft (nothing to steal from storage after a page refresh) and CSRF (not a cookie, not sent automatically). The downside is that the token is lost on page refresh, requiring silent re-authentication. This approach works well with refresh tokens and short-lived access tokens, and is increasingly the pattern recommended for SPAs that cannot use HttpOnly cookies (for example, because the API is on a different domain).</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="refresh-tokens">Refresh Tokens</h2>
+  <p class="lede">Short-lived access tokens limit the damage if a token is stolen. Refresh tokens provide the mechanism to get new access tokens without asking the user to log in again.</p>
+
+  <p>The pattern works as follows: on login, the server issues two tokens: a short-lived <strong>access token</strong> (valid for 15 minutes to an hour) and a long-lived <strong>refresh token</strong> (valid for days or weeks). The application uses the access token for API calls. When the access token expires, the application presents the refresh token to a dedicated endpoint and receives a new access token.</p>
+
+  <p>If the access token is stolen, the attacker has a window of at most the token's lifetime before it expires. The refresh token is used less frequently and can be stored more carefully: in an HttpOnly cookie, or passed only over a secure server-to-server channel in mobile apps.</p>
+
+  <h3>Refresh token rotation</h3>
+  <p>A refresh token that never changes is almost as dangerous as a long-lived access token. Steal it once and you have persistent access. <strong>Refresh token rotation</strong> addresses this: every time the refresh token is used to obtain a new access token, the refresh token itself is also replaced. The old refresh token is immediately invalidated.</p>
+
+  <p>Rotation also enables theft detection. If an attacker steals a refresh token and uses it, the original token is invalidated. When the legitimate application later tries to use its (now invalidated) token, the server detects a reuse attempt (two parties are using what should be a single-use token) and can revoke the entire session.</p>
+
+    <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 700 290" style="max-width:100%;display:block;background:#161b22;border:1px solid #30363d;border-radius:8px;" role="img" aria-label="Refresh token rotation timeline showing single-use tokens and theft detection" xmlns="http://www.w3.org/2000/svg">
+      <!-- Title -->
+      <text x="350" y="18" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="#8b94a0" letter-spacing="0.04em">Refresh Token Rotation &#8212; Timeline</text>
+      <!-- Time axis -->
+      <line x1="60" y1="30" x2="60" y2="270" stroke="#30363d" stroke-width="2"/>
+      <!-- ── Event 1: Login ── -->
+      <circle cx="60" cy="46" r="5" fill="#58a6ff"/>
+      <text x="75" y="44" font-family="'Inter',system-ui,sans-serif" font-size="11" font-weight="600" fill="#e6edf3">Login</text>
+      <rect x="75" y="50" width="600" height="32" rx="4" fill="rgba(88,166,255,0.07)" stroke="rgba(88,166,255,0.2)" stroke-width="1"/>
+      <text x="90" y="64" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="#8b94a0">Issued: access_token AT&#8321; (1h)</text>
+      <!-- AT1 bar -->
+      <rect x="280" y="55" width="80" height="10" rx="2" fill="rgba(88,166,255,0.4)" stroke="rgba(88,166,255,0.6)" stroke-width="1"/>
+      <text x="320" y="64" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="8" fill="#58a6ff">AT&#8321;</text>
+      <text x="90" y="76" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="#8b94a0">refresh_token RT&#8321; (30 days)</text>
+      <!-- RT1 bar -->
+      <rect x="280" y="68" width="380" height="10" rx="2" fill="rgba(63,185,80,0.3)" stroke="rgba(63,185,80,0.5)" stroke-width="1"/>
+      <text x="470" y="77" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="8" fill="#3fb950">RT&#8321;</text>
+      <!-- ── Event 2: ~1 hour later ── -->
+      <circle cx="60" cy="104" r="5" fill="#8b94a0"/>
+      <text x="75" y="102" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="#8b94a0">~1 hour later</text>
+      <text x="75" y="117" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="#8b94a0">AT&#8321; expires &#8594; client POSTs refresh_token=RT&#8321; to /token</text>
+      <rect x="75" y="123" width="600" height="22" rx="4" fill="rgba(63,185,80,0.08)" stroke="rgba(63,185,80,0.25)" stroke-width="1"/>
+      <text x="90" y="138" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="#3fb950">Server: invalidate RT&#8321; &#8594; issue AT&#8322; + RT&#8322;</text>
+      <!-- RT1 strikethrough -->
+      <text x="480" y="138" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="#f85149" text-decoration="line-through">RT&#8321;</text>
+      <line x1="476" y1="134" x2="506" y2="134" stroke="#f85149" stroke-width="1.5"/>
+      <text x="520" y="138" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="#3fb950">RT&#8322; issued</text>
+      <!-- ── Event 3: ~2 hours ── -->
+      <circle cx="60" cy="162" r="5" fill="#8b94a0"/>
+      <text x="75" y="160" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="#8b94a0">~2 hours later</text>
+      <text x="75" y="175" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="#8b94a0">AT&#8322; expires &#8594; client POSTs RT&#8322; &#8594; receives AT&#8323; + RT&#8323;</text>
+      <!-- ── Separator: theft scenario ── -->
+      <line x1="20" y1="192" x2="680" y2="192" stroke="#f85149" stroke-width="1" stroke-dasharray="5,3" opacity="0.5"/>
+      <text x="350" y="188" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="#f85149">If a token is stolen...</text>
+      <!-- ── Event 4: Attacker steals RT1 ── -->
+      <circle cx="60" cy="210" r="5" fill="#f85149"/>
+      <text x="75" y="208" font-family="'Inter',system-ui,sans-serif" font-size="10.5" font-weight="600" fill="#f85149">Attacker steals RT&#8321;</text>
+      <text x="75" y="222" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="#8b94a0">Attacker tries to use the stolen token</text>
+      <!-- ── Event 5: Reuse detected ── -->
+      <circle cx="60" cy="242" r="5" fill="#f85149"/>
+      <rect x="75" y="232" width="600" height="22" rx="4" fill="rgba(248,81,73,0.1)" stroke="rgba(248,81,73,0.35)" stroke-width="1"/>
+      <text x="90" y="247" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="#f85149">Server: RT&#8321; was already used! Reuse detected &#8212; token family revoked</text>
+      <!-- ── Event 6: All sessions revoked ── -->
+      <circle cx="60" cy="268" r="5" fill="#f85149"/>
+      <rect x="75" y="258" width="600" height="20" rx="4" fill="rgba(248,81,73,0.07)" stroke="rgba(248,81,73,0.2)" stroke-width="1"/>
+      <text x="90" y="272" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="#f85149">Entire token family revoked &#8212; all sessions invalidated</text>
+    </svg>
+    <figcaption style="font-size:13px;color:#8b94a0;margin-top:8px;line-height:1.5;">Each refresh token is single-use. If a stolen token is presented after the legitimate client has already used it, the server detects the conflict and can revoke the entire session.</figcaption>
+  </figure>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="api-keys">API Keys</h2>
+  <p class="lede">API keys are the simplest form of authentication: a shared secret that identifies a client. They work well for server-to-server communication but require careful handling.</p>
+
+  <p>An API key is a long random string issued by the server and shared with a specific client. The client presents it on every request. The server looks it up and determines what the client is allowed to do. Unlike user authentication, API keys typically identify an application or a team rather than an individual person.</p>
+
+  <h3>Transmission</h3>
+  <p>API keys must be sent in headers: either the <code>Authorization</code> header or a custom header like <code>X-API-Key</code>. They must <em>never</em> be sent as URL query parameters. Query parameters end up in server access logs, browser history, CDN logs, and <code>Referer</code> headers when the page links elsewhere, any of which can expose the key to unintended parties.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-lang">HTTP</span>
+    </div>
+    <pre><code><span class="cm"># Correct — key in header</span>
+<span class="kw">GET</span> /data
+<span class="cn">Authorization:</span> Bearer sk_live_a3f9b2c1d4e5f6a7b8c9
+
+<span class="cm"># Wrong — key in URL (ends up in logs, browser history, Referer headers)</span>
+<span class="kw">GET</span> /data?api_key=sk_live_a3f9b2c1d4e5f6a7b8c9</code></pre>
+  </div>
+
+  <h3>Storage and rotation</h3>
+  <p>API keys should be stored hashed on the server, just like passwords. If the database is breached, the raw keys are not exposed. The client sees the key once on creation. After that, the server only stores a hash. When comparing an incoming key to the stored hash, use a constant-time comparison to avoid timing attacks.</p>
+
+  <p>Keys should be rotatable without downtime: the client generates a new key, the server accepts both old and new for a brief overlap period, then the old key is revoked. Keys should be scoped to the minimum required permissions. A read-only key cannot be used to delete records even if it's stolen. And like any credential, keys should have a mechanism for emergency revocation if they're suspected compromised.</p>
+
+  <div class="callout warn">
+    <div class="callout-title">API keys in source code</div>
+    <p>Committing an API key to a public repository is one of the most common credential exposure incidents. Automated scanners watch public repositories for credential patterns and can begin abusing a key within minutes of it appearing. Use environment variables or a secrets manager, never hard-code credentials in source files, and add secret-scanning tools to your CI pipeline.</p>
+  </div>
+
+</main>
+</div><!-- /.shell -->
+
+<footer>© Single Threaded AB</footer>
+<script src="docs.js"></script>
+</body>
+</html>

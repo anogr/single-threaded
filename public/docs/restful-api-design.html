@@ -126,11 +126,10 @@
   <div class="sidebar-section">Constraints</div>
   <a href="#constraints">Architectural Constraints</a>
   <a href="#resource-modeling">Resource Modeling</a>
-  <div class="sidebar-section">HTTP</div>
-  <a href="#http-semantics">HTTP Semantics</a>
+  <div class="sidebar-section">HTTP in REST</div>
+  <a href="#http-in-rest">HTTP Semantics</a>
   <a href="#optimistic-concurrency">Optimistic Concurrency</a>
   <a href="#idempotency-keys">Idempotency Keys</a>
-  <a href="#cors">CORS</a>
   <a href="#versioning">Versioning</a>
   <div class="sidebar-section">Description</div>
   <a href="#openapi">OpenAPI</a>
@@ -146,16 +145,20 @@
 
   <div class="eyebrow">API Design · HTTP</div>
   <h1>RESTful API Design: <em>A Practical Reference</em></h1>
-  <p class="subtitle">What REST actually specifies, how to apply it correctly, where it fits well, and where other approaches are more appropriate. For frontend developers who consume, evaluate, and occasionally design HTTP APIs.</p>
-  <div class="byline"><strong>Reference guide</strong><div class="dot"></div><span>~30 min read</span><div class="dot"></div><span>For developers working with HTTP APIs</span></div>
+  <p class="subtitle">What REST actually specifies, how to apply it correctly, where it fits well, and where other approaches are more appropriate.</p>
+  <div class="byline"><strong>Deep dive</strong><div class="dot"></div><span>~20 min read</span><div class="dot"></div><span>API design</span><div class="dot"></div><span>June 2026</span></div>
 
-  <p class="wide" style="max-width:700px;">REST is the dominant architectural style for HTTP APIs, but it is frequently misunderstood, inconsistently applied, and sometimes the wrong tool for the job. This document covers what REST actually specifies, how to apply it correctly, where it fits well, and where other approaches are more appropriate. It is written for frontend developers who encounter REST daily but want to move beyond cargo-culted conventions and understand the reasoning behind the rules.</p>
+  <p class="wide" style="max-width:700px;">REST is the dominant architectural style for HTTP APIs, but it is frequently misunderstood, inconsistently applied, and sometimes the wrong tool for the job. This article covers what REST actually specifies, how to apply it correctly, where it fits well, and where other approaches are more appropriate.</p>
+
+  <div class="callout info aside">
+    <p>This article assumes familiarity with HTTP fundamentals. If you want a grounding in methods, status codes, headers, caching, cookies, and CORS first, read the <a href="http.html">HTTP article</a>.</p>
+  </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="background">Background</h2>
   <p class="lede">REST was defined in a doctoral dissertation. Understanding where it came from explains why it looks the way it does.</p>
 
-  <p>REST (Representational State Transfer) was defined by Roy Fielding in his doctoral dissertation at UC Irvine in 2000. It is an <strong>architectural style</strong> — a set of constraints on how components in a distributed system communicate — not a protocol, specification, or standard. Fielding derived REST by identifying the properties desirable in a large-scale hypermedia system (like the web) and working backward to the constraints that produce them.</p>
+  <p>REST (Representational State Transfer) was defined by Roy Fielding in his doctoral dissertation at UC Irvine in 2000. It is an <strong>architectural style</strong>, a set of constraints on how components in a distributed system communicate, not a protocol, specification, or standard. Fielding derived REST by identifying the properties desirable in a large-scale hypermedia system (like the web) and working backward to the constraints that produce them.</p>
   <p>REST is applied on top of HTTP. HTTP already provides the transport, method semantics, status codes, headers, and caching mechanisms that REST relies on. A RESTful API is one that uses these mechanisms in the way they were intended, rather than tunneling everything through a single endpoint or overloading method semantics.</p>
 
   <h3>The Richardson Maturity Model</h3>
@@ -186,7 +189,7 @@
 
   <div class="callout info">
     <div class="callout-title">What to target in practice</div>
-    <p>Most production APIs target Level 2. This document focuses on Level 2 design and notes where Level 3 concepts are relevant. Reaching Level 2 consistently and correctly is harder than it looks — most "REST APIs" in the wild are actually Level 1 with some GET requests sprinkled in.</p>
+    <p>Most production APIs target Level 2. This document focuses on Level 2 design and notes where Level 3 concepts are relevant. Reaching Level 2 consistently and correctly is harder than it looks. Most "REST APIs" in the wild are actually Level 1 with some GET requests sprinkled in.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -197,7 +200,7 @@
 
   <h3>REST vs. RPC (Remote Procedure Call)</h3>
   <p>RPC-style APIs expose <strong>operations</strong> rather than resources. Rather than <code>POST /orders/42/cancel</code>, an RPC API might expose <code>POST /cancelOrder</code> with <code>{"orderId": 42}</code> in the body. gRPC is a modern, strongly-typed RPC framework that uses Protocol Buffers over HTTP/2.</p>
-  <p>RPC is a natural fit when the domain is operation-heavy rather than resource-heavy: financial transactions, data processing pipelines, internal service-to-service communication where network overhead matters. REST's resource model adds friction in these contexts without a compensating benefit. The practical difference for a frontend developer is that RPC APIs tend to have more predictable, strongly-typed contracts (especially gRPC with generated clients), but less convention — every API defines its own operation names and structures.</p>
+  <p>RPC is a natural fit when the domain is operation-heavy rather than resource-heavy: financial transactions, data processing pipelines, internal service-to-service communication where network overhead matters. REST's resource model adds friction in these contexts without a compensating benefit. The practical difference for a frontend developer is that RPC APIs tend to have more predictable, strongly-typed contracts (especially gRPC with generated clients), but less convention. Every API defines its own operation names and structures.</p>
 
   <h3>REST vs. GraphQL</h3>
   <p>GraphQL is a query language and runtime developed by Meta and open-sourced in 2015. Rather than multiple resource-specific endpoints, a GraphQL API exposes a single endpoint through which clients issue typed queries and mutations.</p>
@@ -215,7 +218,7 @@
     </div>
   </div>
 
-  <p>GraphQL fits well when the frontend has highly variable data requirements — particularly with multiple clients (web, mobile, third-party) that need different shapes of the same data.</p>
+  <p>GraphQL fits well when the frontend has highly variable data requirements, particularly with multiple clients (web, mobile, third-party) that need different shapes of the same data.</p>
 
   <h3>REST vs. tRPC</h3>
   <p>tRPC is a TypeScript-first framework that generates end-to-end type-safe APIs without a schema definition step. It is RPC-style: the server defines procedures, and the client calls them with full type inference. It requires both client and server to be TypeScript.</p>
@@ -294,35 +297,32 @@
   <p class="lede">Fielding defined six constraints. Taken together, they produce scalability, visibility, reliability, and portability.</p>
 
   <h3>Uniform Interface</h3>
-  <p>The uniform interface constraint is what most distinguishes REST from other architectural styles. It requires that all interaction between components happen through a standardized interface — in practice, HTTP with resource-based URLs. It has four sub-constraints:</p>
+  <p>The uniform interface constraint is what most distinguishes REST from other architectural styles. It requires that all interaction between components happen through a standardized interface: in practice, HTTP with resource-based URLs. It has four sub-constraints:</p>
   <ul>
-    <li><strong>Identification of resources</strong> — Every resource is identified by a stable URI. The resource itself (e.g., a database row) is separate from its representation (the JSON response).</li>
-    <li><strong>Manipulation of resources through representations</strong> — Clients interact with resources by exchanging representations. A client that holds a representation of a resource has enough information to modify or delete it.</li>
-    <li><strong>Self-descriptive messages</strong> — Each message includes enough information to describe how it should be processed. The <code>Content-Type</code> header is the mechanism for this.</li>
-    <li><strong>Hypermedia as the engine of application state (HATEOAS)</strong> — Responses include links to available transitions. Rarely implemented at Level 2; worth understanding conceptually.</li>
+    <li><strong>Identification of resources:</strong> Every resource is identified by a stable URI. The resource itself (e.g., a database row) is separate from its representation (the JSON response).</li>
+    <li><strong>Manipulation of resources through representations:</strong> Clients interact with resources by exchanging representations. A client that holds a representation of a resource has enough information to modify or delete it.</li>
+    <li><strong>Self-descriptive messages:</strong> Each message includes enough information to describe how it should be processed. The <code>Content-Type</code> header is the mechanism for this.</li>
+    <li><strong>Hypermedia as the engine of application state (HATEOAS):</strong> Responses include links to available transitions. Rarely implemented at Level 2, but worth understanding conceptually.</li>
   </ul>
   <p>The practical implication is that URLs should identify resources (nouns), not operations (verbs). The operation is expressed by the HTTP method.</p>
 
   <h3>Statelessness</h3>
-  <p>Each request from client to server must contain all the information necessary to process the request. The server does not store client session state between requests. Any session state lives on the client.</p>
-  <p>This constraint enables horizontal scaling — any server instance can handle any request — and makes individual requests easier to reason about and log. The cost is that some information must be repeated on every request (authentication credentials, preferences, etc.).</p>
-
-  <div class="callout warn">
-    <div class="callout-title">Statelessness ≠ no server state</div>
-    <p>Statelessness does not mean the server has no state. <strong>Resource state</strong> (the data in the database) is stored server-side. <strong>Session state</strong> (who is making the request, what they have in a shopping cart) must not be.</p>
-  </div>
+  <p>Each request must be self-contained: any server instance must be able to process it without knowledge of prior requests. This is what enables horizontal scaling: requests can be routed to any node without affinity, and individual requests are independently auditable and debuggable.</p>
+  <p>The constraint is often summarized as "the server stores no client state," but what the constraint actually prohibits is implicit server-side tracking of where a client is in an interaction, where the server's behavior depends on context that was not sent in the current request.</p>
 
   <h3>Client–Server</h3>
-  <p>The client and server are separate concerns with a well-defined interface between them. The server manages resources and business logic; the client manages the user interface and user state. Neither knows the internal implementation of the other. This separation means the client and server can evolve independently as long as the interface contract is maintained.</p>
+  <p>The client and server are separate concerns with a well-defined interface between them. The server manages resources and business logic. The client manages the user interface and user state. Neither knows the internal implementation of the other. This separation means the client and server can evolve independently as long as the interface contract is maintained.</p>
 
   <h3>Layered System</h3>
   <p>A client cannot tell whether it is connected directly to the origin server or to an intermediary (a load balancer, CDN, caching proxy, or API gateway). Intermediaries can be inserted transparently. This constraint is what makes CDN caching, API gateways, and reverse proxies work without changes to clients.</p>
 
   <h3>Cacheability</h3>
   <p>Every response must explicitly declare itself as cacheable or non-cacheable. HTTP provides the mechanisms: <code>Cache-Control</code>, <code>ETag</code>, <code>Last-Modified</code>, <code>Expires</code>, and conditional request headers (<code>If-None-Match</code>, <code>If-Modified-Since</code>). Cacheable responses can be stored and reused by clients, intermediaries, or CDNs, reducing latency and server load.</p>
+  <p>The practical constraint is that responses which vary by user identity cannot be cached by shared intermediaries. A CDN or reverse proxy cannot safely serve one user's response to another. Such responses can only be cached privately, on the client.</p>
+  <p>Responses that are uniform across all users (public product listings, reference data, static content) can be cached aggressively at every layer. Designing with this distinction in mind, and correctly labeling responses with <code>Cache-Control: private</code> or <code>Cache-Control: public</code> accordingly, is more consequential than most other caching decisions.</p>
 
   <h3>Code on Demand <span class="badge badge-muted">Optional</span></h3>
-  <p>Servers can extend client functionality by transferring executable code — JavaScript in a browser being the canonical example. This constraint is optional and rarely relevant in API design contexts.</p>
+  <p>Servers can extend client functionality by transferring executable code. JavaScript in a browser is the canonical example. This constraint is optional and rarely relevant in API design contexts.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="resource-modeling">Resource Modeling</h2>
@@ -345,7 +345,7 @@
     <div class="bad"><span class="method method-post">POST</span>   <span class="path">/deleteOrder</span></div>
   </div>
 
-  <p>If you find yourself putting a verb in a URL, that is a signal to reconsider the resource model. Often there is an implicit noun: a <code>cancellation</code> is a resource; a <code>report</code> is a resource; a <code>session</code> is a resource.</p>
+  <p>If you find yourself putting a verb in a URL, that is a signal to reconsider the resource model. Often there is an implicit noun: a <code>cancellation</code> is a resource, a <code>report</code> is a resource, a <code>session</code> is a resource.</p>
 
   <h3>URL Structure and Hierarchy</h3>
   <p>URL hierarchy should reflect <strong>containment or ownership</strong> relationships between resources. A resource nested under another is a sub-resource.</p>
@@ -358,6 +358,66 @@
 
   <p>Nesting should be kept to two levels in most cases. Deep hierarchies produce long, fragile URLs and often indicate that the resource model is too tightly coupled to a particular access pattern. A resource may be accessible via multiple URLs, but it should have a single canonical URL.</p>
 
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 700 220" style="max-width:100%;display:block;background:#161b22;border:1px solid #30363d;border-radius:8px;" role="img" aria-label="Resource URL hierarchy tree diagram for orders API showing four levels of nesting" xmlns="http://www.w3.org/2000/svg">
+      <!-- Title -->
+      <text x="350" y="18" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="#8b94a0" letter-spacing="0.04em">Resource Hierarchy &#8212; /orders Example</text>
+      <!-- ── Level 1: /orders (collection) ── -->
+      <circle cx="52" cy="48" r="7" fill="#58a6ff"/>
+      <text x="68" y="52" font-family="'IBM Plex Mono',monospace" font-size="13" fill="#e6edf3">/orders</text>
+      <text x="210" y="52" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="#5f6c8c">collection</text>
+      <!-- method badges level 1 -->
+      <rect x="258" y="39" width="36" height="16" rx="3" fill="rgba(63,185,80,0.15)"/>
+      <text x="276" y="51" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="#3fb950">GET</text>
+      <rect x="298" y="39" width="38" height="16" rx="3" fill="rgba(88,166,255,0.15)"/>
+      <text x="317" y="51" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="#58a6ff">POST</text>
+      <!-- ── Level 2: /orders/{id} (document) ── -->
+      <!-- tree connector -->
+      <line x1="52" y1="55" x2="52" y2="93" stroke="#30363d" stroke-width="1.5"/>
+      <line x1="52" y1="93" x2="90" y2="93" stroke="#30363d" stroke-width="1.5"/>
+      <circle cx="100" cy="93" r="7" fill="#3fb950"/>
+      <text x="116" y="97" font-family="'IBM Plex Mono',monospace" font-size="13" fill="#e6edf3">/orders/&#123;id&#125;</text>
+      <text x="300" y="97" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="#5f6c8c">document</text>
+      <!-- badges -->
+      <rect x="358" y="84" width="36" height="16" rx="3" fill="rgba(63,185,80,0.15)"/>
+      <text x="376" y="96" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="#3fb950">GET</text>
+      <rect x="398" y="84" width="46" height="16" rx="3" fill="rgba(210,153,34,0.15)"/>
+      <text x="421" y="96" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="#d29922">PATCH</text>
+      <rect x="448" y="84" width="50" height="16" rx="3" fill="rgba(248,81,73,0.15)"/>
+      <text x="473" y="96" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="#f85149">DELETE</text>
+      <!-- ── Level 3: /orders/{id}/items (sub-collection) ── -->
+      <line x1="100" y1="100" x2="100" y2="138" stroke="#30363d" stroke-width="1.5"/>
+      <line x1="100" y1="138" x2="138" y2="138" stroke="#30363d" stroke-width="1.5"/>
+      <circle cx="148" cy="138" r="7" fill="#58a6ff"/>
+      <text x="164" y="142" font-family="'IBM Plex Mono',monospace" font-size="13" fill="#e6edf3">/orders/&#123;id&#125;/items</text>
+      <text x="400" y="142" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="#5f6c8c">sub-collection</text>
+      <!-- badges -->
+      <rect x="480" y="129" width="36" height="16" rx="3" fill="rgba(63,185,80,0.15)"/>
+      <text x="498" y="141" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="#3fb950">GET</text>
+      <rect x="520" y="129" width="38" height="16" rx="3" fill="rgba(88,166,255,0.15)"/>
+      <text x="539" y="141" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="#58a6ff">POST</text>
+      <!-- ── Level 4: /orders/{id}/items/{itemId} (document) ── -->
+      <line x1="148" y1="145" x2="148" y2="183" stroke="#30363d" stroke-width="1.5"/>
+      <line x1="148" y1="183" x2="186" y2="183" stroke="#30363d" stroke-width="1.5"/>
+      <circle cx="196" cy="183" r="7" fill="#3fb950"/>
+      <text x="212" y="187" font-family="'IBM Plex Mono',monospace" font-size="12" fill="#e6edf3">/orders/&#123;id&#125;/items/&#123;itemId&#125;</text>
+      <text x="514" y="187" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="#5f6c8c">document</text>
+      <!-- badges -->
+      <rect x="572" y="174" width="36" height="16" rx="3" fill="rgba(63,185,80,0.15)"/>
+      <text x="590" y="186" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="#3fb950">GET</text>
+      <rect x="612" y="174" width="44" height="16" rx="3" fill="rgba(210,153,34,0.15)"/>
+      <text x="634" y="186" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="#d29922">PATCH</text>
+      <rect x="660" y="174" width="30" height="16" rx="3" fill="rgba(248,81,73,0.15)"/>
+      <text x="675" y="186" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="#f85149">DEL</text>
+      <!-- Legend -->
+      <circle cx="38" cy="208" r="5" fill="#58a6ff"/>
+      <text x="50" y="212" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="#5f6c8c">collection</text>
+      <circle cx="130" cy="208" r="5" fill="#3fb950"/>
+      <text x="142" y="212" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="#5f6c8c">document (single resource)</text>
+    </svg>
+    <figcaption style="font-size:13px;color:#8b94a0;margin-top:8px;line-height:1.5;">Collections group resources (/orders), documents are single instances (/orders/42). Nesting beyond two levels usually signals that the resource model needs rethinking.</figcaption>
+  </figure>
+
   <h3>Identifiers</h3>
   <p>Resource identifiers should be opaque, stable, and not expose internal implementation details. UUIDs or other non-sequential identifiers are preferable to auto-incrementing database IDs, which reveal record counts and are easier to enumerate.</p>
 
@@ -367,44 +427,22 @@
   </div>
 
   <h3>Granularity</h3>
-  <p>Overly coarse resources return unnecessary data on every request; overly fine resources require many requests to assemble a useful view. Consider the access patterns of your clients. If every view that shows an order also shows the customer name, returning the customer name inline in the order response is reasonable. For public APIs, sparse fieldsets (<code>?fields=id,name,status</code>) are a useful middle ground.</p>
+  <p>Overly coarse resources return unnecessary data on every request. Overly fine resources require many requests to assemble a useful view. Consider the access patterns of your clients. If every view that shows an order also shows the customer name, returning the customer name inline in the order response is reasonable. For public APIs, sparse fieldsets (<code>?fields=id,name,status</code>) are a useful middle ground.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="http-semantics">HTTP Semantics</h2>
-  <p class="lede">HTTP methods have defined semantics. Deviating from them breaks caching, idempotency guarantees, and the assumptions of any intermediary.</p>
+  <h2 id="http-in-rest">HTTP Semantics</h2>
+  <p class="lede">REST is built on top of HTTP and relies on its method and status code semantics. A REST API that ignores those semantics is not REST. It is RPC with URLs.</p>
 
-  <h3>Methods</h3>
+  <p>If you need a full treatment of HTTP methods, status codes, headers, caching, and CORS, the <a href="http.html">HTTP article</a> covers all of these in depth. This section focuses on how HTTP semantics apply specifically in the context of REST API design.</p>
 
-  <div class="card" style="margin:16px 0; max-width:var(--content-w);">
-    <div class="status-row">
-      <span class="method method-get" style="min-width:72px; text-align:center;">GET</span>
-      <span class="status-desc"><strong>Retrieve a resource.</strong> Safe (no side effects) and idempotent (repeated calls produce the same result). Must not modify state. Responses may be cached.</span>
-    </div>
-    <div class="status-row">
-      <span class="method method-post" style="min-width:72px; text-align:center;">POST</span>
-      <span class="status-desc"><strong>Submit data for processing.</strong> Neither safe nor idempotent. Used for creating resources where the server assigns the identifier, and for operations that do not fit other methods.</span>
-    </div>
-    <div class="status-row">
-      <span class="method method-put" style="min-width:72px; text-align:center;">PUT</span>
-      <span class="status-desc"><strong>Replace a resource entirely.</strong> Idempotent: repeated calls produce the same result. The client provides the complete representation. If the resource does not exist, it may be created.</span>
-    </div>
-    <div class="status-row">
-      <span class="method method-patch" style="min-width:72px; text-align:center;">PATCH</span>
-      <span class="status-desc"><strong>Apply a partial update.</strong> Not idempotent by default (though specific patch formats can be). The request body contains instructions for modifying the resource, not the full replacement.</span>
-    </div>
-    <div class="status-row">
-      <span class="method method-delete" style="min-width:72px; text-align:center;">DELETE</span>
-      <span class="status-desc"><strong>Remove a resource.</strong> Idempotent in effect: the server state after repeated calls is the same. A second DELETE on an already-deleted resource may return <code>204</code> (treating "already gone" as success) or <code>404</code> — both are valid; be consistent across your API.</span>
-    </div>
-    <div class="status-row">
-      <span class="method method-head" style="min-width:72px; text-align:center;">HEAD</span>
-      <span class="status-desc"><strong>Identical to GET but returns only headers.</strong> Useful for checking whether a resource exists or has been modified without transferring the body.</span>
-    </div>
-  </div>
+  <h3>Methods and CRUD</h3>
+  <p>REST maps CRUD operations onto HTTP methods. The mapping is not arbitrary: each method carries guarantees that caches, proxies, and clients rely on. GET is safe (no side effects) and idempotent, so responses may be cached. PUT and DELETE are idempotent: repeating them has the same effect as calling them once. POST is neither safe nor idempotent, which is why duplicate POST requests are dangerous and why idempotency keys exist.</p>
+
+  <p>A second DELETE on an already-deleted resource may return <code>204</code> (treating "already gone" as success) or <code>404</code>. Both are defensible. Pick one and be consistent.</p>
 
   <h3>PATCH formats</h3>
   <p>PATCH semantics require that the request body describe <em>changes</em> to apply, not the full resource. Two standard formats cover most cases.</p>
-  <p><strong>JSON Merge Patch</strong> (<a href="https://www.rfc-editor.org/rfc/rfc7396" target="_blank" rel="noopener">RFC 7396</a>) is a simple overlay: fields present overwrite the existing value, fields set to <code>null</code> are deleted, fields absent are unchanged. Use <code>Content-Type: application/merge-patch+json</code>.</p>
+  <p><strong>JSON Merge Patch</strong> (RFC 7396) is a simple overlay: fields present overwrite the existing value, fields set to <code>null</code> are deleted, fields absent are unchanged. Use <code>Content-Type: application/merge-patch+json</code>.</p>
   <div class="code-block">
     <div class="code-header">
       <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
@@ -414,82 +452,13 @@
     <pre><code><span class="cm">// Only "status" changes. All other fields are untouched.</span>
 { <span class="json-key">"status"</span>: <span class="json-str">"cancelled"</span>, <span class="json-key">"cancellation_reason"</span>: <span class="json-str">"Customer request"</span> }</code></pre>
   </div>
-  <p>Merge Patch is easy to read and implement, but cannot set a field to <code>null</code> without deleting it.</p>
-  <p><strong>JSON Patch</strong> (<a href="https://www.rfc-editor.org/rfc/rfc6902" target="_blank" rel="noopener">RFC 6902</a>) is an array of typed operations (<code>add</code>, <code>remove</code>, <code>replace</code>, <code>move</code>, <code>copy</code>, <code>test</code>) that can precisely express any mutation. Use <code>Content-Type: application/json-patch+json</code>.</p>
-  <div class="code-block">
-    <div class="code-header">
-      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-filename">PATCH /orders/42</span>
-      <span class="code-lang">JSON Patch</span>
-    </div>
-    <pre><code>[
-  { <span class="json-key">"op"</span>: <span class="json-str">"replace"</span>, <span class="json-key">"path"</span>: <span class="json-str">"/status"</span>,              <span class="json-key">"value"</span>: <span class="json-str">"cancelled"</span> },
-  { <span class="json-key">"op"</span>: <span class="json-str">"add"</span>,     <span class="json-key">"path"</span>: <span class="json-str">"/cancellation_reason"</span>, <span class="json-key">"value"</span>: <span class="json-str">"Customer request"</span> }
-]</code></pre>
-  </div>
-  <p>JSON Patch supports a <code>test</code> operation that aborts the entire patch if a precondition fails. For most APIs, Merge Patch is sufficient; use JSON Patch when you need conditional or complex atomic updates.</p>
+  <p>Merge Patch is easy to read and implement, but cannot set a field to <code>null</code> without deleting it. <strong>JSON Patch</strong> (RFC 6902) is an array of typed operations (<code>add</code>, <code>remove</code>, <code>replace</code>, <code>move</code>, <code>copy</code>, <code>test</code>) that can precisely express any mutation, including a <code>test</code> operation that aborts the patch if a precondition fails. Use <code>Content-Type: application/json-patch+json</code>. For most APIs, Merge Patch is sufficient.</p>
 
-  <h3>Status Codes</h3>
-  <p>Use the most specific applicable status code. Generic codes (<code>200</code>, <code>400</code>, <code>500</code>) are acceptable when no more specific code fits, but they discard information the client could use.</p>
+  <h3>Status codes in REST</h3>
+  <p>Use the most specific applicable status code. The codes that come up most in REST API design: <code>200</code> for success with a body, <code>201 Created</code> with a <code>Location</code> header after creation, <code>202 Accepted</code> for async operations, <code>204 No Content</code> when there's nothing to return, <code>400</code> for malformed requests, <code>401</code>/<code>403</code> for auth failures (unauthenticated vs. unauthorized), <code>404</code> when the resource doesn't exist, <code>409 Conflict</code> for concurrency failures, <code>410 Gone</code> for intentionally removed resources, <code>422</code> for semantic validation errors, and <code>429</code> for rate limiting.</p>
 
-  <p style="font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--green);margin:20px 0 6px;">2xx — Success</p>
-  <div class="card" style="max-width:var(--content-w);margin-bottom:12px;">
-    <div class="status-row"><span class="status-code s2xx">200</span><span class="status-desc"><strong>OK</strong> — Request succeeded. Used for GET, PUT, PATCH responses and POST responses that return the resource.</span></div>
-    <div class="status-row"><span class="status-code s2xx">201</span><span class="status-desc"><strong>Created</strong> — A resource was created. Must include a <code>Location</code> header pointing to the new resource.</span></div>
-    <div class="status-row"><span class="status-code s2xx">202</span><span class="status-desc"><strong>Accepted</strong> — Request received but processing is not complete. Used for asynchronous operations.</span></div>
-    <div class="status-row"><span class="status-code s2xx">204</span><span class="status-desc"><strong>No Content</strong> — Request succeeded; no response body. Common for DELETE and PATCH responses when the updated resource is not returned.</span></div>
-  </div>
-
-  <p style="font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--teal);margin:20px 0 6px;">3xx — Redirection</p>
-  <div class="card" style="max-width:var(--content-w);margin-bottom:12px;">
-    <div class="status-row"><span class="status-code s3xx">301</span><span class="status-desc"><strong>Moved Permanently</strong> — Resource has a new canonical URL. Clients should update bookmarks.</span></div>
-    <div class="status-row"><span class="status-code s3xx">304</span><span class="status-desc"><strong>Not Modified</strong> — Conditional GET; cached version is current. No body returned.</span></div>
-  </div>
-
-  <p style="font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);margin:20px 0 6px;">4xx — Client Error</p>
-  <div class="card" style="max-width:var(--content-w);margin-bottom:12px;">
-    <div class="status-row"><span class="status-code s4xx">400</span><span class="status-desc"><strong>Bad Request</strong> — The request is malformed or contains invalid syntax.</span></div>
-    <div class="status-row"><span class="status-code s4xx">401</span><span class="status-desc"><strong>Unauthorized</strong> — Authentication is required and was not provided, or credentials are invalid. (The name is misleading: this code means <em>unauthenticated</em>.)</span></div>
-    <div class="status-row"><span class="status-code s4xx">403</span><span class="status-desc"><strong>Forbidden</strong> — The client is authenticated but does not have permission. Do not use 404 to obscure the existence of a resource unless the security requirement demands it.</span></div>
-    <div class="status-row"><span class="status-code s4xx">404</span><span class="status-desc"><strong>Not Found</strong> — The resource does not exist at this URL.</span></div>
-    <div class="status-row"><span class="status-code s4xx">405</span><span class="status-desc"><strong>Method Not Allowed</strong> — The resource exists but does not support this HTTP method. The response must include an <code>Allow</code> header listing the supported methods.</span></div>
-    <div class="status-row"><span class="status-code s4xx">409</span><span class="status-desc"><strong>Conflict</strong> — The request conflicts with the current state of the resource. Used for duplicate creation, optimistic concurrency conflicts.</span></div>
-    <div class="status-row"><span class="status-code s4xx">410</span><span class="status-desc"><strong>Gone</strong> — The resource existed and has been permanently removed. Prefer over 404 when the removal is intentional.</span></div>
-    <div class="status-row"><span class="status-code s4xx">422</span><span class="status-desc"><strong>Unprocessable Entity</strong> — The request is syntactically valid but semantically incorrect. Used for validation errors.</span></div>
-    <div class="status-row"><span class="status-code s4xx">429</span><span class="status-desc"><strong>Too Many Requests</strong> — Rate limit exceeded. Should include a <code>Retry-After</code> header.</span></div>
-  </div>
-
-  <p style="font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--red);margin:20px 0 6px;">5xx — Server Error</p>
-  <div class="card" style="max-width:var(--content-w);margin-bottom:12px;">
-    <div class="status-row"><span class="status-code s5xx">500</span><span class="status-desc"><strong>Internal Server Error</strong> — Unhandled server-side failure.</span></div>
-    <div class="status-row"><span class="status-code s5xx">503</span><span class="status-desc"><strong>Service Unavailable</strong> — Server is temporarily unable to handle requests. Should include a <code>Retry-After</code> header.</span></div>
-  </div>
-
-  <h3>Headers</h3>
-  <p><strong>Request headers clients should send:</strong></p>
-  <ul>
-    <li><code>Content-Type</code> — The media type of the request body. Typically <code>application/json</code>.</li>
-    <li><code>Accept</code> — The media type(s) the client can handle. The server uses this for content negotiation.</li>
-    <li><code>Authorization</code> — Authentication credentials. Commonly <code>Bearer &lt;token&gt;</code> for JWT-based auth.</li>
-    <li><code>If-None-Match</code> — ETag value from a previous response; triggers a 304 if unchanged.</li>
-    <li><code>If-Modified-Since</code> — Timestamp from a previous response; triggers a 304 if unchanged.</li>
-  </ul>
-  <p><strong>Response headers servers should send:</strong></p>
-  <ul>
-    <li><code>Content-Type</code> — The media type of the response body.</li>
-    <li><code>Location</code> — URI of a newly created resource (on 201) or the polling URL for an async operation (on 202).</li>
-    <li><code>ETag</code> — A version identifier for the response. Clients use this for conditional requests and optimistic concurrency.</li>
-    <li><code>Cache-Control</code> — Caching instructions. At minimum, set <code>no-store</code> on responses that must not be cached.</li>
-    <li><code>Retry-After</code> — How long to wait before retrying, used with 429 and 503.</li>
-    <li><code>X-RateLimit-Limit</code> / <code>X-RateLimit-Remaining</code> / <code>X-RateLimit-Reset</code> — Rate limit status. Widely adopted by convention; not yet standardised (an <a href="https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-ratelimit-headers" target="_blank" rel="noopener">IETF draft</a> proposes a standard <code>RateLimit</code> header).</li>
-  </ul>
-  <div class="callout info">
-    <div class="callout-title">Rate limit design</div>
-    <p>Send rate limit headers on <em>every</em> response, not only on 429. This lets clients back off proactively. A 429 response should always include <code>Retry-After</code>. Distinguish per-user and global limits if both apply.</p>
-  </div>
-
-  <h3>Error Response Format</h3>
-  <p>Inconsistent error formats across an API create unnecessary client-side complexity. <a href="https://www.rfc-editor.org/rfc/rfc9457" target="_blank" rel="noopener">RFC 9457</a> (Problem Details for HTTP APIs) defines a standard format:</p>
+  <h3>Error response format</h3>
+  <p>Inconsistent error formats across an API create unnecessary client-side complexity. RFC 9457 (Problem Details for HTTP APIs) defines a standard JSON format for error bodies. Use <code>Content-Type: application/problem+json</code>.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -505,11 +474,10 @@
 }</code></pre>
   </div>
 
-  <p>Respond with <code>Content-Type: application/problem+json</code> so clients can identify the format. The <code>type</code> URI should resolve to documentation. The <code>title</code> is a stable human-readable summary — it should not change between occurrences. The <code>detail</code> is specific to this occurrence. Additional members may be added freely; a common extension is an <code>errors</code> array for field-level validation failures.</p>
-  <div class="callout info">
-    <div class="callout-title">RFC 9457 supersedes RFC 7807</div>
-    <p>RFC 9457 (2023) replaces RFC 7807. Both describe the same structure; 9457 is a minor clarifying revision. References to "Problem Details" or RFC 7807 in older code refer to the same concept.</p>
-  </div>
+  <p>The <code>type</code> URI identifies the error kind and should resolve to documentation. The <code>title</code> is a stable human-readable summary. The <code>detail</code> is specific to this occurrence. An <code>errors</code> array is a common extension for field-level validation failures.</p>
+
+  <h3>Rate limiting headers</h3>
+  <p>Send rate limit headers on every response, not only on 429. This lets clients back off proactively. The de facto convention uses <code>X-RateLimit-Limit</code>, <code>X-RateLimit-Remaining</code>, and <code>X-RateLimit-Reset</code>. An IETF draft proposes a standardised <code>RateLimit</code> header, though the X- variants remain more widely deployed. A 429 response should always include <code>Retry-After</code>.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="optimistic-concurrency">Optimistic Concurrency</h2>
@@ -539,7 +507,7 @@
 <span class="cm">&#x2192; 412 Precondition Failed</span></code></pre>
   </div>
 
-  <p>On a 412, the client should re-fetch the resource, present the conflict to the user, and ask them to re-confirm or merge. <code>If-Match: *</code> means "update only if the resource exists at all, regardless of version." The ETag value should be opaque — a hash or row version, not a timestamp, which has resolution and clock-skew issues.</p>
+  <p>On a 412, the client should re-fetch the resource, present the conflict to the user, and ask them to re-confirm or merge. <code>If-Match: *</code> means "update only if the resource exists at all, regardless of version." The ETag value should be opaque: a hash or row version, not a timestamp, which has resolution and clock-skew issues.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="idempotency-keys">Idempotency Keys</h2>
@@ -562,51 +530,7 @@
   <p>The server stores the key and result for a defined period (commonly 24 hours). Repeated requests with the same key return the cached result immediately. The header name <code>Idempotency-Key</code> is the de facto convention (used by Stripe, Adyen, and most payment providers), though not yet an HTTP standard. Use it for any operation where duplicate execution would be harmful: payments, order creation, and account actions.</p>
   <div class="callout warn">
     <div class="callout-title">Keys must be client-generated</div>
-    <p>Generate a fresh UUID per logical attempt <em>before</em> sending the request — not from a prior response. If the key comes from the server, the round-trip to fetch it has the same network-failure problem you are trying to solve.</p>
-  </div>
-
-  <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="cors">CORS</h2>
-  <p class="lede">Browsers enforce a same-origin policy. CORS is the mechanism servers use to opt in to cross-origin requests.</p>
-
-  <p>A browser blocks JavaScript from reading responses to requests that cross origins (scheme + host + port), unless the server explicitly permits it via CORS headers. This is a <em>browser</em> security constraint — <code>curl</code> and server-to-server calls are unaffected.</p>
-
-  <p>A <strong>simple request</strong> (GET, HEAD, or POST with a basic content type) is sent directly — the browser checks the response headers to decide whether to expose the result to JavaScript. Any other method, a custom header, or a JSON <code>Content-Type</code> triggers a <strong>preflight</strong>: the browser first sends an <code>OPTIONS</code> request to ask permission before sending the real request.</p>
-
-  <div class="code-block">
-    <div class="code-header">
-      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-lang">HTTP</span>
-    </div>
-    <pre><code><span class="cm"># Preflight — browser asks before sending the real request</span>
-<span class="method-inline">OPTIONS</span> /orders
-<span class="cn">Origin</span>: https://app.example.com
-<span class="cn">Access-Control-Request-Method</span>: POST
-<span class="cn">Access-Control-Request-Headers</span>: Content-Type, Authorization
-
-<span class="cm">&#x2192; 204 No Content</span>
-<span class="cn">Access-Control-Allow-Origin</span>: https://app.example.com
-<span class="cn">Access-Control-Allow-Methods</span>: GET, POST, PATCH, DELETE
-<span class="cn">Access-Control-Allow-Headers</span>: Content-Type, Authorization
-<span class="cn">Access-Control-Max-Age</span>: 86400</code></pre>
-  </div>
-
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Response header</th><th>Purpose</th></tr></thead>
-      <tbody>
-        <tr><td><code>Access-Control-Allow-Origin</code></td><td>Which origin(s) are permitted. Use a specific origin, not <code>*</code>, when credentials are involved.</td></tr>
-        <tr><td><code>Access-Control-Allow-Methods</code></td><td>HTTP methods the browser may use.</td></tr>
-        <tr><td><code>Access-Control-Allow-Headers</code></td><td>Request headers the browser may include. Must list every custom header the client sends.</td></tr>
-        <tr><td><code>Access-Control-Allow-Credentials</code></td><td>Set to <code>true</code> to allow cookies and the <code>Authorization</code> header. Requires a specific (non-wildcard) origin.</td></tr>
-        <tr><td><code>Access-Control-Max-Age</code></td><td>How long to cache the preflight result, in seconds. Reduces round-trips on frequent requests.</td></tr>
-        <tr><td><code>Access-Control-Expose-Headers</code></td><td>Non-standard response headers to expose to JavaScript (<code>ETag</code>, <code>Location</code>, custom headers are hidden by default).</td></tr>
-      </tbody>
-    </table>
-  </div>
-  <div class="callout warn">
-    <div class="callout-title">Do not combine <code>*</code> with credentials</div>
-    <p>If your API uses cookies or an <code>Authorization</code> header, you cannot use <code>Access-Control-Allow-Origin: *</code>. Browsers reject this combination. Reflect the specific incoming <code>Origin</code> value (after validating it against an allowlist) instead.</p>
+    <p>Generate a fresh UUID per logical attempt <em>before</em> sending the request, not from a prior response. If the key comes from the server, the round-trip to fetch it has the same network-failure problem you are trying to solve.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -617,7 +541,7 @@
   <div class="url-example">
     <span class="path">https://api.example.com/v2/orders</span>
   </div>
-  <p>Visible, easy to route at the infrastructure level, and simple to test in a browser or curl. The version is explicit in every request log. The cost is that URLs are no longer "pure" resource identifiers — the version prefix is infrastructure metadata, not part of the resource's identity. <strong>This is the most common approach in practice and is a reasonable default.</strong></p>
+  <p>Visible, easy to route at the infrastructure level, and simple to test in a browser or curl. The version is explicit in every request log. The cost is that URLs are no longer "pure" resource identifiers. The version prefix is infrastructure metadata, not part of the resource's identity. <strong>This is the most common approach in practice and is a reasonable default.</strong></p>
 
   <h3>Request Header Versioning</h3>
   <div class="url-example">
@@ -629,7 +553,7 @@
   <div class="url-example">
     <span class="path">Accept: application/vnd.example.api+json; version=2</span>
   </div>
-  <p>The most technically correct approach — versioning is about the representation, not the resource, and <code>Accept</code> is the appropriate mechanism for negotiating representations. Also the least commonly adopted, due to tooling support and developer familiarity.</p>
+  <p>The most technically correct approach: versioning is about the representation, not the resource, and <code>Accept</code> is the appropriate mechanism for negotiating representations. Also the least commonly adopted, due to tooling support and developer familiarity.</p>
 
   <h3>Versioning Considerations</h3>
   <ul>
@@ -663,7 +587,7 @@
   <h2 id="openapi">OpenAPI</h2>
   <p class="lede">OpenAPI is the de facto standard for describing REST APIs. In 2026, you will encounter it in almost every professional API context.</p>
 
-  <p>OpenAPI (formerly Swagger) is a machine-readable specification format for HTTP APIs, written in YAML or JSON. A document describes every endpoint, its parameters, request and response schemas, authentication requirements, and expected status codes. <strong>OpenAPI 3.1</strong> (released 2021) is the current version; it aligns fully with JSON Schema, resolving a long-standing incompatibility in 3.0.</p>
+  <p>OpenAPI (formerly Swagger) is a machine-readable specification format for HTTP APIs, written in YAML or JSON. A document describes every endpoint, its parameters, request and response schemas, authentication requirements, and expected status codes. <strong>OpenAPI 3.1</strong> (released 2021) is the current version. It aligns fully with JSON Schema, resolving a long-standing incompatibility in 3.0.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -714,7 +638,7 @@
 
   <div class="callout info">
     <div class="callout-title">TypeScript client generation</div>
-    <p>Tools like <a href="https://heyapi.dev" target="_blank" rel="noopener">Hey API</a> generate fully-typed TypeScript clients directly from an OpenAPI spec — typed parameters, response bodies, and error types — eliminating an entire class of integration bugs without hand-written types or manual sync with the server team.</p>
+    <p>Tools like <a href="https://heyapi.dev" target="_blank" rel="noopener">Hey API</a> generate fully-typed TypeScript clients directly from an OpenAPI spec (typed parameters, response bodies, and error types), eliminating an entire class of integration bugs without hand-written types or manual sync with the server team.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -726,17 +650,17 @@
   <div class="url-example">
     <span class="method method-get">GET</span> <span class="path">/orders?offset=40&amp;limit=20</span>
   </div>
-  <p>Simple to implement and allows random access to any page. The failure mode is instability: if items are inserted or deleted between pages, a client paginating sequentially may skip or duplicate records. Also expensive at large offsets — the database must scan and discard all preceding rows.</p>
+  <p>Simple to implement and allows random access to any page. The failure mode is instability: if items are inserted or deleted between pages, a client paginating sequentially may skip or duplicate records. Also expensive at large offsets: the database must scan and discard all preceding rows.</p>
 
   <p><strong>Cursor pagination</strong> uses an opaque pointer to the last seen item:</p>
   <div class="url-example">
     <span class="method method-get">GET</span> <span class="path">/orders?cursor=eyJpZCI6NDJ9&amp;limit=20</span>
   </div>
-  <p>Stable under insertion and deletion, and performs consistently at any position. The tradeoff is that it does not allow random page access — clients must paginate sequentially. The cursor should be opaque to the client; its internal structure is an implementation detail.</p>
+  <p>Stable under insertion and deletion, and performs consistently at any position. The tradeoff is that it does not allow random page access. Clients must paginate sequentially. The cursor should be opaque to the client. Its internal structure is an implementation detail.</p>
 
   <div class="callout info">
     <div class="callout-title">Pagination metadata</div>
-    <p>Include at minimum the total count, the cursor or offset for the next page, and whether more results exist. Conveying this via response headers (<code>Link</code> per RFC 5988, <code>X-Total-Count</code>) keeps the response body clean; embedding it in a response envelope is also common and more explicit.</p>
+    <p>Include at minimum the total count, the cursor or offset for the next page, and whether more results exist. Conveying this via response headers (<code>Link</code> per RFC 5988, <code>X-Total-Count</code>) keeps the response body clean. Embedding it in a response envelope is also common and more explicit.</p>
   </div>
 
   <h3>Filtering</h3>
@@ -765,7 +689,7 @@
   <h3>State Transitions</h3>
   <p>Operations that transition a resource from one state to another can be modeled as either a direct update or a sub-resource.</p>
 
-  <p><strong>Direct update</strong> — the client sends the target state:</p>
+  <p><strong>Direct update:</strong> the client sends the target state:</p>
   <div class="code-block">
     <div class="code-header">
       <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
@@ -777,7 +701,7 @@
 { <span class="json-key">"status"</span>: <span class="json-str">"cancelled"</span> }</code></pre>
   </div>
 
-  <p><strong>Sub-resource</strong> — the transition itself is treated as a resource:</p>
+  <p><strong>Sub-resource:</strong> the transition itself is treated as a resource:</p>
   <div class="code-block">
     <div class="code-header">
       <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
@@ -839,7 +763,7 @@
   <div class="url-example">
     <span class="method method-get">GET</span> <span class="path">/products?q=running+shoes&amp;category=footwear</span>
   </div>
-  <p>For complex queries — full-text search with ranking, facets, and multiple compound filters — request bodies are more practical. A POST to a dedicated endpoint is acceptable:</p>
+  <p>For complex queries (full-text search with ranking, facets, and multiple compound filters) request bodies are more practical. A POST to a dedicated endpoint is acceptable:</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -862,9 +786,9 @@
   <h3>Real-Time Updates</h3>
   <p>REST has no native mechanism for server-initiated messages. The appropriate tools are:</p>
   <ul>
-    <li><strong>Server-Sent Events (SSE)</strong> — unidirectional server-to-client streaming over HTTP. Suitable for live feeds, notifications, and progress updates. Reconnects automatically.</li>
-    <li><strong>WebSockets</strong> — bidirectional connection. Suitable for collaborative editing, chat, and high-frequency two-way communication.</li>
-    <li><strong>Webhooks</strong> — the server pushes events to a client-provided URL. Suitable for asynchronous integration between systems. See security note below.</li>
+    <li><strong>Server-Sent Events (SSE):</strong> unidirectional server-to-client streaming over HTTP. Suitable for live feeds, notifications, and progress updates. Reconnects automatically.</li>
+    <li><strong>WebSockets:</strong> bidirectional connection. Suitable for collaborative editing, chat, and high-frequency two-way communication.</li>
+    <li><strong>Webhooks:</strong> the server pushes events to a client-provided URL. Suitable for asynchronous integration between systems. See security note below.</li>
   </ul>
   <p>Polling (repeated GET requests) is a valid fallback when real-time infrastructure is not available, particularly with conditional requests (<code>If-None-Match</code>) to minimize response bodies on unchanged resources.</p>
 
@@ -897,7 +821,7 @@
   <p><strong>Event idempotency.</strong> Network issues mean a webhook may be delivered more than once. Each event should carry a unique ID. The receiver should record processed event IDs and discard duplicates before acting on them.</p>
   <div class="callout warn">
     <div class="callout-title">Always verify before acting</div>
-    <p>Respond with <code>200 OK</code> immediately after verification, before any processing. Senders typically retry on non-2xx responses — do expensive work asynchronously to avoid spurious retries from timeouts.</p>
+    <p>Respond with <code>200 OK</code> immediately after verification, before any processing. Senders typically retry on non-2xx responses, so do expensive work asynchronously to avoid spurious retries from timeouts.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -965,13 +889,6 @@
     <div class="checklist-item"><div class="check-box"></div>Resources that may be concurrently modified carry ETag headers</div>
     <div class="checklist-item"><div class="check-box"></div>Modification requests that must be conflict-safe use If-Match</div>
     <div class="checklist-item"><div class="check-box"></div>Non-idempotent POST operations that must survive retries accept an Idempotency-Key</div>
-  </div>
-
-  <div class="checklist-group">
-    <div class="checklist-group-title">CORS</div>
-    <div class="checklist-item"><div class="check-box"></div>CORS headers are present on all endpoints accessed from browsers</div>
-    <div class="checklist-item"><div class="check-box"></div>Access-Control-Allow-Origin is not wildcard when credentials are used</div>
-    <div class="checklist-item"><div class="check-box"></div>Access-Control-Expose-Headers lists any non-standard response headers clients need to read</div>
   </div>
 
   <div class="checklist-group">

@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Web Application Networking — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="docs.css">
+<style>
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 20px 0;
+  }
+  .three-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px;
+    margin: 20px 0;
+  }
+  @media (max-width: 640px) {
+    .two-col, .three-col { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Docs</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-logo" href="index.html">Web<br><span>Networking</span></a>
+
+  <div class="sidebar-section">Foundations</div>
+  <a href="#intro">Introduction</a>
+  <a href="#journey">The Request Path</a>
+  <a href="#components">Four Core Components</a>
+
+  <div class="sidebar-section">Infrastructure</div>
+  <a href="#edge">CDN and WAF</a>
+  <a href="#load-balancing">Load Balancers</a>
+  <a href="#tls">TLS Termination</a>
+  <a href="#zones">Network Zones</a>
+
+  <div class="sidebar-section">Patterns</div>
+  <a href="#internal">Service-to-Service</a>
+  <a href="#persistent">Persistent Connections</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">Architecture · Networking</div>
+  <h1>Web Application Networking: <em>From Browser to Backend</em></h1>
+  <p class="subtitle">The infrastructure between a user's browser and your application code — what each layer does, why it exists, and what it means for application security, scalability, and design.</p>
+  <div class="byline">
+    <strong>Conceptual overview</strong>
+    <div class="dot"></div><span>~14 min read</span>
+    <div class="dot"></div><span>Architecture</span>
+    <div class="dot"></div><span>June 2026</span>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="intro">Introduction</h2>
+  <p class="lede">A browser makes a request. Application code handles it. Between those two events is a chain of infrastructure that determines almost every meaningful property of your application.</p>
+
+  <p>How fast a page loads, whether the application stays up when a server fails, how it behaves under sudden traffic spikes, what attack surface it exposes to the internet — all of these are shaped by networking infrastructure that most developers never see directly. Solution architects make decisions that depend on this infrastructure without necessarily building or operating it themselves.</p>
+
+  <p>This article traces a request from a browser through the networking stack to application code. At each layer, it explains what the components are, why they exist, and what their presence means for how you design your application. It is not about configuring load balancers or writing firewall rules. It is about understanding the components well enough to make good architectural decisions: when each is appropriate, what application design choices they require, and how they interact with each other.</p>
+
+  <div class="callout info">
+    <div class="callout-title">Related articles</div>
+    <p>The <a href="http.html">HTTP article</a> covers what is inside a request and response: methods, headers, caching, cookies, CORS. This article covers the infrastructure that carries those requests. The <a href="https-certificates.html">TLS article</a> goes deeper on certificates and the handshake.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="journey">The Request Path</h2>
+  <p class="lede">A request rarely travels directly from a browser to an application server. The path it takes, and the components along the way, define what your application can and cannot do.</p>
+
+  <p>When a user types a URL and hits enter, the journey that follows touches more infrastructure than most architecture diagrams suggest. Each component in the path has a specific job, and understanding what that job is — and what it is not — is where architectural clarity starts.</p>
+
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 700 130" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Full request path from browser to application server" style="max-width:100%;display:block;background:#161b22;border:1px solid #30363d;border-radius:8px;">
+      <defs>
+        <marker id="wn-r" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#5f6c8c"/></marker>
+      </defs>
+      <!-- Boxes -->
+      <rect x="8"   y="44" width="68"  height="38" rx="5" fill="#1c2330" stroke="#30363d"/>
+      <rect x="102" y="44" width="68"  height="38" rx="5" fill="#1c2330" stroke="#58a6ff" stroke-width="1.5"/>
+      <rect x="196" y="44" width="86"  height="38" rx="5" fill="#1c2330" stroke="#d29922" stroke-width="1.5"/>
+      <rect x="308" y="44" width="86"  height="38" rx="5" fill="#1c2330" stroke="#f85149" stroke-width="1.5"/>
+      <rect x="420" y="44" width="86"  height="38" rx="5" fill="#1c2330" stroke="#3fb950" stroke-width="1.5"/>
+      <rect x="532" y="44" width="82"  height="38" rx="5" fill="#1c2330" stroke="#30363d"/>
+      <rect x="630" y="44" width="62"  height="38" rx="5" fill="#1c2330" stroke="#30363d"/>
+      <!-- Labels -->
+      <text x="42"  y="59" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="#e6edf3">Browser</text>
+      <text x="136" y="59" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="#58a6ff">DNS</text>
+      <text x="239" y="56" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="#d29922">CDN Edge</text>
+      <text x="239" y="70" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9"   fill="#5f6c8c">+ WAF</text>
+      <text x="351" y="56" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="#f85149">Firewall</text>
+      <text x="351" y="70" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9"   fill="#5f6c8c">L3/L4</text>
+      <text x="463" y="56" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="#3fb950">Load</text>
+      <text x="463" y="70" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="#3fb950">Balancer</text>
+      <text x="573" y="56" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="#e6edf3">App</text>
+      <text x="573" y="70" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="#e6edf3">Servers</text>
+      <text x="661" y="59" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="#8b94a0">Database</text>
+      <!-- Arrows -->
+      <line x1="77"  y1="63" x2="100"  y2="63" stroke="#5f6c8c" marker-end="url(#wn-r)"/>
+      <line x1="171" y1="63" x2="194"  y2="63" stroke="#5f6c8c" marker-end="url(#wn-r)"/>
+      <line x1="283" y1="63" x2="306"  y2="63" stroke="#5f6c8c" marker-end="url(#wn-r)"/>
+      <line x1="395" y1="63" x2="418"  y2="63" stroke="#5f6c8c" marker-end="url(#wn-r)"/>
+      <line x1="507" y1="63" x2="530"  y2="63" stroke="#5f6c8c" marker-end="url(#wn-r)"/>
+      <line x1="615" y1="63" x2="628"  y2="63" stroke="#5f6c8c" marker-end="url(#wn-r)"/>
+      <!-- Zone labels -->
+      <text x="42"  y="100" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#5f6c8c">client</text>
+      <text x="239" y="100" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#5f6c8c">global edge</text>
+      <text x="351" y="100" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#5f6c8c">perimeter</text>
+      <text x="507" y="100" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#5f6c8c">private network</text>
+      <text x="661" y="100" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#5f6c8c">data tier</text>
+    </svg>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">A production request path. Not every deployment uses every layer, but each one is an available architectural decision.</figcaption>
+  </figure>
+
+  <p>The journey starts with <strong>DNS</strong>, which translates a hostname into an IP address before any TCP connection opens. The <strong>CDN edge</strong> intercepts the request close to the user and serves cached responses when it can. A <strong>WAF</strong> inspects HTTP traffic for attack patterns. A <strong>firewall</strong> at the network perimeter controls which connections can enter at all. A <strong>load balancer</strong> distributes requests across a pool of application instances. The <strong>application servers</strong> handle the actual logic, calling databases and internal services as needed.</p>
+
+  <p>The sections below examine each layer. But first, four of these components deserve a careful comparison, because they are the ones most frequently conflated.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="components">Four Core Components</h2>
+  <p class="lede">Firewalls, reverse proxies, load balancers, and API gateways each have a distinct primary job. Products often combine multiple roles, which is why the distinctions matter more at the concept level than the product level.</p>
+
+  <h3>Firewall</h3>
+  <p>A firewall decides whether a network connection is permitted. It operates at the TCP/IP level: allow or deny based on source IP, destination IP, port, and protocol. A firewall does not read HTTP. It does not know what your API does. It enforces network-level access rules.</p>
+
+  <p>The practical use: your database should accept connections only from your application servers, not from the internet. A firewall enforces this. If a connection does not match a permitted rule, it is rejected before it opens. No application code runs. No HTTP is parsed.</p>
+
+  <h3>Reverse Proxy</h3>
+  <p>A reverse proxy accepts connections on behalf of backend servers, then forwards them onwards. From the client's perspective, it is talking to the proxy — the actual application servers are invisible. This indirection is what enables almost everything else discussed in this article. TLS termination, caching, compression, header manipulation, and routing all happen in the proxy layer, without the application needing to know.</p>
+
+  <p>Nginx is the canonical standalone reverse proxy. But every load balancer, CDN, and API gateway also acts as a reverse proxy in the sense that it intercepts connections and forwards them. The term names a behavior more than a specific product category.</p>
+
+  <h3>Load Balancer</h3>
+  <p>A load balancer distributes incoming connections or requests across multiple backend instances. Its primary concerns are availability and scalability: when one instance goes down, traffic moves to the others; when demand grows, you add more instances. Health checks run continuously to detect failed backends.</p>
+
+  <p>Load balancers operate at either Layer 4 (TCP connections) or Layer 7 (HTTP requests). A Layer 4 load balancer sees connections and distributes them without parsing HTTP. A Layer 7 load balancer understands HTTP and can route based on path, hostname, or header values. Most web application load balancers today operate at Layer 7, which means they are also acting as reverse proxies. AWS Application Load Balancer, GCP Load Balancing, and Azure Application Gateway all work this way. The conceptual distinction remains useful: a load balancer's defining job is distribution, while a reverse proxy's defining job is forwarding and augmentation.</p>
+
+  <h3>API Gateway</h3>
+  <p>An API gateway is a reverse proxy with application-level concerns built in. It sits in front of backend services and handles cross-cutting concerns centrally: authentication and authorization enforcement, rate limiting, routing by API version or path, analytics, and developer-facing features like key management. Where a general-purpose reverse proxy is neutral about what flows through it, an API gateway is opinionated: it exists specifically to manage API access.</p>
+
+  <p>The practical benefit is that these concerns are not duplicated in every service. Authentication is enforced at the gateway. Rate limits are applied at the gateway. Individual services receive already-authenticated requests and can focus on their domain logic.</p>
+
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 700 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Component comparison showing what each layer sees and does" style="max-width:100%;display:block;background:#161b22;border:1px solid #30363d;border-radius:8px;">
+      <!-- Left column: layers -->
+      <!-- Layer labels -->
+      <text x="14" y="34" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="700" fill="#5f6c8c" letter-spacing="0.08em">LAYER</text>
+      <text x="190" y="34" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="700" fill="#5f6c8c" letter-spacing="0.08em">COMPONENT</text>
+      <text x="400" y="34" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="700" fill="#5f6c8c" letter-spacing="0.08em">CAN SEE / ACT ON</text>
+      <!-- Divider -->
+      <line x1="10" y1="40" x2="690" y2="40" stroke="#30363d"/>
+
+      <!-- Row 1: Firewall (L3/L4) -->
+      <rect x="10" y="50" width="90" height="40" rx="4" fill="rgba(248,81,73,0.1)" stroke="rgba(248,81,73,0.3)"/>
+      <text x="55" y="68" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="#f85149">L3 / L4</text>
+      <text x="55" y="82" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">network</text>
+      <rect x="120" y="50" width="110" height="40" rx="4" fill="rgba(248,81,73,0.1)" stroke="rgba(248,81,73,0.3)"/>
+      <text x="175" y="68" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="#f85149">Firewall</text>
+      <text x="175" y="82" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">network rules</text>
+      <text x="400" y="64" font-family="Inter,system-ui,sans-serif" font-size="11" fill="#e6edf3">Source IP, destination IP, port, protocol</text>
+      <text x="400" y="80" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#5f6c8c">Allow or deny the connection before it opens. No HTTP parsing.</text>
+
+      <!-- Row 2: WAF (L7 security) -->
+      <line x1="10" y1="98" x2="690" y2="98" stroke="#30363d" stroke-dasharray="3,4"/>
+      <rect x="10" y="106" width="90" height="40" rx="4" fill="rgba(210,153,34,0.1)" stroke="rgba(210,153,34,0.3)"/>
+      <text x="55" y="124" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="#d29922">L7</text>
+      <text x="55" y="138" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">application</text>
+      <rect x="120" y="106" width="110" height="40" rx="4" fill="rgba(210,153,34,0.1)" stroke="rgba(210,153,34,0.3)"/>
+      <text x="175" y="124" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="#d29922">WAF</text>
+      <text x="175" y="138" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">security filter</text>
+      <text x="400" y="120" font-family="Inter,system-ui,sans-serif" font-size="11" fill="#e6edf3">Full HTTP request: URL, headers, body, cookies</text>
+      <text x="400" y="136" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#5f6c8c">Block requests matching attack signatures (SQLi, XSS, bot patterns).</text>
+
+      <!-- Row 3: Reverse Proxy / Load Balancer -->
+      <line x1="10" y1="154" x2="690" y2="154" stroke="#30363d" stroke-dasharray="3,4"/>
+      <rect x="10" y="162" width="90" height="40" rx="4" fill="rgba(88,166,255,0.1)" stroke="rgba(88,166,255,0.3)"/>
+      <text x="55" y="180" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="#58a6ff">L7</text>
+      <text x="55" y="194" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">application</text>
+      <rect x="120" y="162" width="110" height="40" rx="4" fill="rgba(88,166,255,0.1)" stroke="rgba(88,166,255,0.3)"/>
+      <text x="175" y="178" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="#58a6ff">Reverse Proxy</text>
+      <text x="175" y="192" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="#58a6ff">Load Balancer</text>
+      <text x="400" y="176" font-family="Inter,system-ui,sans-serif" font-size="11" fill="#e6edf3">Full HTTP request. Upstream health. Connection pool.</text>
+      <text x="400" y="192" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#5f6c8c">Terminate TLS, route to a healthy backend, cache, compress, inject headers.</text>
+
+      <!-- Row 4: API Gateway -->
+      <line x1="10" y1="210" x2="690" y2="210" stroke="#30363d" stroke-dasharray="3,4"/>
+      <rect x="10" y="218" width="90" height="34" rx="4" fill="rgba(63,185,80,0.1)" stroke="rgba(63,185,80,0.3)"/>
+      <text x="55" y="234" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="#3fb950">L7</text>
+      <text x="55" y="246" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">API-aware</text>
+      <rect x="120" y="218" width="110" height="34" rx="4" fill="rgba(63,185,80,0.1)" stroke="rgba(63,185,80,0.3)"/>
+      <text x="175" y="233" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="#3fb950">API Gateway</text>
+      <text x="175" y="247" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">reverse proxy + policies</text>
+      <text x="400" y="232" font-family="Inter,system-ui,sans-serif" font-size="11" fill="#e6edf3">Everything a reverse proxy sees, plus API-specific context</text>
+      <text x="400" y="248" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#5f6c8c">Enforce auth, rate limits, route by version, record usage per API key.</text>
+    </svg>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">Each component operates at a different layer and acts on different information. A product can play multiple roles simultaneously.</figcaption>
+  </figure>
+
+  <div class="callout info">
+    <div class="callout-title">Why these overlap in practice</div>
+    <p>An AWS Application Load Balancer is both a load balancer and a reverse proxy. An Nginx instance can serve as a reverse proxy, load balancer, and static file server simultaneously. The distinctions above are conceptual: they describe a primary job and what the component needs to see to do it. When evaluating a product, ask which of these jobs it covers and whether it covers them well.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="edge">At the Edge: CDN and WAF</h2>
+  <p class="lede">The components furthest from your application handle the highest request volumes and provide the first lines of defense.</p>
+
+  <p>A CDN (Content Delivery Network) is a global network of servers positioned close to users in major population centers. The purpose is latency: a user in Frankfurt connecting to a CDN point-of-presence in Frankfurt gets a response in single-digit milliseconds rather than the 150+ milliseconds a round trip to a US data center would take. For dynamic content that cannot be cached, the CDN still helps: it terminates TLS at the edge node (eliminating the round-trip cost of the handshake) and routes the remaining connection over the CDN's own high-capacity network backbone to the origin.</p>
+
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 700 195" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="CDN cache hit versus cache miss request paths" style="max-width:100%;display:block;background:#161b22;border:1px solid #30363d;border-radius:8px;">
+      <defs>
+        <marker id="wn-r2" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#5f6c8c"/></marker>
+        <marker id="wn-rg2" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#3fb950"/></marker>
+        <marker id="wn-lg2" markerWidth="7" markerHeight="5" refX="1" refY="2.5" orient="auto"><polygon points="7 0,0 2.5,7 5" fill="#3fb950"/></marker>
+        <marker id="wn-lb2" markerWidth="7" markerHeight="5" refX="1" refY="2.5" orient="auto"><polygon points="7 0,0 2.5,7 5" fill="#58a6ff"/></marker>
+        <marker id="wn-rb2" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#58a6ff"/></marker>
+      </defs>
+
+      <!-- Left panel: Cache hit -->
+      <rect x="8" y="8" width="326" height="179" rx="6" fill="rgba(63,185,80,0.04)" stroke="rgba(63,185,80,0.25)"/>
+      <text x="171" y="26" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="700" fill="#3fb950">CACHE HIT</text>
+
+      <rect x="24"  y="40" width="72" height="30" rx="4" fill="#1c2330" stroke="#30363d"/>
+      <text x="60"  y="59" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="#e6edf3">Browser</text>
+
+      <rect x="150" y="40" width="90" height="30" rx="4" fill="#1c2330" stroke="#d29922" stroke-width="1.5"/>
+      <text x="195" y="56" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="#d29922">CDN Edge</text>
+      <text x="195" y="68" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#5f6c8c">cache warm</text>
+
+      <line x1="97"  y1="55" x2="148"  y2="55" stroke="#5f6c8c" marker-end="url(#wn-r2)"/>
+      <text x="122"  y="49" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#e6edf3">GET /image.png</text>
+
+      <line x1="149" y1="69" x2="97"   y2="69" stroke="#3fb950" marker-end="url(#wn-lb2)"/>
+      <text x="122"  y="83" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#3fb950">200 OK (from cache)</text>
+
+      <rect x="116" y="105" width="158" height="52" rx="5" fill="rgba(63,185,80,0.08)" stroke="rgba(63,185,80,0.3)"/>
+      <text x="195" y="120" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#3fb950" font-weight="600">Origin not contacted</text>
+      <text x="195" y="136" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">Response served from the</text>
+      <text x="195" y="149" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">nearest edge node</text>
+
+      <!-- Right panel: Cache miss -->
+      <rect x="342" y="8" width="350" height="179" rx="6" fill="rgba(88,166,255,0.04)" stroke="rgba(88,166,255,0.2)"/>
+      <text x="517" y="26" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="700" fill="#58a6ff">CACHE MISS</text>
+
+      <rect x="355" y="40" width="72"  height="30" rx="4" fill="#1c2330" stroke="#30363d"/>
+      <text x="391" y="59" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="#e6edf3">Browser</text>
+
+      <rect x="462" y="40" width="90"  height="30" rx="4" fill="#1c2330" stroke="#d29922" stroke-width="1.5"/>
+      <text x="507" y="56" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="#d29922">CDN Edge</text>
+      <text x="507" y="68" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#5f6c8c">cache empty</text>
+
+      <rect x="586" y="40" width="96"  height="30" rx="4" fill="#1c2330" stroke="#30363d"/>
+      <text x="634" y="56" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="#e6edf3">Origin</text>
+      <text x="634" y="68" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#5f6c8c">your servers</text>
+
+      <line x1="428" y1="52" x2="460"  y2="52" stroke="#5f6c8c" marker-end="url(#wn-r2)"/>
+      <line x1="553" y1="52" x2="584"  y2="52" stroke="#58a6ff" marker-end="url(#wn-rb2)"/>
+      <text x="568"  y="46" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#58a6ff">fetch</text>
+      <line x1="583" y1="66" x2="554"  y2="66" stroke="#3fb950" marker-end="url(#wn-lg2)"/>
+      <text x="568"  y="79" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#3fb950">response</text>
+      <line x1="461" y1="73" x2="429"  y2="73" stroke="#3fb950" marker-end="url(#wn-lb2)"/>
+
+      <text x="391"  y="88" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#3fb950">200 OK</text>
+      <text x="391"  y="100" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#5f6c8c">(edge now caches it)</text>
+
+      <rect x="420" y="115" width="215" height="52" rx="5" fill="rgba(88,166,255,0.07)" stroke="rgba(88,166,255,0.25)"/>
+      <text x="527" y="130" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#58a6ff" font-weight="600">Response cached at edge</text>
+      <text x="527" y="146" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">Subsequent requests served</text>
+      <text x="527" y="159" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">from cache (no origin hit)</text>
+    </svg>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">A cache hit never contacts the origin. A miss fetches from the origin and caches the response for subsequent requests.</figcaption>
+  </figure>
+
+  <p>The CDN is not just a performance tool. It is the first security layer many applications have. A <strong>WAF</strong> (Web Application Firewall) positioned at the edge inspects HTTP requests for SQL injection patterns, XSS payloads, path traversal attempts, and known bot signatures. DDoS protection also lives here: a volumetric attack large enough to saturate a single data center's network connection is absorbed across the CDN's aggregate capacity in hundreds of edge locations. The application servers never see the traffic.</p>
+
+  <p>The architectural implication: what you put at the edge determines what reaches your infrastructure at all. Cache TTL decisions, which response headers are forwarded, where TLS terminates — these choices have consequences for application behavior and security posture. The CDN is not configuration detail. It is part of your architecture.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="load-balancing">Load Balancers and Application Design</h2>
+  <p class="lede">Horizontal scaling sounds simple: add more servers and distribute traffic. The complication is state stored in process memory.</p>
+
+  <p>A load balancer distributes incoming requests across a pool of application instances. When one instance fails its health check, traffic moves to the remaining healthy ones. When demand grows, new instances are added to the pool. This is horizontal scaling, and it is the standard approach to availability and capacity in modern web applications.</p>
+
+  <p>The problem surfaces as soon as user sessions are involved. A user logs in, and server A creates a session record in memory. Their next request goes to server B. Server B has no knowledge of that session. The user appears to be logged out.</p>
+
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 700 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Stateful versus stateless application design with a load balancer" style="max-width:100%;display:block;background:#161b22;border:1px solid #30363d;border-radius:8px;">
+      <defs>
+        <marker id="wn-r3" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#5f6c8c"/></marker>
+        <marker id="wn-rr3" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#f85149"/></marker>
+        <marker id="wn-rg3" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#3fb950"/></marker>
+      </defs>
+
+      <!-- Left: Stateful (sticky sessions) -->
+      <rect x="8" y="8" width="326" height="224" rx="6" fill="rgba(248,81,73,0.04)" stroke="rgba(248,81,73,0.25)"/>
+      <text x="171" y="26" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="700" fill="#f85149">STATEFUL — STICKY SESSIONS</text>
+
+      <rect x="24" y="40" width="60" height="28" rx="4" fill="#1c2330" stroke="#30363d"/>
+      <text x="54" y="58" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="#e6edf3">Browser</text>
+
+      <rect x="124" y="40" width="80" height="28" rx="4" fill="#1c2330" stroke="#58a6ff" stroke-width="1.5"/>
+      <text x="164" y="58" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="#58a6ff">Load Balancer</text>
+
+      <rect x="246" y="28" width="76" height="28" rx="4" fill="#1c2330" stroke="#f85149" stroke-width="1.5"/>
+      <text x="284" y="46" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="#f85149">Server A</text>
+      <text x="284" y="58" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#5f6c8c">session in RAM</text>
+
+      <rect x="246" y="66" width="76" height="28" rx="4" fill="#1c2330" stroke="#30363d"/>
+      <text x="284" y="84" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="#8b94a0">Server B</text>
+
+      <line x1="85" y1="54" x2="122" y2="54" stroke="#5f6c8c" marker-end="url(#wn-r3)"/>
+      <line x1="205" y1="50" x2="244" y2="42" stroke="#f85149" marker-end="url(#wn-rr3)"/>
+      <line x1="205" y1="58" x2="244" y2="78" stroke="#30363d" stroke-dasharray="3,3"/>
+      <text x="218" y="45" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#f85149">pinned</text>
+      <text x="218" y="75" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#5f6c8c">blocked</text>
+
+      <rect x="20" y="110" width="290" height="110" rx="5" fill="rgba(248,81,73,0.06)" stroke="rgba(248,81,73,0.2)"/>
+      <text x="165" y="128" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#f85149" font-weight="600">Problems with sticky sessions</text>
+      <text x="30" y="146" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#8b94a0">✗  Server A crash loses all its sessions</text>
+      <text x="30" y="163" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#8b94a0">✗  Server B may be idle while A is overloaded</text>
+      <text x="30" y="180" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#8b94a0">✗  Deployments become disruptive</text>
+      <text x="30" y="197" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#8b94a0">✗  Scaling down requires migrating sessions</text>
+
+      <!-- Right: Stateless -->
+      <rect x="342" y="8" width="350" height="224" rx="6" fill="rgba(63,185,80,0.04)" stroke="rgba(63,185,80,0.25)"/>
+      <text x="517" y="26" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="700" fill="#3fb950">STATELESS — SHARED SESSION STORE</text>
+
+      <rect x="356" y="40" width="60" height="28" rx="4" fill="#1c2330" stroke="#30363d"/>
+      <text x="386" y="58" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="#e6edf3">Browser</text>
+
+      <rect x="452" y="40" width="80" height="28" rx="4" fill="#1c2330" stroke="#58a6ff" stroke-width="1.5"/>
+      <text x="492" y="58" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="#58a6ff">Load Balancer</text>
+
+      <rect x="566" y="28" width="76" height="28" rx="4" fill="#1c2330" stroke="#3fb950" stroke-width="1.5"/>
+      <text x="604" y="46" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="#3fb950">Server A</text>
+
+      <rect x="566" y="66" width="76" height="28" rx="4" fill="#1c2330" stroke="#3fb950" stroke-width="1.5"/>
+      <text x="604" y="84" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="#3fb950">Server B</text>
+
+      <rect x="452" y="104" width="200" height="28" rx="4" fill="#1c2330" stroke="#39d0b8" stroke-width="1.5"/>
+      <text x="552" y="122" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="#39d0b8">Session Store (Redis)</text>
+
+      <line x1="417" y1="54" x2="450"  y2="54" stroke="#5f6c8c" marker-end="url(#wn-r3)"/>
+      <line x1="533" y1="49" x2="564"  y2="41" stroke="#3fb950" marker-end="url(#wn-rg3)"/>
+      <line x1="533" y1="59" x2="564"  y2="75" stroke="#3fb950" marker-end="url(#wn-rg3)"/>
+      <line x1="604" y1="56" x2="604"  y2="100" stroke="#39d0b8" stroke-dasharray="3,3"/>
+      <line x1="568" y1="100" x2="568" y2="100"/>
+
+      <rect x="350" y="145" width="334" height="75" rx="5" fill="rgba(63,185,80,0.07)" stroke="rgba(63,185,80,0.2)"/>
+      <text x="517" y="163" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#3fb950" font-weight="600">Any server can handle any request</text>
+      <text x="360" y="181" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#8b94a0">✓  Server failures don't lose sessions</text>
+      <text x="360" y="198" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#8b94a0">✓  Scale freely — add or remove servers at will</text>
+    </svg>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">Sticky sessions work around the statelessness requirement but create fragility. The real solution is storing session state outside the application process.</figcaption>
+  </figure>
+
+  <p>The workaround is <strong>session stickiness</strong>: the load balancer routes all requests from the same user to the same server. It works in the short term, but it creates exactly the kind of fragility horizontal scaling is meant to eliminate. If server A crashes, every session pinned to it is lost. Load distribution becomes uneven. Deployments require careful session migration.</p>
+
+  <p>The right answer is designing the application to be stateless. Session data lives in a shared external store — Redis is the most common choice — rather than in process memory. Every server can then handle any request, because session state is not local. The load balancer routes freely. Servers can be added, removed, or restarted without disrupting user sessions.</p>
+
+  <p>Health checks are the other critical piece. A load balancer continuously probes each instance on a dedicated endpoint to verify it is ready to serve traffic. An instance that fails health checks is removed from rotation automatically. The endpoint should verify actual readiness, not just that the process is running. An instance that has started but not yet finished loading configuration or warming up a cache should fail its health check until it is genuinely ready.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="tls">TLS Termination</h2>
+  <p class="lede">HTTPS is encrypted from the browser to wherever TLS terminates. That point is usually not your application server, and where it is matters.</p>
+
+  <p>TLS termination — decrypting the connection — almost always happens at a proxy or load balancer, not at the application. After that point, traffic travels as plain HTTP over your internal network. This is practical: certificates are managed in one place, application servers are simpler, and TLS offloading reduces CPU load on application instances.</p>
+
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 700 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Three TLS termination models: CDN edge, load balancer, and end-to-end re-encryption" style="max-width:100%;display:block;background:#161b22;border:1px solid #30363d;border-radius:8px;">
+      <!-- Model A: Terminate at CDN edge -->
+      <text x="116" y="22" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="700" fill="#5f6c8c">TERMINATE AT CDN EDGE</text>
+
+      <!-- Encrypted segment -->
+      <rect x="8"   y="34" width="50" height="28" rx="4" fill="#1c2330" stroke="#30363d"/>
+      <text x="33"  y="52" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="#e6edf3">Browser</text>
+      <rect x="78"  y="34" width="70" height="28" rx="4" fill="#1c2330" stroke="#d29922"/>
+      <text x="113" y="52" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="#d29922">CDN Edge</text>
+      <rect x="168" y="34" width="50" height="28" rx="4" fill="#1c2330" stroke="#30363d"/>
+      <text x="193" y="52" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="#8b94a0">App</text>
+      <line x1="58"  y1="48" x2="76"  y2="48" stroke="#3fb950" stroke-width="2"/>
+      <line x1="148" y1="48" x2="166" y2="48" stroke="#d29922" stroke-dasharray="3,2"/>
+      <text x="33"  y="80" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#3fb950">encrypted</text>
+      <text x="157" y="80" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#d29922">may be plain HTTP</text>
+
+      <!-- Model B: Terminate at load balancer -->
+      <text x="350" y="22" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="700" fill="#5f6c8c">TERMINATE AT LOAD BALANCER</text>
+
+      <rect x="242" y="34" width="50"  height="28" rx="4" fill="#1c2330" stroke="#30363d"/>
+      <text x="267" y="52" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="#e6edf3">Browser</text>
+      <rect x="312" y="34" width="76"  height="28" rx="4" fill="#1c2330" stroke="#58a6ff"/>
+      <text x="350" y="52" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="#58a6ff">Load Balancer</text>
+      <rect x="408" y="34" width="50"  height="28" rx="4" fill="#1c2330" stroke="#30363d"/>
+      <text x="433" y="52" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="#8b94a0">App</text>
+      <line x1="292" y1="48" x2="310" y2="48" stroke="#3fb950" stroke-width="2"/>
+      <line x1="388" y1="48" x2="406" y2="48" stroke="#d29922" stroke-dasharray="3,2"/>
+      <text x="267" y="80" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#3fb950">encrypted</text>
+      <text x="390" y="80" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#d29922">plain HTTP internally</text>
+
+      <!-- Model C: Re-encrypt -->
+      <text x="604" y="22" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="700" fill="#5f6c8c">RE-ENCRYPT TO APP</text>
+
+      <rect x="500" y="34" width="50"  height="28" rx="4" fill="#1c2330" stroke="#30363d"/>
+      <text x="525" y="52" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="#e6edf3">Browser</text>
+      <rect x="568" y="34" width="76"  height="28" rx="4" fill="#1c2330" stroke="#58a6ff"/>
+      <text x="606" y="52" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="#58a6ff">Load Balancer</text>
+      <rect x="660" y="34" width="32"  height="28" rx="4" fill="#1c2330" stroke="#3fb950"/>
+      <text x="676" y="52" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="#3fb950">App</text>
+      <line x1="550" y1="48" x2="566" y2="48" stroke="#3fb950" stroke-width="2"/>
+      <line x1="644" y1="48" x2="658" y2="48" stroke="#3fb950" stroke-width="2"/>
+      <text x="525" y="80" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#3fb950">encrypted</text>
+      <text x="651" y="80" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#3fb950">re-encrypted</text>
+
+      <!-- Legend -->
+      <line x1="10" y1="105" x2="690" y2="105" stroke="#30363d"/>
+      <text x="14" y="120" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#5f6c8c">Legend:</text>
+      <line x1="68" y1="116" x2="100" y2="116" stroke="#3fb950" stroke-width="2"/>
+      <text x="106" y="120" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#3fb950">encrypted (TLS)</text>
+      <line x1="230" y1="116" x2="262" y2="116" stroke="#d29922" stroke-dasharray="3,2" stroke-width="2"/>
+      <text x="268" y="120" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#d29922">plain HTTP (internal)</text>
+
+      <!-- Notes -->
+      <text x="14" y="145" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#8b94a0">Standard for CDN apps. Internal</text>
+      <text x="14" y="159" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#8b94a0">traffic to origin may be cleartext.</text>
+
+      <text x="242" y="145" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#8b94a0">Most common for non-CDN apps.</text>
+      <text x="242" y="159" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#8b94a0">Certs managed in one place.</text>
+
+      <text x="500" y="145" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#8b94a0">Required in regulated industries.</text>
+      <text x="500" y="159" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#8b94a0">Higher operational complexity.</text>
+    </svg>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">Where TLS terminates determines where traffic is encrypted and where certificates must be managed.</figcaption>
+  </figure>
+
+  <p>One consequence of proxy termination is that the application server no longer sees the original client IP — it only sees the proxy's IP. Proxies inject the real client IP as the <code>X-Forwarded-For</code> header. Application code that uses this for rate limiting, geo-blocking, or fraud detection must trust the header carefully: a misconfigured proxy that does not strip the header allows clients to spoof it by sending their own <code>X-Forwarded-For</code> value.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="zones">Network Zones</h2>
+  <p class="lede">Not everything should be reachable from the internet. Placing components in the right zone is one of the most effective security controls available.</p>
+
+  <p>In cloud infrastructure, network segmentation is implemented through subnets within a VPC (Virtual Private Cloud). Components are placed in public or private subnets based on whether they need to accept inbound connections from the internet.</p>
+
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 700 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Network zones showing public subnet, private subnet, and isolated data tier" style="max-width:100%;display:block;background:#161b22;border:1px solid #30363d;border-radius:8px;">
+      <defs>
+        <marker id="wn-r4" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#5f6c8c"/></marker>
+        <marker id="wn-rr4" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#f85149"/></marker>
+      </defs>
+
+      <!-- Internet zone -->
+      <rect x="8" y="20" width="90" height="190" rx="6" fill="rgba(248,81,73,0.04)" stroke="rgba(248,81,73,0.2)"/>
+      <text x="53" y="38" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="700" fill="#f85149" letter-spacing="0.06em">INTERNET</text>
+      <rect x="22" y="48" width="62" height="28" rx="4" fill="#1c2330" stroke="#f85149"/>
+      <text x="53" y="63" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="#f85149">Users</text>
+      <text x="53" y="98" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#5f6c8c">untrusted,</text>
+      <text x="53" y="111" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#5f6c8c">hostile</text>
+
+      <!-- Firewall gate -->
+      <rect x="104" y="55" width="26" height="14" rx="3" fill="rgba(248,81,73,0.2)" stroke="#f85149"/>
+      <text x="117" y="66" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="7.5" font-weight="700" fill="#f85149">FW</text>
+
+      <!-- Public subnet -->
+      <rect x="136" y="20" width="150" height="190" rx="6" fill="rgba(210,153,34,0.05)" stroke="rgba(210,153,34,0.3)"/>
+      <text x="211" y="38" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="700" fill="#d29922" letter-spacing="0.06em">PUBLIC SUBNET</text>
+      <rect x="152" y="48" width="118" height="28" rx="4" fill="#1c2330" stroke="#58a6ff"/>
+      <text x="211" y="63" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="#58a6ff">Load Balancer</text>
+      <rect x="152" y="90" width="118" height="28" rx="4" fill="#1c2330" stroke="#d29922"/>
+      <text x="211" y="105" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="#d29922">NAT Gateway</text>
+      <text x="211" y="140" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#5f6c8c">public IPs,</text>
+      <text x="211" y="153" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#5f6c8c">internet-facing</text>
+
+      <!-- Gate between public and private -->
+      <rect x="292" y="55" width="26" height="14" rx="3" fill="rgba(88,166,255,0.2)" stroke="#58a6ff"/>
+      <text x="305" y="66" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="7.5" font-weight="700" fill="#58a6ff">FW</text>
+
+      <!-- Private subnet -->
+      <rect x="324" y="20" width="180" height="190" rx="6" fill="rgba(88,166,255,0.04)" stroke="rgba(88,166,255,0.25)"/>
+      <text x="414" y="38" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="700" fill="#58a6ff" letter-spacing="0.06em">PRIVATE SUBNET</text>
+      <rect x="340" y="48" width="80" height="28" rx="4" fill="#1c2330" stroke="#3fb950"/>
+      <text x="380" y="63" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="#3fb950">App Server A</text>
+      <rect x="432" y="48" width="60" height="28" rx="4" fill="#1c2330" stroke="#3fb950"/>
+      <text x="462" y="63" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="#3fb950">App Srv B</text>
+      <rect x="340" y="90" width="152" height="28" rx="4" fill="#1c2330" stroke="#3fb950"/>
+      <text x="416" y="105" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="#3fb950">Internal Services</text>
+      <text x="414" y="145" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#5f6c8c">no public IPs,</text>
+      <text x="414" y="158" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#5f6c8c">not internet-routable</text>
+
+      <!-- Gate to data tier -->
+      <rect x="509" y="55" width="26" height="14" rx="3" fill="rgba(188,140,255,0.2)" stroke="#bc8cff"/>
+      <text x="522" y="66" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="7.5" font-weight="700" fill="#bc8cff">FW</text>
+
+      <!-- Isolated / data tier -->
+      <rect x="541" y="20" width="151" height="190" rx="6" fill="rgba(188,140,255,0.04)" stroke="rgba(188,140,255,0.25)"/>
+      <text x="616" y="38" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="700" fill="#bc8cff" letter-spacing="0.06em">DATA TIER</text>
+      <rect x="558" y="48" width="116" height="28" rx="4" fill="#1c2330" stroke="#bc8cff"/>
+      <text x="616" y="63" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="#bc8cff">Database</text>
+      <rect x="558" y="90" width="116" height="28" rx="4" fill="#1c2330" stroke="#bc8cff"/>
+      <text x="616" y="105" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="#bc8cff">Cache (Redis)</text>
+      <text x="616" y="145" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#5f6c8c">only app servers</text>
+      <text x="616" y="158" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#5f6c8c">can connect</text>
+
+      <!-- Arrows (traffic flow) -->
+      <line x1="85"  y1="62" x2="101" y2="62" stroke="#5f6c8c" marker-end="url(#wn-r4)"/>
+      <line x1="131" y1="62" x2="150" y2="62" stroke="#5f6c8c" marker-end="url(#wn-r4)"/>
+      <line x1="270" y1="62" x2="289" y2="62" stroke="#5f6c8c" marker-end="url(#wn-r4)"/>
+      <line x1="318" y1="62" x2="338" y2="62" stroke="#5f6c8c" marker-end="url(#wn-r4)"/>
+      <line x1="492" y1="62" x2="507" y2="62" stroke="#5f6c8c" marker-end="url(#wn-r4)"/>
+      <line x1="536" y1="62" x2="556" y2="62" stroke="#5f6c8c" marker-end="url(#wn-r4)"/>
+      <!-- Outbound arrow through NAT -->
+      <line x1="414" y1="104" x2="270" y2="104" stroke="#d29922" stroke-dasharray="4,3" marker-end="url(#wn-rr4)"/>
+      <text x="342" y="98" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#d29922">outbound via NAT</text>
+    </svg>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">Firewall rules between zones determine which connections are permitted. Application servers in the private subnet have no public IP and cannot be reached directly from the internet.</figcaption>
+  </figure>
+
+  <p><strong>Public subnets</strong> hold components that accept inbound internet traffic: load balancers, CDN origin connections, and NAT gateways. These have public IP addresses. <strong>Private subnets</strong> hold application servers and internal services that should only be reachable from inside the network. They have no public IP and are not routable from the internet. The data tier goes further still: databases accept connections only from application servers in the private subnet.</p>
+
+  <p>This layering is the network implementation of defense in depth. An attacker who compromises a component in the public subnet still faces firewall boundaries before reaching private instances. A misconfigured load balancer does not automatically expose the database. Compromising the database requires compromising an application server first.</p>
+
+  <p>Application servers in private subnets still need outbound internet access for third-party API calls, OS package updates, and similar. A NAT gateway in the public subnet provides this: private instances route outbound traffic through it, but inbound connections from the internet cannot traverse NAT. The asymmetry is intentional.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="internal">Service-to-Service Communication</h2>
+  <p class="lede">Traffic between services inside your network has a different character from traffic entering it. It still needs its own security and reliability controls.</p>
+
+  <p>In a single-service application, the only traffic worth thinking about is inbound. In a multi-service architecture, most of the traffic volume is internal: service A calls service B, which calls a payment provider, which writes to a database. This internal traffic is sometimes called east-west, to distinguish it from north-south traffic that crosses the perimeter.</p>
+
+  <p>East-west traffic is often assumed to be safe because it never leaves the private network. That assumption is reasonable in some cases and dangerous in others. An attacker who gains access to one compromised instance inside the perimeter has free movement if there are no controls on internal traffic. <strong>Mutual TLS</strong> (mTLS) is the standard response: every service presents a certificate, and services only accept connections from other services with valid, trusted certificates. Both ends authenticate each other, and traffic is encrypted at every hop.</p>
+
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 700 210" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Service-to-service communication without and with a service mesh" style="max-width:100%;display:block;background:#161b22;border:1px solid #30363d;border-radius:8px;">
+      <defs>
+        <marker id="wn-r5" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#5f6c8c"/></marker>
+        <marker id="wn-rg5" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#3fb950"/></marker>
+      </defs>
+
+      <!-- Left: No mesh -->
+      <rect x="8" y="8" width="320" height="194" rx="6" fill="rgba(248,81,73,0.04)" stroke="rgba(248,81,73,0.2)"/>
+      <text x="168" y="26" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="700" fill="#f85149">WITHOUT SERVICE MESH</text>
+
+      <rect x="24"  y="44" width="80" height="36" rx="5" fill="#1c2330" stroke="#30363d"/>
+      <text x="64"  y="62" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="#e6edf3">Service A</text>
+      <text x="64"  y="75" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#5f6c8c">order service</text>
+
+      <rect x="156" y="44" width="80" height="36" rx="5" fill="#1c2330" stroke="#30363d"/>
+      <text x="196" y="62" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="#e6edf3">Service B</text>
+      <text x="196" y="75" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#5f6c8c">payment service</text>
+
+      <line x1="105" y1="62" x2="154" y2="62" stroke="#f85149" stroke-dasharray="3,2" marker-end="url(#wn-r5)"/>
+      <text x="130"  y="55" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#f85149">plain HTTP</text>
+
+      <rect x="30" y="106" width="270" height="78" rx="5" fill="rgba(248,81,73,0.06)" stroke="rgba(248,81,73,0.2)"/>
+      <text x="165" y="124" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#f85149" font-weight="600">Risks</text>
+      <text x="40" y="142" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#8b94a0">✗  Traffic unencrypted inside the network</text>
+      <text x="40" y="158" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#8b94a0">✗  No service identity verification</text>
+      <text x="40" y="174" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#8b94a0">✗  A compromised host can call any service</text>
+
+      <!-- Right: Service mesh -->
+      <rect x="340" y="8" width="352" height="194" rx="6" fill="rgba(63,185,80,0.04)" stroke="rgba(63,185,80,0.25)"/>
+      <text x="516" y="26" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="700" fill="#3fb950">WITH SERVICE MESH (mTLS)</text>
+
+      <!-- Service A + sidecar -->
+      <rect x="356" y="44" width="72" height="36" rx="4" fill="#1c2330" stroke="#30363d"/>
+      <text x="392" y="62" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="#e6edf3">Service A</text>
+      <rect x="432" y="50" width="52" height="24" rx="4" fill="#1c2330" stroke="#39d0b8" stroke-width="1.5"/>
+      <text x="458" y="66" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" font-weight="600" fill="#39d0b8">sidecar</text>
+
+      <!-- Service B + sidecar -->
+      <rect x="548" y="44" width="52" height="24" rx="4" fill="#1c2330" stroke="#39d0b8" stroke-width="1.5"/>
+      <text x="574" y="60" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" font-weight="600" fill="#39d0b8">sidecar</text>
+      <rect x="604" y="44" width="72" height="36" rx="4" fill="#1c2330" stroke="#30363d"/>
+      <text x="640" y="62" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="#e6edf3">Service B</text>
+
+      <line x1="485" y1="62" x2="546" y2="62" stroke="#3fb950" stroke-width="2" marker-end="url(#wn-rg5)"/>
+      <text x="516"  y="55" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#3fb950">mTLS</text>
+
+      <rect x="356" y="106" width="326" height="78" rx="5" fill="rgba(63,185,80,0.07)" stroke="rgba(63,185,80,0.2)"/>
+      <text x="519" y="124" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#3fb950" font-weight="600">What the mesh provides (without code changes)</text>
+      <text x="366" y="142" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#8b94a0">✓  Encrypted, mutually authenticated connections</text>
+      <text x="366" y="158" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#8b94a0">✓  Retries, timeouts, circuit breakers per route</text>
+      <text x="366" y="174" font-family="Inter,system-ui,sans-serif" font-size="10" fill="#8b94a0">✓  Distributed tracing and traffic metrics</text>
+    </svg>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">A service mesh moves mTLS, retries, and circuit breaking into sidecar proxies, leaving application code to focus on domain logic.</figcaption>
+  </figure>
+
+  <p>A <strong>service mesh</strong> handles mTLS and reliability concerns centrally, without touching application code. The mesh takes care of certificates, retries, timeouts, and traffic metrics across all services. Whether that infrastructure is worth the operational overhead depends on scale. For smaller deployments, applying mTLS at the application level or enforcing it at the network boundary may be sufficient.</p>
+
+  <p>A <strong>circuit breaker</strong> is a reliability pattern worth understanding regardless of whether you run a mesh. When a downstream service starts failing or responding slowly, a circuit breaker stops sending it new traffic immediately rather than letting requests queue up waiting for timeouts that will never succeed. After a short recovery window it sends a probe request, and if that succeeds normal traffic resumes. This prevents a single degraded service from causing cascading failures across the system.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="persistent">Persistent Connections</h2>
+  <p class="lede">HTTP's request-response model covers most use cases. When the server needs to push data to the browser unprompted, the model needs to change.</p>
+
+  <p>Standard HTTP is strictly client-initiated. The browser asks; the server answers. This is sufficient for the vast majority of web application interactions. But some patterns require the server to deliver data to the client without waiting for a request: a live dashboard updating in real time, a collaborative document where other users' edits appear instantly, a notification that arrives as it happens rather than when the user next refreshes.</p>
+
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 700 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Comparison of HTTP, WebSocket, and Server-Sent Events connection models" style="max-width:100%;display:block;background:#161b22;border:1px solid #30363d;border-radius:8px;">
+      <defs>
+        <marker id="wn-r6" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#5f6c8c"/></marker>
+        <marker id="wn-rb6" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#58a6ff"/></marker>
+        <marker id="wn-lg6" markerWidth="7" markerHeight="5" refX="1" refY="2.5" orient="auto"><polygon points="7 0,0 2.5,7 5" fill="#3fb950"/></marker>
+        <marker id="wn-lb6" markerWidth="7" markerHeight="5" refX="1" refY="2.5" orient="auto"><polygon points="7 0,0 2.5,7 5" fill="#58a6ff"/></marker>
+      </defs>
+
+      <!-- Panel 1: HTTP -->
+      <rect x="8" y="8" width="210" height="184" rx="6" fill="rgba(88,166,255,0.04)" stroke="#30363d"/>
+      <text x="113" y="26" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="700" fill="#8b94a0">HTTP (request-response)</text>
+
+      <rect x="22"  y="38" width="52" height="22" rx="3" fill="#1c2330" stroke="#30363d"/>
+      <text x="48"  y="53" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#e6edf3">Browser</text>
+      <rect x="152" y="38" width="52" height="22" rx="3" fill="#1c2330" stroke="#30363d"/>
+      <text x="178" y="53" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#e6edf3">Server</text>
+
+      <line x1="76" y1="70" x2="150"  y2="70" stroke="#58a6ff" marker-end="url(#wn-rb6)"/>
+      <text x="113" y="65" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#5f6c8c">request</text>
+      <line x1="150" y1="82" x2="76"  y2="82" stroke="#3fb950" marker-end="url(#wn-lg6)"/>
+      <text x="113" y="95" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#5f6c8c">response — connection closes</text>
+
+      <line x1="76" y1="110" x2="150" y2="110" stroke="#58a6ff" marker-end="url(#wn-rb6)"/>
+      <line x1="150" y1="122" x2="76" y2="122" stroke="#3fb950" marker-end="url(#wn-lg6)"/>
+      <text x="113" y="136" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#5f6c8c">another request needed</text>
+
+      <text x="113" y="160" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">Server cannot push.</text>
+      <text x="113" y="174" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">Client must poll.</text>
+
+      <!-- Panel 2: WebSocket -->
+      <rect x="234" y="8" width="222" height="184" rx="6" fill="rgba(188,140,255,0.04)" stroke="rgba(188,140,255,0.25)"/>
+      <text x="345" y="26" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="700" fill="#bc8cff">WebSocket</text>
+
+      <rect x="248" y="38" width="52" height="22" rx="3" fill="#1c2330" stroke="#30363d"/>
+      <text x="274" y="53" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#e6edf3">Browser</text>
+      <rect x="378" y="38" width="52" height="22" rx="3" fill="#1c2330" stroke="#30363d"/>
+      <text x="404" y="53" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#e6edf3">Server</text>
+
+      <rect x="274" y="62" width="130" height="100" rx="4" fill="rgba(188,140,255,0.08)" stroke="rgba(188,140,255,0.3)"/>
+      <text x="339" y="79" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#bc8cff">persistent connection open</text>
+      <line x1="278" y1="92" x2="398"  y2="92" stroke="#58a6ff" marker-end="url(#wn-rb6)"/>
+      <text x="338"  y="87" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="#58a6ff">message ↑</text>
+      <line x1="398" y1="106" x2="278" y2="106" stroke="#3fb950" marker-end="url(#wn-lg6)"/>
+      <text x="338"  y="101" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="#3fb950">push ↓</text>
+      <line x1="398" y1="120" x2="278" y2="120" stroke="#3fb950" marker-end="url(#wn-lg6)"/>
+      <text x="338"  y="115" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="#3fb950">push ↓</text>
+      <line x1="278" y1="134" x2="398" y2="134" stroke="#58a6ff" marker-end="url(#wn-rb6)"/>
+      <text x="338"  y="129" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="#58a6ff">message ↑</text>
+
+      <text x="345" y="178" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">Full duplex. Best for chat,</text>
+      <text x="345" y="190" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">collaboration, gaming.</text>
+
+      <!-- Panel 3: SSE -->
+      <rect x="472" y="8" width="220" height="184" rx="6" fill="rgba(63,185,80,0.04)" stroke="rgba(63,185,80,0.25)"/>
+      <text x="582" y="26" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="700" fill="#3fb950">Server-Sent Events</text>
+
+      <rect x="486" y="38" width="52" height="22" rx="3" fill="#1c2330" stroke="#30363d"/>
+      <text x="512" y="53" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#e6edf3">Browser</text>
+      <rect x="616" y="38" width="52" height="22" rx="3" fill="#1c2330" stroke="#30363d"/>
+      <text x="642" y="53" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#e6edf3">Server</text>
+
+      <line x1="538" y1="70" x2="614" y2="70" stroke="#58a6ff" marker-end="url(#wn-rb6)"/>
+      <text x="576" y="64" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#58a6ff">GET /stream (one request)</text>
+
+      <rect x="512" y="80" width="130" height="82" rx="4" fill="rgba(63,185,80,0.08)" stroke="rgba(63,185,80,0.3)"/>
+      <text x="577" y="96" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="#3fb950">response stream stays open</text>
+      <line x1="640" y1="108" x2="516" y2="108" stroke="#3fb950" marker-end="url(#wn-lg6)"/>
+      <text x="578" y="103" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="#3fb950">event pushed ↓</text>
+      <line x1="640" y1="122" x2="516" y2="122" stroke="#3fb950" marker-end="url(#wn-lg6)"/>
+      <text x="578" y="117" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="#3fb950">event pushed ↓</text>
+      <line x1="640" y1="136" x2="516" y2="136" stroke="#3fb950" marker-end="url(#wn-lg6)"/>
+      <text x="578" y="131" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="#3fb950">event pushed ↓</text>
+
+      <text x="582" y="178" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">Server-to-client only. Good</text>
+      <text x="582" y="190" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="#5f6c8c">for feeds, notifications.</text>
+    </svg>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">WebSockets support full-duplex communication. SSE is simpler and sufficient when only the server needs to push. Both require specific infrastructure configuration.</figcaption>
+  </figure>
+
+  <p><strong>WebSockets</strong> upgrade an HTTP connection to a persistent, full-duplex channel. Either side can send messages at any time. The connection stays open for the session's duration, making WebSockets the right choice when the browser also sends frequent messages to the server: live collaboration, real-time gaming, trading interfaces.</p>
+
+  <p><strong>Server-Sent Events</strong> (SSE) are simpler: a persistent, one-way stream from server to browser over a normal HTTP connection. The browser cannot push over the same channel, but it can make separate HTTP requests. SSE handles many real-time use cases without the added complexity of WebSockets, and the browser's EventSource API includes built-in reconnection logic.</p>
+
+  <p>The infrastructure implications of both are significant. Persistent connections are long-lived, which changes capacity planning fundamentally. A server handling 10,000 short HTTP requests per second and a server holding 10,000 open WebSocket connections have entirely different resource profiles. Load balancers must be configured to support long-lived connections — many WebSocket problems in production trace back to a proxy closing idle connections on a timeout shorter than the client's reconnection interval. Session affinity is often needed: a client reconnecting to a different backend loses any in-memory state the original instance held, which circles back to the statelessness discussion from the load balancing section.</p>
+
+  <p class="wide" style="max-width:700px;margin-top:40px;color:var(--text-dim);font-size:14px;border-top:1px solid var(--border);padding-top:24px;">Networking infrastructure shapes application design in ways that are easy to underestimate. Stateless servers, external session stores, TLS termination strategy, subnet placement — these are not operational details to leave until deployment. They are architectural decisions that become expensive to change once an application is in production. The patterns above give you the vocabulary to make them deliberately and early.</p>
+
+</main>
+</div>
+
+<footer>© Single Threaded AB</footer>
+<script src="docs.js"></script>
+</body>
+</html>
