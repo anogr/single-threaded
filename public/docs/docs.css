@@ -1,43 +1,53 @@
 /* ── Google Fonts ─────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,700;1,9..144,300;1,9..144,400&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;0,6..72,700;1,6..72,300;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 /* ── Design tokens ────────────────────────────────────────── */
+/* Warm near-black, ivory text. One brand accent (amber). Three
+   muted semantic colours (do / warn / don't) — warn intentionally
+   shares the accent hue. A couple of muted neutrals (clay, slate,
+   sand) exist only for non-semantic variety: index cards, method
+   pills, syntax highlighting. Nothing here is meant to read as a
+   rainbow — nine tenths of the page should be bg, text and one
+   accent, with colour reserved for when it actually says something. */
 :root {
   /* Backgrounds */
-  --bg:          #0d1117;
-  --surface:     #161b22;
-  --surface-2:   #1c2330;
+  --bg:          #15130f;
+  --surface:     #1d1a14;
+  --surface-2:   #241f17;
 
   /* Borders */
-  --border:      #30363d;
+  --border:      #3a352c;
 
   /* Text */
-  --text:        #e6edf3;
-  --text-dim:    #8b94a0;
-  --text-faint:  #5f6c8c;
+  --text:        #f4efe4;
+  --text-body:   #e8e2d6;
+  --text-lede:   #c4b79c;
+  --text-dim:    #d2c5ab;
+  --text-faint:  #ab9e88;
 
-  /* Accent — blue */
-  --accent:      #58a6ff;
-  --accent-wash: rgba(88, 166, 255, 0.1);
-  --accent2:     #bc8cff;
+  /* Accent — amber (brand + info + warning) */
+  --accent:      #e2963c;
+  --accent-wash: color-mix(in srgb, var(--accent) 8%, transparent);
+  --accent2:     #b98a63;
 
-  /* Semantic colours */
-  --green:       #3fb950;
-  --green-wash:  rgba(63, 185, 80, 0.12);
-  --orange:      #d29922;
-  --orange-wash: rgba(210, 153, 34, 0.12);
-  --red:         #f85149;
-  --red-wash:    rgba(248, 81, 73, 0.12);
-  --teal:        #39d0b8;
-  --teal-wash:   rgba(57, 208, 184, 0.12);
+  /* Semantic colours: do / warn / don't */
+  --green:       #7a9b6e;
+  --green-wash:  color-mix(in srgb, var(--green) 8%, transparent);
+  --orange:      #c98a3f;
+  --orange-wash: color-mix(in srgb, var(--orange) 8%, transparent);
+  --red:         #a8594a;
+  --red-wash:    color-mix(in srgb, var(--red) 8%, transparent);
+  --teal:        #7d93a8;
+  --teal-wash:   color-mix(in srgb, var(--teal) 8%, transparent);
 
   /* Gold — kept for decorative use */
-  --gold:        #d9a441;
-  --gold-wash:   rgba(217, 164, 65, 0.12);
+  --gold:        #c9a24f;
+  --gold-wash:   color-mix(in srgb, var(--gold) 8%, transparent);
 
-  /* Typography */
-  --font-disp:   'Fraunces', serif;
-  --font-sans:   'Inter', system-ui, sans-serif;
+  /* Typography — two families: one serif for everything that reads
+     as text, one mono for labels and code. */
+  --font-disp:   'Newsreader', Georgia, serif;
+  --font-sans:   'Newsreader', Georgia, serif;
   --font-mono:   'IBM Plex Mono', monospace;
 
   /* Layout */
@@ -69,13 +79,13 @@ body {
 
 ::selection {
   background: var(--accent);
-  color: #0d1117;
+  color: var(--bg);
 }
 
 a {
   color: var(--accent);
   text-decoration: underline;
-  text-decoration-color: rgba(88, 166, 255, 0.3);
+  text-decoration-color: color-mix(in srgb, var(--accent) 30%, transparent);
   transition: text-decoration-color 0.15s;
 }
 a:hover {
@@ -304,7 +314,7 @@ h2 {
   scroll-margin-top: 24px;
   line-height: 1.2;
 }
-h2:first-of-type { margin-top: 0; border-top: none; padding-top: 0; }
+h2:first-of-type { margin-top: 48px; border-top: none; padding-top: 0; }
 
 .lede {
   font-family: var(--font-disp);
@@ -312,7 +322,7 @@ h2:first-of-type { margin-top: 0; border-top: none; padding-top: 0; }
   font-size: 18px;
   font-weight: 300;
   line-height: 1.6;
-  color: #adbac7;
+  color: var(--text-lede);
   margin: 4px 0 24px;
   max-width: 680px;
 }
@@ -330,7 +340,7 @@ h3 {
 /* ── Prose ────────────────────────────────────────────────── */
 p {
   margin-bottom: 16px;
-  color: #c9d1d9;
+  color: var(--text-body);
   max-width: var(--content-w);
   line-height: 1.75;
 }
@@ -341,7 +351,7 @@ ul, ol {
   padding-left: 1.5em;
   margin-bottom: 16px;
   max-width: var(--content-w);
-  color: #c9d1d9;
+  color: var(--text-body);
 }
 li { margin-bottom: 6px; line-height: 1.7; }
 li p { margin-bottom: 6px; }
@@ -422,17 +432,17 @@ pre code {
   border-radius: 0;
 }
 
-/* Syntax highlight classes */
-.kw  { color: #ff7b72; }                           /* keyword / built-in */
-.k   { color: #c792ea; }                           /* class / modifier keyword */
-.fn  { color: #d2a8ff; }                           /* function name */
+/* Syntax highlight classes — warm-toned, not the GitHub defaults */
+.kw  { color: var(--accent); }                     /* keyword / built-in */
+.k   { color: #c07767; }                           /* class / modifier keyword */
+.fn  { color: #d9b877; }                           /* function name */
 .t   { color: var(--teal); }                       /* type / class name */
-.s, .str { color: #a5d6ff; }                       /* string */
-.cm, .c  { color: #8b949e; font-style: italic; }  /* comment */
-.cn  { color: #ffa657; }                           /* constant / param */
+.s, .str { color: var(--text-body); }                       /* string */
+.cm, .c  { color: var(--text-faint); font-style: italic; }  /* comment */
+.cn  { color: #c98a5f; }                           /* constant / param */
 .m   { color: var(--gold); }                       /* number / method */
-.p   { color: #f85149; }                           /* property / decorator */
-.n   { color: #c9d1d9; }                           /* normal token */
+.p   { color: var(--red); }                        /* property / decorator */
+.n   { color: var(--text-body); }                           /* normal token */
 
 /* JSON tokens */
 .json-key  { color: var(--accent2); }
@@ -461,17 +471,17 @@ pre code {
 }
 .callout p { margin: 0; max-width: none; font-size: inherit; }
 
-.callout.info   { background: var(--accent-wash);  border-color: rgba(88,166,255,.3);  color: #c9d1d9; }
+.callout.info   { background: var(--accent-wash);  border-color: color-mix(in srgb, var(--accent) 30%, transparent);  color: var(--text-body); }
 .callout.info   .callout-title { color: var(--accent); }
-.callout.ok     { background: var(--green-wash);   border-color: rgba(63,185,80,.3);   color: #c9d1d9; }
+.callout.ok     { background: var(--green-wash);   border-color: color-mix(in srgb, var(--green) 30%, transparent);   color: var(--text-body); }
 .callout.ok     .callout-title { color: var(--green); }
-.callout.warn   { background: var(--orange-wash);  border-color: rgba(210,153,34,.3);  color: #c9d1d9; }
+.callout.warn   { background: var(--orange-wash);  border-color: color-mix(in srgb, var(--orange) 30%, transparent);  color: var(--text-body); }
 .callout.warn   .callout-title { color: var(--orange); }
-.callout.danger { background: var(--red-wash);     border-color: rgba(248,81,73,.3);   color: #c9d1d9; }
+.callout.danger { background: var(--red-wash);     border-color: color-mix(in srgb, var(--red) 30%, transparent);     color: var(--text-body); }
 .callout.danger .callout-title { color: var(--red); }
-.callout.new    { background: var(--teal-wash);    border-color: rgba(57,208,184,.3);  color: #c9d1d9; }
+.callout.new    { background: var(--teal-wash);    border-color: color-mix(in srgb, var(--teal) 30%, transparent);    color: var(--text-body); }
 .callout.new    .callout-title { color: var(--teal); }
-.callout.gold   { background: var(--gold-wash);    border-color: rgba(217,164,65,.3);  color: #c9d1d9; }
+.callout.gold   { background: var(--gold-wash);    border-color: color-mix(in srgb, var(--gold) 30%, transparent);    color: var(--text-body); }
 .callout.gold   .callout-title { color: var(--gold); }
 
 /* Left-border style variant */
@@ -496,12 +506,12 @@ pre code {
   font-size: 11px;
   font-weight: 600;
 }
-.badge-blue   { background: rgba(88,166,255,.15);  color: var(--accent); }
-.badge-green  { background: rgba(63,185,80,.15);   color: var(--green); }
-.badge-orange { background: rgba(210,153,34,.15);  color: var(--orange); }
-.badge-red    { background: rgba(248,81,73,.15);   color: var(--red); }
-.badge-teal   { background: rgba(57,208,184,.15);  color: var(--teal); }
-.badge-muted  { background: rgba(139,148,160,.15); color: var(--text-dim); }
+.badge-blue   { background: color-mix(in srgb, var(--accent) 15%, transparent);   color: var(--accent); }
+.badge-green  { background: color-mix(in srgb, var(--green) 15%, transparent);    color: var(--green); }
+.badge-orange { background: color-mix(in srgb, var(--orange) 15%, transparent);   color: var(--orange); }
+.badge-red    { background: color-mix(in srgb, var(--red) 15%, transparent);      color: var(--red); }
+.badge-teal   { background: color-mix(in srgb, var(--teal) 15%, transparent);     color: var(--teal); }
+.badge-muted  { background: color-mix(in srgb, var(--text-dim) 15%, transparent); color: var(--text-dim); }
 .badge-new    {
   display: inline-block;
   padding: 1px 7px;
@@ -509,8 +519,8 @@ pre code {
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 700;
-  background: rgba(57,208,184,.2);
-  color: var(--teal);
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--accent);
   letter-spacing: 0.04em;
   vertical-align: middle;
   margin-left: 6px;
@@ -527,12 +537,12 @@ pre code {
   flex-shrink: 0;
   display: inline-block;
 }
-.method-get    { background: rgba(63,185,80,.2);   color: var(--green); }
-.method-post   { background: rgba(88,166,255,.2);  color: var(--accent); }
-.method-put    { background: rgba(210,153,34,.2);  color: var(--orange); }
-.method-patch  { background: rgba(188,140,255,.2); color: var(--accent2); }
-.method-delete { background: rgba(248,81,73,.2);   color: var(--red); }
-.method-head   { background: rgba(57,208,184,.2);  color: var(--teal); }
+.method-get    { background: color-mix(in srgb, var(--green) 20%, transparent);   color: var(--green); }
+.method-post   { background: color-mix(in srgb, var(--accent) 20%, transparent);  color: var(--accent); }
+.method-put    { background: color-mix(in srgb, var(--orange) 20%, transparent);  color: var(--orange); }
+.method-patch  { background: color-mix(in srgb, var(--accent2) 20%, transparent); color: var(--accent2); }
+.method-delete { background: color-mix(in srgb, var(--red) 20%, transparent);     color: var(--red); }
+.method-head   { background: color-mix(in srgb, var(--teal) 20%, transparent);    color: var(--teal); }
 
 /* ── Cards (index grid + article concept cards) ───────────── */
 .card {
@@ -622,7 +632,7 @@ th {
 td {
   padding: 10px 14px;
   border-bottom: 1px solid var(--border);
-  color: #c9d1d9;
+  color: var(--text-body);
   vertical-align: top;
 }
 tr:last-child td { border-bottom: none; }
@@ -650,19 +660,6 @@ pre.code-block {
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
-/* ── Reading progress bar ─────────────────────────────────── */
-.progress-bar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  height: 2px;
-  background: var(--accent);
-  width: 0%;
-  z-index: 300;
-  transition: width 0.1s linear;
-  pointer-events: none;
-}
 
 /* ── Footer ───────────────────────────────────────────────── */
 footer {

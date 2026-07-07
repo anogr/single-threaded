@@ -1,5 +1,5 @@
 /* docs.js — shared behaviour for all Single Threaded doc pages
-   Handles: mobile nav toggle, reading progress bar, active sidebar link.
+   Handles: mobile nav toggle, active sidebar link.
    Document-specific JS stays in an inline <script> in each HTML file. */
 
 (function () {
@@ -32,16 +32,6 @@
         if (window.innerWidth <= 900) closeNav();
       });
     });
-  }
-
-  // ── Reading progress bar ───────────────────────────────────
-  var bar = document.getElementById('progress');
-  if (bar) {
-    window.addEventListener('scroll', function () {
-      var el  = document.documentElement;
-      var pct = (el.scrollTop / (el.scrollHeight - el.clientHeight)) * 100;
-      bar.style.width = pct + '%';
-    }, { passive: true });
   }
 
   // ── Active sidebar link on scroll ─────────────────────────

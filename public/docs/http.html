@@ -9,24 +9,8 @@
 <link rel="stylesheet" href="docs.css">
 <style>
   /* ── Method badges ── */
-  .method {
-    display: inline-block;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    padding: 2px 8px;
-    border-radius: 4px;
-    min-width: 60px;
-    text-align: center;
-  }
-  .method-get    { background: rgba(35,134,54,.18);  color: var(--green); }
-  .method-post   { background: rgba(88,166,255,.15); color: var(--blue);  }
-  .method-put    { background: rgba(210,153,34,.18); color: var(--gold);  }
-  .method-patch  { background: rgba(210,153,34,.18); color: var(--gold);  }
-  .method-delete { background: rgba(248,81,73,.15);  color: var(--red);   }
-  .method-head   { background: rgba(56,189,159,.15); color: var(--teal);  }
-  .method-options{ background: rgba(188,140,255,.15);color: var(--purple);}
+  .method-options { background: color-mix(in srgb, var(--accent2) 15%, transparent); color: var(--accent2); }
+  .method-query   { background: color-mix(in srgb, var(--teal) 15%, transparent);    color: var(--teal); }
 
   /* ── Method-row list ── */
   .method-row {
@@ -37,8 +21,8 @@
     border-bottom: 1px solid var(--border);
   }
   .method-row:last-child { border-bottom: none; }
-  .method-row .method { flex-shrink: 0; margin-top: 1px; }
-  .method-desc { font-size: 13.5px; color: #c9d1d9; line-height: 1.55; }
+  .method-row .method { flex-shrink: 0; margin-top: 1px; min-width: 60px; text-align: center; }
+  .method-desc { font-size: 13.5px; color: var(--text-body); line-height: 1.55; }
   .method-desc strong { color: var(--text); }
 
   /* ── Status code rows ── */
@@ -63,7 +47,7 @@
   .s3xx { color: var(--teal); }
   .s4xx { color: var(--orange); }
   .s5xx { color: var(--red); }
-  .status-desc { font-size: 13px; color: #c9d1d9; }
+  .status-desc { font-size: 13px; color: var(--text-body); }
   .status-desc strong { color: var(--text); }
 
   /* ── HTTP exchange block ── */
@@ -79,10 +63,10 @@
     max-width: var(--content-w);
   }
   .http-block .hl-method  { color: var(--green); font-weight: 700; }
-  .http-block .hl-url     { color: #c9d1d9; }
+  .http-block .hl-url     { color: var(--text-body); }
   .http-block .hl-version { color: var(--text-faint); }
   .http-block .hl-header  { color: var(--teal); }
-  .http-block .hl-value   { color: #c9d1d9; }
+  .http-block .hl-value   { color: var(--text-body); }
   .http-block .hl-status  { color: var(--green); font-weight: 700; }
   .http-block .hl-comment { color: var(--text-faint); font-style: italic; }
   .http-block .divider-line { border: none; border-top: 1px dashed var(--border); margin: 10px 0; }
@@ -101,8 +85,6 @@
 </head>
 <body>
 
-<div class="progress-bar" id="progress"></div>
-
 <header class="mobile-header">
   <a class="mobile-logo" href="index.html">Single Threaded <span>— Docs</span></a>
   <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
@@ -119,12 +101,14 @@
   <a href="#history">A Brief History</a>
   <div class="sidebar-section">The Basics</div>
   <a href="#methods">Methods</a>
+  <a href="#query">QUERY Method</a>
   <a href="#status-codes">Status Codes</a>
   <a href="#headers">Headers</a>
   <div class="sidebar-section">Key Mechanisms</div>
   <a href="#caching">Caching</a>
   <a href="#cookies">Cookies</a>
   <a href="#redirects">Redirects</a>
+  <a href="#reload">Reload &amp; Resubmission</a>
   <a href="#compression">Compression</a>
   <a href="#uploads">File Uploads</a>
   <a href="#cors">CORS</a>
@@ -138,10 +122,10 @@
 
   <div class="eyebrow">Web Platform · HTTP</div>
   <h1>HTTP: <em>From Request to Response</em></h1>
-  <p class="subtitle">How the protocol behind every web interaction works: methods, status codes, caching, cookies, CORS, and the evolution from HTTP/1.1 to HTTP/3.</p>
+  <p class="subtitle">How the protocol behind every web interaction works, from methods and status codes to caching, cookies, CORS, and the evolution from HTTP/1.1 to HTTP/3.</p>
   <div class="byline">
     <strong>Deep dive</strong>
-    <div class="dot"></div><span>~20 min read</span>
+    <div class="dot"></div><span>~24 min read</span>
     <div class="dot"></div><span>Web fundamentals</span>
     <div class="dot"></div><span>June 2026</span>
   </div>
@@ -150,9 +134,9 @@
   <h2 id="intro">Introduction</h2>
   <p class="lede">Every browser request, API call, and webhook delivery travels over the same protocol. Understanding it removes a layer of mystery from almost everything on the web.</p>
 
-  <p>HTTP (Hypertext Transfer Protocol) is the application-layer protocol that powers communication on the web. It operates on a simple model: a <strong>client</strong> sends a <strong>request</strong>, and a <strong>server</strong> sends back a <strong>response</strong>. That's it. Every browser page load, API call, and file download is one or more of these exchanges.</p>
+  <p>HTTP (Hypertext Transfer Protocol) is the application-layer protocol that powers communication on the web. It operates on a simple model. A <strong>client</strong> sends a <strong>request</strong>, and a <strong>server</strong> sends back a <strong>response</strong>. That's it. Every browser page load, API call, and file download is one or more of these exchanges.</p>
 
-  <p>A request consists of a <strong>method</strong> (what action to perform), a <strong>URL</strong> (which resource), <strong>headers</strong> (metadata), and an optional <strong>body</strong> (data). A response consists of a <strong>status code</strong> (what happened), <strong>headers</strong>, and an optional <strong>body</strong>. In its plaintext form, a basic exchange looks like this:</p>
+  <p>A request consists of a <strong>method</strong> (what action to perform), a <strong>URL</strong> (which resource), <strong>headers</strong> (metadata), and an optional <strong>body</strong> (data). A response consists of a <strong>status code</strong> (what happened), <strong>headers</strong>, and an optional <strong>body</strong>. In its plaintext form, a basic exchange looks like this.</p>
 
   <div class="http-block">
     <div><span class="hl-comment"># Request</span></div>
@@ -178,17 +162,17 @@
     <div class="card orange">
       <div class="card-label">1991 · 1996</div>
       <div class="card-title">HTTP/0.9 &amp; HTTP/1.0</div>
-      <p>HTTP/0.9 was a single line: just a GET request, just HTML back. HTTP/1.0 introduced headers, status codes, and support for content types other than HTML. Each request required its own TCP connection, which was expensive.</p>
+      <p>HTTP/0.9 was a single line, just a GET request and plain HTML back. HTTP/1.0 introduced headers, status codes, and support for content types other than HTML. Each request required its own TCP connection, which was expensive.</p>
     </div>
     <div class="card teal">
       <div class="card-label">1997</div>
       <div class="card-title">HTTP/1.1</div>
-      <p>Added persistent connections (reuse the same TCP connection for multiple requests), chunked transfer encoding, and mandatory <code>Host</code> headers (enabling virtual hosting). HTTP/1.1 ran the web for nearly two decades and remains widely supported.</p>
+      <p>Added persistent connections (reuse the same TCP connection for multiple requests), chunked transfer encoding, and mandatory <code>Host</code> headers (which enable virtual hosting). HTTP/1.1 ran the web for nearly two decades and remains widely supported.</p>
     </div>
     <div class="card blue">
       <div class="card-label">2015</div>
       <div class="card-title">HTTP/2</div>
-      <p>Binary framing and multiplexing: multiple requests over a single connection simultaneously. Header compression via HPACK. Eliminated the need for many HTTP/1.1 performance workarounds like domain sharding and inlining assets.</p>
+      <p>Binary framing and multiplexing allow multiple requests over a single connection at the same time, with header compression via HPACK. This eliminated the need for many HTTP/1.1 performance workarounds like domain sharding and inlining assets.</p>
     </div>
     <div class="card purple">
       <div class="card-label">2022</div>
@@ -201,7 +185,7 @@
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="methods">Methods</h2>
-  <p class="lede">A method declares the intended action. Choosing the right one is not just convention: it affects caching, retry behavior, and how intermediaries treat the request.</p>
+  <p class="lede">A method declares the intended action. Choosing the right one is not just convention, since it affects caching, retry behavior, and how intermediaries treat the request.</p>
 
   <p>HTTP defines a small set of methods, each with a specified semantic. Two properties matter most. A method is <strong>safe</strong> if it has no side effects (calling it must not change server state). A method is <strong>idempotent</strong> if calling it multiple times produces the same result as calling it once. Safety implies idempotency, but not the reverse.</p>
 
@@ -234,17 +218,83 @@
       <span class="method method-options">OPTIONS</span>
       <span class="method-desc"><strong>Describe the communication options for a resource.</strong> Used by browsers to issue CORS preflight requests before a cross-origin request. Safe and idempotent.</span>
     </div>
+    <div class="method-row">
+      <span class="method method-query">QUERY</span>
+      <span class="method-desc"><strong>Run a query with a request body, safely.</strong> <span class="badge-new">2026</span> Safe and idempotent, like GET, but carries a body, like POST. Defined in <a href="#query">RFC 10008</a> for queries too large or too structured to fit in a URL.</span>
+    </div>
   </div>
 
   <p>Why do these properties matter in practice? Caches only store GET and HEAD responses. Browsers and proxies may automatically retry safe and idempotent requests after a network failure, but they will not retry a POST (which could charge a card or create a duplicate order). Middleware, load balancers, and API gateways all make decisions based on the method. Using GET for something that modifies state, or POST for something safe, breaks these assumptions.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="query">The QUERY Method <span class="badge-new">2026</span></h2>
+  <p class="lede">A method that closes a long-standing gap between GET and POST: a request body with the safety and cacheability guarantees of a read.</p>
+
+  <p>Search and filter operations often need more structure than a URL comfortably holds, such as nested filters, long lists of IDs, or a full-text query alongside facets and pagination. The usual way to express this is a query string.</p>
+
+  <div class="http-block">
+    <div><span class="hl-method">GET</span> <span class="hl-url">/feed?q=foo&amp;limit=10&amp;sort=-published</span> <span class="hl-version">HTTP/1.1</span></div>
+    <div><span class="hl-header">Host:</span> <span class="hl-value">example.org</span></div>
+  </div>
+
+  <p>This works until the query grows past what a URL can carry comfortably. Intermediaries along the path don't all agree on a size limit, so there's no safe upper bound to design around. Structured data is awkward to encode as a flat string of characters. Query strings also end up in server logs, browser history, and bookmarks, which is unwelcome when the query itself contains something sensitive. And every distinct combination of parameters is technically a different URL, which defeats caching strategies that expect a stable set of resources.</p>
+
+  <p>The common workaround is to send the query as a POST body instead.</p>
+
+  <div class="http-block">
+    <div><span class="hl-method">POST</span> <span class="hl-url">/feed</span> <span class="hl-version">HTTP/1.1</span></div>
+    <div><span class="hl-header">Host:</span> <span class="hl-value">example.org</span></div>
+    <div><span class="hl-header">Content-Type:</span> <span class="hl-value">application/x-www-form-urlencoded</span></div>
+    <div>&nbsp;</div>
+    <div><span class="hl-value">q=foo&amp;limit=10&amp;sort=-published</span></div>
+  </div>
+
+  <p>This solves the size and encoding problem, but it introduces a new one. Nothing about a POST request tells a cache, proxy, or client library that the operation is actually safe and repeatable. POST is defined as neither safe nor idempotent, so intermediaries won't cache the response or retry it automatically after a dropped connection, even though this particular POST is just a read.</p>
+
+  <p>RFC 10008, published by the IETF in June 2026 as a Proposed Standard, defines a new method to sit in the gap, called QUERY. The request looks almost identical to the POST version above, but the method name tells every intermediary along the way that the operation is safe and idempotent, the same guarantee GET carries.</p>
+
+  <div class="http-block">
+    <div><span class="hl-method">QUERY</span> <span class="hl-url">/feed</span> <span class="hl-version">HTTP/1.1</span></div>
+    <div><span class="hl-header">Host:</span> <span class="hl-value">example.org</span></div>
+    <div><span class="hl-header">Content-Type:</span> <span class="hl-value">application/x-www-form-urlencoded</span></div>
+    <div>&nbsp;</div>
+    <div><span class="hl-value">q=foo&amp;limit=10&amp;sort=-published</span></div>
+    <hr class="divider-line">
+    <div><span class="hl-version">HTTP/1.1</span> <span class="hl-status">200 OK</span></div>
+    <div><span class="hl-header">Content-Type:</span> <span class="hl-value">application/json</span></div>
+  </div>
+
+  <p>The request content and its <code>Content-Type</code> together define the query. A server must reject the request if <code>Content-Type</code> is missing or doesn't match the body, since there's otherwise no way to know how to interpret it. The examples above use <code>application/x-www-form-urlencoded</code> because it's familiar, but QUERY doesn't prescribe a format. A resource can just as well accept <code>application/sql</code>, a GraphQL document, or a JSON body describing filters, as long as client and server agree on what it means.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th></th><th>GET</th><th>QUERY</th><th>POST</th></tr></thead>
+      <tbody>
+        <tr><td>Safe</td><td>yes</td><td>yes</td><td>not guaranteed</td></tr>
+        <tr><td>Idempotent</td><td>yes</td><td>yes</td><td>not guaranteed</td></tr>
+        <tr><td>Cacheable</td><td>yes</td><td>yes</td><td>only for the resulting GET/HEAD, not the POST itself</td></tr>
+        <tr><td>Body</td><td>no defined meaning</td><td>defines the query</td><td>defines the operation</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Because a cache can no longer key purely on the URL (two QUERY requests to the same URL with different bodies are different queries), servers that want QUERY responses cached correctly need to return a <code>Vary</code> header covering the request content, and caches need to support keying on it. This is a bigger change for HTTP cache implementations than it looks, and it's the main reason adoption is expected to be gradual, since the method existing in the spec doesn't mean every proxy, CDN, and client library handles it yet.</p>
+
+  <p>A server can advertise which query formats it accepts with the new <code>Accept-Query</code> response header, similar in spirit to how <code>Allow</code> advertises accepted methods.</p>
+
+  <div class="http-block">
+    <div><span class="hl-header">Accept-Query:</span> <span class="hl-value">application/x-www-form-urlencoded, application/sql</span></div>
+  </div>
+
+  <p>As of mid-2026, QUERY is a Proposed Standard rather than an established convention. Expect to see it first in API frameworks and HTTP client libraries that add explicit support, with broad browser and intermediary support following over time, the same adoption curve every new method has followed.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
   <h2 id="status-codes">Status Codes</h2>
-  <p class="lede">The three-digit status code is the server's top-level answer to the request. The first digit tells you the class of outcome.</p>
+  <p class="lede">The three-digit status code is the server's top-level answer to the request. The first digit indicates the class of outcome.</p>
 
-  <p>There are five classes. Most of what you encounter in practice falls into 2xx, 4xx, and 5xx. 3xx matters for redirects and caching. 1xx is mostly invisible. The browser handles it.</p>
+  <p>There are five classes. Most of what appears in practice falls into 2xx, 4xx, and 5xx. 3xx matters for redirects and caching. 1xx is mostly invisible, handled by the browser.</p>
 
-  <p style="font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--green);margin:20px 0 6px;">2xx — Success</p>
+  <p style="font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--green);margin:20px 0 6px;">2xx · Success</p>
   <div class="card" style="max-width:var(--content-w);margin-bottom:12px;">
     <div class="status-row"><span class="status-code s2xx">200</span><span class="status-desc"><strong>OK</strong>: The request succeeded. The response body contains the result.</span></div>
     <div class="status-row"><span class="status-code s2xx">201</span><span class="status-desc"><strong>Created</strong>: A resource was created. Should include a <code>Location</code> header pointing to it.</span></div>
@@ -252,7 +302,7 @@
     <div class="status-row"><span class="status-code s2xx">204</span><span class="status-desc"><strong>No Content</strong>: Succeeded with no body to return. Common for DELETE and some PATCH responses.</span></div>
   </div>
 
-  <p style="font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--teal);margin:20px 0 6px;">3xx — Redirection</p>
+  <p style="font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--teal);margin:20px 0 6px;">3xx · Redirection</p>
   <div class="card" style="max-width:var(--content-w);margin-bottom:12px;">
     <div class="status-row"><span class="status-code s3xx">301</span><span class="status-desc"><strong>Moved Permanently</strong>: The resource lives at a new URL. Clients should update stored links.</span></div>
     <div class="status-row"><span class="status-code s3xx">302</span><span class="status-desc"><strong>Found</strong>: Temporary redirect. The original URL remains valid.</span></div>
@@ -261,7 +311,7 @@
     <div class="status-row"><span class="status-code s3xx">308</span><span class="status-desc"><strong>Permanent Redirect</strong>: Like 301, but the original HTTP method must be preserved.</span></div>
   </div>
 
-  <p style="font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);margin:20px 0 6px;">4xx — Client Error</p>
+  <p style="font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);margin:20px 0 6px;">4xx · Client Error</p>
   <div class="card" style="max-width:var(--content-w);margin-bottom:12px;">
     <div class="status-row"><span class="status-code s4xx">400</span><span class="status-desc"><strong>Bad Request</strong>: The request is malformed or contains invalid syntax.</span></div>
     <div class="status-row"><span class="status-code s4xx">401</span><span class="status-desc"><strong>Unauthorized</strong>: Authentication is required but was not provided, or credentials are invalid. Despite the name, this means <em>unauthenticated</em>.</span></div>
@@ -272,7 +322,7 @@
     <div class="status-row"><span class="status-code s4xx">429</span><span class="status-desc"><strong>Too Many Requests</strong>: Rate limit exceeded. Should include a <code>Retry-After</code> header.</span></div>
   </div>
 
-  <p style="font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--red);margin:20px 0 6px;">5xx — Server Error</p>
+  <p style="font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--red);margin:20px 0 6px;">5xx · Server Error</p>
   <div class="card" style="max-width:var(--content-w);margin-bottom:12px;">
     <div class="status-row"><span class="status-code s5xx">500</span><span class="status-desc"><strong>Internal Server Error</strong>: Something went wrong on the server. A catch-all for unhandled failures.</span></div>
     <div class="status-row"><span class="status-code s5xx">502</span><span class="status-desc"><strong>Bad Gateway</strong>: An upstream server returned an invalid response. Common when a reverse proxy cannot reach the backend.</span></div>
@@ -286,7 +336,7 @@
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="headers">Headers</h2>
-  <p class="lede">Headers carry metadata: the message, the sender, the content, and the desired behavior. They are the control plane of HTTP.</p>
+  <p class="lede">Headers carry metadata about the message, the sender, the content, and the desired behavior. They are the control plane of HTTP.</p>
 
   <p>Headers are key-value pairs sent before the body in both requests and responses. They control how the message is interpreted, what content is acceptable, how long a response can be cached, and who is allowed to read it. Header names are case-insensitive. Values are case-sensitive where the spec says so.</p>
 
@@ -311,8 +361,8 @@
         <tr><td><code>Accept</code></td><td>Media types the client can handle</td></tr>
         <tr><td><code>Content-Type</code></td><td>Media type of the request body</td></tr>
         <tr><td><code>Authorization</code></td><td>Credentials, typically <code>Bearer &lt;token&gt;</code> for APIs</td></tr>
-        <tr><td><code>If-None-Match</code></td><td>ETag from a previous response; triggers 304 if unchanged</td></tr>
-        <tr><td><code>If-Modified-Since</code></td><td>Timestamp; triggers 304 if resource hasn't changed</td></tr>
+        <tr><td><code>If-None-Match</code></td><td>ETag from a previous response, triggers 304 if unchanged</td></tr>
+        <tr><td><code>If-Modified-Since</code></td><td>Timestamp, triggers 304 if resource hasn't changed</td></tr>
         <tr><td><code>Cookie</code></td><td>Cookies stored for this origin, sent automatically by the browser</td></tr>
         <tr><td><code>User-Agent</code></td><td>Client identification string</td></tr>
       </tbody>
@@ -339,10 +389,10 @@
   <h2 id="caching">Caching</h2>
   <p class="lede">Caching is one of the most impactful and most misunderstood parts of HTTP. A well-cached API or site is dramatically faster. A badly cached one serves stale data or bypasses caching entirely.</p>
 
-  <p>HTTP caching works by storing responses and serving them without contacting the origin server. There are two kinds of cache to reason about: the <strong>private cache</strong> in the browser (one user's responses) and <strong>shared caches</strong> like CDNs and reverse proxies (responses served to many users). They behave differently and must be controlled independently.</p>
+  <p>HTTP caching works by storing responses and serving them without contacting the origin server. There are two kinds of cache to reason about, the <strong>private cache</strong> in the browser (one user's responses) and <strong>shared caches</strong> like CDNs and reverse proxies (responses served to many users). They behave differently and must be controlled independently.</p>
 
   <h3>Cache-Control</h3>
-  <p>The <code>Cache-Control</code> header is the primary mechanism for controlling caching behavior. It appears in both responses (server instructs caches) and requests (client instructs intermediaries). The most important response directives are:</p>
+  <p>The <code>Cache-Control</code> header is the primary mechanism for controlling caching behavior. It appears in both responses (server instructs caches) and requests (client instructs intermediaries). The most important response directives follow.</p>
 
   <div class="table-wrap">
     <table>
@@ -351,11 +401,11 @@
         <tr><td><code>max-age=N</code></td><td>Cache the response for N seconds from the time it was received</td></tr>
         <tr><td><code>no-cache</code></td><td>Cache the response, but always revalidate with the server before using it</td></tr>
         <tr><td><code>no-store</code></td><td>Do not store the response at all (for sensitive data)</td></tr>
-        <tr><td><code>private</code></td><td>Only the browser may cache this; CDNs and shared proxies must not</td></tr>
+        <tr><td><code>private</code></td><td>Only the browser may cache this, CDNs and shared proxies must not</td></tr>
         <tr><td><code>public</code></td><td>Any cache may store this, including CDNs</td></tr>
         <tr><td><code>s-maxage=N</code></td><td>Like <code>max-age</code> but applies only to shared caches</td></tr>
         <tr><td><code>stale-while-revalidate=N</code></td><td>Serve a stale response for up to N seconds while fetching a fresh one in the background</td></tr>
-        <tr><td><code>immutable</code></td><td>The response will never change; skip revalidation even on explicit reload</td></tr>
+        <tr><td><code>immutable</code></td><td>The response will never change, skip revalidation even on explicit reload</td></tr>
       </tbody>
     </table>
   </div>
@@ -365,25 +415,25 @@
     <p><code>Cache-Control: no-cache</code> means "store this, but check with the server before using it." To prevent storage entirely, use <code>no-store</code>. This is one of the most common sources of caching confusion.</p>
   </div>
 
-  <p>A typical pattern for static assets with content-hashed URLs is <code>Cache-Control: public, max-age=31536000, immutable</code>: cache forever, never revalidate, because the filename changes when content changes. For API responses that vary per user, <code>Cache-Control: private, max-age=60</code> allows short-lived browser caching without exposing data to a shared cache.</p>
+  <p>A typical pattern for static assets with content-hashed URLs is <code>Cache-Control: public, max-age=31536000, immutable</code>, which caches forever and never revalidates, because the filename changes when content changes. For API responses that vary per user, <code>Cache-Control: private, max-age=60</code> allows short-lived browser caching without exposing data to a shared cache.</p>
 
   <h3>Conditional requests and ETags</h3>
   <p>Once a cached response expires, the client can ask the server whether it has changed rather than fetching the full content again. The server includes an <code>ETag</code> (a version token, a hash or revision number) in the original response. On revalidation, the client sends that token in an <code>If-None-Match</code> header. If the resource hasn't changed, the server returns <code>304 Not Modified</code> with no body, and the client uses its cached copy.</p>
 
   <div class="http-block">
-    <div><span class="hl-comment"># First request — server returns content with a version token</span></div>
+    <div><span class="hl-comment"># First request, server returns content with a version token</span></div>
     <div><span class="hl-method">GET</span> <span class="hl-url">/products/42</span></div>
     <div><span class="hl-status">200 OK</span></div>
     <div><span class="hl-header">ETag:</span> <span class="hl-value">"d4f8a2"</span></div>
     <div><span class="hl-header">Cache-Control:</span> <span class="hl-value">max-age=300</span></div>
     <hr class="divider-line">
-    <div><span class="hl-comment"># After 5 minutes — client revalidates</span></div>
+    <div><span class="hl-comment"># After 5 minutes, client revalidates</span></div>
     <div><span class="hl-method">GET</span> <span class="hl-url">/products/42</span></div>
     <div><span class="hl-header">If-None-Match:</span> <span class="hl-value">"d4f8a2"</span></div>
-    <div><span class="hl-status">304 Not Modified</span> <span class="hl-comment">(no body — save the bandwidth)</span></div>
+    <div><span class="hl-status">304 Not Modified</span> <span class="hl-comment">(no body, saves the bandwidth)</span></div>
   </div>
 
-  <p>ETags are also used for optimistic concurrency in APIs: a client that wants to update a resource sends its ETag in an <code>If-Match</code> header, and the server rejects the update with <code>412 Precondition Failed</code> if the resource has changed since the client last fetched it. This prevents last-write-wins data loss when multiple clients edit the same resource.</p>
+  <p>ETags are also used for optimistic concurrency in APIs. A client that wants to update a resource sends its ETag in an <code>If-Match</code> header, and the server rejects the update with <code>412 Precondition Failed</code> if the resource has changed since the client last fetched it. This prevents last-write-wins data loss when multiple clients edit the same resource.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="cookies">Cookies</h2>
@@ -406,7 +456,7 @@
     <table>
       <thead><tr><th>Attribute</th><th>Effect</th></tr></thead>
       <tbody>
-        <tr><td><code>HttpOnly</code></td><td>JavaScript cannot read this cookie. Protects session tokens from XSS attacks: if a script can't access the token, it can't steal it.</td></tr>
+        <tr><td><code>HttpOnly</code></td><td>JavaScript cannot read this cookie. Protects session tokens from XSS attacks, since a script that can't access the token can't steal it.</td></tr>
         <tr><td><code>Secure</code></td><td>The cookie is only sent over HTTPS connections. Required for any cookie carrying sensitive data.</td></tr>
         <tr><td><code>SameSite</code></td><td>Controls when the cookie is sent on cross-site requests (see below).</td></tr>
         <tr><td><code>Max-Age</code> / <code>Expires</code></td><td>How long the cookie lives. Without these, it is a session cookie, deleted when the browser closes.</td></tr>
@@ -417,13 +467,13 @@
   </div>
 
   <h3>SameSite</h3>
-  <p>The <code>SameSite</code> attribute governs whether a cookie is sent when the request originates from a different site, for example, when a user clicks a link from one site that takes them to another, or when JavaScript on one site makes a request to another.</p>
+  <p>Cookies were never covered by the same-origin policy. The browser decides whether to attach a cookie based only on the request's destination, not on who triggered the request or where they triggered it from, which is exactly the gap CSRF exploits. <code>SameSite</code> is what lets a server opt out of that default. It governs whether a cookie is sent when the request originates from a different site, for example, when a user clicks a link from one site that takes them to another, or when JavaScript on one site makes a request to another.</p>
 
-  <p><code>SameSite=Strict</code> means the cookie is never sent on cross-site requests, even top-level navigations. <code>SameSite=Lax</code> (the browser default since around 2020) allows the cookie on top-level navigations (clicking a link) but not on embedded cross-site requests from JavaScript or iframes. <code>SameSite=None</code> allows the cookie on all cross-site requests, but requires <code>Secure</code>, and it's the only setting that works with CORS requests that include credentials.</p>
+  <p><code>SameSite=Strict</code> means the cookie is never sent on cross-site requests, even top-level navigations. <code>SameSite=Lax</code> (the browser default since around 2020) sends the cookie on a cross-site request only if it's a top-level navigation using a safe method. Clicking a link is the common case. A cross-site POST, whether it's a form that navigates the page or a request made in the background by JavaScript, an image, or an iframe, doesn't qualify and gets no cookie. <code>SameSite=None</code> allows the cookie on all cross-site requests, but requires <code>Secure</code>, and it's the only setting that works with CORS requests that include credentials.</p>
 
   <div class="callout info">
     <div class="callout-title">SameSite and CORS credentials</div>
-    <p>If your API relies on cookies for authentication and is called from a different origin, the cookie must be <code>SameSite=None; Secure</code>, the CORS response must include <code>Access-Control-Allow-Credentials: true</code>, and the client must set <code>credentials: 'include'</code> in the <code>fetch</code> call. All three are required.</p>
+    <p>If an API relies on cookies for authentication and is called from a different origin, the cookie must be <code>SameSite=None; Secure</code>, the CORS response must include <code>Access-Control-Allow-Credentials: true</code>, and the client must set <code>credentials: 'include'</code> in the <code>fetch</code> call. All three are required.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -445,8 +495,25 @@
     </div>
   </div>
 
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="reload">Reload &amp; Resubmission</h2>
+  <p class="lede">Reloading a page and reissuing its last request are the same thing to a browser. That's fine after a GET, but not always after a POST.</p>
+
+  <p>Reloading a page replays the request that produced it. If the last request was submitting a form, the replayed request will be a POST. Since POST is neither safe nor idempotent (see <a href="#methods">Methods</a> above), replaying one can repeat a side effect like placing a duplicate order. F5 and Ctrl+F5 both re-invoke the same history entry with its original method and body, so either one triggers a "Confirm Form Resubmission" prompt on a POST-loaded page. Hard refresh only changes whether the cache is bypassed, not what gets resent. Enter in the address bar avoids the prompt because it starts a fresh navigation, and a typed navigation is always a GET.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Action</th><th>Repeats method &amp; body</th><th>Resubmission warning</th></tr></thead>
+      <tbody>
+        <tr><td>F5 / Ctrl+R</td><td>yes</td><td>yes, if the entry was a POST</td></tr>
+        <tr><td>Ctrl+F5 / Ctrl+Shift+R</td><td>yes (cache bypassed)</td><td>yes, if the entry was a POST</td></tr>
+        <tr><td>Enter in address bar</td><td>no, always GET</td><td>no</td></tr>
+      </tbody>
+    </table>
+  </div>
+
   <h3>Post-Redirect-Get</h3>
-  <p>Submitting an HTML form with POST and then refreshing the result page causes the browser to resubmit the form, which is rarely what you want. The Post-Redirect-Get pattern avoids this: the server processes the POST, then redirects to a result page with <strong>303 See Other</strong>. The browser follows the redirect with a GET. Refreshing the result page now just re-fetches the result, not the original POST.</p>
+  <p>The fix is to never leave a POST as the current history entry. The server processes the POST, then responds with <strong>303 See Other</strong> (see <a href="#redirects">Redirects</a> above) pointing to a result URL. The browser follows it with a GET, and it's that GET, not the POST, that any later reload replays.</p>
 
   <div class="http-block">
     <div><span class="hl-method">POST</span> <span class="hl-url">/orders</span>   <span class="hl-comment">→ form submission</span></div>
@@ -478,7 +545,7 @@
   <p class="lede">Uploading files over HTTP is common but slightly awkward. There are two distinct approaches, and choosing the wrong one creates friction.</p>
 
   <h3>multipart/form-data</h3>
-  <p>HTML forms use <code>multipart/form-data</code> when they include file inputs. The request body is divided into named parts separated by a boundary string, each with its own headers. This format can mix file data with regular text fields in a single request, making it natural for form submissions.</p>
+  <p>HTML forms use <code>multipart/form-data</code> when they include file inputs. The request body is divided into named parts separated by a boundary string, each with its own headers. This format can mix file data with regular text fields in a single request, which is natural for form submissions.</p>
 
   <div class="http-block">
     <div><span class="hl-method">POST</span> <span class="hl-url">/uploads</span></div>
@@ -507,22 +574,20 @@
     <div><span class="hl-comment">[binary data]</span></div>
   </div>
 
-  <p>A common architecture for large files is to not upload through your application server at all: the client requests a short-lived pre-signed URL from your API, then uploads directly to object storage. The application server never touches the binary data, and storage scales independently.</p>
+  <p>A common architecture for large files skips uploading through the application server entirely. The client requests a short-lived pre-signed URL from the API, then uploads directly to object storage, so the application server never touches the binary data and storage scales independently.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="cors">CORS</h2>
   <p class="lede">Browsers block cross-origin requests by default. CORS is the mechanism that lets servers selectively open that boundary.</p>
 
   <h3>The same-origin policy</h3>
-  <p>Browsers enforce a <strong>same-origin policy</strong>: JavaScript on one origin cannot read responses from a different origin. An origin is the combination of scheme, host, and port (<code>https://app.example.com:443</code> is a different origin from <code>https://api.example.com:443</code>, even though they share the same domain. This policy exists to prevent a malicious page from silently reading your banking data or email on your behalf.</p>
+  <p>Browsers enforce a <strong>same-origin policy</strong> that prevents JavaScript on one origin to read responses from a different origin. An origin is the combination of scheme, host, and port (<code>https://app.example.com:443</code> is a different origin from <code>https://api.example.com:443</code>, even though they share the same domain). For more information, see the <a href="browser-security.html#same-origin-cors">same-origin policy and CORS section</a> of the browser security article.</p>
 
-  <p>Importantly, the policy only restricts <em>reading</em> responses in JavaScript. Browsers will happily send the request. The restriction is on what the calling script can do with the result. This distinction matters for understanding what CORS actually protects.</p>
-
-  <h3>Simple requests</h3>
-  <p>Some cross-origin requests are considered "simple" and are sent directly. The browser checks the response headers to decide whether to expose the result to JavaScript. A request is simple if it uses GET, HEAD, or POST with a limited set of content types (like <code>text/plain</code> or <code>application/x-www-form-urlencoded</code>). JSON requests are not simple: <code>Content-Type: application/json</code> triggers a preflight.</p>
+  <h3>Relaxing the policy</h3>
+  <p>CORS (Cross-Origin Resource Sharing) is the mechanism a server uses to relax the same-origin policy for a trusted origin so that JavaScript is allowed to read the responses. The mechanism differentiates between simple and non-simple requests. Simple requests are sent directly, with no permission asked in advance. They cover GET, HEAD, or POST with a limited set of content types, such as <code>text/plain</code> or <code>application/x-www-form-urlencoded</code>. The browser sends the request and checks the response headers afterward to decide whether JavaScript may read the result. <code>Content-Type: application/json</code> is not on that list, so a JSON request triggers a preflight instead.</p>
 
   <h3>Preflight requests</h3>
-  <p>For anything beyond a simple request (a custom header, JSON body, or a non-standard method), the browser first sends an <code>OPTIONS</code> request to ask for permission before sending the real request. This preflight checks what the server allows, and only proceeds if the response headers permit the actual request.</p>
+  <p>Anything beyond a simple request (a custom header, a JSON body, a method like <code>PUT</code> or <code>DELETE</code>) requires the browser to check first. It sends an <code>OPTIONS</code> request asking the server whether it allows this origin, method, and headers, and only sends the real request if the response says yes.</p>
 
   <div class="http-block">
     <div><span class="hl-comment"># Browser asks permission first</span></div>
@@ -546,74 +611,68 @@
   <p><code>Access-Control-Max-Age</code> caches the preflight result so the browser doesn't have to repeat it on every request. Set it to a reasonably high value (86400 seconds = 24 hours) for endpoints that don't change.</p>
 
   <figure style="margin:24px 0 8px;">
-    <svg viewBox="0 0 700 300" style="max-width:100%;display:block;background:#161b22;border:1px solid #30363d;border-radius:8px;" role="img" aria-label="CORS preflight two-request exchange sequence diagram between browser and API" xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 700 300" style="max-width:100%;display:block;background:var(--surface);border:1px solid var(--border);border-radius:8px;" role="img" aria-label="CORS preflight two-request exchange sequence diagram between browser and API" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <marker id="ht-r" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-          <polygon points="0 0, 8 3, 0 6" fill="#8b94a0"/>
+          <polygon points="0 0, 8 3, 0 6" fill="var(--text-dim)"/>
         </marker>
         <marker id="ht-l" markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto">
-          <polygon points="8 0, 0 3, 8 6" fill="#8b94a0"/>
+          <polygon points="8 0, 0 3, 8 6" fill="var(--text-dim)"/>
         </marker>
         <marker id="ht-rg" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-          <polygon points="0 0, 8 3, 0 6" fill="#3fb950"/>
+          <polygon points="0 0, 8 3, 0 6" fill="var(--green)"/>
         </marker>
         <marker id="ht-lg" markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto">
-          <polygon points="8 0, 0 3, 8 6" fill="#3fb950"/>
+          <polygon points="8 0, 0 3, 8 6" fill="var(--green)"/>
         </marker>
         <marker id="ht-rb" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-          <polygon points="0 0, 8 3, 0 6" fill="#58a6ff"/>
+          <polygon points="0 0, 8 3, 0 6" fill="var(--accent)"/>
         </marker>
       </defs>
       <!-- Title -->
-      <text x="350" y="18" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="#8b94a0" letter-spacing="0.04em">CORS Preflight &#8212; Two-Request Exchange</text>
+      <text x="350" y="18" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="var(--text-dim)" letter-spacing="0.04em">CORS Preflight · Two-Request Exchange</text>
       <!-- Actor boxes -->
-      <rect x="10" y="28" width="185" height="32" rx="6" fill="#1c2330" stroke="#30363d" stroke-width="1.5"/>
-      <text x="102" y="49" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="#e6edf3">Browser (app.example.com)</text>
-      <rect x="505" y="28" width="185" height="32" rx="6" fill="#1c2330" stroke="#58a6ff" stroke-width="1.5"/>
-      <text x="597" y="49" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="#e6edf3">API (api.example.com)</text>
+      <rect x="10" y="28" width="185" height="32" rx="6" fill="var(--surface-2)" stroke="var(--border)" stroke-width="1.5"/>
+      <text x="102" y="49" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text)">Browser (app.example.com)</text>
+      <rect x="505" y="28" width="185" height="32" rx="6" fill="var(--surface-2)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="597" y="49" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text)">API (api.example.com)</text>
       <!-- Lifelines -->
-      <line x1="102" y1="60" x2="102" y2="290" stroke="#30363d" stroke-width="1" stroke-dasharray="4,3"/>
-      <line x1="597" y1="60" x2="597" y2="290" stroke="#30363d" stroke-width="1" stroke-dasharray="4,3"/>
+      <line x1="102" y1="60" x2="102" y2="290" stroke="var(--border)" stroke-width="1" stroke-dasharray="4,3"/>
+      <line x1="597" y1="60" x2="597" y2="290" stroke="var(--border)" stroke-width="1" stroke-dasharray="4,3"/>
       <!-- Annotation: JS fetch call -->
-      <rect x="12" y="68" width="183" height="38" rx="4" fill="rgba(88,166,255,0.07)" stroke="rgba(88,166,255,0.2)" stroke-width="1"/>
-      <text x="103" y="82" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#58a6ff">fetch('https://api.example.com/orders',</text>
-      <text x="103" y="96" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#58a6ff">&#123;method:'POST', headers:&#123;Authorization:...&#125;&#125;)</text>
+      <rect x="12" y="68" width="183" height="38" rx="4" fill="color-mix(in srgb, var(--accent) 7%, transparent)" stroke="color-mix(in srgb, var(--accent) 20%, transparent)" stroke-width="1"/>
+      <text x="103" y="82" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--accent)">fetch('https://api.example.com/orders',</text>
+      <text x="103" y="96" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--accent)">&#123;method:'POST', headers:&#123;Authorization:...&#125;&#125;)</text>
       <!-- OPTIONS preflight arrow (dashed) -->
-      <line x1="110" y1="122" x2="589" y2="122" stroke="#8b94a0" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#ht-r)"/>
-      <text x="350" y="118" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11.5" font-weight="600" fill="#8b94a0">OPTIONS /orders</text>
-      <text x="350" y="134" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="#5f6c8c">Origin: https://app.example.com  &#183;  Access-Control-Request-Method: POST</text>
+      <line x1="110" y1="122" x2="589" y2="122" stroke="var(--text-dim)" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#ht-r)"/>
+      <text x="350" y="118" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11.5" font-weight="600" fill="var(--text-dim)">OPTIONS /orders</text>
+      <text x="350" y="134" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="var(--text-faint)">Origin: https://app.example.com  &#183;  Access-Control-Request-Method: POST</text>
       <!-- API annotation -->
-      <rect x="507" y="143" width="180" height="24" rx="4" fill="rgba(139,148,160,0.07)" stroke="rgba(139,148,160,0.2)" stroke-width="1"/>
-      <text x="597" y="159" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="#8b94a0">Check origin and method allowed</text>
+      <rect x="507" y="143" width="180" height="24" rx="4" fill="color-mix(in srgb, var(--text-dim) 7%, transparent)" stroke="color-mix(in srgb, var(--text-dim) 20%, transparent)" stroke-width="1"/>
+      <text x="597" y="159" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="var(--text-dim)">Check origin and method allowed</text>
       <!-- 204 response -->
-      <line x1="589" y1="177" x2="110" y2="177" stroke="#3fb950" stroke-width="1.5" marker-end="url(#ht-lg)"/>
-      <text x="350" y="173" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11.5" font-weight="600" fill="#3fb950">204 No Content</text>
-      <text x="350" y="189" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="#5f6c8c">Access-Control-Allow-Origin: https://app.example.com  &#183;  Access-Control-Allow-Methods: POST</text>
+      <line x1="589" y1="177" x2="110" y2="177" stroke="var(--green)" stroke-width="1.5" marker-end="url(#ht-lg)"/>
+      <text x="350" y="173" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11.5" font-weight="600" fill="var(--green)">204 No Content</text>
+      <text x="350" y="189" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="var(--text-faint)">Access-Control-Allow-Origin: https://app.example.com  &#183;  Access-Control-Allow-Methods: POST</text>
       <!-- Browser annotation -->
-      <rect x="12" y="198" width="183" height="24" rx="4" fill="rgba(63,185,80,0.07)" stroke="rgba(63,185,80,0.2)" stroke-width="1"/>
-      <text x="103" y="214" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="#3fb950">Origin permitted &#8594; send actual request</text>
+      <rect x="12" y="198" width="183" height="24" rx="4" fill="color-mix(in srgb, var(--green) 7%, transparent)" stroke="color-mix(in srgb, var(--green) 20%, transparent)" stroke-width="1"/>
+      <text x="103" y="214" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="var(--green)">Origin permitted &#8594; send actual request</text>
       <!-- POST actual request -->
-      <line x1="110" y1="238" x2="589" y2="238" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#ht-rb)"/>
-      <text x="350" y="234" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11.5" font-weight="600" fill="#58a6ff">POST /orders &#123;body...&#125;</text>
-      <text x="350" y="250" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="#5f6c8c">Origin: https://app.example.com  &#183;  Content-Type: application/json</text>
+      <line x1="110" y1="238" x2="589" y2="238" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#ht-rb)"/>
+      <text x="350" y="234" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11.5" font-weight="600" fill="var(--accent)">POST /orders &#123;body...&#125;</text>
+      <text x="350" y="250" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="var(--text-faint)">Origin: https://app.example.com  &#183;  Content-Type: application/json</text>
       <!-- 200 OK -->
-      <line x1="589" y1="272" x2="110" y2="272" stroke="#3fb950" stroke-width="1.5" marker-end="url(#ht-lg)"/>
-      <text x="350" y="268" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11.5" font-weight="600" fill="#3fb950">200 OK &#123;data&#125;</text>
+      <line x1="589" y1="272" x2="110" y2="272" stroke="var(--green)" stroke-width="1.5" marker-end="url(#ht-lg)"/>
+      <text x="350" y="268" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11.5" font-weight="600" fill="var(--green)">200 OK &#123;data&#125;</text>
     </svg>
-    <figcaption style="font-size:13px;color:#8b94a0;margin-top:8px;line-height:1.5;">The preflight OPTIONS request is invisible to application code &#8212; the browser sends it automatically and only proceeds if the server&#39;s response permits the actual request.</figcaption>
+    <figcaption style="font-size:13px;color:var(--text-dim);margin-top:8px;line-height:1.5;">The preflight OPTIONS request is invisible to application code. The browser sends it automatically and only proceeds if the server&#39;s response permits the actual request.</figcaption>
   </figure>
 
   <h3>Credentials</h3>
-  <p>By default, cross-origin requests do not include cookies or the <code>Authorization</code> header. The browser strips them. To send credentials, three things must align:</p>
-
-  <ul>
-    <li>The server must respond with <code>Access-Control-Allow-Credentials: true</code></li>
-    <li>The server must specify a concrete origin in <code>Access-Control-Allow-Origin</code>: the wildcard <code>*</code> is not allowed when credentials are involved</li>
-    <li>The client must opt in: <code>fetch(url, { credentials: 'include' })</code></li>
-  </ul>
+  <p>By default, cross-origin requests do not include cookies or the <code>Authorization</code> header. The browser strips them. To send credentials, three things must align. The server must respond with <code>Access-Control-Allow-Credentials: true</code>. The server must also specify a concrete origin in <code>Access-Control-Allow-Origin</code>, since the wildcard <code>*</code> is not allowed when credentials are involved. And the client must opt in with <code>fetch(url, { credentials: 'include' })</code>.</p>
 
   <h3>Access-Control-Expose-Headers</h3>
-  <p>By default, JavaScript can only read a small set of "safe" response headers: <code>Content-Type</code> and <code>Content-Length</code>, for example. Other headers, including <code>ETag</code>, <code>Location</code>, and any custom headers, are hidden even if the request is permitted by CORS. To expose them, the server must list them explicitly:</p>
+  <p>By default, JavaScript can only read a small set of "safe" response headers, such as <code>Content-Type</code> and <code>Content-Length</code>. Other headers, including <code>ETag</code>, <code>Location</code>, and any custom headers, are hidden even if the request is permitted by CORS. To expose them, the server must list them explicitly.</p>
 
   <div class="http-block">
     <div><span class="hl-header">Access-Control-Expose-Headers:</span> <span class="hl-value">ETag, Location, X-Request-Id</span></div>
@@ -629,87 +688,87 @@
   <p class="lede">Both versions solve performance problems that HTTP/1.1 couldn't address. They solve different problems at different layers of the network stack.</p>
 
   <h3>HTTP/2: multiplexing over TCP</h3>
-  <p>HTTP/1.1 processes one request at a time per TCP connection. To work around this, browsers open up to six parallel connections per host, a hack that adds overhead and still limits parallelism. HTTP/2 replaces the text-based request/response format with a binary framing layer, introducing the concept of <strong>streams</strong>: multiple logical request/response exchanges multiplexed over a single TCP connection simultaneously. A slow response no longer blocks others in the queue.</p>
+  <p>HTTP/1.1 processes one request at a time per TCP connection. To work around this, browsers open up to six parallel connections per host, a hack that adds overhead and still limits parallelism. HTTP/2 replaces the text-based request/response format with a binary framing layer built around <strong>streams</strong>, multiple logical request/response exchanges multiplexed over a single TCP connection simultaneously. A slow response no longer blocks others in the queue.</p>
 
   <p>HTTP/2 also compresses headers with HPACK, which matters because headers (including cookies) are repeated in full on every HTTP/1.1 request. The result is fewer connections, lower latency, and less need for the bundling and inlining tricks that HTTP/1.1 performance optimization required.</p>
 
   <p>Server push, where the server could proactively send resources the client hadn't requested yet, was part of HTTP/2 but never saw wide adoption. Chrome removed support for it in 2022.</p>
 
   <figure style="margin:24px 0 8px;">
-    <svg viewBox="0 0 700 220" style="max-width:100%;display:block;background:#161b22;border:1px solid #30363d;border-radius:8px;" role="img" aria-label="HTTP/1.1 serial requests versus HTTP/2 multiplexed streams side-by-side comparison" xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 700 220" style="max-width:100%;display:block;background:var(--surface);border:1px solid var(--border);border-radius:8px;" role="img" aria-label="HTTP/1.1 serial requests versus HTTP/2 multiplexed streams side-by-side comparison" xmlns="http://www.w3.org/2000/svg">
       <!-- Panel labels -->
-      <text x="175" y="22" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="13" font-weight="600" fill="#e6edf3">HTTP/1.1</text>
-      <text x="525" y="22" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="13" font-weight="600" fill="#e6edf3">HTTP/2</text>
+      <text x="175" y="22" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="13" font-weight="600" fill="var(--text)">HTTP/1.1</text>
+      <text x="525" y="22" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="13" font-weight="600" fill="var(--text)">HTTP/2</text>
       <!-- Center divider -->
-      <line x1="350" y1="10" x2="350" y2="210" stroke="#30363d" stroke-width="1"/>
+      <line x1="350" y1="10" x2="350" y2="210" stroke="var(--border)" stroke-width="1"/>
       <!-- ── LEFT PANEL: HTTP/1.1 Serial ── -->
       <!-- Connection line -->
-      <line x1="175" y1="32" x2="175" y2="200" stroke="#30363d" stroke-width="2"/>
+      <line x1="175" y1="32" x2="175" y2="200" stroke="var(--border)" stroke-width="2"/>
       <!-- Req 1 -->
-      <rect x="176" y="40" width="120" height="22" rx="3" fill="rgba(88,166,255,0.2)" stroke="rgba(88,166,255,0.4)" stroke-width="1"/>
-      <text x="236" y="55" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#58a6ff">req 1</text>
+      <rect x="176" y="40" width="120" height="22" rx="3" fill="color-mix(in srgb, var(--accent) 20%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)" stroke-width="1"/>
+      <text x="236" y="55" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--accent)">req 1</text>
       <!-- Resp 1 -->
-      <rect x="56" y="64" width="118" height="22" rx="3" fill="rgba(63,185,80,0.18)" stroke="rgba(63,185,80,0.35)" stroke-width="1"/>
-      <text x="115" y="79" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#3fb950">resp 1</text>
+      <rect x="56" y="64" width="118" height="22" rx="3" fill="color-mix(in srgb, var(--green) 18%, transparent)" stroke="color-mix(in srgb, var(--green) 35%, transparent)" stroke-width="1"/>
+      <text x="115" y="79" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--green)">resp 1</text>
       <!-- Req 2 -->
-      <rect x="176" y="88" width="120" height="22" rx="3" fill="rgba(88,166,255,0.2)" stroke="rgba(88,166,255,0.4)" stroke-width="1"/>
-      <text x="236" y="103" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#58a6ff">req 2</text>
+      <rect x="176" y="88" width="120" height="22" rx="3" fill="color-mix(in srgb, var(--accent) 20%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)" stroke-width="1"/>
+      <text x="236" y="103" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--accent)">req 2</text>
       <!-- Resp 2 -->
-      <rect x="56" y="112" width="118" height="22" rx="3" fill="rgba(63,185,80,0.18)" stroke="rgba(63,185,80,0.35)" stroke-width="1"/>
-      <text x="115" y="127" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#3fb950">resp 2</text>
+      <rect x="56" y="112" width="118" height="22" rx="3" fill="color-mix(in srgb, var(--green) 18%, transparent)" stroke="color-mix(in srgb, var(--green) 35%, transparent)" stroke-width="1"/>
+      <text x="115" y="127" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--green)">resp 2</text>
       <!-- Req 3 -->
-      <rect x="176" y="136" width="120" height="22" rx="3" fill="rgba(88,166,255,0.2)" stroke="rgba(88,166,255,0.4)" stroke-width="1"/>
-      <text x="236" y="151" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#58a6ff">req 3</text>
+      <rect x="176" y="136" width="120" height="22" rx="3" fill="color-mix(in srgb, var(--accent) 20%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)" stroke-width="1"/>
+      <text x="236" y="151" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--accent)">req 3</text>
       <!-- Resp 3 -->
-      <rect x="56" y="160" width="118" height="22" rx="3" fill="rgba(63,185,80,0.18)" stroke="rgba(63,185,80,0.35)" stroke-width="1"/>
-      <text x="115" y="175" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#3fb950">resp 3</text>
+      <rect x="56" y="160" width="118" height="22" rx="3" fill="color-mix(in srgb, var(--green) 18%, transparent)" stroke="color-mix(in srgb, var(--green) 35%, transparent)" stroke-width="1"/>
+      <text x="115" y="175" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--green)">resp 3</text>
       <!-- Serial label -->
-      <text x="175" y="200" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="#f85149">head-of-line blocking: each request waits</text>
+      <text x="175" y="200" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--red)">head-of-line blocking: each request waits</text>
       <!-- ── RIGHT PANEL: HTTP/2 Multiplexed ── -->
       <!-- Connection line -->
-      <line x1="525" y1="32" x2="525" y2="190" stroke="#30363d" stroke-width="2"/>
+      <line x1="525" y1="32" x2="525" y2="190" stroke="var(--border)" stroke-width="2"/>
       <!-- Stream 1 (all start together) -->
-      <rect x="526" y="40" width="140" height="18" rx="3" fill="rgba(88,166,255,0.25)" stroke="rgba(88,166,255,0.45)" stroke-width="1"/>
-      <text x="596" y="53" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#58a6ff">stream 1 &#8594;</text>
+      <rect x="526" y="40" width="140" height="18" rx="3" fill="color-mix(in srgb, var(--accent) 25%, transparent)" stroke="color-mix(in srgb, var(--accent) 45%, transparent)" stroke-width="1"/>
+      <text x="596" y="53" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--accent)">stream 1 &#8594;</text>
       <!-- Resp 1 -->
-      <rect x="390" y="40" width="134" height="18" rx="3" fill="rgba(63,185,80,0.2)" stroke="rgba(63,185,80,0.35)" stroke-width="1"/>
-      <text x="457" y="53" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#3fb950">&#8592; resp 1</text>
+      <rect x="390" y="40" width="134" height="18" rx="3" fill="color-mix(in srgb, var(--green) 20%, transparent)" stroke="color-mix(in srgb, var(--green) 35%, transparent)" stroke-width="1"/>
+      <text x="457" y="53" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--green)">&#8592; resp 1</text>
       <!-- Stream 2 -->
-      <rect x="526" y="62" width="100" height="18" rx="3" fill="rgba(88,166,255,0.25)" stroke="rgba(88,166,255,0.45)" stroke-width="1"/>
-      <text x="576" y="75" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#58a6ff">stream 2 &#8594;</text>
+      <rect x="526" y="62" width="100" height="18" rx="3" fill="color-mix(in srgb, var(--accent) 25%, transparent)" stroke="color-mix(in srgb, var(--accent) 45%, transparent)" stroke-width="1"/>
+      <text x="576" y="75" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--accent)">stream 2 &#8594;</text>
       <!-- Resp 2 -->
-      <rect x="390" y="62" width="134" height="18" rx="3" fill="rgba(63,185,80,0.2)" stroke="rgba(63,185,80,0.35)" stroke-width="1"/>
-      <text x="457" y="75" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#3fb950">&#8592; resp 2</text>
+      <rect x="390" y="62" width="134" height="18" rx="3" fill="color-mix(in srgb, var(--green) 20%, transparent)" stroke="color-mix(in srgb, var(--green) 35%, transparent)" stroke-width="1"/>
+      <text x="457" y="75" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--green)">&#8592; resp 2</text>
       <!-- Stream 3 -->
-      <rect x="526" y="84" width="120" height="18" rx="3" fill="rgba(88,166,255,0.25)" stroke="rgba(88,166,255,0.45)" stroke-width="1"/>
-      <text x="586" y="97" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#58a6ff">stream 3 &#8594;</text>
+      <rect x="526" y="84" width="120" height="18" rx="3" fill="color-mix(in srgb, var(--accent) 25%, transparent)" stroke="color-mix(in srgb, var(--accent) 45%, transparent)" stroke-width="1"/>
+      <text x="586" y="97" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--accent)">stream 3 &#8594;</text>
       <!-- Resp 3 -->
-      <rect x="390" y="84" width="134" height="18" rx="3" fill="rgba(63,185,80,0.2)" stroke="rgba(63,185,80,0.35)" stroke-width="1"/>
-      <text x="457" y="97" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#3fb950">&#8592; resp 3</text>
+      <rect x="390" y="84" width="134" height="18" rx="3" fill="color-mix(in srgb, var(--green) 20%, transparent)" stroke="color-mix(in srgb, var(--green) 35%, transparent)" stroke-width="1"/>
+      <text x="457" y="97" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--green)">&#8592; resp 3</text>
       <!-- "all done" marker -->
-      <line x1="370" y1="108" x2="688" y2="108" stroke="#3fb950" stroke-width="1" stroke-dasharray="3,3" opacity="0.5"/>
-      <text x="529" y="122" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#3fb950">all done here</text>
+      <line x1="370" y1="108" x2="688" y2="108" stroke="var(--green)" stroke-width="1" stroke-dasharray="3,3" opacity="0.5"/>
+      <text x="529" y="122" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--green)">all done here</text>
       <!-- Serial "still going" -->
-      <text x="175" y="122" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#f85149">still waiting...</text>
+      <text x="175" y="122" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--red)">still waiting...</text>
       <!-- Labels -->
-      <text x="525" y="200" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="#3fb950">one connection, parallel streams</text>
+      <text x="525" y="200" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--green)">one connection, parallel streams</text>
     </svg>
-    <figcaption style="font-size:13px;color:#8b94a0;margin-top:8px;line-height:1.5;">HTTP/2 sends all three requests simultaneously over one connection. HTTP/1.1 must wait for each response before sending the next request (or open separate connections).</figcaption>
+    <figcaption style="font-size:13px;color:var(--text-dim);margin-top:8px;line-height:1.5;">HTTP/2 sends all three requests simultaneously over one connection. HTTP/1.1 must wait for each response before sending the next request (or open separate connections).</figcaption>
   </figure>
 
   <h3>HTTP/3: QUIC over UDP</h3>
-  <p>HTTP/2 multiplexing over TCP has a residual problem: TCP is a single ordered byte stream. When a packet is lost, TCP stalls the entire connection while waiting for retransmission, even streams that had no packet loss are blocked. This is TCP-level head-of-line blocking, and multiplexing can't fix it because multiplexing happens above the TCP layer.</p>
+  <p>HTTP/2 multiplexing over TCP has a residual problem. TCP is a single ordered byte stream. When a packet is lost, TCP stalls the entire connection while waiting for retransmission, even streams that had no packet loss are blocked. This is TCP-level head-of-line blocking, and multiplexing can't fix it because multiplexing happens above the TCP layer.</p>
 
   <p>HTTP/3 solves this by replacing TCP with <strong>QUIC</strong>, a transport protocol built on UDP that implements reliability and flow control per stream. A lost packet only affects the stream it belongs to. QUIC also bakes in TLS 1.3, enables <strong>connection migration</strong> (a connection survives a network change, such as switching from WiFi to mobile), and supports 0-RTT resumption for known servers.</p>
 
-  <p>For most developers, HTTP/2 and HTTP/3 are infrastructure concerns. Negotiation happens transparently via TLS ALPN during the handshake. You can inspect which version was used in the browser DevTools Network panel (look for the "Protocol" column). Whether your server supports HTTP/3 depends on your server software and hosting environment, not your application code.</p>
+  <p>HTTP/2 and HTTP/3 are mostly infrastructure concerns. Negotiation happens transparently via TLS ALPN during the handshake. The negotiated version can be inspected in the browser DevTools Network panel, in the Protocol column. Support for HTTP/3 depends on the server software and hosting environment, not the application code.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="tools">Tools</h2>
-  <p class="lede">Understanding HTTP is easier when you can see it directly. A good set of tools lets you inspect, replay, and craft requests without writing code.</p>
+  <p class="lede">HTTP is easier to understand when it can be seen directly. A good set of tools allows inspecting, replaying, and crafting requests without writing code.</p>
 
   <h3>curl</h3>
-  <p>curl is the universal baseline, present on virtually every system and used in almost every piece of documentation. The flags you'll reach for most often:</p>
+  <p>curl is the universal baseline, present on virtually every system and used in almost every piece of documentation. The most commonly used flags are shown below.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -738,7 +797,7 @@ curl -X PUT https://api.example.com/files/photo.jpg \
   </div>
 
   <h3>HTTPie</h3>
-  <p>HTTPie is a curl alternative designed to be readable. The default output is syntax-highlighted and formatted. JSON bodies are pretty-printed automatically. Useful for quick exploration:</p>
+  <p>HTTPie is a curl alternative designed to be readable. The default output is syntax-highlighted and formatted. JSON bodies are pretty-printed automatically, useful for quick exploration.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -756,10 +815,10 @@ http api.example.com/orders Authorization:"Bearer &lt;token&gt;"</code></pre>
   </div>
 
   <h3>Bruno</h3>
-  <p>Bruno is the leading GUI alternative to Postman. Its key difference: collections are stored as plain files on disk in a readable format, so they can be committed to source control alongside the code they test. There's no mandatory cloud account or sync. The UI resembles VS Code. Bruno is a good default recommendation for teams that want a shared, version-controlled request collection.</p>
+  <p>Bruno is the leading GUI alternative to Postman. Its key difference is that collections are stored as plain files on disk in a readable format, so they can be committed to source control alongside the code they test. There's no mandatory cloud account or sync. The UI resembles VS Code. Bruno is a good default recommendation for teams that want a shared, version-controlled request collection.</p>
 
   <h3>VS Code REST Client</h3>
-  <p>The REST Client extension for VS Code lets you define HTTP requests in <code>.http</code> files and run them with a click. Because they're plain text files, they live in the repository next to the code, useful for documenting API interactions and sharing reproducible examples with the team.</p>
+  <p>The REST Client extension for VS Code allows defining HTTP requests in <code>.http</code> files and running them with a click. Because they're plain text files, they live in the repository next to the code, which is useful for documenting API interactions and sharing reproducible examples with the team.</p>
 
   <div class="code-block">
     <div class="code-header">

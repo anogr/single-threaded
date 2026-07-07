@@ -38,7 +38,7 @@
   .s3xx { color: var(--teal); }
   .s4xx { color: var(--orange); }
   .s5xx { color: var(--red); }
-  .status-desc { font-size: 13px; color: #c9d1d9; }
+  .status-desc { font-size: 13px; color: var(--text-body); }
   .status-desc strong { color: var(--text); }
 
   /* ── URL example block ── */
@@ -55,9 +55,9 @@
   }
   .url-example .comment { color: var(--text-faint); font-style: italic; }
   .url-example .method-inline { color: var(--green); }
-  .url-example .path { color: #c9d1d9; }
+  .url-example .path { color: var(--text-body); }
   .url-example .bad .method-inline { color: var(--red); }
-  .url-example .bad .path  { color: rgba(248,81,73,.7); }
+  .url-example .bad .path  { color: color-mix(in srgb, var(--red) 70%, transparent); }
 
   /* ── Checklist ── */
   .checklist-group {
@@ -86,7 +86,7 @@
     padding: 9px 18px;
     border-bottom: 1px solid var(--border);
     font-size: 13.5px;
-    color: #c9d1d9;
+    color: var(--text-body);
   }
   .checklist-item:last-child { border-bottom: none; }
   .check-box {
@@ -104,8 +104,6 @@
 </style>
 </head>
 <body>
-
-<div class="progress-bar" id="progress"></div>
 
 <!-- Mobile header -->
 <header class="mobile-header">
@@ -338,7 +336,7 @@
     <div><span class="method method-delete">DELETE</span> <span class="path">/orders/42</span></div>
   </div>
 
-  <div class="url-example" style="border-color: rgba(248,81,73,.3);">
+  <div class="url-example" style="border-color: color-mix(in srgb, var(--red) 30%, transparent);">
     <div class="comment"># Incorrect — verbs in URLs</div>
     <div class="bad"><span class="method method-get">GET</span>    <span class="path">/getOrder?id=42</span></div>
     <div class="bad"><span class="method method-post">POST</span>   <span class="path">/createOrder</span></div>
@@ -359,63 +357,63 @@
   <p>Nesting should be kept to two levels in most cases. Deep hierarchies produce long, fragile URLs and often indicate that the resource model is too tightly coupled to a particular access pattern. A resource may be accessible via multiple URLs, but it should have a single canonical URL.</p>
 
   <figure style="margin:24px 0 8px;">
-    <svg viewBox="0 0 700 220" style="max-width:100%;display:block;background:#161b22;border:1px solid #30363d;border-radius:8px;" role="img" aria-label="Resource URL hierarchy tree diagram for orders API showing four levels of nesting" xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 700 220" style="max-width:100%;display:block;background:var(--surface);border:1px solid var(--border);border-radius:8px;" role="img" aria-label="Resource URL hierarchy tree diagram for orders API showing four levels of nesting" xmlns="http://www.w3.org/2000/svg">
       <!-- Title -->
-      <text x="350" y="18" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="#8b94a0" letter-spacing="0.04em">Resource Hierarchy &#8212; /orders Example</text>
+      <text x="350" y="18" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="var(--text-dim)" letter-spacing="0.04em">Resource Hierarchy &#8212; /orders Example</text>
       <!-- ── Level 1: /orders (collection) ── -->
-      <circle cx="52" cy="48" r="7" fill="#58a6ff"/>
-      <text x="68" y="52" font-family="'IBM Plex Mono',monospace" font-size="13" fill="#e6edf3">/orders</text>
-      <text x="210" y="52" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="#5f6c8c">collection</text>
+      <circle cx="52" cy="48" r="7" fill="var(--accent)"/>
+      <text x="68" y="52" font-family="'IBM Plex Mono',monospace" font-size="13" fill="var(--text)">/orders</text>
+      <text x="210" y="52" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text-faint)">collection</text>
       <!-- method badges level 1 -->
-      <rect x="258" y="39" width="36" height="16" rx="3" fill="rgba(63,185,80,0.15)"/>
-      <text x="276" y="51" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="#3fb950">GET</text>
-      <rect x="298" y="39" width="38" height="16" rx="3" fill="rgba(88,166,255,0.15)"/>
-      <text x="317" y="51" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="#58a6ff">POST</text>
+      <rect x="258" y="39" width="36" height="16" rx="3" fill="color-mix(in srgb, var(--green) 15%, transparent)"/>
+      <text x="276" y="51" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="var(--green)">GET</text>
+      <rect x="298" y="39" width="38" height="16" rx="3" fill="color-mix(in srgb, var(--accent) 15%, transparent)"/>
+      <text x="317" y="51" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="var(--accent)">POST</text>
       <!-- ── Level 2: /orders/{id} (document) ── -->
       <!-- tree connector -->
-      <line x1="52" y1="55" x2="52" y2="93" stroke="#30363d" stroke-width="1.5"/>
-      <line x1="52" y1="93" x2="90" y2="93" stroke="#30363d" stroke-width="1.5"/>
-      <circle cx="100" cy="93" r="7" fill="#3fb950"/>
-      <text x="116" y="97" font-family="'IBM Plex Mono',monospace" font-size="13" fill="#e6edf3">/orders/&#123;id&#125;</text>
-      <text x="300" y="97" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="#5f6c8c">document</text>
+      <line x1="52" y1="55" x2="52" y2="93" stroke="var(--border)" stroke-width="1.5"/>
+      <line x1="52" y1="93" x2="90" y2="93" stroke="var(--border)" stroke-width="1.5"/>
+      <circle cx="100" cy="93" r="7" fill="var(--green)"/>
+      <text x="116" y="97" font-family="'IBM Plex Mono',monospace" font-size="13" fill="var(--text)">/orders/&#123;id&#125;</text>
+      <text x="300" y="97" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text-faint)">document</text>
       <!-- badges -->
-      <rect x="358" y="84" width="36" height="16" rx="3" fill="rgba(63,185,80,0.15)"/>
-      <text x="376" y="96" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="#3fb950">GET</text>
-      <rect x="398" y="84" width="46" height="16" rx="3" fill="rgba(210,153,34,0.15)"/>
-      <text x="421" y="96" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="#d29922">PATCH</text>
-      <rect x="448" y="84" width="50" height="16" rx="3" fill="rgba(248,81,73,0.15)"/>
-      <text x="473" y="96" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="#f85149">DELETE</text>
+      <rect x="358" y="84" width="36" height="16" rx="3" fill="color-mix(in srgb, var(--green) 15%, transparent)"/>
+      <text x="376" y="96" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="var(--green)">GET</text>
+      <rect x="398" y="84" width="46" height="16" rx="3" fill="color-mix(in srgb, var(--orange) 15%, transparent)"/>
+      <text x="421" y="96" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="var(--orange)">PATCH</text>
+      <rect x="448" y="84" width="50" height="16" rx="3" fill="color-mix(in srgb, var(--red) 15%, transparent)"/>
+      <text x="473" y="96" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="var(--red)">DELETE</text>
       <!-- ── Level 3: /orders/{id}/items (sub-collection) ── -->
-      <line x1="100" y1="100" x2="100" y2="138" stroke="#30363d" stroke-width="1.5"/>
-      <line x1="100" y1="138" x2="138" y2="138" stroke="#30363d" stroke-width="1.5"/>
-      <circle cx="148" cy="138" r="7" fill="#58a6ff"/>
-      <text x="164" y="142" font-family="'IBM Plex Mono',monospace" font-size="13" fill="#e6edf3">/orders/&#123;id&#125;/items</text>
-      <text x="400" y="142" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="#5f6c8c">sub-collection</text>
+      <line x1="100" y1="100" x2="100" y2="138" stroke="var(--border)" stroke-width="1.5"/>
+      <line x1="100" y1="138" x2="138" y2="138" stroke="var(--border)" stroke-width="1.5"/>
+      <circle cx="148" cy="138" r="7" fill="var(--accent)"/>
+      <text x="164" y="142" font-family="'IBM Plex Mono',monospace" font-size="13" fill="var(--text)">/orders/&#123;id&#125;/items</text>
+      <text x="400" y="142" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text-faint)">sub-collection</text>
       <!-- badges -->
-      <rect x="480" y="129" width="36" height="16" rx="3" fill="rgba(63,185,80,0.15)"/>
-      <text x="498" y="141" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="#3fb950">GET</text>
-      <rect x="520" y="129" width="38" height="16" rx="3" fill="rgba(88,166,255,0.15)"/>
-      <text x="539" y="141" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="#58a6ff">POST</text>
+      <rect x="480" y="129" width="36" height="16" rx="3" fill="color-mix(in srgb, var(--green) 15%, transparent)"/>
+      <text x="498" y="141" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="var(--green)">GET</text>
+      <rect x="520" y="129" width="38" height="16" rx="3" fill="color-mix(in srgb, var(--accent) 15%, transparent)"/>
+      <text x="539" y="141" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="var(--accent)">POST</text>
       <!-- ── Level 4: /orders/{id}/items/{itemId} (document) ── -->
-      <line x1="148" y1="145" x2="148" y2="183" stroke="#30363d" stroke-width="1.5"/>
-      <line x1="148" y1="183" x2="186" y2="183" stroke="#30363d" stroke-width="1.5"/>
-      <circle cx="196" cy="183" r="7" fill="#3fb950"/>
-      <text x="212" y="187" font-family="'IBM Plex Mono',monospace" font-size="12" fill="#e6edf3">/orders/&#123;id&#125;/items/&#123;itemId&#125;</text>
-      <text x="514" y="187" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="#5f6c8c">document</text>
+      <line x1="148" y1="145" x2="148" y2="183" stroke="var(--border)" stroke-width="1.5"/>
+      <line x1="148" y1="183" x2="186" y2="183" stroke="var(--border)" stroke-width="1.5"/>
+      <circle cx="196" cy="183" r="7" fill="var(--green)"/>
+      <text x="212" y="187" font-family="'IBM Plex Mono',monospace" font-size="12" fill="var(--text)">/orders/&#123;id&#125;/items/&#123;itemId&#125;</text>
+      <text x="514" y="187" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text-faint)">document</text>
       <!-- badges -->
-      <rect x="572" y="174" width="36" height="16" rx="3" fill="rgba(63,185,80,0.15)"/>
-      <text x="590" y="186" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="#3fb950">GET</text>
-      <rect x="612" y="174" width="44" height="16" rx="3" fill="rgba(210,153,34,0.15)"/>
-      <text x="634" y="186" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="#d29922">PATCH</text>
-      <rect x="660" y="174" width="30" height="16" rx="3" fill="rgba(248,81,73,0.15)"/>
-      <text x="675" y="186" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="#f85149">DEL</text>
+      <rect x="572" y="174" width="36" height="16" rx="3" fill="color-mix(in srgb, var(--green) 15%, transparent)"/>
+      <text x="590" y="186" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="var(--green)">GET</text>
+      <rect x="612" y="174" width="44" height="16" rx="3" fill="color-mix(in srgb, var(--orange) 15%, transparent)"/>
+      <text x="634" y="186" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="var(--orange)">PATCH</text>
+      <rect x="660" y="174" width="30" height="16" rx="3" fill="color-mix(in srgb, var(--red) 15%, transparent)"/>
+      <text x="675" y="186" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" font-weight="700" fill="var(--red)">DEL</text>
       <!-- Legend -->
-      <circle cx="38" cy="208" r="5" fill="#58a6ff"/>
-      <text x="50" y="212" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="#5f6c8c">collection</text>
-      <circle cx="130" cy="208" r="5" fill="#3fb950"/>
-      <text x="142" y="212" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="#5f6c8c">document (single resource)</text>
+      <circle cx="38" cy="208" r="5" fill="var(--accent)"/>
+      <text x="50" y="212" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-faint)">collection</text>
+      <circle cx="130" cy="208" r="5" fill="var(--green)"/>
+      <text x="142" y="212" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-faint)">document (single resource)</text>
     </svg>
-    <figcaption style="font-size:13px;color:#8b94a0;margin-top:8px;line-height:1.5;">Collections group resources (/orders), documents are single instances (/orders/42). Nesting beyond two levels usually signals that the resource model needs rethinking.</figcaption>
+    <figcaption style="font-size:13px;color:var(--text-dim);margin-top:8px;line-height:1.5;">Collections group resources (/orders), documents are single instances (/orders/42). Nesting beyond two levels usually signals that the resource model needs rethinking.</figcaption>
   </figure>
 
   <h3>Identifiers</h3>
@@ -905,3 +903,4 @@
 <script src="docs.js"></script>
 </body>
 </html>
+                                        

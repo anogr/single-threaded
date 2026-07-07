@@ -21,8 +21,6 @@
 </head>
 <body>
 
-<div class="progress-bar" id="progress"></div>
-
 <header class="mobile-header">
   <a class="mobile-logo" href="index.html">Single Threaded <span>— Docs</span></a>
   <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
@@ -38,12 +36,16 @@
   <a href="#intro">Introduction</a>
   <a href="#trust-model">The Web's Trust Model</a>
   <div class="sidebar-section">How Things Fail</div>
+  <a href="#insecure-design">Insecure Design</a>
   <a href="#injection">Injection</a>
+  <a href="#ssrf">Server-Side Request Forgery</a>
   <a href="#access-control">Broken Access Control</a>
   <a href="#cryptographic-failures">Cryptographic Failures</a>
   <a href="#misconfiguration">Security Misconfiguration</a>
   <a href="#vulnerable-components">Vulnerable Components</a>
+  <a href="#integrity-failures">Software &amp; Data Integrity</a>
   <a href="#auth-failures">Authentication Failures</a>
+  <a href="#logging-monitoring">Logging &amp; Monitoring Failures</a>
   <div class="sidebar-section">Prevention</div>
   <a href="#principles">Security Principles</a>
   <a href="#threat-modeling">Thinking About Threats</a>
@@ -56,7 +58,7 @@
   <p class="subtitle">How web applications fail, the principles that prevent it, and a framework for thinking about threats before they become incidents.</p>
   <div class="byline">
     <strong>Deep dive</strong>
-    <div class="dot"></div><span>~15 min read</span>
+    <div class="dot"></div><span>~20 min read</span>
     <div class="dot"></div><span>Security fundamentals</span>
     <div class="dot"></div><span>June 2026</span>
   </div>
@@ -69,7 +71,7 @@
 
   <p>Security is also not a feature that can be added after the fact. A login system built without thinking about brute force, session fixation, or credential stuffing will require significant rework to harden. The most effective place to apply security thinking is during design, before the code is written.</p>
 
-  <p>This article covers the conceptual foundation: how web applications commonly fail, the principles that reduce that risk, and a habit of thinking about threats proactively. The articles on <a href="browser-security.html">browser security</a> and <a href="api-authentication.html">API authentication</a> build on this foundation with specific mechanisms and defenses.</p>
+  <p>This article covers the conceptual foundation: how web applications commonly fail, the principles that reduce that risk, and a habit of thinking about threats proactively. The ten failure modes below track the <strong>OWASP Top Ten</strong>, the industry's reference list of the most common and most damaging web application vulnerability categories. It's revised periodically as attack patterns shift, and it's the vocabulary most security discussions, audits, and tooling use, so it's worth knowing the categories even if you never read the source document. The articles on <a href="browser-security.html">browser security</a> and <a href="authentication-fundamentals.html">authentication fundamentals</a> build on this foundation with specific mechanisms and defenses.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="trust-model">The Web's Trust Model</h2>
@@ -78,6 +80,19 @@
   <p>Browsers are the primary security boundary for web applications. The <strong>same-origin policy</strong> prevents JavaScript on one origin from reading responses from another, which stops a malicious page from silently reading your email or bank balance using your existing session. HTTPS ensures the connection between browser and server cannot be read or modified in transit. These are the foundations; without them, every other security measure is built on sand. The <a href="https-certificates.html">HTTPS article</a> covers the transport layer in depth, and the <a href="http.html">HTTP article</a> covers the same-origin policy and CORS.</p>
 
   <p>Beyond transport, every web application must answer two questions for every request. <strong>Authentication</strong> asks: who is this? It establishes identity by verifying that a request comes from who it claims to be from. <strong>Authorization</strong> asks: what are they allowed to do? It enforces permissions by deciding whether the authenticated identity has the right to perform the requested operation. The two are distinct operations. Failing at authentication lets strangers in. Failing at authorization lets legitimate users do things they shouldn't. Conflating the two (treating authentication as sufficient proof of authorization) is one of the most common sources of access control vulnerabilities.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="insecure-design">How Web Applications Fail: Insecure Design</h2>
+  <p class="lede">Some vulnerabilities aren't bugs in the code. They're the predictable result of a design that never accounted for an adversary in the first place.</p>
+
+  <p>Every other failure mode in this article describes an implementation mistake: a query built the wrong way, a check that's missing, a default left unchanged. Those are fixable by writing the code correctly. Insecure design is different. The code does exactly what it was built to do, and what it was built to do is unsafe. A password reset flow that emails the new password in plain text is working as designed. A discount code system with no limit on how many codes a single session can try is working as designed. A file upload feature that saves whatever it receives to a public directory is working as designed. No amount of careful coding rescues a design that never considered what an attacker would do with the feature.</p>
+
+  <p>This is why security has to enter the process during design, not as a review step before launch. A useful habit is to ask, for every feature, what happens if this input is malicious, what happens if this action is repeated a thousand times a second, and what's the worst thing a legitimate-looking request could do. The <a href="#threat-modeling">threat modeling section below</a> gives this a more structured form, but the underlying habit is the same: treat the adversarial case as a normal case to design for, not an edge case to patch afterward.</p>
+
+  <div class="callout info">
+    <div class="callout-title">Secure by design, not secure by review</div>
+    <p>A security review at the end of a project can catch implementation bugs, but it rarely fixes a flawed design without a rebuild. Secure by design means the default behavior of a system is the safe one: access denied unless granted, output encoded unless explicitly trusted, limits applied unless explicitly raised. Retrofitting that mindset after launch is far more expensive than starting with it.</p>
+  </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="injection">How Web Applications Fail: Injection</h2>
@@ -109,6 +124,16 @@
   <p>The same principle (data becoming instructions) applies elsewhere: command injection (user input passed to a shell), template injection (user input evaluated inside a template engine), and cross-site scripting (user input rendered as HTML and executed as JavaScript, covered in the <a href="browser-security.html">browser security article</a>).</p>
 
   <p>Injection vulnerabilities are largely a solved problem in modern frameworks: ORMs and query builders use parameterized queries by default. They persist in legacy code and in places where developers bypass the safe abstraction, typically for convenience or to build dynamic queries.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="ssrf">How Web Applications Fail: Server-Side Request Forgery</h2>
+  <p class="lede">A server that fetches a URL on the user's behalf can be tricked into fetching a URL the user was never supposed to reach.</p>
+
+  <p>Plenty of legitimate features make the server issue outbound requests based on input the user supplies: fetching a profile picture from a link, generating a preview of a shared URL, validating that a webhook endpoint exists, converting a document at a remote address. In every one of these cases, the server is trusted to reach places the user's own browser can't, most importantly the private network it runs inside. Server-side request forgery (SSRF) happens when an attacker supplies a URL that points somewhere unintended instead: an internal admin panel, a database on a private port, or a cloud provider's metadata endpoint, which typically hands out temporary credentials to anything that asks from inside the network.</p>
+
+  <p>A well-documented example is the 2019 breach at Capital One, where an SSRF vulnerability in a misconfigured application let an attacker query AWS's metadata service, retrieve temporary IAM credentials, and use them to pull over 100 million customer records from storage. The vulnerable feature never touched a database directly. It just fetched a URL, and the URL happened to point somewhere it shouldn't have been able to reach.</p>
+
+  <p>The fix combines several of the principles covered later in this article. Validate and restrict destination URLs to an allowlist of expected hosts rather than trying to blocklist dangerous ones. Reject requests to private IP ranges and link-local addresses (including the cloud metadata range) unless a feature specifically needs them. Don't follow redirects blindly, since a validated URL can redirect to an internal address after the check has already passed. And treat network segmentation as a second line of defense: the <a href="web-networking.html">web application networking article</a> covers how firewalls and network zones limit what an application server can reach even if a request handler is tricked into trying.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="access-control">How Web Applications Fail: Broken Access Control</h2>
@@ -155,6 +180,26 @@
   <p>Managing this risk requires knowing what you're running (software composition analysis tools), monitoring for newly disclosed vulnerabilities in those components (tools like Dependabot, Snyk, or Socket), and having a process for rapid patching when something critical is disclosed. Keeping dependencies up to date as routine maintenance is significantly easier than catching up after a critical disclosure forces an emergency upgrade.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="integrity-failures">How Web Applications Fail: Software and Data Integrity Failures</h2>
+  <p class="lede">Not everything that arrives at your application is safe to trust just because it's shaped like ordinary data. Sometimes the format itself can carry instructions.</p>
+
+  <p><strong>Insecure deserialization</strong> is the clearest example. Serialization converts an in-memory object into a format that can be stored or transmitted. Deserialization converts it back. Some serialization formats, including Java's native serialization, Python's <code>pickle</code>, and PHP's <code>unserialize</code>, can encode more than plain data: they can encode instructions for reconstructing arbitrary objects, including ones that execute code as a side effect of being reconstructed. If an application deserializes data from a source it doesn't fully control (a cookie, a cache entry, a message from another service) using one of these formats, an attacker who can influence that data can potentially get code to run the moment it's deserialized, without ever exploiting a separate bug.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-lang">Python — vulnerable</span>
+    </div>
+    <pre><code><span class="cm"># cookie value is attacker-controlled</span>
+<span class="kw">import</span> pickle
+data = pickle.<span class="fn">loads</span>(request.cookies[<span class="s">'session_data'</span>])
+<span class="cm"># pickle.loads can execute arbitrary code embedded in the input</span>
+<span class="cm"># before your application ever inspects the resulting object</span></code></pre>
+  </div>
+
+  <p>The dependable fix is to avoid deserializing untrusted data in formats that support this at all. Cross a trust boundary (between the browser and the server, or between two services owned by different teams) using a data-only format like JSON, which has no mechanism for encoding executable behavior. If a native serialization format is unavoidable for internal use, never accept it from anything the user can influence, and validate the resulting structure strictly rather than trusting it implicitly. The same trust-boundary thinking applies to dependencies, covered above: both are cases of an application implicitly trusting the integrity of something it didn't create itself.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
   <h2 id="auth-failures">How Web Applications Fail: Authentication Failures</h2>
   <p class="lede">Weak authentication mechanisms give attackers a foothold that strong application logic can't compensate for.</p>
 
@@ -162,7 +207,7 @@
 
   <p>Other common authentication failures: no rate limiting on login attempts (enabling brute force), sessions that never expire, session tokens that are predictable or too short, not invalidating sessions on logout, and not invalidating all sessions when a password is changed.</p>
 
-  <p><strong>Multi-factor authentication</strong> is the single most effective mitigation. An attacker who has a user's password still cannot authenticate if a second factor (a TOTP code, a push notification, a hardware key) is required. For high-value accounts and administrative access, MFA should be mandatory, not optional. The <a href="api-authentication.html">API authentication article</a> covers sessions, tokens, and the practical mechanics of implementing authentication.</p>
+  <p><strong>Multi-factor authentication</strong> is the single most effective mitigation. An attacker who has a user's password still cannot authenticate if a second factor (a TOTP code, a push notification, a hardware key) is required. For high-value accounts and administrative access, MFA should be mandatory, not optional. The <a href="authentication-fundamentals.html">authentication fundamentals article</a> covers sessions, tokens, and the practical mechanics of implementing authentication.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="principles">Security Principles</h2>
@@ -211,7 +256,7 @@
 
   <div class="callout info">
     <div class="callout-title">Where to go next</div>
-    <p>The <a href="browser-security.html">browser security article</a> covers the specific attacks that target web browsers (XSS, CSRF, clickjacking) and the HTTP headers that defend against them. The <a href="api-authentication.html">API authentication article</a> covers sessions, JWTs, tokens, and API keys. The <a href="oauth-oidc.html">OAuth &amp; OIDC article</a> covers delegated authorization flows.</p>
+    <p>The <a href="browser-security.html">browser security article</a> covers the specific attacks that target web browsers (XSS, CSRF, clickjacking) and the HTTP headers that defend against them. The <a href="authentication-fundamentals.html">authentication fundamentals article</a> covers sessions, JWTs, tokens, and MFA mechanics. The <a href="oauth-oidc.html">OAuth &amp; OIDC article</a> covers delegated authorization flows. The <a href="web-networking.html">web application networking article</a> covers the infrastructure layer that backs up these application-level defenses: firewalls, WAFs, and network zones.</p>
   </div>
 
 </main>
