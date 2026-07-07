@@ -117,7 +117,7 @@
 
 <!-- ── Sidebar Nav ── -->
 <nav class="sidebar" id="sidebar">
-  <a class="sidebar-logo" href="index.html">RESTful<br><span>API Design</span></a>
+  <a class="sidebar-back" href="index.html">← All articles</a>
   <div class="sidebar-section">Foundations</div>
   <a href="#background">Background</a>
   <a href="#comparison">REST vs Other Styles</a>
@@ -149,7 +149,7 @@
   <p class="wide" style="max-width:700px;">REST is the dominant architectural style for HTTP APIs, but it is frequently misunderstood, inconsistently applied, and sometimes the wrong tool for the job. This article covers what REST actually specifies, how to apply it correctly, where it fits well, and where other approaches are more appropriate.</p>
 
   <div class="callout info aside">
-    <p>This article assumes familiarity with HTTP fundamentals. If you want a grounding in methods, status codes, headers, caching, cookies, and CORS first, read the <a href="http.html">HTTP article</a>.</p>
+    <p>This article assumes familiarity with HTTP fundamentals. For a grounding in methods, status codes, headers, caching, cookies, and CORS, the <a href="http.html">HTTP article</a> covers those first.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -343,7 +343,7 @@
     <div class="bad"><span class="method method-post">POST</span>   <span class="path">/deleteOrder</span></div>
   </div>
 
-  <p>If you find yourself putting a verb in a URL, that is a signal to reconsider the resource model. Often there is an implicit noun: a <code>cancellation</code> is a resource, a <code>report</code> is a resource, a <code>session</code> is a resource.</p>
+  <p>A verb in a URL is a signal to reconsider the resource model. Often there is an implicit noun: a <code>cancellation</code> is a resource, a <code>report</code> is a resource, a <code>session</code> is a resource.</p>
 
   <h3>URL Structure and Hierarchy</h3>
   <p>URL hierarchy should reflect <strong>containment or ownership</strong> relationships between resources. A resource nested under another is a sub-resource.</p>
@@ -425,13 +425,13 @@
   </div>
 
   <h3>Granularity</h3>
-  <p>Overly coarse resources return unnecessary data on every request. Overly fine resources require many requests to assemble a useful view. Consider the access patterns of your clients. If every view that shows an order also shows the customer name, returning the customer name inline in the order response is reasonable. For public APIs, sparse fieldsets (<code>?fields=id,name,status</code>) are a useful middle ground.</p>
+  <p>Overly coarse resources return unnecessary data on every request. Overly fine resources require many requests to assemble a useful view. The right granularity depends on the access patterns of the clients. If every view that shows an order also shows the customer name, returning the customer name inline in the order response is reasonable. For public APIs, sparse fieldsets (<code>?fields=id,name,status</code>) are a useful middle ground.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="http-in-rest">HTTP Semantics</h2>
   <p class="lede">REST is built on top of HTTP and relies on its method and status code semantics. A REST API that ignores those semantics is not REST. It is RPC with URLs.</p>
 
-  <p>If you need a full treatment of HTTP methods, status codes, headers, caching, and CORS, the <a href="http.html">HTTP article</a> covers all of these in depth. This section focuses on how HTTP semantics apply specifically in the context of REST API design.</p>
+  <p>For a full treatment of HTTP methods, status codes, headers, caching, and CORS, the <a href="http.html">HTTP article</a> covers all of these in depth. This section focuses on how HTTP semantics apply specifically in the context of REST API design.</p>
 
   <h3>Methods and CRUD</h3>
   <p>REST maps CRUD operations onto HTTP methods. The mapping is not arbitrary: each method carries guarantees that caches, proxies, and clients rely on. GET is safe (no side effects) and idempotent, so responses may be cached. PUT and DELETE are idempotent: repeating them has the same effect as calling them once. POST is neither safe nor idempotent, which is why duplicate POST requests are dangerous and why idempotency keys exist.</p>
@@ -509,7 +509,7 @@
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="idempotency-keys">Idempotency Keys</h2>
-  <p class="lede">POST is not idempotent by definition. Idempotency keys give you the property anyway.</p>
+  <p class="lede">POST is not idempotent by definition. Idempotency keys provide that property anyway.</p>
 
   <p>When a client sends a POST and the connection drops before a response arrives, it cannot know whether the server processed the request. Retrying risks creating a duplicate. Idempotency keys solve this: the client generates a unique token per logical operation and includes it in the request. If the server receives a second request with the same token, it returns the result of the first without re-executing the operation.</p>
 
@@ -528,7 +528,7 @@
   <p>The server stores the key and result for a defined period (commonly 24 hours). Repeated requests with the same key return the cached result immediately. The header name <code>Idempotency-Key</code> is the de facto convention (used by Stripe, Adyen, and most payment providers), though not yet an HTTP standard. Use it for any operation where duplicate execution would be harmful: payments, order creation, and account actions.</p>
   <div class="callout warn">
     <div class="callout-title">Keys must be client-generated</div>
-    <p>Generate a fresh UUID per logical attempt <em>before</em> sending the request, not from a prior response. If the key comes from the server, the round-trip to fetch it has the same network-failure problem you are trying to solve.</p>
+    <p>Generate a fresh UUID per logical attempt <em>before</em> sending the request, not from a prior response. If the key comes from the server, the round-trip to fetch it reintroduces the same network-failure problem idempotency keys are meant to solve.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -558,7 +558,7 @@
     <li>Version the entire API surface, not individual endpoints.</li>
     <li>Maintain previous versions for a documented deprecation period.</li>
     <li>Communicate deprecation timelines via response headers (<code>Deprecation</code>, <code>Sunset</code>) and documentation.</li>
-    <li>Additive changes (new fields, new optional parameters) generally do not require a version increment if you follow Postel's law: be conservative in what you send, liberal in what you accept.</li>
+    <li>Additive changes (new fields, new optional parameters) generally do not require a version increment under Postel's law: be conservative in what is sent, liberal in what is accepted.</li>
   </ul>
 
   <h3>Breaking vs non-breaking changes</h3>
@@ -583,7 +583,7 @@
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="openapi">OpenAPI</h2>
-  <p class="lede">OpenAPI is the de facto standard for describing REST APIs. In 2026, you will encounter it in almost every professional API context.</p>
+  <p class="lede">OpenAPI is the de facto standard for describing REST APIs, and by 2026 it shows up in almost every professional API context.</p>
 
   <p>OpenAPI (formerly Swagger) is a machine-readable specification format for HTTP APIs, written in YAML or JSON. A document describes every endpoint, its parameters, request and response schemas, authentication requirements, and expected status codes. <strong>OpenAPI 3.1</strong> (released 2021) is the current version. It aligns fully with JSON Schema, resolving a long-standing incompatibility in 3.0.</p>
 
@@ -708,7 +708,7 @@
     <pre><code><span class="kw">POST</span> /orders/42/cancellations</code></pre>
   </div>
 
-  <p>The sub-resource approach is more expressive when transitions have their own attributes (a cancellation reason, a timestamp) or when you want to record a history of transitions.</p>
+  <p>The sub-resource approach is more expressive when transitions have their own attributes (a cancellation reason, a timestamp) or when a history of transitions needs to be recorded.</p>
 
   <h3>Bulk Operations</h3>
   <p>No standard convention exists for bulk operations. The common approaches are a batch endpoint that accepts an array of operations, or collection-level operations that match a filter:</p>
@@ -791,7 +791,7 @@
   <p>Polling (repeated GET requests) is a valid fallback when real-time infrastructure is not available, particularly with conditional requests (<code>If-None-Match</code>) to minimize response bodies on unchanged resources.</p>
 
   <h3>Webhook security</h3>
-  <p>A webhook receiver is a publicly accessible endpoint that accepts POST requests from a third party. Without verification, any party can POST to it and trigger your logic. Two properties are required for production webhook integrations.</p>
+  <p>A webhook receiver is a publicly accessible endpoint that accepts POST requests from a third party. Without verification, any party can POST to it and trigger the receiver's logic. Two properties are required for production webhook integrations.</p>
   <p><strong>Payload signature verification.</strong> The sender signs each payload with a shared secret using HMAC-SHA256 and includes the signature in a request header (commonly <code>X-Signature-256</code> or <code>Webhook-Signature</code>). The receiver recomputes the signature and rejects the request if it does not match.</p>
   <div class="code-block">
     <div class="code-header">

@@ -6,7 +6,7 @@
 <title>Web Components from the Ground Up — and Wrapping Them in React</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="docs.css">
+<link rel="stylesheet" href="articles.css">
 <style>
   /* ── Section mark on h2 ── */
   h2::before {
@@ -35,7 +35,7 @@
 
 <!-- Sidebar -->
 <nav class="sidebar" id="sidebar">
-  <a class="sidebar-logo" href="index.html">Web Components<br><span>&amp; React</span></a>
+  <a class="sidebar-back" href="index.html">← All articles</a>
   <a href="#intro">Introduction</a>
   <a href="#history">A brief history</a>
   <a href="#what-are">What they are</a>
@@ -73,13 +73,13 @@
   ════════════════════════════════════════════════════ -->
   <section id="intro">
     <p>
-      There is a moment every team eventually hits: you have a component library built in React, your design system is humming along, and then someone asks whether it could work in the Vue project, or the legacy jQuery app, or the server-rendered Astro site that marketing just launched. The honest answer, usually, is no. Not without rewriting it.
+      There is a moment every team eventually hits: a component library built in React is humming along as the design system's foundation, and then someone asks whether it could work in the Vue project, or the legacy jQuery app, or the server-rendered Astro site that marketing just launched. The honest answer, usually, is no. Not without rewriting it.
     </p>
     <p>
-      Web Components are the platform's answer to that problem. They are not a framework. They are a collection of browser APIs that let you define custom, reusable HTML elements that work <em>anywhere HTML works</em>: in React, in Vue, in a plain HTML file, in an email renderer that supports custom elements. Understanding them is genuinely useful, even if you live in React all day, because knowing where your framework ends and the platform begins makes you a sharper developer.
+      Web Components are the platform's answer to that problem. They are not a framework. They are a collection of browser APIs that let developers define custom, reusable HTML elements that work <em>anywhere HTML works</em>: in React, in Vue, in a plain HTML file, in an email renderer that supports custom elements. Understanding them is useful even for teams that live in React all day, since knowing where the framework ends and the platform begins clarifies what any given abstraction is actually doing.
     </p>
     <p>
-      In this post we will cover every major Web Component API, build a real <code>BaseButton</code> custom element step by step, and then write a first-class React wrapper around it, with proper TypeScript types, refs, hooks, and event handling.
+      This article covers every major Web Component API, builds a real <code>BaseButton</code> custom element step by step, and then writes a first-class React wrapper around it, with proper TypeScript types, refs, hooks, and event handling.
     </p>
   </section>
 
@@ -107,16 +107,16 @@
     Web Components are built on three browser APIs that can be used independently or together:
   </p>
   <p>
-    <strong>Custom Elements</strong> let you define a new HTML tag (say, <code>&lt;base-button&gt;</code>) backed by a JavaScript class. The browser upgrades any matching element in the DOM by instantiating your class and calling lifecycle hooks.
+    <strong>Custom Elements</strong> let code define a new HTML tag (say, <code>&lt;base-button&gt;</code>) backed by a JavaScript class. The browser upgrades any matching element in the DOM by instantiating that class and calling lifecycle hooks.
   </p>
   <p>
-    <strong>Shadow DOM</strong> attaches a private subtree to your element. Styles defined inside the shadow root do not leak out, and external styles do not bleed in, which makes your component genuinely encapsulated.
+    <strong>Shadow DOM</strong> attaches a private subtree to an element. Styles defined inside the shadow root do not leak out, and external styles do not bleed in, which makes the component genuinely encapsulated.
   </p>
   <p>
-    <strong>HTML Templates</strong> give you a <code>&lt;template&gt;</code> element whose content is parsed but not rendered. You clone from it to stamp out DOM cheaply and safely.
+    <strong>HTML Templates</strong> provide a <code>&lt;template&gt;</code> element whose content is parsed but not rendered. Cloning it stamps out DOM cheaply and safely.
   </p>
   <p>
-    Web Components are strongest when the thing you are building needs to cross framework boundaries. A design system button, a date picker, a media player, a syntax highlighted code block: these are all good candidates. They are also a natural fit for teams that ship embeddable widgets, micro-frontends, or components that will outlive any particular framework choice.
+    Web Components are strongest when a component needs to cross framework boundaries. A design system button, a date picker, a media player, a syntax highlighted code block: these are all good candidates. They are also a natural fit for teams that ship embeddable widgets, micro-frontends, or components that will outlive any particular framework choice.
   </p>
   <p>
     They are less suited to application-level concerns: routing, global state, server data fetching. For those, use the framework that has already solved them well.
@@ -139,11 +139,11 @@
 
   <div class="callout">
     <div class="callout-label">Key distinction</div>
-    <p>React manages a virtual DOM that eventually maps to real DOM. Custom elements <em>are</em> real DOM. The browser manages them directly. When you use a custom element inside a React tree, React still only sees an opaque DOM node. It has no awareness of the element's internal lifecycle or shadow DOM.</p>
+    <p>React manages a virtual DOM that eventually maps to real DOM. Custom elements <em>are</em> real DOM. The browser manages them directly. When a custom element is used inside a React tree, React still only sees an opaque DOM node. It has no awareness of the element's internal lifecycle or shadow DOM.</p>
   </div>
 
   <p>
-    This is why wrapping a Web Component for use in React requires a little care: you need to manually bridge the gap between React's prop/event model and the DOM's attribute/property/event model.
+    This is why wrapping a Web Component for use in React requires a little care: the gap between React's prop/event model and the DOM's attribute/property/event model has to be bridged manually.
   </p>
 
   <div class="divider"></div>
@@ -172,13 +172,13 @@
   </div>
 
   <p>
-    The <code>super()</code> call is non-negotiable: it sets up the element's prototype chain and associates the instance with the underlying DOM node. Leave it out and the browser throws a <code>ReferenceError</code> before you can do anything else.
+    The <code>super()</code> call is non-negotiable: it sets up the element's prototype chain and associates the instance with the underlying DOM node. Leave it out and the browser throws a <code>ReferenceError</code> before anything else can run.
   </p>
 
   <h3 id="defining">Defining elements</h3>
 
   <p>
-    Once you have a class, you register it with the Custom Elements registry using <code>customElements.define</code>. From that moment forward, every <code>&lt;base-button&gt;</code> in the document (including ones already in the DOM) will be upgraded.
+    Once the class exists, it gets registered with the Custom Elements registry using <code>customElements.define</code>. From that moment forward, every <code>&lt;base-button&gt;</code> in the document (including ones already in the DOM) will be upgraded.
   </p>
 
   <div class="code-block">
@@ -192,7 +192,7 @@
   </div>
 
   <p>
-    Registrations are permanent and global. You cannot undefine an element, and you cannot redefine the same name. In practice this means you need to guard against double-registration in module-heavy environments:
+    Registrations are permanent and global. An element cannot be undefined, and the same name cannot be redefined. In practice this means guarding against double-registration in module-heavy environments:
   </p>
 
   <div class="code-block">
@@ -212,10 +212,10 @@
   <h2 id="shadow-dom">Shadow DOM</h2>
 
   <p>
-    Shadow DOM creates a separate DOM tree attached to your element. Code outside the component cannot query into it with <code>document.querySelector</code>, styles do not cross the boundary by default, and IDs inside the shadow root are scoped to it. This is real encapsulation: not naming conventions, not CSS Modules, not build-time transforms.
+    Shadow DOM creates a separate DOM tree attached to an element. Code outside the component cannot query into it with <code>document.querySelector</code>, styles do not cross the boundary by default, and IDs inside the shadow root are scoped to it. This is real encapsulation: not naming conventions, not CSS Modules, not build-time transforms.
   </p>
   <p>
-    You attach a shadow root inside the constructor:
+    A shadow root gets attached inside the constructor:
   </p>
 
   <div class="code-block">
@@ -237,7 +237,7 @@
   </div>
 
   <p>
-    <code>mode: 'open'</code> is almost always what you want. Closed shadow roots are a footgun. They break accessibility tools and testing libraries without providing meaningful security, since motivated code can always get around them.
+    <code>mode: 'open'</code> is almost always the right choice. Closed shadow roots are a footgun. They break accessibility tools and testing libraries without providing meaningful security, since motivated code can always get around them.
   </p>
 
   <!-- ═══════════════════════════════════════════════════
@@ -246,7 +246,7 @@
   <h2 id="css">Setting CSS</h2>
 
   <p>
-    Styles inside a shadow root are written as regular CSS but are completely scoped. The <code>:host</code> pseudo-class lets you style the custom element itself (the outer DOM node) from within the shadow. The modern approach uses Constructable Stylesheets, which lets multiple elements share a single parsed stylesheet object rather than injecting a <code>&lt;style&gt;</code> tag per instance.
+    Styles inside a shadow root are written as regular CSS but are completely scoped. The <code>:host</code> pseudo-class styles the custom element itself (the outer DOM node) from within the shadow. The modern approach uses Constructable Stylesheets, which lets multiple elements share a single parsed stylesheet object rather than injecting a <code>&lt;style&gt;</code> tag per instance.
   </p>
 
   <div class="code-block">
@@ -335,7 +335,7 @@
   <h2 id="templates">HTML Templates</h2>
 
   <p>
-    A <code>&lt;template&gt;</code> element's content is a <code>DocumentFragment</code> that is parsed by the HTML parser but never rendered. Cloning it is cheap: no re-parsing, no layout, no paint. The <code>&lt;slot&gt;</code> element inside a template is a placeholder for light DOM children, which lets consumers of your component write natural HTML inside the tag.
+    A <code>&lt;template&gt;</code> element's content is a <code>DocumentFragment</code> that is parsed by the HTML parser but never rendered. Cloning it is cheap: no re-parsing, no layout, no paint. The <code>&lt;slot&gt;</code> element inside a template is a placeholder for light DOM children, which lets consumers of the component write natural HTML inside the tag.
   </p>
 
   <div class="code-block">
@@ -369,7 +369,7 @@
   <h2 id="building">Building BaseButton — step by step</h2>
 
   <p>
-    Now that the primitives are in place, let us build the component properly. We will cover lifecycle callbacks, observed attributes, properties, and events in sequence, ending with the full component.
+    Now that the primitives are in place, it's time to build the component properly. What follows covers lifecycle callbacks, observed attributes, properties, and events in sequence, ending with the full component.
   </p>
 
   <!-- LIFECYCLE -->
@@ -388,12 +388,12 @@
     <strong><code>attributeChangedCallback</code></strong> fires when one of the element's observed attributes changes. More on this shortly.
   </p>
   <p>
-    The fourth, <strong><code>adoptedCallback</code></strong>, fires when the element is moved into a different document (via <code>document.adoptNode</code>). This is rare in practice. You will almost never need it.
+    The fourth, <strong><code>adoptedCallback</code></strong>, fires when the element is moved into a different document (via <code>document.adoptNode</code>). This is rare in practice and rarely needed.
   </p>
 
   <div class="callout">
     <div class="callout-label">A gotcha with connectedCallback</div>
-    <p>An element can be connected and disconnected multiple times, for example if it is moved in the DOM. Do not assume <code>connectedCallback</code> runs exactly once. Relatedly, you should always remove listeners in <code>disconnectedCallback</code>, even if you think the element is permanent.</p>
+    <p>An element can be connected and disconnected multiple times, for example if it is moved in the DOM. Do not assume <code>connectedCallback</code> runs exactly once. Relatedly, listeners should always be removed in <code>disconnectedCallback</code>, even when the element seems permanent.</p>
   </div>
 
   <div class="code-block">
@@ -431,7 +431,7 @@
   <h3 id="attrs">Observed attributes and attributeChangedCallback</h3>
 
   <p>
-    Attributes on a custom element are always strings. If you write <code>&lt;base-button disabled&gt;</code>, the attribute value is an empty string, not a boolean. The browser will only call <code>attributeChangedCallback</code> for attributes listed in the static <code>observedAttributes</code> array. If you do not list an attribute there, changes to it are silently ignored.
+    Attributes on a custom element are always strings. Writing <code>&lt;base-button disabled&gt;</code> gives an attribute value of an empty string, not a boolean. The browser will only call <code>attributeChangedCallback</code> for attributes listed in the static <code>observedAttributes</code> array. Any attribute left off that list has its changes silently ignored.
   </p>
 
   <div class="code-block">
@@ -486,7 +486,7 @@
   <h3 id="properties">Properties and upgrading them</h3>
 
   <p>
-    Attributes are a limited surface: they only accept strings, and they are part of the HTML serialisation. For richer data (booleans, numbers, objects) you expose JavaScript properties on the element class. Properties and attributes should mirror each other for the common cases, using a pattern sometimes called "attribute/property reflection":
+    Attributes are a limited surface: they only accept strings, and they are part of the HTML serialisation. For richer data (booleans, numbers, objects), JavaScript properties get exposed on the element class instead. Properties and attributes should mirror each other for the common cases, using a pattern sometimes called "attribute/property reflection":
   </p>
 
   <div class="code-block">
@@ -534,7 +534,7 @@
   </div>
 
   <p>
-    There is a subtle problem here called the <strong>property upgrade timing issue</strong>. If someone sets <code>myButton.disabled = true</code> using JavaScript <em>before</em> the custom element class has been defined and the element upgraded, the property assignment goes to the raw DOM node as a plain expando, not through your setter. When the upgrade eventually happens, your setter never fires.
+    There is a subtle problem here called the <strong>property upgrade timing issue</strong>. If someone sets <code>myButton.disabled = true</code> using JavaScript <em>before</em> the custom element class has been defined and the element upgraded, the property assignment goes to the raw DOM node as a plain expando, not through the class's setter. When the upgrade eventually happens, that setter never fires.
   </p>
   <p>
     The fix is to check for and apply any pre-upgrade expando properties in <code>connectedCallback</code>:
@@ -607,7 +607,7 @@
   </div>
 
   <p>
-    The arrow function stored as a class field is important. If you used a regular method reference (<code>this.handleClick</code>), each call to <code>addEventListener</code> and <code>removeEventListener</code> would need the same bound reference, a common source of listener leaks.
+    The arrow function stored as a class field is important. A regular method reference (<code>this.handleClick</code>) would require each call to <code>addEventListener</code> and <code>removeEventListener</code> to use the same bound reference, a common source of listener leaks.
   </p>
 
   <!-- FULL COMPONENT -->
@@ -791,7 +791,7 @@
   <h2 id="react-wrapper">Wrapping BaseButton in React</h2>
 
   <p>
-    React 19 (released December 2024) brought long-overdue improvements to custom element support. On the client, React now checks whether a prop name matches a property on the custom element instance, and if so, sets it as a JavaScript property rather than an HTML attribute. It also added declarative event listener support: you can pass <code>on</code> + the event name as a JSX prop and React will call <code>addEventListener</code> for you. These two changes mean that for simple use cases, dropping a custom element into a React tree <em>just works</em>.
+    React 19 (released December 2024) brought long-overdue improvements to custom element support. On the client, React now checks whether a prop name matches a property on the custom element instance, and if so, sets it as a JavaScript property rather than an HTML attribute. It also added declarative event listener support: passing <code>on</code> + the event name as a JSX prop makes React call <code>addEventListener</code> automatically. These two changes mean that for simple use cases, dropping a custom element into a React tree <em>just works</em>.
   </p>
 
   <div class="callout">
@@ -800,10 +800,10 @@
   </div>
 
   <p>
-    Despite these improvements, a typed wrapper component is still the right call for a design system. Using <code>&lt;base-button&gt;</code> bare in JSX gives you no TypeScript safety on props, no <code>onButtonClick</code> callback mapped to the right detail type, and no forwarded ref that the consumer can rely on. The wrapper layer is thin, but it converts a loosely-typed DOM element into a properly-typed React component.
+    Despite these improvements, a typed wrapper component is still the right call for a design system. Using <code>&lt;base-button&gt;</code> bare in JSX provides no TypeScript safety on props, no <code>onButtonClick</code> callback mapped to the right detail type, and no forwarded ref for the consumer to rely on. The wrapper layer is thin, but it converts a loosely-typed DOM element into a properly-typed React component.
   </p>
   <p>
-    In React 19, <code>forwardRef</code> is deprecated. <code>ref</code> is now a plain prop on function components. We write the wrapper accordingly.
+    In React 19, <code>forwardRef</code> is deprecated. <code>ref</code> is now a plain prop on function components, so the wrapper is written accordingly.
   </p>
 
   <!-- TS TYPES -->
@@ -848,7 +848,7 @@
   <h3 id="hooks">Helper hooks</h3>
 
   <p>
-    Three small hooks do the heavy lifting for the wrapper. They are generic enough to be reused across any custom element in your system.
+    Three small hooks do the heavy lifting for the wrapper. They are generic enough to be reused across any custom element in the system.
   </p>
 
   <p>
@@ -953,7 +953,7 @@
   <h3 id="wrapper-component">The wrapper component</h3>
 
   <p>
-    With the hooks in place, the wrapper itself is straightforward. Since <code>forwardRef</code> is deprecated in React 19, we accept <code>ref</code> as a plain prop. The internal <code>useRef</code> is needed to drive the imperative hooks; <code>useMergedRefs</code> unifies it with whatever the consumer passes.
+    With the hooks in place, the wrapper itself is straightforward. Since <code>forwardRef</code> is deprecated in React 19, the wrapper accepts <code>ref</code> as a plain prop. The internal <code>useRef</code> is needed to drive the imperative hooks; <code>useMergedRefs</code> unifies it with whatever the consumer passes.
   </p>
 
   <div class="code-block">
@@ -1026,7 +1026,7 @@
   </div>
 
   <p>
-    A few things worth pointing out. The JSX element uses <code>class</code> not <code>className</code>. It is a native element, not a React component, so React's aliasing does not apply. We still accept <code>className</code> as a prop and pass it through as <code>class</code> to give consumers the familiar React API.
+    A few things worth pointing out. The JSX element uses <code>class</code> not <code>className</code>. It is a native element, not a React component, so React's aliasing does not apply. The wrapper still accepts <code>className</code> as a prop and passes it through as <code>class</code> to give consumers the familiar React API.
   </p>
   <p>
     No props for <code>variant</code>, <code>size</code>, <code>type</code>, or <code>disabled</code> appear on the JSX element itself. All four go through <code>useCustomElementProperty</code> via the ref, which means they set the DOM property directly and trigger the element's own setters. This sidesteps React 19's SSR/attribute ambiguity entirely and makes the prop-to-DOM mapping explicit and testable.
@@ -1066,26 +1066,24 @@
   </div>
 
   <p>
-    The <code>BaseButton</code> custom element owns rendering and its own lifecycle. The <code>Button</code> React wrapper owns the React integration surface. Neither knows too much about the other: you can evolve the component's internals (new slots, tweaked styles, additional properties) without touching the wrapper, and you can refine the wrapper's React patterns without touching the element class.
+    The <code>BaseButton</code> custom element owns rendering and its own lifecycle. The <code>Button</code> React wrapper owns the React integration surface. Neither knows too much about the other: the component's internals (new slots, tweaked styles, additional properties) can evolve without touching the wrapper, and the wrapper's React patterns can be refined without touching the element class.
   </p>
 
   <div class="divider"></div>
 
   <p>
-    Web Components are not trying to compete with React. They live at a lower layer, the browser platform, and that is exactly what makes them useful as a foundation for design systems that need to outlast any particular framework. The wrapping pattern we built here is one you can apply to any custom element: three small generic hooks, one thin wrapper component, and you have a first-class React citizen with full TypeScript safety.
+    Web Components are not trying to compete with React. They live at a lower layer, the browser platform, and that is exactly what makes them useful as a foundation for design systems that need to outlast any particular framework. The wrapping pattern built here applies to any custom element: three small generic hooks, one thin wrapper component, and the result is a first-class React citizen with full TypeScript safety.
   </p>
   <p>
-    The APIs are stable, the browser support is universal, and the tooling (Lit, FAST, Stencil, or even vanilla as we did here) is mature. It is a good time to know how they work.
+    The APIs are stable, the browser support is universal, and the tooling (<a href="https://lit.dev">Lit</a>, FAST, <a href="https://stenciljs.com">Stencil</a>, or the vanilla approach used here) is mature. It is a good time to know how they work.
   </p>
 
 </main>
 
 </div><!-- end .shell -->
 
-<footer>
-  Web Component APIs are stable across all modern browsers as of 2026. For a library-based approach, see <a href="https://lit.dev">Lit</a> and <a href="https://stenciljs.com">Stencil</a>. <a href="index.html">← All docs</a>
-</footer>
+<footer>© Single Threaded AB</footer>
 
-<script src="docs.js"></script>
+<script src="articles.js"></script>
 </body>
 </html>

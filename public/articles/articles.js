@@ -1,4 +1,4 @@
-/* docs.js — shared behaviour for all Single Threaded doc pages
+/* articles.js — shared behaviour for all Single Threaded doc pages
    Handles: mobile nav toggle, active sidebar link.
    Document-specific JS stays in an inline <script> in each HTML file. */
 

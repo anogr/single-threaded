@@ -6,7 +6,7 @@
 <title>OAuth &amp; OIDC — Single Threaded</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="docs.css">
+<link rel="stylesheet" href="articles.css">
 <style>
   /* ── Concept card grid ── */
   .concept-grid {
@@ -117,7 +117,7 @@
 
 <!-- ── Sidebar Nav ── -->
 <nav class="sidebar" id="sidebar">
-  <a class="sidebar-logo" href="index.html">OAuth<br><span>&amp; OIDC</span></a>
+  <a class="sidebar-back" href="index.html">← All articles</a>
   <div class="sidebar-section">Overview</div>
   <a href="#history">History and Related Protocols</a>
   <div class="sidebar-section">Foundations</div>
@@ -153,16 +153,16 @@
   <p class="subtitle">Two specifications quietly run the login button on nearly every modern app: the actors, the tokens, the endpoints, and the attacks they're designed to stop.</p>
   <div class="byline"><strong>A field guide</strong><div class="dot"></div><span>~39 min read</span><div class="dot"></div><span>Authentication &amp; authorization flows</span><div class="dot"></div><span>Updated June 2026</span></div>
 
-  <p>Before OAuth existed, an application that needed access to a user's data on another service had only one real option: ask for that user's password directly. A photo-printing service that wanted to read a user's photo library would collect the Google password itself, store it, and log in as the user whenever it needed access. That arrangement handed the requesting application everything the user's account could do, not just photo access, and left a password sitting in a third party's database. OAuth exists to remove that arrangement entirely. Instead of a password, the user grants a scoped, revocable token. That token proves the client may perform a specific, limited set of actions, and the client never sees or stores the user's actual credentials. The user authenticates directly with the service that owns the data, decides exactly what to share, and can revoke that access later without changing a password anywhere.</p>
+  <p>Before <strong>OAuth</strong> existed, an application that needed access to a user's data on another service had only one real option: ask for that user's password directly. A photo-printing service that wanted to read a user's photo library in Google Photos would collect the Google password itself, store it, and log in as the user whenever it needed access. That arrangement handed the requesting application everything the user's account could do, not just photo access, and left a password sitting in a third party's database. OAuth exists to remove that arrangement entirely. Instead of a password, the user grants a scoped, revocable token. That token proves the photo-printing app may perform a specific set of actions, and the app never sees the user's actual credentials. The user authenticates directly with Google, decides exactly what to share, and can revoke that access later without changing a password anywhere.</p>
 
-  <p>OAuth's design deliberately stops there. It hands out a token proving permission, but nothing in the specification says who that token belongs to. That gap turns into a real problem the moment a "sign in with Google" button needs to know the user's actual identity, not just a permission slip. OIDC fills that gap. It reuses OAuth's redirects, consent screens, and back-channel token exchange without changing them, and adds one new artifact: a signed token asserting who just authenticated. OAuth answers what a client may do. OIDC answers who is doing it.</p>
+  <p>OAuth's design deliberately stops there. It hands out a token proving permission, but nothing in the specification says who that token belongs to. That gap turns into a real problem the moment a "sign in with Google" button needs to know the user's actual identity, not just a permission slip. <strong>OIDC</strong> fills that gap. It reuses OAuth's architecture, and adds one new artifact: a signed token asserting who just authenticated. OAuth answers what a client may do. OIDC answers who is doing it.</p>
 
-  <p>This article explains why each protocol exists, and how they work together to provide secure authentication and authorization. It also discusses common implementation mistakes, security best practices, and recent developments such as OAuth 2.1 and authorization for AI agents. It builds on the credential mechanics covered in the <a href="authentication-fundamentals.html">authentication fundamentals article</a>.</p>
+  <p>This article explains why each protocol exists, and how they work together to provide secure authentication and authorization. It also discusses common implementation mistakes, security best practices, and recent developments such as OAuth 2.1 and authorization for AI agents. It builds on the credential mechanics covered in the <a href="authentication-fundamentals.html">authentication fundamentals</a> article.</p>
 
   <div class="callout info">
     <div class="callout-title">Authorization vs Authentication</div>
     <p><strong>OAuth 2.0</strong> is an <em>authorization</em> framework. It exists to answer the question "what is this app allowed to do on the user's behalf?" The original RFC never actually defines who the user is. Identity simply isn't OAuth's job.<br><br>
-    <strong>OIDC</strong> was built specifically to close that gap. It layers <em>authentication</em> on top of OAuth's authorization mechanics and answers "who is this user, exactly?" by introducing a new artifact, the ID token. This is also why OIDC is often described as "OAuth 2.0 plus an identity layer" rather than a competing standard. It reuses OAuth's flows almost entirely and just adds a few extra pieces.</p>
+    <strong>OIDC</strong> was built specifically to close that gap. It layers <em>authentication</em> on top of OAuth's authorization mechanics and answers "who is this user?" by introducing a new artifact, the ID token.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -240,12 +240,12 @@
     <div class="card blue">
       <div class="card-label">Access Token</div>
       <div class="card-title">API Credential</div>
-      <p>The credential attached to every API request, typically as <code>Authorization: Bearer &lt;token&gt;</code>. Intentionally short-lived, usually minutes to a couple of hours. It may be a JWT the resource server verifies locally, or an opaque string requiring an introspection call. Either way, its only job is proving the bearer has permission for a given set of scopes.</p>
+      <p>The credential attached to every API request, typically as <code>Authorization: Bearer &lt;token&gt;</code>. Intentionally short-lived, usually minutes to a couple of hours. It may be a <a href="authentication-fundamentals.html#jwt">JWT</a> the resource server verifies locally, or an opaque string requiring an introspection call. Either way, its only job is proving the bearer has permission for a given set of scopes.</p>
     </div>
     <div class="card purple">
       <div class="card-label">ID Token</div>
       <div class="card-title">Identity Proof (OIDC)</div>
-      <p>Always a JWT, always meant for the application itself to consume directly rather than forward anywhere. It carries claims about who just authenticated (a stable subject identifier, maybe an email or name), and its presence is what turns a plain OAuth exchange into an OIDC login. Never send this to an API. That's the access token's job.</p>
+      <p>A <a href="authentication-fundamentals.html#jwt">JWT</a> meant for the application itself to consume directly rather than forward anywhere. It carries claims about who just authenticated, and its presence is what turns a plain OAuth exchange into an OIDC login. Never send this to an API. That's the access token's job.</p>
     </div>
     <div class="card green">
       <div class="card-label">Refresh Token</div>
@@ -264,7 +264,7 @@
   </div>
 
   <h3>JWT vs Opaque Access Tokens</h3>
-  <p>The spec never mandates a token format. An access token can be a self-contained JWT that any resource server can verify using a public key, or it can be a short opaque string that only the authorization server knows how to interpret. Opaque tokens require a call to the <strong>introspection endpoint</strong> on every request. This is slower, but tokens can be instantly revoked. JWTs are faster to validate locally but can't be revoked before expiry unless a separate denylist is built. Many production systems use JWTs for access tokens precisely because local-validation speed matters at API scale, while accepting that revocation isn't instant.</p>
+  <p>The OAuth spec never mandates an access token format. An access token can be a self-contained JWT that any resource server can verify using a public key, or it can be a short opaque string that only the authorization server knows how to interpret. Opaque tokens require a call to the <strong>introspection endpoint</strong> on every request. This is slower, but tokens can be instantly revoked. JWTs are faster to validate locally but can't be revoked before expiry unless a separate denylist is built. Many production systems use JWTs for access tokens precisely because local-validation speed matters at API scale, while accepting that revocation isn't instant.</p>
 
   <div class="callout info">
     <div class="callout-title">Avoid decoding access tokens in client code</div>
@@ -660,11 +660,11 @@
 
   <p>Use a Backend for Frontend (BFF) where a server component handles the OAuth flow and stores tokens server-side. The browser only gets a session cookie. Tokens never touch the browser's storage, so the entire <a href="browser-security.html#xss">XSS</a> token theft surface disappears. This is the strongly recommended architecture for any app that can support a server component.</p>
 
-  <p>A common BFF architecture starts with the browser that holds a single opaque session identifier in an HttpOnly, Secure cookie. It carries no claims of its own and is only a lookup key. The BFF, a server-side process the frontend talks to instead of the authorization server or the resource APIs directly, keeps a fast key-value store, typically Redis, mapping that session identifier to the access token, refresh token, and ID token issued for that session. Redis fits well here because it is shared across every BFF instance behind a load balancer, and its per-key expiry lines up naturally with token lifetimes.</p>
+  <p>A common BFF architecture starts with the browser that holds a single opaque session identifier in an HttpOnly, Secure cookie. It carries no claims of its own and is only a lookup key. The BFF, a server-side process the frontend talks to instead of the authorization server or the resource APIs directly, keeps a fast key-value store, typically Redis, mapping that session identifier to the access token, refresh token, and ID token issued for that session. Redis fits well here because it is shared across every BFF instance behind a <a href="web-networking.html#load-balancing">load balancer</a>, and its per-key expiry lines up naturally with token lifetimes.</p>
 
   <p>The BFF also exposes its own endpoint, something like <code>/bff/userinfo</code>, for the frontend to read identity claims. Internally it either reads the cached ID token or calls the authorization server's <a href="#userinfo">UserInfo endpoint</a>, and returns plain JSON to the browser. The browser never handles a JWT directly.</p>
 
-  <p>When the browser needs data from an API, it sends the session cookie to the BFF rather than to the API itself. The BFF looks up the session in Redis, discards the cookie, and attaches the corresponding access token to the request it forwards through the API gateway. Because that access token is a JWT, each microservice behind the gateway verifies the signature, expiry, audience, and scope locally using the public keys obtained from the authorization server's <a href="#endpoints">JWKS endpoint</a>, without a network call back to the authorization server on every request. Only the BFF, at the edge, ever talks to the authorization server directly.</p>
+  <p>When the browser needs data from an API, it sends the session cookie to the BFF rather than to the API itself. The BFF looks up the session in Redis, discards the cookie, and attaches the corresponding access token to the request it forwards through the <a href="web-networking.html#api-gateway">API gateway</a>. Because that access token is a JWT, each microservice behind the gateway verifies the signature, expiry, audience, and scope locally using the public keys obtained from the authorization server's <a href="#endpoints">JWKS endpoint</a>, without a network call back to the authorization server on every request. Only the BFF, at the edge, ever talks to the authorization server directly.</p>
 
   <figure style="margin:24px 0 8px;">
     <svg viewBox="0 0 700 440" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="BFF request path from session cookie to verified JWT" style="max-width:100%;display:block;background:var(--surface);border:1px solid var(--border);border-radius:8px;">
@@ -973,16 +973,14 @@
     <p>FAPI 2.0 is a useful benchmark even outside regulated APIs. Its requirements represent a curated list of the most impactful security controls. Think of it as a security checklist rather than a compliance obligation. The components most worth adopting broadly are PAR (removes parameters from browser URLs), DPoP (stops token replay), and private_key_jwt (eliminates shared secret management).</p>
   </div>
 
-  <p class="wide" style="max-width:700px;margin-top:40px;color:var(--text-dim);font-size:14px;border-top:1px solid var(--border);padding-top:24px;">That's the shape of OAuth and OIDC: four roles, three tokens, one well-trodden flow, and a growing stack of security enhancements (PKCE, state, nonce, rotation, DPoP, PAR), each closing a specific, real attack. Most libraries handle these mechanics automatically, but knowing what they're doing is what makes it possible to debug a broken integration, audit an existing implementation, authorize an AI agent safely, or make an informed call the day a library doesn't quite fit the situation.</p>
+  <p class="wide" style="max-width:700px;margin-top:40px;color:var(--text-dim);font-size:14px;border-top:1px solid var(--border);padding-top:24px;">That's the shape of OAuth and OIDC: four roles, three tokens, one well-trodden flow, and a growing stack of security enhancements (PKCE, state, nonce, rotation, DPoP, PAR), each closing a specific, real attack. Most libraries handle these mechanics automatically, but knowing what they're doing is what makes it possible to debug a broken integration, audit an existing implementation, authorize an AI agent safely, or make an informed call the day a library doesn't quite fit the situation. For implementation specifics, the auth provider's SDK documentation and the <a href="https://oauth.net/2.1/">OAuth 2.1 draft spec</a> are the two references worth keeping close.</p>
 
 </main>
 </div>
 
-<footer>
-  Covers OAuth 2.1 and OIDC. For implementation details, consult the auth provider's SDK documentation and the <a href="https://oauth.net/2.1/">OAuth 2.1 draft spec</a>. <a href="index.html">← All docs</a>
-</footer>
+<footer>© Single Threaded AB</footer>
 
-<script src="docs.js"></script>
+<script src="articles.js"></script>
 <script>
   // ── Grant type tabs ──
   document.querySelectorAll('.tabs').forEach(function (tabGroup) {
