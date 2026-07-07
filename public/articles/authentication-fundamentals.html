@@ -95,7 +95,7 @@
 
   <p><strong>Authorization</strong> establishes permission. It determines what an authenticated identity is allowed to do, answering the question "does this identity have the right to perform this operation?" Authorization is always relative to an identity. There is nothing to authorize without one. But authentication alone is not sufficient for authorization. A valid login doesn't mean every resource is accessible.</p>
 
-  <p>Conflating the two is a common source of access control vulnerabilities. An application that checks "is this user logged in?" for every request but not "does this user own this resource?" has authenticated correctly but failed at authorization. The <a href="web-security-principles.html">security principles article</a> covers broken access control in more depth.</p>
+  <p>Conflating the two is a common source of access control vulnerabilities. An application that checks "is this user logged in?" for every request but not "does this user own this resource?" has authenticated correctly but failed at authorization. The <a href="web-security-principles.html">security principles</a> article covers broken access control in more depth.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="basic-auth">Basic Authentication</h2>
@@ -247,7 +247,7 @@
   </figure>
 
   <h3>Opaque tokens and introspection</h3>
-  <p>A third option sits between the two. An <strong>opaque token</strong> looks like a JWT in transport, a string sent as a Bearer token in the <code>Authorization</code> header, but carries no information of its own. It's just a random identifier, like a session ID. The resource server can't validate it locally, so it has to check with whoever issued it, typically through a <strong>token introspection</strong> endpoint, an OAuth-defined mechanism covered in the <a href="oauth-oidc.html#tokens">OAuth &amp; OIDC article</a>. This trades away the main appeal of JWTs, local validation without a network round trip, for the same easy revocation sessions have.</p>
+  <p>A third option sits between the two. An <strong>opaque token</strong> looks like a JWT in transport, a string sent as a Bearer token in the <code>Authorization</code> header, but carries no information of its own. It's just a random identifier, like a session ID. The resource server can't validate it locally, so it has to check with whoever issued it, typically through a <strong>token introspection</strong> endpoint, an OAuth-defined mechanism covered in the <a href="oauth-oidc.html#tokens">OAuth &amp; OIDC</a> article. This trades away the main appeal of JWTs, local validation without a network round trip, for the same easy revocation sessions have.</p>
 
   <p>Real systems often use both rather than picking one. An API gateway or <a href="oauth-oidc.html#token-storage">BFF</a> at the edge can hand the browser an opaque, instantly revocable token, introspect it once per request, then mint a short-lived JWT for that request to carry through internal services. Revocation stays centralized at the edge, while everything behind it validates locally without a repeated network call.</p>
 
@@ -303,7 +303,7 @@
 
   <p><strong>The <code>alg: none</code> attack.</strong> Some early JWT implementations accepted a token that declared its algorithm as <code>none</code>, meaning no signature was needed. An attacker could set any claims they liked and the server would accept the token as valid. Modern libraries reject <code>alg: none</code> by default, but the lesson is to never accept the algorithm from the token itself. Specify the expected algorithm server-side. The same failure mode is cataloged as JWT Algorithm Confusion in the <a href="oauth-oidc.html#attack-alg-none">OAuth &amp; OIDC article's attack list</a>.</p>
 
-  <p><strong>Overly long expiry.</strong> A JWT that is valid for 30 days cannot be revoked if the user's account is compromised or deleted. Short-lived access tokens (15 minutes to 1 hour) paired with a longer-lived refresh token to renew them are the standard approach, a pattern formalized by OAuth 2.0 and covered in more depth, rotation included, in the <a href="oauth-oidc.html#refresh">OAuth &amp; OIDC article</a>. The access token can't be revoked, but the damage is limited by its short lifetime.</p>
+  <p><strong>Overly long expiry.</strong> A JWT that is valid for 30 days cannot be revoked if the user's account is compromised or deleted. Short-lived access tokens (15 minutes to 1 hour) paired with a longer-lived refresh token to renew them are the standard approach, a pattern formalized by OAuth 2.0 and covered in more depth, rotation included, in the <a href="oauth-oidc.html#refresh">OAuth &amp; OIDC</a> article. The access token can't be revoked, but the damage is limited by its short lifetime.</p>
 
   <p><strong>Storing sensitive data in claims.</strong> As noted above, claims are readable by anyone who can intercept the token. Limit claims to identifiers and roles. Do not include personal data, permissions that shouldn't be visible, or anything otherwise considered private.</p>
 
@@ -322,7 +322,7 @@
     <div class="card teal">
       <div class="card-label">HttpOnly cookie</div>
       <div class="card-title">Vulnerable to CSRF</div>
-      <p>JavaScript cannot read an HttpOnly cookie, eliminating XSS-based token theft. However, cookies are sent automatically on cross-site requests, so an XSS-free application may still be vulnerable to CSRF unless <code>SameSite</code> is set correctly. See the <a href="browser-security.html">browser security article</a>.</p>
+      <p>JavaScript cannot read an HttpOnly cookie, eliminating XSS-based token theft. However, cookies are sent automatically on cross-site requests, so an XSS-free application may still be vulnerable to CSRF unless <code>SameSite</code> is set correctly. See the <a href="browser-security.html">browser security</a> article.</p>
     </div>
   </div>
 
@@ -330,10 +330,10 @@
 
   <div class="callout info">
     <div class="callout-title">Memory storage for SPAs</div>
-    <p>A third option is to hold the token in a JavaScript variable that lives only in memory, distinct from <code>localStorage</code>, <code>sessionStorage</code>, or an HttpOnly cookie. This only works in a single-page application. Its JavaScript context survives across the whole session, while a traditional multi-page app reloads that context on every navigation, losing the variable each time. The tradeoff is that a manual reload, a closed tab, or a link opened in a new tab loses the token too, requiring the application to silently re-authenticate. Memory storage is still reachable by XSS, since injected script shares the same privileges as the application (see the <a href="browser-security.html">browser security article</a>). For SPAs that can't rely on a same-site HttpOnly cookie, the pattern increasingly recommended instead is a <strong>Backend-for-Frontend (BFF)</strong> architecture, where the browser only ever holds a session cookie and a server-side component attaches the real access token to outgoing API calls.</p>
+    <p>A third option is to hold the token in a JavaScript variable that lives only in memory, distinct from <code>localStorage</code>, <code>sessionStorage</code>, or an HttpOnly cookie. This only works in a single-page application. Its JavaScript context survives across the whole session, while a traditional multi-page app reloads that context on every navigation, losing the variable each time. The tradeoff is that a manual reload, a closed tab, or a link opened in a new tab loses the token too, requiring the application to silently re-authenticate. Memory storage is still reachable by XSS, since injected script shares the same privileges as the application (see the <a href="browser-security.html">browser security</a> article). For SPAs that can't rely on a same-site HttpOnly cookie, the pattern increasingly recommended instead is a <strong>Backend-for-Frontend (BFF)</strong> architecture, where the browser only ever holds a session cookie and a server-side component attaches the real access token to outgoing API calls.</p>
   </div>
 
-  <p>Every storage option above is still protecting a <strong>bearer token</strong>, meaning whoever holds the string can use it, which is why so much of this section has been about limiting exposure rather than eliminating it. <strong>DPoP</strong>, an OAuth-defined mechanism, removes the bearer property instead by binding a token to a private key that never leaves the client, so a stolen token alone isn't enough to use it. It's covered in the <a href="oauth-oidc.html#dpop">OAuth &amp; OIDC article</a>.</p>
+  <p>Every storage option above is still protecting a <strong>bearer token</strong>, meaning whoever holds the string can use it, which is why so much of this section has been about limiting exposure rather than eliminating it. <strong>DPoP</strong>, an OAuth-defined mechanism, removes the bearer property instead by binding a token to a private key that never leaves the client, so a stolen token alone isn't enough to use it. It's covered in the <a href="oauth-oidc.html#dpop">OAuth &amp; OIDC</a> article.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="passkeys">Passkeys and WebAuthn</h2>
@@ -390,7 +390,12 @@
   <h3>Storage and rotation</h3>
   <p>API keys should be stored hashed on the server, just like passwords. If the database is breached, the raw keys are not exposed. The client sees the key once on creation. After that, the server only stores a hash. When comparing an incoming key to the stored hash, use a constant-time comparison to avoid timing attacks.</p>
 
-  <p>Keys should be rotatable without downtime. The client generates a new key, the server accepts both old and new for a brief overlap period, then the old key is revoked. Keys should be scoped to the minimum required permissions. A read-only key cannot be used to delete records even if it's stolen. And like any credential, keys should have a mechanism for emergency revocation if they're suspected compromised.</p>
+  <p>Beyond hashing, a production key management setup needs three more properties:</p>
+  <ul>
+    <li><strong>Rotatable without downtime:</strong> the client generates a new key, the server accepts both old and new for a brief overlap period, then the old key is revoked.</li>
+    <li><strong>Scoped to the minimum required permissions:</strong> a read-only key cannot be used to delete records even if it's stolen.</li>
+    <li><strong>Revocable in an emergency:</strong> like any credential, a key needs a fast path to invalidation if it's suspected compromised.</li>
+  </ul>
 
   <div class="callout info aside">
     <div class="callout-title">mTLS as an alternative</div>

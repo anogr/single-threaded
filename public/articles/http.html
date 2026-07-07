@@ -470,7 +470,12 @@
   <h3>SameSite</h3>
   <p>Cookies were never covered by the same-origin policy. The browser decides whether to attach a cookie based only on the request's destination, not on who triggered the request or where they triggered it from, which is exactly the gap CSRF exploits. <code>SameSite</code> is what lets a server opt out of that default. It governs whether a cookie is sent when the request originates from a different site, for example, when a user clicks a link from one site that takes them to another, or when JavaScript on one site makes a request to another.</p>
 
-  <p><code>SameSite=Strict</code> means the cookie is never sent on cross-site requests, even top-level navigations. <code>SameSite=Lax</code> (the browser default since around 2020) sends the cookie on a cross-site request only if it's a top-level navigation using a safe method. Clicking a link is the common case. A cross-site POST, whether it's a form that navigates the page or a request made in the background by JavaScript, an image, or an iframe, doesn't qualify and gets no cookie. <code>SameSite=None</code> allows the cookie on all cross-site requests, but requires <code>Secure</code>, and it's the only setting that works with CORS requests that include credentials.</p>
+  <p>The attribute takes three values:</p>
+  <ul>
+    <li><strong><code>SameSite=Strict</code>:</strong> the cookie is never sent on cross-site requests, even top-level navigations.</li>
+    <li><strong><code>SameSite=Lax</code></strong> (the browser default since around 2020): sends the cookie on a cross-site request only if it's a top-level navigation using a safe method. Clicking a link is the common case. A cross-site POST, whether it's a form that navigates the page or a request made in the background by JavaScript, an image, or an iframe, doesn't qualify and gets no cookie.</li>
+    <li><strong><code>SameSite=None</code>:</strong> allows the cookie on all cross-site requests, but requires <code>Secure</code>, and it's the only setting that works with CORS requests that include credentials.</li>
+  </ul>
 
   <div class="callout info">
     <div class="callout-title">SameSite and CORS credentials</div>
@@ -670,7 +675,12 @@
   </figure>
 
   <h3>Credentials</h3>
-  <p>By default, cross-origin requests do not include cookies or the <code>Authorization</code> header. The browser strips them. To send credentials, three things must align. The server must respond with <code>Access-Control-Allow-Credentials: true</code>. The server must also specify a concrete origin in <code>Access-Control-Allow-Origin</code>, since the wildcard <code>*</code> is not allowed when credentials are involved. And the client must opt in with <code>fetch(url, { credentials: 'include' })</code>.</p>
+  <p>By default, cross-origin requests do not include cookies or the <code>Authorization</code> header. The browser strips them. To send credentials, three things must align:</p>
+  <ul>
+    <li>The server must respond with <code>Access-Control-Allow-Credentials: true</code>.</li>
+    <li>The server must also specify a concrete origin in <code>Access-Control-Allow-Origin</code>, since the wildcard <code>*</code> is not allowed when credentials are involved.</li>
+    <li>The client must opt in with <code>fetch(url, { credentials: 'include' })</code>.</li>
+  </ul>
 
   <h3>Access-Control-Expose-Headers</h3>
   <p>By default, JavaScript can only read a small set of "safe" response headers, such as <code>Content-Type</code> and <code>Content-Length</code>. Other headers, including <code>ETag</code>, <code>Location</code>, and any custom headers, are hidden even if the request is permitted by CORS. To expose them, the server must list them explicitly.</p>
@@ -842,7 +852,13 @@ http api.example.com/orders Authorization:"Bearer &lt;token&gt;"</code></pre>
   </div>
 
   <h3>Browser DevTools</h3>
-  <p>The Network panel in browser DevTools is indispensable for understanding what's actually happening in a web application. Beyond the request and response headers, the Timing tab shows connection setup, time-to-first-byte, and transfer time broken down by phase. The Protocol column shows whether HTTP/2 or HTTP/3 was negotiated. Filtering by type (XHR/Fetch, JS, CSS, Images) and using "Preserve log" across navigations are habits worth building early.</p>
+  <p>The Network panel in browser DevTools is indispensable for understanding what's actually happening in a web application. Beyond the request and response headers, a few habits are worth building early:</p>
+  <ul>
+    <li>The Timing tab shows connection setup, time-to-first-byte, and transfer time broken down by phase.</li>
+    <li>The Protocol column shows whether HTTP/2 or HTTP/3 was negotiated.</li>
+    <li>Filtering by type (XHR/Fetch, JS, CSS, Images) narrows the list to what matters for the task at hand.</li>
+    <li>"Preserve log" keeps requests visible across navigations, which matters when a redirect or reload would otherwise clear them.</li>
+  </ul>
 
   <p class="wide" style="max-width:700px;margin-top:40px;color:var(--text-dim);font-size:14px;border-top:1px solid var(--border);padding-top:24px;">HTTP underlies nearly everything that crosses the network in a web application: page loads, API calls, webhooks, and service-to-service calls inside a cluster. Methods and status codes, headers and caching, cookies and CORS, and the shift from HTTP/1.1 to HTTP/2 and HTTP/3 account for most of what shows up in a browser's Network panel or a server's access log. The <a href="restful-api-design.html">RESTful API design</a> and <a href="web-networking.html">web application networking</a> articles build directly on these mechanics.</p>
 

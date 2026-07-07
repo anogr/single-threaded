@@ -75,7 +75,7 @@
     <div class="dot"></div><span>June 2026</span>
   </div>
 
-  <p class="wide" style="max-width:700px;">Browsers enforce a set of security boundaries that web applications rely on, but those boundaries can be circumvented if an application makes certain mistakes. This article covers the most common browser-targeted attacks, what makes them possible, and the combination of application-level practices and HTTP headers that defend against them. The <a href="web-security-principles.html">security principles article</a> provides the conceptual background.</p>
+  <p class="wide" style="max-width:700px;">Browsers enforce a set of security boundaries that web applications rely on, but those boundaries can be circumvented if an application makes certain mistakes. This article covers the most common browser-targeted attacks, what makes them possible, and the combination of application-level practices and HTTP headers that defend against them. The <a href="web-security-principles.html">security principles</a> article provides the conceptual background.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="xss">Cross-Site Scripting (XSS)</h2>
@@ -91,7 +91,15 @@
 
   <p><strong>DOM-based XSS</strong> never touches the server at all. The HTML the server sends back is identical for every visitor, and its source shows nothing unusual. The payload lives in the URL, often after a <code>#</code>, which browsers never even send to the server, and it's the page's own JavaScript that reads it (with something like <code>location.hash</code>) and writes it into the DOM (with <code>innerHTML</code> or a similar sink) without escaping it. The bug is entirely in client-side code, not in anything the server rendered.</p>
 
-  <p>What an attacker can do once JavaScript is executing in the victim's browser: read cookies (unless HttpOnly prevents it), steal tokens from localStorage, make authenticated API requests as the user, log every keystroke, redirect to a phishing page, or silently modify page content.</p>
+  <p>What an attacker can do once JavaScript is executing in the victim's browser:</p>
+  <ul>
+    <li>Read cookies, unless HttpOnly prevents it</li>
+    <li>Steal tokens from localStorage</li>
+    <li>Make authenticated API requests as the user</li>
+    <li>Log every keystroke</li>
+    <li>Redirect to a phishing page</li>
+    <li>Silently modify page content</li>
+  </ul>
 
   <figure style="margin:24px 0 8px;">
     <svg viewBox="0 0 700 175" style="max-width:100%;display:block;background:var(--surface);border:1px solid var(--border);border-radius:8px;" role="img" aria-label="Stored XSS attack flow diagram showing payload travelling from Attacker through Server Database to Victim Browser" xmlns="http://www.w3.org/2000/svg">
@@ -233,7 +241,7 @@
   </figure>
 
   <h3>Defenses</h3>
-  <p>The modern defense is the <strong>SameSite cookie attribute</strong>, covered in depth in the <a href="http.html">HTTP article</a>. With <code>SameSite=Strict</code>, the session cookie is never sent on a cross-site request. <code>SameSite=Lax</code> (the browser default since around 2020) sends the cookie only on a cross-site request that's both a top-level navigation and uses a safe method, an ordinary link click being the common case. The hidden form in the classic example above submits as a POST, which isn't a safe method, so Lax withholds the cookie there too, exactly like Strict. Either setting works by keeping the cookie from ever reaching the server. The bank sees a request with no valid session at all, forged or not.</p>
+  <p>The modern defense is the <strong>SameSite cookie attribute</strong>, covered in depth in the <a href="http.html">HTTP</a> article. With <code>SameSite=Strict</code>, the session cookie is never sent on a cross-site request. <code>SameSite=Lax</code> (the browser default since around 2020) sends the cookie only on a cross-site request that's both a top-level navigation and uses a safe method, an ordinary link click being the common case. The hidden form in the classic example above submits as a POST, which isn't a safe method, so Lax withholds the cookie there too, exactly like Strict. Either setting works by keeping the cookie from ever reaching the server. The bank sees a request with no valid session at all, forged or not.</p>
 
   <p><strong>CSRF tokens</strong> defend against the same attack as SameSite, just at a different layer, which is why sites commonly use both instead of relying on either alone. SameSite is a single point of protection. If it's ever misconfigured, disabled, unsupported by an older client, needs to be <code>SameSite=None</code> for a legitimate cross-origin integration, or simply doesn't apply because the request came from a same-site subdomain the application doesn't fully trust, a forged request can still arrive with the session cookie attached, and nothing about the cookie itself stops it. CSRF tokens are the independent backstop for exactly that case. The server embeds a second, unique, unpredictable value into each form or response and rejects any state-changing request that doesn't include a matching one. Even if a forged request from evilsite.com does arrive with the victim's session cookie, because SameSite failed to stop it, evilsite.com's page was never able to read bank.com's page in the first place, so it never saw the token and has no way to include it. The request still fails, on the token alone.</p>
 
@@ -261,7 +269,7 @@
   <p>A page on evilsite.com can still make the browser send a request to mail.com. The same-origin policy was never designed to stop that. Long before JavaScript could make a request at all, a plain HTML form or an <code>&lt;img&gt;</code> tag could already trigger a cross-origin GET or POST, and the web still depends on that today for ordinary links, embedded images, and third-party forms. Blocking all cross-origin sends outright would break huge parts of the web that have nothing to do with attackers. What the policy targets instead is stopping the attacker's page from reading whatever comes back. A request that changes something on the server, with no interest in reading the response, is a different problem entirely. That's CSRF, covered above, and it's why SameSite cookies and CSRF tokens exist as a defense that has nothing to do with CORS.</p>
 
   <h3>CORS: opting specific origins back in</h3>
-  <p>CORS is the mechanism a server uses to tell the browser a particular origin is allowed to read its responses. The header-by-header mechanics, the preflight exchange, <code>Access-Control-Allow-Origin</code>, credentialed requests, are covered in the <a href="http.html#cors">HTTP article</a>. What's worth understanding here is why preflight exists at all.</p>
+  <p>CORS is the mechanism a server uses to tell the browser a particular origin is allowed to read its responses. The header-by-header mechanics, the preflight exchange, <code>Access-Control-Allow-Origin</code>, credentialed requests, are covered in the <a href="http.html#cors">HTTP</a> article. What's worth understanding here is why preflight exists at all.</p>
 
   <p>A request with a custom header, a JSON body, or a method like <code>PUT</code> or <code>DELETE</code> is something a plain HTML form could never produce. Before <code>fetch</code> and XHR existed, no server had a reason to check where a request like that came from, because a cross-origin script had no way to send one. Most servers still don't check the <code>Origin</code> header on every request. A well-written one could reject an unexpected origin itself, but CORS can't assume every server does. So the browser first sends a side-effect-free <code>OPTIONS</code> request, and only sends the real one if the server explicitly answers with the right <code>Access-Control-*</code> headers. A server that's never heard of CORS simply won't answer correctly, and the real request never goes out. That protects servers that were never written with cross-origin JavaScript in mind, without requiring them to add anything.</p>
 
@@ -273,7 +281,12 @@
   <h3 id="xss-csrf-cors">XSS vs. CSRF vs. CORS</h3>
   <div class="callout info">
     <div class="callout-title">Three different boundaries, not three names for the same thing</div>
-    <p>XSS, CSRF, and CORS have similar names but are different things. XSS is an injection attack that exploits a site's failure to escape untrusted input. Defenses are output encoding, HttpOnly cookies, and CSP. CSRF is an attack that exploits the browser's automatic cookie attachment to forge a state-changing request. Defenses are SameSite cookies and CSRF tokens. CORS is not an attack. It's a protocol that allows a server to selectively relax the same-origin policy for trusted origins.</p>
+    <p>XSS, CSRF, and CORS have similar names but are different things:</p>
+    <ul>
+      <li><strong>XSS</strong> is an injection attack that exploits a site's failure to escape untrusted input. Defenses are output encoding, HttpOnly cookies, and CSP.</li>
+      <li><strong>CSRF</strong> is an attack that exploits the browser's automatic cookie attachment to forge a state-changing request. Defenses are SameSite cookies and CSRF tokens.</li>
+      <li><strong>CORS</strong> is not an attack. It's a protocol that allows a server to selectively relax the same-origin policy for trusted origins.</li>
+    </ul>
     <p>The mix-up usually comes from CSRF and CORS both involving a second origin. The browser sends a cross-origin request whether or not CORS allows it. CORS only governs whether the response can be read, not whether the request goes out. That's why a perfectly configured CORS policy does nothing to stop a CSRF attack, and a strict CSRF defense does nothing to stop a script from reading a response it was already permitted to read. XSS doesn't involve a second origin at all. It just means the attacker's code is running with the first origin's own trust, as if the site had written it.</p>
   </div>
 
