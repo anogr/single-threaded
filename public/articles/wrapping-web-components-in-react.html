@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wrapping Web Components in React — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+<style>
+  /* ── Section mark on h2 ── */
+  h2::before {
+    content: '§';
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--accent);
+    margin-right: 0.5rem;
+    vertical-align: middle;
+    opacity: 0.5;
+  }
+
+  /* ── Full-source appendix: collapsible file groups with tabs ── */
+  .file-appendix {
+    max-width: var(--content-w);
+    margin: 20px 0;
+  }
+  .file-group {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .file-group + .file-group { margin-top: 14px; }
+  .file-group > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 14px 20px;
+    background: var(--surface-2);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .file-group > summary::-webkit-details-marker { display: none; }
+  .file-group > summary::after {
+    content: '+ expand';
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  .file-group[open] > summary::after { content: '\2212 collapse'; }
+  .file-group[open] > summary { border-bottom: 1px solid var(--border); }
+
+  .file-tab-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    padding: 0 8px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+  }
+  .file-tab-btn {
+    padding: 10px 14px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .file-tab-btn:hover { color: var(--text); }
+  .file-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .file-tab-panel { display: none; }
+  .file-tab-panel.active { display: block; }
+  .file-tab-panel .code-block {
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    max-width: none;
+  }
+</style>
+</head>
+
+<body>
+
+<!-- Mobile header -->
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Docs</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<!-- Sidebar -->
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+  <a href="#intro">Introduction</a>
+  <div class="sidebar-section">React Wrapper</div>
+  <a href="#react-wrapper">React 19 and custom elements</a>
+  <a href="#ts-types">TypeScript declarations</a>
+  <a href="#hooks">Helper hooks</a>
+  <a href="#wrapper-component">Wrapper component</a>
+  <div class="sidebar-section">Reference</div>
+  <a href="#full-source">Full source</a>
+</nav>
+
+<!-- Main -->
+<main>
+  <div class="eyebrow">Deep Dive · React Interop</div>
+  <h1>Wrapping Web Components in React</h1>
+  <p class="subtitle">How to wrap a custom element in a first-class React component, with TypeScript types, a forwarded ref, and a typed custom event callback.</p>
+  <div class="byline"><strong>Deep dive</strong><div class="dot"></div><span>~10 min read</span><div class="dot"></div><span>React &amp; Web Components</span><div class="dot"></div><span>June 2026</span></div>
+
+  <!-- ═══════════════════════════════════════════════════
+       INTRODUCTION
+  ════════════════════════════════════════════════════ -->
+  <section id="intro">
+    <p>
+      The <a href="web-components.html">companion article</a> built <code>BaseButton</code> from scratch: a custom element with an encapsulated shadow DOM, a shared stylesheet, typed properties, and a custom click event. That component runs anywhere custom elements are supported. No React required.
+    </p>
+    <p>
+      Dropping it into a React codebase as-is already works, but a thin wrapper is still worth writing for a design system: typed props, a forwarded ref, and a callback mapped to the right event detail type. The gap being bridged is the one <a href="web-components.html#vs-react">covered previously</a>: React manages a virtual DOM, while a custom element is real DOM that the browser manages directly, so React only ever sees it as an opaque node.
+    </p>
+    <p>
+      This article writes that wrapper: three small generic hooks and one thin component, with full TypeScript safety.
+    </p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════
+       REACT WRAPPER
+  ════════════════════════════════════════════════════ -->
+  <h2 id="react-wrapper">React 19 and custom elements</h2>
+
+  <p>
+    React 19 (released December 2024) brought long-overdue improvements to custom element support. On the client, React now checks whether a prop name matches a property on the custom element instance, and if so, sets it as a JavaScript property rather than an HTML attribute. It also added declarative event listener support: passing <code>on</code> + the event name as a JSX prop makes React call <code>addEventListener</code> automatically. These two changes mean that for simple use cases, dropping a custom element into a React tree <em>just works</em>.
+  </p>
+
+  <div class="callout info">
+    <div class="callout-title">React 19 property/attribute strategy</div>
+    <p>On the client, props matching a property on the custom element instance are set as JS properties. The rest become attributes. On the server (SSR), primitive props (<code>string</code>, <code>number</code>, <code>true</code>) render as attributes, but non-primitive props are omitted to avoid hydration mismatches. This means complex props like objects still require the imperative ref approach when SSR is involved.</p>
+  </div>
+
+  <p>
+    Despite these improvements, a typed wrapper component is still the right call for a design system. Using <code>&lt;base-button&gt;</code> bare in JSX provides no TypeScript safety on props, no <code>onButtonClick</code> callback mapped to the right detail type, and no forwarded ref for the consumer to rely on. The wrapper layer is thin, but it converts a loosely-typed DOM element into a properly-typed React component.
+  </p>
+  <p>
+    In React 19, <code>forwardRef</code> is deprecated. <code>ref</code> is now a plain prop on function components, so the wrapper is written accordingly.
+  </p>
+
+  <!-- TS TYPES -->
+  <h3 id="ts-types">TypeScript global declarations</h3>
+
+  <p>
+    Before writing the component, register the custom element with TypeScript so that <code>document.querySelector('base-button')</code> returns a typed <code>BaseButton</code> instance, and so JSX knows what props the bare tag accepts.
+  </p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">base-button.d.ts</span>
+      <span class="code-lang">TypeScript</span>
+    </div>
+    <pre><code><span class="kw">import</span> { <span class="t">BaseButton</span> } <span class="kw">from</span> <span class="s">'./base-button'</span>;
+
+<span class="kw">declare</span> <span class="k">global</span> {
+  <span class="c">// Allows: document.querySelector('base-button') → BaseButton</span>
+  <span class="kw">interface</span> <span class="t">HTMLElementTagNameMap</span> {
+    <span class="s">'base-button'</span>: <span class="t">BaseButton</span>;
+  }
+
+  <span class="c">// Allows JSX: &lt;base-button ...&gt;. Use React.HTMLAttributes as the base,</span>
+  <span class="c">// then add the element's own props. 'ref' is handled by React itself.</span>
+  <span class="kw">namespace</span> <span class="t">React</span> {
+    <span class="kw">namespace</span> <span class="t">JSX</span> {
+      <span class="kw">interface</span> <span class="t">IntrinsicElements</span> {
+        <span class="s">'base-button'</span>: <span class="t">React</span>.<span class="t">HTMLAttributes</span>&lt;<span class="t">BaseButton</span>&gt; &amp; {
+          <span class="n">variant</span>?: <span class="t">BaseButton</span>[<span class="s">'variant'</span>];
+          <span class="n">size</span>?: <span class="t">BaseButton</span>[<span class="s">'size'</span>];
+          <span class="n">type</span>?: <span class="t">BaseButton</span>[<span class="s">'type'</span>];
+          <span class="n">disabled</span>?: <span class="t">boolean</span>;
+        };
+      }
+    }
+  }
+}</code></pre>
+  </div>
+
+  <!-- HOOKS -->
+  <h3 id="hooks">Helper hooks</h3>
+
+  <p>
+    Three small hooks do the heavy lifting for the wrapper. They are generic enough to be reused across any custom element in the system.
+  </p>
+
+  <p>
+    <code>useCustomElementProperty</code> sets a DOM property imperatively whenever its value changes. This is useful for non-primitive props (objects, arrays, complex types) that React 19 would otherwise omit during SSR or fail to set correctly.
+  </p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">useCustomElementProperty.ts</span>
+      <span class="code-lang">TypeScript</span>
+    </div>
+    <pre><code><span class="kw">import</span> { <span class="t">RefObject</span>, useEffect } <span class="kw">from</span> <span class="s">'react'</span>;
+
+<span class="kw">export function</span> <span class="fn">useCustomElementProperty</span>&lt;
+  <span class="t">El</span> <span class="kw">extends</span> <span class="t">HTMLElement</span>,
+  <span class="t">K</span> <span class="kw">extends</span> <span class="kw">keyof</span> <span class="t">El</span>
+&gt;(
+  <span class="n">ref</span>: <span class="t">RefObject</span>&lt;<span class="t">El</span> | <span class="k">null</span>&gt;,
+  <span class="n">property</span>: <span class="t">K</span>,
+  <span class="n">value</span>: <span class="t">El</span>[<span class="t">K</span>]
+): <span class="kw">void</span> {
+  <span class="fn">useEffect</span>(() => {
+    <span class="kw">const</span> <span class="n">el</span> = <span class="n">ref</span>.<span class="n">current</span>;
+    <span class="kw">if</span> (<span class="n">el</span> !== <span class="k">null</span>) {
+      <span class="n">el</span>[<span class="n">property</span>] = <span class="n">value</span>;
+    }
+  }, [<span class="n">ref</span>, <span class="n">property</span>, <span class="n">value</span>]);
+}</code></pre>
+  </div>
+
+  <p>
+    <code>useCustomElementEvent</code> subscribes to a DOM custom event on the element and calls a React callback, cleaning up automatically on unmount or when the handler reference changes. Even though React 19 can wire up <code>on</code>-prefixed JSX props to <code>addEventListener</code>, doing so via a hook keeps the event strongly typed against <code>CustomEvent&lt;D&gt;</code> and keeps the wrapper's internal logic explicit.
+  </p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">useCustomElementEvent.ts</span>
+      <span class="code-lang">TypeScript</span>
+    </div>
+    <pre><code><span class="kw">import</span> { <span class="t">RefObject</span>, useEffect } <span class="kw">from</span> <span class="s">'react'</span>;
+
+<span class="kw">export function</span> <span class="fn">useCustomElementEvent</span>&lt;
+  <span class="t">El</span> <span class="kw">extends</span> <span class="t">HTMLElement</span>,
+  <span class="t">D</span> = <span class="kw">unknown</span>
+&gt;(
+  <span class="n">ref</span>: <span class="t">RefObject</span>&lt;<span class="t">El</span> | <span class="k">null</span>&gt;,
+  <span class="n">eventName</span>: <span class="t">string</span>,
+  <span class="n">handler</span>: ((<span class="n">e</span>: <span class="t">CustomEvent</span>&lt;<span class="t">D</span>&gt;) => <span class="kw">void</span>) | <span class="k">undefined</span>
+): <span class="kw">void</span> {
+  <span class="fn">useEffect</span>(() => {
+    <span class="kw">const</span> <span class="n">el</span> = <span class="n">ref</span>.<span class="n">current</span>;
+    <span class="kw">if</span> (!<span class="n">el</span> || !<span class="n">handler</span>) <span class="kw">return</span>;
+
+    <span class="kw">const</span> <span class="n">listener</span> = (<span class="n">e</span>: <span class="t">Event</span>) =>
+      <span class="fn">handler</span>(<span class="n">e</span> <span class="k">as</span> <span class="t">CustomEvent</span>&lt;<span class="t">D</span>&gt;);
+
+    <span class="n">el</span>.<span class="fn">addEventListener</span>(<span class="n">eventName</span>, <span class="n">listener</span>);
+    <span class="kw">return</span> () => <span class="n">el</span>.<span class="fn">removeEventListener</span>(<span class="n">eventName</span>, <span class="n">listener</span>);
+  }, [<span class="n">ref</span>, <span class="n">eventName</span>, <span class="n">handler</span>]);
+}</code></pre>
+  </div>
+
+  <p>
+    <code>useMergedRefs</code> combines multiple refs into a single callback ref. This lets the wrapper hold an internal <code>RefObject</code> for imperative DOM access, while simultaneously forwarding a ref to the consumer, all without either ref interfering with the other. The cast inside the loop targets <code>RefObject</code> rather than the older <code>MutableRefObject</code>: React 19's types deprecated <code>MutableRefObject</code> since <code>RefObject</code> is mutable by default now.
+  </p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">useMergedRefs.ts</span>
+      <span class="code-lang">TypeScript</span>
+    </div>
+    <pre><code><span class="kw">import</span> { <span class="t">Ref</span>, useCallback } <span class="kw">from</span> <span class="s">'react'</span>;
+
+<span class="kw">type</span> <span class="t">AnyRef</span>&lt;<span class="t">T</span>&gt; = <span class="t">Ref</span>&lt;<span class="t">T</span>&gt; | <span class="k">undefined</span> | <span class="k">null</span>;
+
+<span class="kw">export function</span> <span class="fn">useMergedRefs</span>&lt;<span class="t">T</span>&gt;(
+  ...<span class="n">refs</span>: <span class="t">AnyRef</span>&lt;<span class="t">T</span>&gt;[]
+): (<span class="n">node</span>: <span class="t">T</span> | <span class="k">null</span>) => <span class="kw">void</span> {
+  <span class="c">// eslint-disable-next-line react-hooks/exhaustive-deps</span>
+  <span class="kw">return</span> <span class="fn">useCallback</span>((<span class="n">node</span>: <span class="t">T</span> | <span class="k">null</span>) => {
+    <span class="kw">for</span> (<span class="kw">const</span> <span class="n">ref</span> <span class="kw">of</span> <span class="n">refs</span>) {
+      <span class="kw">if</span> (!<span class="n">ref</span>) <span class="kw">continue</span>;
+      <span class="kw">if</span> (<span class="kw">typeof</span> <span class="n">ref</span> === <span class="s">'function'</span>) {
+        <span class="fn">ref</span>(<span class="n">node</span>);
+      } <span class="kw">else</span> {
+        (<span class="n">ref</span> <span class="k">as</span> <span class="t">React</span>.<span class="t">RefObject</span>&lt;<span class="t">T</span> | <span class="k">null</span>&gt;).<span class="n">current</span> = <span class="n">node</span>;
+      }
+    }
+  }, <span class="n">refs</span>); <span class="c">// stable as long as the refs array members don't change</span>
+}</code></pre>
+  </div>
+
+  <div class="callout new">
+    <div class="callout-title">Why useCallback here?</div>
+    <p>React calls a callback ref every render if its function identity changes, triggering unnecessary detach/re-attach cycles. <code>useCallback</code> memoises the merged ref so it only changes when the incoming refs themselves change. Note that the eslint exhaustive-deps rule would flag this. The disable comment is intentional since <code>refs</code> is a rest argument spread, not a stable array reference.</p>
+  </div>
+
+  <!-- WRAPPER COMPONENT -->
+  <h3 id="wrapper-component">The wrapper component</h3>
+
+  <p>
+    With the hooks in place, the wrapper itself is simple. Since <code>forwardRef</code> is deprecated in React 19, the wrapper accepts <code>ref</code> as a plain prop. The internal <code>useRef</code> is needed to drive the imperative hooks, and <code>useMergedRefs</code> unifies it with whatever the consumer passes.
+  </p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">Button.tsx</span>
+      <span class="code-lang">TypeScript · React 19</span>
+    </div>
+    <pre><code><span class="kw">export function</span> <span class="fn">Button</span>({
+  variant = <span class="s">'primary'</span>,
+  onButtonClick,
+  children,
+  className,
+  style,
+  ref: <span class="n">externalRef</span>,
+}: <span class="t">ButtonProps</span>) {
+  <span class="c">// Internal ref for imperative hooks, merged with whatever the consumer passed in</span>
+  <span class="kw">const</span> <span class="n">innerRef</span> = <span class="fn">useRef</span>&lt;<span class="t">BaseButton</span> | <span class="k">null</span>&gt;(<span class="k">null</span>);
+  <span class="kw">const</span> <span class="n">mergedRef</span> = <span class="fn">useMergedRefs</span>(<span class="n">innerRef</span>, <span class="n">externalRef</span>);
+
+  <span class="c">// Set the DOM property directly. size, type, and disabled work the same way</span>
+  <span class="fn">useCustomElementProperty</span>(<span class="n">innerRef</span>, <span class="s">'variant'</span>, <span class="n">variant</span>);
+
+  <span class="c">// Subscribe to the custom event, strongly typed against its detail payload</span>
+  <span class="fn">useCustomElementEvent</span>&lt;<span class="t">BaseButton</span>, <span class="t">BaseButtonClickDetail</span>&gt;(
+    <span class="n">innerRef</span>,
+    <span class="s">'base-button:click'</span>,
+    <span class="n">onButtonClick</span> ? (<span class="n">e</span>) => <span class="fn">onButtonClick</span>(<span class="n">e</span>.<span class="n">detail</span>) : <span class="k">undefined</span>
+  );
+
+  <span class="kw">return</span> (
+    &lt;<span class="t">base-button</span> <span class="n">ref</span>={<span class="n">mergedRef</span>} <span class="n">class</span>={<span class="n">className</span>} <span class="n">style</span>={<span class="n">style</span>}&gt;
+      {<span class="n">children</span>}
+    &lt;/<span class="t">base-button</span>&gt;
+  );
+}</code></pre>
+  </div>
+
+  <p>
+    A few things worth pointing out. The JSX element uses <code>class</code> not <code>className</code>. It is a native element, not a React component, so React's aliasing does not apply. The wrapper still accepts <code>className</code> as a prop and passes it through as <code>class</code> to give consumers the familiar React API.
+  </p>
+  <p>
+    None of <code>variant</code>, <code>size</code>, <code>type</code>, or <code>disabled</code> appear as props on the JSX element itself. Each one goes through <code>useCustomElementProperty</code> via the ref instead, which sets the DOM property directly and triggers the element's own setters. This sidesteps React 19's SSR/attribute ambiguity entirely and makes the prop-to-DOM mapping explicit and testable. The full <code>ButtonProps</code> interface and all four property calls are in the <a href="#full-source">full source</a> at the end.
+  </p>
+  <p>
+    Using the wrapper looks exactly like any other React component:
+  </p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">App.tsx</span>
+      <span class="code-lang">TypeScript · React</span>
+    </div>
+    <pre><code><span class="kw">import</span> { useRef } <span class="kw">from</span> <span class="s">'react'</span>;
+<span class="kw">import</span> { <span class="t">Button</span> } <span class="kw">from</span> <span class="s">'./Button'</span>;
+<span class="kw">import</span> { <span class="t">BaseButtonClickDetail</span> } <span class="kw">from</span> <span class="s">'./base-button'</span>;
+
+<span class="kw">function</span> <span class="fn">App</span>() {
+  <span class="kw">const</span> <span class="n">btnRef</span> = <span class="fn">useRef</span>&lt;<span class="t">BaseButton</span> | <span class="k">null</span>&gt;(<span class="k">null</span>);
+
+  <span class="kw">const</span> <span class="fn">handleClick</span> = (<span class="n">detail</span>: <span class="t">BaseButtonClickDetail</span>) => {
+    <span class="n">console</span>.<span class="fn">log</span>(<span class="s">'clicked'</span>, <span class="n">detail</span>.<span class="n">variant</span>);
+  };
+
+  <span class="kw">return</span> (
+    &lt;<span class="t">Button</span>
+      <span class="n">ref</span>={<span class="n">btnRef</span>}
+      <span class="n">variant</span>=<span class="s">"primary"</span>
+      <span class="n">size</span>=<span class="s">"lg"</span>
+      <span class="n">onButtonClick</span>={<span class="fn">handleClick</span>}
+    &gt;
+      Save changes
+    &lt;/<span class="t">Button</span>&gt;
+  );
+}</code></pre>
+  </div>
+
+  <p>
+    The <code>BaseButton</code> custom element owns rendering and its own lifecycle. The <code>Button</code> React wrapper owns the React integration surface. Neither knows too much about the other: the component's internals (new slots, tweaked styles, additional properties) can evolve without touching the wrapper, and the wrapper's React patterns can be refined without touching the element class.
+  </p>
+
+  <div class="divider"></div>
+
+  <p>
+    Web Components are not trying to compete with React. They live at a lower layer, the browser platform, and that is exactly what makes them useful as a foundation for design systems that need to outlast any particular framework. The wrapping pattern built here applies to any custom element: three small generic hooks, one thin wrapper component, and the result is a first-class React citizen with full TypeScript safety.
+  </p>
+  <p>
+    The APIs are stable, the browser support is universal, and the tooling (<a href="https://lit.dev">Lit</a>, FAST, <a href="https://stenciljs.com">Stencil</a>, or the vanilla approach used in the <a href="web-components.html">companion article</a>) is mature. It is a good time to know how they work.
+  </p>
+
+  <div class="divider"></div>
+
+  <!-- ═══════════════════════════════════════════════════
+       FULL SOURCE
+  ════════════════════════════════════════════════════ -->
+  <h2 id="full-source">Full source</h2>
+
+  <p>
+    Every file referenced above, complete and in one place. Collapsed by default: expand the group and switch between its files with the tabs. The companion article has the matching <code>base-button.ts</code> files.
+  </p>
+
+  <div class="file-appendix">
+    <details class="file-group">
+      <summary>React wrapper files</summary>
+      <div class="file-tab-nav">
+        <button class="file-tab-btn active" data-target="rw-button-tsx">Button.tsx</button>
+        <button class="file-tab-btn" data-target="rw-usecep">useCustomElementProperty.ts</button>
+        <button class="file-tab-btn" data-target="rw-usece">useCustomElementEvent.ts</button>
+        <button class="file-tab-btn" data-target="rw-usemerged">useMergedRefs.ts</button>
+        <button class="file-tab-btn" data-target="rw-app">App.tsx</button>
+      </div>
+
+      <div class="file-tab-panel active" id="rw-button-tsx">
+        <div class="code-block">
+          <div class="code-header">
+            <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+            <span class="code-filename">Button.tsx</span>
+            <span class="code-lang">TypeScript · React 19</span>
+          </div>
+          <pre><code><span class="kw">import</span> { useRef, <span class="t">Ref</span> } <span class="kw">from</span> <span class="s">'react'</span>;
+<span class="kw">import</span> { <span class="t">BaseButton</span>, <span class="t">BaseButtonClickDetail</span> } <span class="kw">from</span> <span class="s">'./base-button'</span>;
+<span class="kw">import</span> { <span class="fn">useCustomElementEvent</span> } <span class="kw">from</span> <span class="s">'./useCustomElementEvent'</span>;
+<span class="kw">import</span> { <span class="fn">useCustomElementProperty</span> } <span class="kw">from</span> <span class="s">'./useCustomElementProperty'</span>;
+<span class="kw">import</span> { <span class="fn">useMergedRefs</span> } <span class="kw">from</span> <span class="s">'./useMergedRefs'</span>;
+
+<span class="kw">export interface</span> <span class="t">ButtonProps</span> {
+  <span class="n">variant</span>?: <span class="t">BaseButton</span>[<span class="s">'variant'</span>];
+  <span class="n">size</span>?: <span class="t">BaseButton</span>[<span class="s">'size'</span>];
+  <span class="n">type</span>?: <span class="t">BaseButton</span>[<span class="s">'type'</span>];
+  <span class="n">disabled</span>?: <span class="t">boolean</span>;
+  <span class="n">onButtonClick</span>?: (<span class="n">detail</span>: <span class="t">BaseButtonClickDetail</span>) => <span class="kw">void</span>;
+  <span class="n">children</span>?: <span class="t">React</span>.<span class="t">ReactNode</span>;
+  <span class="n">className</span>?: <span class="t">string</span>;
+  <span class="n">style</span>?: <span class="t">React</span>.<span class="t">CSSProperties</span>;
+  <span class="c">// React 19: ref is a plain prop, no forwardRef needed</span>
+  <span class="n">ref</span>?: <span class="t">Ref</span>&lt;<span class="t">BaseButton</span>&gt;;
+}
+
+<span class="kw">export function</span> <span class="fn">Button</span>({
+  variant = <span class="s">'primary'</span>,
+  size = <span class="s">'md'</span>,
+  type = <span class="s">'button'</span>,
+  disabled = <span class="kw">false</span>,
+  onButtonClick,
+  children,
+  className,
+  style,
+  ref: <span class="n">externalRef</span>,
+}: <span class="t">ButtonProps</span>) {
+  <span class="c">// Internal ref for imperative hooks</span>
+  <span class="kw">const</span> <span class="n">innerRef</span> = <span class="fn">useRef</span>&lt;<span class="t">BaseButton</span> | <span class="k">null</span>&gt;(<span class="k">null</span>);
+
+  <span class="c">// Merge the internal ref with any ref the consumer passed in</span>
+  <span class="kw">const</span> <span class="n">mergedRef</span> = <span class="fn">useMergedRefs</span>(<span class="n">innerRef</span>, <span class="n">externalRef</span>);
+
+  <span class="c">// Set properties directly on the DOM element.</span>
+  <span class="c">// For primitives React 19 handles this via JSX, but doing it here</span>
+  <span class="c">// is explicit, SSR-safe, and works regardless of React version.</span>
+  <span class="fn">useCustomElementProperty</span>(<span class="n">innerRef</span>, <span class="s">'variant'</span>, <span class="n">variant</span>);
+  <span class="fn">useCustomElementProperty</span>(<span class="n">innerRef</span>, <span class="s">'size'</span>, <span class="n">size</span>);
+  <span class="fn">useCustomElementProperty</span>(<span class="n">innerRef</span>, <span class="s">'type'</span>, <span class="n">type</span>);
+  <span class="fn">useCustomElementProperty</span>(<span class="n">innerRef</span>, <span class="s">'disabled'</span>, <span class="n">disabled</span>);
+
+  <span class="c">// Subscribe to the custom event via the DOM, strongly typed</span>
+  <span class="fn">useCustomElementEvent</span>&lt;<span class="t">BaseButton</span>, <span class="t">BaseButtonClickDetail</span>&gt;(
+    <span class="n">innerRef</span>,
+    <span class="s">'base-button:click'</span>,
+    <span class="n">onButtonClick</span> ? (<span class="n">e</span>) => <span class="fn">onButtonClick</span>(<span class="n">e</span>.<span class="n">detail</span>) : <span class="k">undefined</span>
+  );
+
+  <span class="kw">return</span> (
+    &lt;<span class="t">base-button</span>
+      <span class="n">ref</span>={<span class="n">mergedRef</span>}
+      <span class="n">class</span>={<span class="n">className</span>}
+      <span class="n">style</span>={<span class="n">style</span>}
+    &gt;
+      {<span class="n">children</span>}
+    &lt;/<span class="t">base-button</span>&gt;
+  );
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="file-tab-panel" id="rw-usecep">
+        <div class="code-block">
+          <div class="code-header">
+            <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+            <span class="code-filename">useCustomElementProperty.ts</span>
+            <span class="code-lang">TypeScript</span>
+          </div>
+          <pre><code><span class="kw">import</span> { <span class="t">RefObject</span>, useEffect } <span class="kw">from</span> <span class="s">'react'</span>;
+
+<span class="kw">export function</span> <span class="fn">useCustomElementProperty</span>&lt;
+  <span class="t">El</span> <span class="kw">extends</span> <span class="t">HTMLElement</span>,
+  <span class="t">K</span> <span class="kw">extends</span> <span class="kw">keyof</span> <span class="t">El</span>
+&gt;(
+  <span class="n">ref</span>: <span class="t">RefObject</span>&lt;<span class="t">El</span> | <span class="k">null</span>&gt;,
+  <span class="n">property</span>: <span class="t">K</span>,
+  <span class="n">value</span>: <span class="t">El</span>[<span class="t">K</span>]
+): <span class="kw">void</span> {
+  <span class="fn">useEffect</span>(() => {
+    <span class="kw">const</span> <span class="n">el</span> = <span class="n">ref</span>.<span class="n">current</span>;
+    <span class="kw">if</span> (<span class="n">el</span> !== <span class="k">null</span>) {
+      <span class="n">el</span>[<span class="n">property</span>] = <span class="n">value</span>;
+    }
+  }, [<span class="n">ref</span>, <span class="n">property</span>, <span class="n">value</span>]);
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="file-tab-panel" id="rw-usece">
+        <div class="code-block">
+          <div class="code-header">
+            <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+            <span class="code-filename">useCustomElementEvent.ts</span>
+            <span class="code-lang">TypeScript</span>
+          </div>
+          <pre><code><span class="kw">import</span> { <span class="t">RefObject</span>, useEffect } <span class="kw">from</span> <span class="s">'react'</span>;
+
+<span class="kw">export function</span> <span class="fn">useCustomElementEvent</span>&lt;
+  <span class="t">El</span> <span class="kw">extends</span> <span class="t">HTMLElement</span>,
+  <span class="t">D</span> = <span class="kw">unknown</span>
+&gt;(
+  <span class="n">ref</span>: <span class="t">RefObject</span>&lt;<span class="t">El</span> | <span class="k">null</span>&gt;,
+  <span class="n">eventName</span>: <span class="t">string</span>,
+  <span class="n">handler</span>: ((<span class="n">e</span>: <span class="t">CustomEvent</span>&lt;<span class="t">D</span>&gt;) => <span class="kw">void</span>) | <span class="k">undefined</span>
+): <span class="kw">void</span> {
+  <span class="fn">useEffect</span>(() => {
+    <span class="kw">const</span> <span class="n">el</span> = <span class="n">ref</span>.<span class="n">current</span>;
+    <span class="kw">if</span> (!<span class="n">el</span> || !<span class="n">handler</span>) <span class="kw">return</span>;
+
+    <span class="kw">const</span> <span class="n">listener</span> = (<span class="n">e</span>: <span class="t">Event</span>) =>
+      <span class="fn">handler</span>(<span class="n">e</span> <span class="k">as</span> <span class="t">CustomEvent</span>&lt;<span class="t">D</span>&gt;);
+
+    <span class="n">el</span>.<span class="fn">addEventListener</span>(<span class="n">eventName</span>, <span class="n">listener</span>);
+    <span class="kw">return</span> () => <span class="n">el</span>.<span class="fn">removeEventListener</span>(<span class="n">eventName</span>, <span class="n">listener</span>);
+  }, [<span class="n">ref</span>, <span class="n">eventName</span>, <span class="n">handler</span>]);
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="file-tab-panel" id="rw-usemerged">
+        <div class="code-block">
+          <div class="code-header">
+            <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+            <span class="code-filename">useMergedRefs.ts</span>
+            <span class="code-lang">TypeScript</span>
+          </div>
+          <pre><code><span class="kw">import</span> { <span class="t">Ref</span>, useCallback } <span class="kw">from</span> <span class="s">'react'</span>;
+
+<span class="kw">type</span> <span class="t">AnyRef</span>&lt;<span class="t">T</span>&gt; = <span class="t">Ref</span>&lt;<span class="t">T</span>&gt; | <span class="k">undefined</span> | <span class="k">null</span>;
+
+<span class="kw">export function</span> <span class="fn">useMergedRefs</span>&lt;<span class="t">T</span>&gt;(
+  ...<span class="n">refs</span>: <span class="t">AnyRef</span>&lt;<span class="t">T</span>&gt;[]
+): (<span class="n">node</span>: <span class="t">T</span> | <span class="k">null</span>) => <span class="kw">void</span> {
+  <span class="c">// eslint-disable-next-line react-hooks/exhaustive-deps</span>
+  <span class="kw">return</span> <span class="fn">useCallback</span>((<span class="n">node</span>: <span class="t">T</span> | <span class="k">null</span>) => {
+    <span class="kw">for</span> (<span class="kw">const</span> <span class="n">ref</span> <span class="kw">of</span> <span class="n">refs</span>) {
+      <span class="kw">if</span> (!<span class="n">ref</span>) <span class="kw">continue</span>;
+      <span class="kw">if</span> (<span class="kw">typeof</span> <span class="n">ref</span> === <span class="s">'function'</span>) {
+        <span class="fn">ref</span>(<span class="n">node</span>);
+      } <span class="kw">else</span> {
+        (<span class="n">ref</span> <span class="k">as</span> <span class="t">React</span>.<span class="t">RefObject</span>&lt;<span class="t">T</span> | <span class="k">null</span>&gt;).<span class="n">current</span> = <span class="n">node</span>;
+      }
+    }
+  }, <span class="n">refs</span>); <span class="c">// stable as long as the refs array members don't change</span>
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="file-tab-panel" id="rw-app">
+        <div class="code-block">
+          <div class="code-header">
+            <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+            <span class="code-filename">App.tsx</span>
+            <span class="code-lang">TypeScript · React</span>
+          </div>
+          <pre><code><span class="kw">import</span> { useRef } <span class="kw">from</span> <span class="s">'react'</span>;
+<span class="kw">import</span> { <span class="t">Button</span> } <span class="kw">from</span> <span class="s">'./Button'</span>;
+<span class="kw">import</span> { <span class="t">BaseButtonClickDetail</span> } <span class="kw">from</span> <span class="s">'./base-button'</span>;
+
+<span class="kw">function</span> <span class="fn">App</span>() {
+  <span class="kw">const</span> <span class="n">btnRef</span> = <span class="fn">useRef</span>&lt;<span class="t">BaseButton</span> | <span class="k">null</span>&gt;(<span class="k">null</span>);
+
+  <span class="kw">const</span> <span class="fn">handleClick</span> = (<span class="n">detail</span>: <span class="t">BaseButtonClickDetail</span>) => {
+    <span class="n">console</span>.<span class="fn">log</span>(<span class="s">'clicked'</span>, <span class="n">detail</span>.<span class="n">variant</span>);
+  };
+
+  <span class="kw">return</span> (
+    &lt;<span class="t">Button</span>
+      <span class="n">ref</span>={<span class="n">btnRef</span>}
+      <span class="n">variant</span>=<span class="s">"primary"</span>
+      <span class="n">size</span>=<span class="s">"lg"</span>
+      <span class="n">onButtonClick</span>={<span class="fn">handleClick</span>}
+    &gt;
+      Save changes
+    &lt;/<span class="t">Button</span>&gt;
+  );
+}</code></pre>
+        </div>
+      </div>
+    </details>
+  </div>
+
+</main>
+
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+<script>
+  document.querySelectorAll('.file-group').forEach(function (group) {
+    var buttons = group.querySelectorAll('.file-tab-btn');
+    var panels = group.querySelectorAll('.file-tab-panel');
+    buttons.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        buttons.forEach(function (b) { b.classList.remove('active'); });
+        panels.forEach(function (p) { p.classList.remove('active'); });
+        btn.classList.add('active');
+        var panel = group.querySelector('#' + btn.dataset.target);
+        if (panel) panel.classList.add('active');
+      });
+    });
+  });
+</script>
+</body>
+</html>

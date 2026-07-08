@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Web Components from the Ground Up — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+<style>
+  /* ── Section mark on h2 ── */
+  h2::before {
+    content: '§';
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--accent);
+    margin-right: 0.5rem;
+    vertical-align: middle;
+    opacity: 0.5;
+  }
+
+  /* ── Full-source appendix: collapsible file groups with tabs ── */
+  .file-appendix {
+    max-width: var(--content-w);
+    margin: 20px 0;
+  }
+  .file-group {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .file-group + .file-group { margin-top: 14px; }
+  .file-group > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 14px 20px;
+    background: var(--surface-2);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .file-group > summary::-webkit-details-marker { display: none; }
+  .file-group > summary::after {
+    content: '+ expand';
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  .file-group[open] > summary::after { content: '\2212 collapse'; }
+  .file-group[open] > summary { border-bottom: 1px solid var(--border); }
+
+  .file-tab-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    padding: 0 8px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+  }
+  .file-tab-btn {
+    padding: 10px 14px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .file-tab-btn:hover { color: var(--text); }
+  .file-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .file-tab-panel { display: none; }
+  .file-tab-panel.active { display: block; }
+  .file-tab-panel .code-block {
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    max-width: none;
+  }
+</style>
+</head>
+
+<body>
+
+<!-- Mobile header -->
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Docs</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<!-- Sidebar -->
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+  <a href="#intro">Introduction</a>
+  <a href="#history">A brief history</a>
+  <a href="#what-are">What they are</a>
+  <a href="#vs-react">vs framework components</a>
+  <div class="sidebar-section">Custom Elements</div>
+  <a href="#custom-elements">Overview</a>
+  <a href="#defining">Defining elements</a>
+  <div class="sidebar-section">Shadow DOM</div>
+  <a href="#shadow-dom">Overview</a>
+  <a href="#css">Setting CSS</a>
+  <div class="sidebar-section">Templates</div>
+  <a href="#templates">HTML Templates</a>
+  <div class="sidebar-section">Building BaseButton</div>
+  <a href="#building">Start</a>
+  <a href="#lifecycle">Lifecycle callbacks</a>
+  <a href="#attrs">Observed attributes</a>
+  <a href="#properties">Properties</a>
+  <a href="#events">Custom events</a>
+  <a href="#full-component">Full component</a>
+  <div class="sidebar-section">Reference</div>
+  <a href="#full-source">Full source</a>
+</nav>
+
+<!-- Main -->
+<main>
+  <div class="eyebrow">Deep Dive · Web Platform</div>
+  <h1>Web Components from the Ground Up</h1>
+  <p class="subtitle">How custom elements, Shadow DOM, and HTML templates work at the platform level, built step by step into a real BaseButton component.</p>
+  <div class="byline"><strong>Deep dive</strong><div class="dot"></div><span>~15 min read</span><div class="dot"></div><span>Web Components</span><div class="dot"></div><span>June 2026</span></div>
+
+  <!-- ═══════════════════════════════════════════════════
+       INTRODUCTION
+  ════════════════════════════════════════════════════ -->
+  <section id="intro">
+    <p>
+      There is a moment every team eventually hits: a component library built in React is humming along as the design system's foundation, and then someone asks whether it could work in the Vue project, or the legacy jQuery app, or the server-rendered Astro site that marketing just launched. The honest answer, usually, is no. Not without rewriting it.
+    </p>
+    <p>
+      Web Components are the platform's answer to that problem. They are not a framework. They are a collection of browser APIs that let developers define custom, reusable HTML elements that work <em>anywhere HTML works</em>: in React, in Vue, in a plain HTML file, in an email renderer that supports custom elements. Understanding them is useful even for teams that live in React all day, since knowing where the framework ends and the platform begins clarifies what any given abstraction is actually doing.
+    </p>
+    <p>
+      This article covers every major Web Component API and builds a real <code>BaseButton</code> custom element step by step. The <a href="wrapping-web-components-in-react.html">companion article</a> picks it up from there and wraps it for first-class use in React.
+    </p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════
+       HISTORY
+  ════════════════════════════════════════════════════ -->
+  <h2 id="history">A brief history</h2>
+
+  <p>
+    The idea of extending HTML with custom tags is nearly as old as the web itself. In 2011, Alex Russell and the Chrome team at Google published the first draft of what they called "Web Components," a set of four related specifications:
+  </p>
+  <ul>
+    <li><strong>Custom Elements:</strong> define new HTML tags with their own behavior.</li>
+    <li><strong>Shadow DOM:</strong> encapsulated markup and styles that don't leak in or out.</li>
+    <li><strong>HTML Templates:</strong> inert, reusable markup fragments that get cloned into the page.</li>
+    <li><strong>HTML Imports:</strong> a way to load one HTML document from another, later dropped from the spec.</li>
+  </ul>
+  <p>
+    The ambition was enormous: a native component model for the web that required no build tools and no framework. Browser vendors disagreed on the details for years. Firefox and Apple resisted parts of the v0 API. HTML Imports were eventually dropped entirely. The community moved on to v1 of the spec in 2016, and by 2020 all major browsers had shipped compatible implementations. Google's Polymer library, which had been the de facto way to use Web Components during the turbulent v0 era, gave way to lighter libraries like Lit, FAST, and Stencil. Today the APIs are stable, well-supported, and genuinely pleasant to use.
+  </p>
+  <p>
+    What did not change over that decade is the core motivation: a way to package behaviour, markup, and styles together in a self-contained unit, without depending on any particular framework to parse or execute it.
+  </p>
+
+  <!-- ═══════════════════════════════════════════════════
+       WHAT ARE THEY
+  ════════════════════════════════════════════════════ -->
+  <h2 id="what-are">What they are and what they are good at</h2>
+
+  <p>
+    Web Components are built on three browser APIs that can be used independently or together:
+  </p>
+  <p>
+    <strong>Custom Elements</strong> let code define a new HTML tag (say, <code>&lt;base-button&gt;</code>) backed by a JavaScript class. The browser upgrades any matching element in the DOM by instantiating that class and calling lifecycle hooks.
+  </p>
+  <p>
+    <strong>Shadow DOM</strong> attaches a private subtree to an element. Styles defined inside the shadow root do not leak out, and external styles do not bleed in, which makes the component genuinely encapsulated.
+  </p>
+  <p>
+    <strong>HTML Templates</strong> provide a <code>&lt;template&gt;</code> element whose content is parsed but not rendered. Cloning it stamps out DOM cheaply and safely.
+  </p>
+  <p>
+    Web Components are strongest when a component needs to cross framework boundaries. A design system button, a date picker, a media player, a syntax highlighted code block: these are all good candidates. They are also a natural fit for teams that ship embeddable widgets, micro-frontends, or components that will outlive any particular framework choice.
+  </p>
+  <p>
+    They are less suited to application-level concerns: routing, global state, server data fetching. For those, use the framework that has already solved them well.
+  </p>
+
+  <!-- ═══════════════════════════════════════════════════
+       VS REACT
+  ════════════════════════════════════════════════════ -->
+  <h2 id="vs-react">How they differ from framework components</h2>
+
+  <p>
+    Component frameworks, React, Vue, Svelte, Angular, and the rest, look similar to Web Components on the surface: both encapsulate markup, behaviour, and optionally styles. But they operate at completely different layers.
+  </p>
+  <p>
+    A framework component, a React function, a Vue single-file component, a Svelte file, is understood and rendered by that framework's own runtime or compiler. It only exists inside that framework's tree. The framework, not the browser, manages its lifecycle: mounting, updating, and unmounting. Passing data in means passing values through whatever prop mechanism the framework defines, and responding to changes means re-rendering, or for a compiled framework like Svelte, running the specific DOM updates the compiler generated ahead of time.
+  </p>
+  <p>
+    A custom element, by contrast, is a browser citizen. The DOM itself manages its lifecycle. Data flows in through HTML attributes (strings) and JavaScript properties (any value), and its events are regular DOM events. React, Vue, Svelte, Angular, or plain JavaScript can all interact with it through the same DOM APIs used for a <code>&lt;div&gt;</code>.
+  </p>
+
+  <div class="callout info">
+    <div class="callout-title">Key distinction</div>
+    <p>Most frameworks manage some kind of intermediate representation that eventually maps to real DOM: a virtual DOM in React, a reactive dependency graph in Vue, compiled update instructions in Svelte. Custom elements <em>are</em> real DOM already. The browser manages them directly. When a custom element is used inside any of these frameworks, the framework still only sees an opaque DOM node. It has no awareness of the element's internal lifecycle or shadow DOM.</p>
+  </div>
+
+  <p>
+    This is why wrapping a Web Component for use in a framework like React, Vue, or Angular requires a little care: the gap between the framework's prop/event model and the DOM's attribute/property/event model has to be bridged manually. The <a href="wrapping-web-components-in-react.html">companion article</a> covers that bridge for React in detail.
+  </p>
+
+  <div class="divider"></div>
+
+  <!-- ═══════════════════════════════════════════════════
+       CUSTOM ELEMENTS
+  ════════════════════════════════════════════════════ -->
+  <h2 id="custom-elements">Custom Elements</h2>
+
+  <p>
+    The entry point to Web Components is <code>HTMLElement</code>. Every custom element extends it, either directly or through one of the specialised subclasses like <code>HTMLButtonElement</code>. Custom element tag names must contain a hyphen. This is a parsing rule that reserves single-word names for future HTML elements.
+  </p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">base-button.ts</span>
+      <span class="code-lang">TypeScript</span>
+    </div>
+    <pre><code><span class="kw">class</span> <span class="t">BaseButton</span> <span class="kw">extends</span> <span class="t">HTMLElement</span> {
+  <span class="c">// The browser calls this once, when the class is first defined.</span>
+  <span class="kw">constructor</span>() {
+    <span class="kw">super</span>(); <span class="c">// always first</span>
+  }
+}</code></pre>
+  </div>
+
+  <p>
+    The <code>super()</code> call is non-negotiable: it sets up the element's prototype chain and associates the instance with the underlying DOM node. Leave it out and the browser throws a <code>ReferenceError</code> before anything else can run.
+  </p>
+
+  <h3 id="defining">Defining elements</h3>
+
+  <p>
+    Once the class exists, it gets registered with the Custom Elements registry using <code>customElements.define</code>. From that moment forward, every <code>&lt;base-button&gt;</code> in the document (including ones already in the DOM) will be upgraded.
+  </p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">base-button.ts</span>
+      <span class="code-lang">TypeScript</span>
+    </div>
+    <pre><code><span class="c">// Pass the tag name, then the class. The name must contain a hyphen.</span>
+<span class="n">customElements</span>.<span class="fn">define</span>(<span class="s">'base-button'</span>, <span class="t">BaseButton</span>);</code></pre>
+  </div>
+
+  <p>
+    Registrations are permanent and global. An element cannot be undefined, and the same name cannot be redefined. In practice this means guarding against double-registration in module-heavy environments:
+  </p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">base-button.ts</span>
+      <span class="code-lang">TypeScript</span>
+    </div>
+    <pre><code><span class="kw">if</span> (!<span class="n">customElements</span>.<span class="fn">get</span>(<span class="s">'base-button'</span>)) {
+  <span class="n">customElements</span>.<span class="fn">define</span>(<span class="s">'base-button'</span>, <span class="t">BaseButton</span>);
+}</code></pre>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       SHADOW DOM
+  ════════════════════════════════════════════════════ -->
+  <h2 id="shadow-dom">Shadow DOM</h2>
+
+  <p>
+    Shadow DOM creates a separate DOM tree attached to an element. Code outside the component cannot query into it with <code>document.querySelector</code>, styles do not cross the boundary by default, and IDs inside the shadow root are scoped to it. This is real encapsulation: not naming conventions, not CSS Modules, not build-time transforms.
+  </p>
+  <p>
+    A shadow root gets attached inside the constructor:
+  </p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">base-button.ts</span>
+      <span class="code-lang">TypeScript</span>
+    </div>
+    <pre><code><span class="kw">class</span> <span class="t">BaseButton</span> <span class="kw">extends</span> <span class="t">HTMLElement</span> {
+  <span class="k">private</span> <span class="n">shadow</span>: <span class="t">ShadowRoot</span>;
+
+  <span class="kw">constructor</span>() {
+    <span class="kw">super</span>();
+    <span class="c">// 'open' lets JS outside the element reach shadow internals</span>
+    <span class="c">// via element.shadowRoot. Use 'closed' to prevent that.</span>
+    <span class="kw">this</span>.<span class="n">shadow</span> = <span class="kw">this</span>.<span class="fn">attachShadow</span>({ mode: <span class="s">'open'</span> });
+  }
+}</code></pre>
+  </div>
+
+  <p>
+    <code>mode: 'open'</code> is almost always the right choice. Closed shadow roots are a footgun. They break accessibility tools and testing libraries without providing meaningful security, since motivated code can always get around them.
+  </p>
+
+  <!-- ═══════════════════════════════════════════════════
+       CSS
+  ════════════════════════════════════════════════════ -->
+  <h2 id="css">Setting CSS</h2>
+
+  <p>
+    Styles inside a shadow root are written as regular CSS but are completely scoped. The <code>:host</code> pseudo-class styles the custom element itself (the outer DOM node) from within the shadow. The modern approach uses Constructable Stylesheets, which lets multiple elements share a single parsed stylesheet object rather than injecting a <code>&lt;style&gt;</code> tag per instance.
+  </p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">base-button.ts</span>
+      <span class="code-lang">TypeScript</span>
+    </div>
+    <pre><code><span class="c">// Create once at module scope so all instances share one stylesheet</span>
+<span class="kw">const</span> <span class="n">sheet</span> = <span class="kw">new</span> <span class="t">CSSStyleSheet</span>();
+<span class="n">sheet</span>.<span class="fn">replaceSync</span>(<span class="s">`
+  :host { display: inline-flex; cursor: pointer; }
+
+  /* Attribute selectors read state straight off the host element */
+  :host([variant="primary"]) button { background: #f0a500; }
+  :host([disabled]) { opacity: 0.45; pointer-events: none; }
+`</span>);
+
+<span class="c">// Adopt it in the constructor, so every instance shares one parsed sheet</span>
+<span class="kw">this</span>.<span class="n">shadow</span>.<span class="n">adoptedStyleSheets</span> = [<span class="n">sheet</span>];</code></pre>
+  </div>
+
+  <p>
+    CSS Custom Properties (variables) defined on <code>:host</code> or outside the component <em>do</em> cross the shadow boundary. This is intentional. It is the recommended way to expose a theming API from a Web Component: define <code>--base-button-radius</code> on <code>:host</code>, let consumers override it on the element or any ancestor.
+  </p>
+
+  <!-- ═══════════════════════════════════════════════════
+       TEMPLATES
+  ════════════════════════════════════════════════════ -->
+  <h2 id="templates">HTML Templates</h2>
+
+  <p>
+    A <code>&lt;template&gt;</code> element's content is a <code>DocumentFragment</code> that is parsed by the HTML parser but never rendered. Cloning it is cheap: no re-parsing, no layout, no paint. The <code>&lt;slot&gt;</code> element inside a template is a placeholder for light DOM children, which lets consumers of the component write natural HTML inside the tag.
+  </p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">base-button.ts</span>
+      <span class="code-lang">TypeScript</span>
+    </div>
+    <pre><code><span class="kw">const</span> <span class="n">template</span> = <span class="n">document</span>.<span class="fn">createElement</span>(<span class="s">'template'</span>);
+<span class="n">template</span>.<span class="n">innerHTML</span> = <span class="s">`
+  &lt;button part="button"&gt;
+    &lt;slot name="prefix"&gt;&lt;/slot&gt;
+    &lt;slot&gt;&lt;/slot&gt;
+    &lt;slot name="suffix"&gt;&lt;/slot&gt;
+  &lt;/button&gt;
+`</span>;
+
+<span class="c">// Inside the constructor, clone and append:</span>
+<span class="kw">this</span>.<span class="n">shadow</span>.<span class="fn">appendChild</span>(<span class="n">template</span>.<span class="n">content</span>.<span class="fn">cloneNode</span>(<span class="kw">true</span>));</code></pre>
+  </div>
+
+  <p>
+    The <code>part</code> attribute on the inner button is worth noting: it exposes a named part to the <code>::part()</code> CSS pseudo-element, letting consumers style internals from outside the shadow root in a controlled way.
+  </p>
+
+  <div class="divider"></div>
+
+  <!-- ═══════════════════════════════════════════════════
+       BUILDING BASEBUTTON
+  ════════════════════════════════════════════════════ -->
+  <h2 id="building">Building BaseButton: step by step</h2>
+
+  <p>
+    Now that the primitives are in place, it's time to build the component properly. What follows covers lifecycle callbacks, observed attributes, properties, and events in sequence, ending with the full component.
+  </p>
+
+  <!-- LIFECYCLE -->
+  <h3 id="lifecycle">Lifecycle callbacks</h3>
+
+  <p>
+    Custom elements have four lifecycle callbacks. Three of them matter in practice:
+  </p>
+  <p>
+    <strong><code>connectedCallback</code></strong> fires when the element is inserted into a document. This is the right place to attach event listeners, start observers, or render imperative content that depends on being in the DOM. Roughly comparable to a framework's mount phase: React's <code>useLayoutEffect</code> combined with component mount, Vue's <code>onMounted</code>, or Svelte's <code>onMount</code>.
+  </p>
+  <p>
+    <strong><code>disconnectedCallback</code></strong> fires when the element is removed from a document. Clean up event listeners and any external subscriptions here. Roughly comparable to a framework's unmount phase: the cleanup function returned from React's <code>useEffect</code>, Vue's <code>onUnmounted</code>, or Svelte's <code>onDestroy</code>.
+  </p>
+  <p>
+    <strong><code>attributeChangedCallback</code></strong> fires when one of the element's observed attributes changes. More on this shortly.
+  </p>
+  <p>
+    The fourth, <strong><code>adoptedCallback</code></strong>, fires when the element is moved into a different document (via <code>document.adoptNode</code>). This is rare in practice and rarely needed.
+  </p>
+
+  <div class="callout warn">
+    <div class="callout-title">A gotcha with connectedCallback</div>
+    <p>An element can be connected and disconnected multiple times, for example if it is moved in the DOM. Do not assume <code>connectedCallback</code> runs exactly once. Relatedly, listeners should always be removed in <code>disconnectedCallback</code>, even when the element seems permanent.</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">base-button.ts</span>
+      <span class="code-lang">TypeScript</span>
+    </div>
+    <pre><code><span class="kw">class</span> <span class="t">BaseButton</span> <span class="kw">extends</span> <span class="t">HTMLElement</span> {
+  <span class="k">private</span> <span class="n">shadow</span>: <span class="t">ShadowRoot</span>;
+  <span class="k">private</span> <span class="n">innerButton</span>: <span class="t">HTMLButtonElement</span> | <span class="k">null</span> = <span class="k">null</span>;
+
+  <span class="kw">constructor</span>() {
+    <span class="kw">super</span>();
+    <span class="kw">this</span>.<span class="n">shadow</span> = <span class="kw">this</span>.<span class="fn">attachShadow</span>({ mode: <span class="s">'open'</span> });
+    <span class="kw">this</span>.<span class="n">shadow</span>.<span class="n">adoptedStyleSheets</span> = [<span class="n">sheet</span>];
+    <span class="kw">this</span>.<span class="n">shadow</span>.<span class="fn">appendChild</span>(<span class="n">template</span>.<span class="n">content</span>.<span class="fn">cloneNode</span>(<span class="kw">true</span>));
+  }
+
+  <span class="fn">connectedCallback</span>() {
+    <span class="kw">this</span>.<span class="n">innerButton</span> = <span class="kw">this</span>.<span class="n">shadow</span>.<span class="fn">querySelector</span>(<span class="s">'button'</span>);
+    <span class="kw">this</span>.<span class="n">innerButton</span>?.<span class="fn">addEventListener</span>(<span class="s">'click'</span>, <span class="kw">this</span>.<span class="n">handleClick</span>);
+    <span class="kw">this</span>.<span class="fn">syncDisabled</span>();
+    <span class="kw">this</span>.<span class="fn">syncType</span>();
+  }
+
+  <span class="fn">disconnectedCallback</span>() {
+    <span class="kw">this</span>.<span class="n">innerButton</span>?.<span class="fn">removeEventListener</span>(<span class="s">'click'</span>, <span class="kw">this</span>.<span class="n">handleClick</span>);
+    <span class="kw">this</span>.<span class="n">innerButton</span> = <span class="k">null</span>;
+  }
+}</code></pre>
+  </div>
+
+  <!-- OBSERVED ATTRIBUTES -->
+  <h3 id="attrs">Observed attributes and attributeChangedCallback</h3>
+
+  <p>
+    Attributes on a custom element are always strings. Writing <code>&lt;base-button disabled&gt;</code> gives an attribute value of an empty string, not a boolean. The browser will only call <code>attributeChangedCallback</code> for attributes listed in the static <code>observedAttributes</code> array. Any attribute left off that list has its changes silently ignored.
+  </p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">base-button.ts</span>
+      <span class="code-lang">TypeScript</span>
+    </div>
+    <pre><code><span class="c">// Tell the browser which attributes to watch</span>
+<span class="k">static</span> <span class="fn">get</span> <span class="fn">observedAttributes</span>(): <span class="t">string</span>[] {
+  <span class="kw">return</span> [<span class="s">'disabled'</span>, <span class="s">'variant'</span>, <span class="s">'size'</span>, <span class="s">'type'</span>];
+}
+
+<span class="fn">attributeChangedCallback</span>(<span class="n">name</span>: <span class="t">string</span>) {
+  <span class="kw">if</span> (<span class="n">name</span> === <span class="s">'disabled'</span>) <span class="kw">this</span>.<span class="fn">syncDisabled</span>();
+  <span class="c">// 'type' gets the same treatment. 'variant' and 'size' are read</span>
+  <span class="c">// straight off the attribute in CSS, via :host([variant="…"])</span>
+}</code></pre>
+  </div>
+
+  <p>
+    Notice that <code>attributeChangedCallback</code> may fire <em>before</em> <code>connectedCallback</code>. This can happen when the element is parsed from HTML. Attributes are processed first. The sync methods guard against a null <code>innerButton</code> for exactly this reason.
+  </p>
+
+  <!-- PROPERTIES -->
+  <h3 id="properties">Properties and upgrading them</h3>
+
+  <p>
+    Attributes are a limited surface: they only accept strings, and they are part of the HTML serialisation. For richer data (booleans, numbers, objects), JavaScript properties get exposed on the element class instead. Properties and attributes should mirror each other for the common cases, using a pattern sometimes called "attribute/property reflection":
+  </p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">base-button.ts</span>
+      <span class="code-lang">TypeScript</span>
+    </div>
+    <pre><code><span class="kw">class</span> <span class="t">BaseButton</span> <span class="kw">extends</span> <span class="t">HTMLElement</span> {
+  <span class="c">// Expose a boolean `disabled` property that mirrors the attribute</span>
+  <span class="fn">get</span> <span class="fn">disabled</span>(): <span class="t">boolean</span> {
+    <span class="kw">return</span> <span class="kw">this</span>.<span class="fn">hasAttribute</span>(<span class="s">'disabled'</span>);
+  }
+  <span class="fn">set</span> <span class="fn">disabled</span>(<span class="n">value</span>: <span class="t">boolean</span>) {
+    <span class="n">value</span>
+      ? <span class="kw">this</span>.<span class="fn">setAttribute</span>(<span class="s">'disabled'</span>, <span class="s">''</span>)
+      : <span class="kw">this</span>.<span class="fn">removeAttribute</span>(<span class="s">'disabled'</span>);
+  }
+
+  <span class="c">// variant, size, and type follow the same get/set-through-attribute shape</span>
+}</code></pre>
+  </div>
+
+  <p>
+    There is a subtle problem here called the <strong>property upgrade timing issue</strong>. If someone sets <code>myButton.disabled = true</code> using JavaScript <em>before</em> the custom element class has been defined and the element upgraded, the property assignment goes to the raw DOM node as a plain expando, not through the class's setter. When the upgrade eventually happens, that setter never fires.
+  </p>
+  <p>
+    The fix is to check for and apply any pre-upgrade expando properties in <code>connectedCallback</code>. One TypeScript wrinkle: <code>disabled</code>, <code>variant</code>, <code>size</code>, and <code>type</code> are all required properties on the class, so a plain <code>delete this[prop]</code> fails to compile with <code>TS2790</code>, since the compiler only allows deleting properties it considers optional. <code>Reflect.deleteProperty</code> does the same thing at runtime without that restriction:
+  </p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">base-button.ts</span>
+      <span class="code-lang">TypeScript</span>
+    </div>
+    <pre><code><span class="k">private</span> <span class="fn">upgradeProperty</span>(<span class="n">prop</span>: <span class="kw">keyof</span> <span class="kw">this</span>) {
+  <span class="kw">if</span> (<span class="t">Object</span>.<span class="fn">prototype</span>.<span class="fn">hasOwnProperty</span>.<span class="fn">call</span>(<span class="kw">this</span>, <span class="n">prop</span>)) {
+    <span class="kw">const</span> <span class="n">value</span> = <span class="kw">this</span>[<span class="n">prop</span>];
+    <span class="c">// Required properties aren't optional in TS's eyes, so a plain</span>
+    <span class="c">// `delete this[prop]` fails to compile (TS2790). Reflect.deleteProperty</span>
+    <span class="c">// does the same job without fighting the type checker.</span>
+    <span class="t">Reflect</span>.<span class="fn">deleteProperty</span>(<span class="kw">this</span>, <span class="n">prop</span>); <span class="c">// remove the expando</span>
+    <span class="kw">this</span>[<span class="n">prop</span>] = <span class="n">value</span>;  <span class="c">// re-set through the class setter</span>
+  }
+}
+
+<span class="fn">connectedCallback</span>() {
+  <span class="kw">this</span>.<span class="fn">upgradeProperty</span>(<span class="s">'disabled'</span>);
+  <span class="kw">this</span>.<span class="fn">upgradeProperty</span>(<span class="s">'variant'</span>);
+  <span class="kw">this</span>.<span class="fn">upgradeProperty</span>(<span class="s">'size'</span>);
+  <span class="kw">this</span>.<span class="fn">upgradeProperty</span>(<span class="s">'type'</span>);
+  <span class="c">// ... rest of setup</span>
+}</code></pre>
+  </div>
+
+  <!-- EVENTS -->
+  <h3 id="events">Custom events</h3>
+
+  <p>
+    Web Components communicate outward through DOM events. The convention is to dispatch a <code>CustomEvent</code> with a namespaced name. Prefixing with the component name prevents collisions. Setting <code>composed: true</code> is required when an event originates within a shadow tree and must cross the shadow boundary. It is not strictly necessary when dispatching from the host element itself.
+  </p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">base-button.ts</span>
+      <span class="code-lang">TypeScript</span>
+    </div>
+    <pre><code><span class="c">// Type the detail payload for consumers</span>
+<span class="kw">interface</span> <span class="t">BaseButtonClickDetail</span> {
+  originalEvent: <span class="t">MouseEvent</span>;
+  variant: <span class="t">Variant</span>;
+  disabled: <span class="t">boolean</span>;
+}
+
+<span class="k">private</span> <span class="n">handleClick</span> = (<span class="n">e</span>: <span class="t">MouseEvent</span>) => {
+  <span class="c">// Prevent the native click from propagating out of the shadow</span>
+  <span class="n">e</span>.<span class="fn">stopPropagation</span>();
+
+  <span class="kw">const</span> <span class="n">detail</span>: <span class="t">BaseButtonClickDetail</span> = {
+    originalEvent: <span class="n">e</span>,
+    variant: <span class="kw">this</span>.<span class="n">variant</span>,
+    disabled: <span class="kw">this</span>.<span class="n">disabled</span>,
+  };
+
+  <span class="kw">this</span>.<span class="fn">dispatchEvent</span>(
+    <span class="kw">new</span> <span class="t">CustomEvent</span>&lt;<span class="t">BaseButtonClickDetail</span>&gt;(<span class="s">'base-button:click'</span>, {
+      detail,
+      bubbles:  <span class="kw">true</span>,
+      composed: <span class="kw">true</span>, <span class="c">// cross the shadow boundary</span>
+    })
+  );
+};
+
+<span class="c">// Arrow function stored as a class field so `this` is always bound,</span>
+<span class="c">// and so the exact same reference can be removed in disconnectedCallback.</span></code></pre>
+  </div>
+
+  <p>
+    The arrow function stored as a class field is important. A regular method reference (<code>this.handleClick</code>) would require each call to <code>addEventListener</code> and <code>removeEventListener</code> to use the same bound reference, a common source of listener leaks.
+  </p>
+
+  <!-- FULL COMPONENT -->
+  <h3 id="full-component">The full component</h3>
+
+  <p>
+    Every piece covered so far (the shared stylesheet, the template, the lifecycle callbacks, the observed attributes, the property accessors, the upgrade guard, and the click handler) lives on the same class. The registration guard at the bottom avoids the "already defined" error that shows up in hot-reloading dev environments. The complete, unabridged file is in the <a href="#full-source">full source</a> section below.
+  </p>
+
+  <div class="divider"></div>
+
+  <p>
+    That's the complete platform-level picture: a custom element with encapsulated styles, a template-based shadow DOM, typed properties, and a custom event. It runs in any framework, or none at all, with no build step required beyond compiling the TypeScript itself.
+  </p>
+  <p>
+    The same kind of bridging is needed for any component framework: typed props, forwarded refs or bindings, and glue code that reconciles the framework's render model with the DOM's imperative one. The companion article, <a href="wrapping-web-components-in-react.html">Wrapping Web Components in React</a>, works through that bridge for React specifically.
+  </p>
+
+  <div class="divider"></div>
+
+  <!-- ═══════════════════════════════════════════════════
+       FULL SOURCE
+  ════════════════════════════════════════════════════ -->
+  <h2 id="full-source">Full source</h2>
+
+  <p>
+    The complete <code>BaseButton</code> files, in one place. Collapsed by default: expand the group and switch between files with the tabs.
+  </p>
+
+  <div class="file-appendix">
+    <details class="file-group">
+      <summary>Web Components files</summary>
+      <div class="file-tab-nav">
+        <button class="file-tab-btn active" data-target="wc-base-button-ts">base-button.ts</button>
+        <button class="file-tab-btn" data-target="wc-base-button-dts">base-button.d.ts</button>
+      </div>
+
+      <div class="file-tab-panel active" id="wc-base-button-ts">
+        <div class="code-block">
+          <div class="code-header">
+            <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+            <span class="code-filename">base-button.ts</span>
+            <span class="code-lang">TypeScript</span>
+          </div>
+          <pre><code><span class="kw">type</span> <span class="t">Variant</span> = <span class="s">'primary'</span> | <span class="s">'secondary'</span> | <span class="s">'ghost'</span>;
+<span class="kw">type</span> <span class="t">Size</span>    = <span class="s">'sm'</span> | <span class="s">'md'</span> | <span class="s">'lg'</span>;
+<span class="kw">type</span> <span class="t">BtnType</span> = <span class="s">'button'</span> | <span class="s">'submit'</span> | <span class="s">'reset'</span>;
+
+<span class="kw">export interface</span> <span class="t">BaseButtonClickDetail</span> {
+  originalEvent: <span class="t">MouseEvent</span>;
+  variant: <span class="t">Variant</span>;
+  disabled: <span class="t">boolean</span>;
+}
+
+<span class="c">// ── Shared stylesheet ──────────────────────────────────</span>
+<span class="kw">const</span> <span class="n">sheet</span> = <span class="kw">new</span> <span class="t">CSSStyleSheet</span>();
+<span class="n">sheet</span>.<span class="fn">replaceSync</span>(<span class="s">`
+  :host {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+    cursor: pointer;
+    border-radius: var(--base-button-radius, 6px);
+  }
+  :host([disabled]) { opacity: 0.45; pointer-events: none; }
+  :host([variant="primary"]) button,
+  :host(:not([variant])) button { background: #f0a500; color: #0d0f14; }
+  :host([variant="secondary"]) button {
+    background: transparent; border: 1.5px solid #f0a500; color: #f0a500;
+  }
+  :host([variant="ghost"]) button { background: transparent; color: #c8ccd8; }
+  :host([size="sm"]) button { padding: 0.3em 0.75em; font-size: 0.8rem; }
+  :host(:not([size])) button,
+  :host([size="md"]) button { padding: 0.5em 1.1em; font-size: 0.9rem; }
+  :host([size="lg"]) button { padding: 0.7em 1.5em; font-size: 1rem; }
+  button {
+    all: unset; cursor: inherit; width: 100%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-weight: 500; border-radius: inherit; gap: 0.5em;
+  }
+`</span>);
+
+<span class="c">// ── Template ───────────────────────────────────────────</span>
+<span class="kw">const</span> <span class="n">template</span> = <span class="n">document</span>.<span class="fn">createElement</span>(<span class="s">'template'</span>);
+<span class="n">template</span>.<span class="n">innerHTML</span> = <span class="s">`
+  &lt;button part="button"&gt;
+    &lt;slot name="prefix"&gt;&lt;/slot&gt;
+    &lt;slot&gt;&lt;/slot&gt;
+    &lt;slot name="suffix"&gt;&lt;/slot&gt;
+  &lt;/button&gt;
+`</span>;
+
+<span class="c">// ── Element class ──────────────────────────────────────</span>
+<span class="kw">export class</span> <span class="t">BaseButton</span> <span class="kw">extends</span> <span class="t">HTMLElement</span> {
+  <span class="k">static</span> <span class="k">readonly</span> <span class="n">tagName</span> = <span class="s">'base-button'</span>;
+
+  <span class="k">static</span> <span class="fn">get</span> <span class="fn">observedAttributes</span>() {
+    <span class="kw">return</span> [<span class="s">'disabled'</span>, <span class="s">'variant'</span>, <span class="s">'size'</span>, <span class="s">'type'</span>] <span class="k">as</span> <span class="kw">const</span>;
+  }
+
+  <span class="k">private</span> <span class="n">shadow</span>: <span class="t">ShadowRoot</span>;
+  <span class="k">private</span> <span class="n">innerButton</span>: <span class="t">HTMLButtonElement</span> | <span class="k">null</span> = <span class="k">null</span>;
+
+  <span class="kw">constructor</span>() {
+    <span class="kw">super</span>();
+    <span class="kw">this</span>.<span class="n">shadow</span> = <span class="kw">this</span>.<span class="fn">attachShadow</span>({ mode: <span class="s">'open'</span> });
+    <span class="kw">this</span>.<span class="n">shadow</span>.<span class="n">adoptedStyleSheets</span> = [<span class="n">sheet</span>];
+    <span class="kw">this</span>.<span class="n">shadow</span>.<span class="fn">appendChild</span>(<span class="n">template</span>.<span class="n">content</span>.<span class="fn">cloneNode</span>(<span class="kw">true</span>));
+  }
+
+  <span class="c">// ── Lifecycle ──────────────────────────────────────────</span>
+  <span class="fn">connectedCallback</span>() {
+    <span class="kw">this</span>.<span class="fn">upgradeProperty</span>(<span class="s">'disabled'</span>);
+    <span class="kw">this</span>.<span class="fn">upgradeProperty</span>(<span class="s">'variant'</span>);
+    <span class="kw">this</span>.<span class="fn">upgradeProperty</span>(<span class="s">'size'</span>);
+    <span class="kw">this</span>.<span class="fn">upgradeProperty</span>(<span class="s">'type'</span>);
+
+    <span class="kw">this</span>.<span class="n">innerButton</span> = <span class="kw">this</span>.<span class="n">shadow</span>.<span class="fn">querySelector</span>(<span class="s">'button'</span>);
+    <span class="kw">this</span>.<span class="n">innerButton</span>?.<span class="fn">addEventListener</span>(<span class="s">'click'</span>, <span class="kw">this</span>.<span class="n">handleClick</span>);
+    <span class="kw">this</span>.<span class="fn">syncAll</span>();
+  }
+
+  <span class="fn">disconnectedCallback</span>() {
+    <span class="kw">this</span>.<span class="n">innerButton</span>?.<span class="fn">removeEventListener</span>(<span class="s">'click'</span>, <span class="kw">this</span>.<span class="n">handleClick</span>);
+    <span class="kw">this</span>.<span class="n">innerButton</span> = <span class="k">null</span>;
+  }
+
+  <span class="fn">attributeChangedCallback</span>(
+    <span class="n">name</span>: <span class="t">string</span>,
+    <span class="n">_old</span>: <span class="t">string</span> | <span class="k">null</span>,
+    <span class="n">_next</span>: <span class="t">string</span> | <span class="k">null</span>
+  ) {
+    <span class="kw">if</span> (<span class="n">name</span> === <span class="s">'disabled'</span>) <span class="kw">this</span>.<span class="fn">syncDisabled</span>();
+    <span class="kw">if</span> (<span class="n">name</span> === <span class="s">'type'</span>) <span class="kw">this</span>.<span class="fn">syncType</span>();
+  }
+
+  <span class="c">// ── Properties ────────────────────────────────────────</span>
+  <span class="fn">get</span> <span class="fn">disabled</span>() { <span class="kw">return</span> <span class="kw">this</span>.<span class="fn">hasAttribute</span>(<span class="s">'disabled'</span>); }
+  <span class="fn">set</span> <span class="fn">disabled</span>(<span class="n">v</span>: <span class="t">boolean</span>) {
+    <span class="n">v</span> ? <span class="kw">this</span>.<span class="fn">setAttribute</span>(<span class="s">'disabled'</span>, <span class="s">''</span>) : <span class="kw">this</span>.<span class="fn">removeAttribute</span>(<span class="s">'disabled'</span>);
+  }
+
+  <span class="fn">get</span> <span class="fn">variant</span>(): <span class="t">Variant</span> {
+    <span class="kw">return</span> (<span class="kw">this</span>.<span class="fn">getAttribute</span>(<span class="s">'variant'</span>) ?? <span class="s">'primary'</span>) <span class="k">as</span> <span class="t">Variant</span>;
+  }
+  <span class="fn">set</span> <span class="fn">variant</span>(<span class="n">v</span>: <span class="t">Variant</span>) { <span class="kw">this</span>.<span class="fn">setAttribute</span>(<span class="s">'variant'</span>, <span class="n">v</span>); }
+
+  <span class="fn">get</span> <span class="fn">size</span>(): <span class="t">Size</span> {
+    <span class="kw">return</span> (<span class="kw">this</span>.<span class="fn">getAttribute</span>(<span class="s">'size'</span>) ?? <span class="s">'md'</span>) <span class="k">as</span> <span class="t">Size</span>;
+  }
+  <span class="fn">set</span> <span class="fn">size</span>(<span class="n">v</span>: <span class="t">Size</span>) { <span class="kw">this</span>.<span class="fn">setAttribute</span>(<span class="s">'size'</span>, <span class="n">v</span>); }
+
+  <span class="fn">get</span> <span class="fn">type</span>(): <span class="t">BtnType</span> {
+    <span class="kw">return</span> (<span class="kw">this</span>.<span class="fn">getAttribute</span>(<span class="s">'type'</span>) ?? <span class="s">'button'</span>) <span class="k">as</span> <span class="t">BtnType</span>;
+  }
+  <span class="fn">set</span> <span class="fn">type</span>(<span class="n">v</span>: <span class="t">BtnType</span>) { <span class="kw">this</span>.<span class="fn">setAttribute</span>(<span class="s">'type'</span>, <span class="n">v</span>); }
+
+  <span class="c">// ── Private helpers ────────────────────────────────────</span>
+  <span class="k">private</span> <span class="fn">upgradeProperty</span>(<span class="n">prop</span>: <span class="kw">keyof</span> <span class="kw">this</span>) {
+    <span class="kw">if</span> (<span class="t">Object</span>.<span class="n">prototype</span>.<span class="n">hasOwnProperty</span>.<span class="fn">call</span>(<span class="kw">this</span>, <span class="n">prop</span>)) {
+      <span class="kw">const</span> <span class="n">value</span> = <span class="kw">this</span>[<span class="n">prop</span>];
+      <span class="t">Reflect</span>.<span class="fn">deleteProperty</span>(<span class="kw">this</span>, <span class="n">prop</span>);
+      <span class="kw">this</span>[<span class="n">prop</span>] = <span class="n">value</span>;
+    }
+  }
+
+  <span class="k">private</span> <span class="fn">syncDisabled</span>() {
+    <span class="kw">if</span> (<span class="kw">this</span>.<span class="n">innerButton</span>) <span class="kw">this</span>.<span class="n">innerButton</span>.<span class="n">disabled</span> = <span class="kw">this</span>.<span class="n">disabled</span>;
+  }
+
+  <span class="k">private</span> <span class="fn">syncType</span>() {
+    <span class="kw">if</span> (<span class="kw">this</span>.<span class="n">innerButton</span>)
+      <span class="kw">this</span>.<span class="n">innerButton</span>.<span class="n">type</span> = <span class="kw">this</span>.<span class="n">type</span> <span class="k">as</span> <span class="t">HTMLButtonElement</span>[<span class="s">'type'</span>];
+  }
+
+  <span class="k">private</span> <span class="fn">syncAll</span>() {
+    <span class="kw">this</span>.<span class="fn">syncDisabled</span>();
+    <span class="kw">this</span>.<span class="fn">syncType</span>();
+  }
+
+  <span class="c">// ── Event handler ──────────────────────────────────────</span>
+  <span class="k">private</span> <span class="n">handleClick</span> = (<span class="n">e</span>: <span class="t">MouseEvent</span>) => {
+    <span class="n">e</span>.<span class="fn">stopPropagation</span>();
+    <span class="kw">this</span>.<span class="fn">dispatchEvent</span>(
+      <span class="kw">new</span> <span class="t">CustomEvent</span>&lt;<span class="t">BaseButtonClickDetail</span>&gt;(<span class="s">'base-button:click'</span>, {
+        detail: {
+          originalEvent: <span class="n">e</span>,
+          variant: <span class="kw">this</span>.<span class="n">variant</span>,
+          disabled: <span class="kw">this</span>.<span class="n">disabled</span>,
+        },
+        bubbles: <span class="kw">true</span>,
+        composed: <span class="kw">true</span>,
+      })
+    );
+  };
+}
+
+<span class="c">// ── Registration ───────────────────────────────────────</span>
+<span class="kw">if</span> (!<span class="n">customElements</span>.<span class="fn">get</span>(<span class="t">BaseButton</span>.<span class="n">tagName</span>)) {
+  <span class="n">customElements</span>.<span class="fn">define</span>(<span class="t">BaseButton</span>.<span class="n">tagName</span>, <span class="t">BaseButton</span>);
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="file-tab-panel" id="wc-base-button-dts">
+        <div class="code-block">
+          <div class="code-header">
+            <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+            <span class="code-filename">base-button.d.ts</span>
+            <span class="code-lang">TypeScript</span>
+          </div>
+          <pre><code><span class="kw">import</span> { <span class="t">BaseButton</span> } <span class="kw">from</span> <span class="s">'./base-button'</span>;
+
+<span class="kw">declare</span> <span class="k">global</span> {
+  <span class="c">// Allows: document.querySelector('base-button') → BaseButton</span>
+  <span class="kw">interface</span> <span class="t">HTMLElementTagNameMap</span> {
+    <span class="s">'base-button'</span>: <span class="t">BaseButton</span>;
+  }
+}</code></pre>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <p>
+    Note that this file deliberately stops at the DOM-level typing. It has no dependency on React or any other framework, so a project that only ever uses <code>&lt;base-button&gt;</code> from plain HTML or Vue never pulls in <code>@types/react</code>. The JSX-specific augmentation, which does need React's types, lives in the wrapper package covered in the <a href="wrapping-web-components-in-react.html#ts-types">companion article</a>.
+  </p>
+
+</main>
+
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+<script>
+  document.querySelectorAll('.file-group').forEach(function (group) {
+    var buttons = group.querySelectorAll('.file-tab-btn');
+    var panels = group.querySelectorAll('.file-tab-panel');
+    buttons.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        buttons.forEach(function (b) { b.classList.remove('active'); });
+        panels.forEach(function (p) { p.classList.remove('active'); });
+        btn.classList.add('active');
+        var panel = group.querySelector('#' + btn.dataset.target);
+        if (panel) panel.classList.add('active');
+      });
+    });
+  });
+</script>
+</body>
+</html>

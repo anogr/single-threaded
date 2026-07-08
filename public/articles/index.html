@@ -32,10 +32,17 @@
       </article>
 
       <article class="card teal" data-categories="web">
+        <div class="card-label">Web Platform</div>
+        <div class="card-title">Web Components from the Ground Up</div>
+        <p>How custom elements, Shadow DOM, and HTML templates work at the platform level, built step by step into a real component.</p>
+        <a class="card-link" href="web-components.html">Read &#8594;</a>
+      </article>
+
+      <article class="card purple" data-categories="web">
         <div class="card-label">Web Platform · React</div>
-        <div class="card-title">Web Components and React Wrappers</div>
-        <p>How to build reusable web components and integrate them with React.</p>
-        <a class="card-link" href="web-components-and-react.html">Read &#8594;</a>
+        <div class="card-title">Wrapping Web Components in React</div>
+        <p>How to wrap a custom element in a first-class React component, with TypeScript types, a forwarded ref, and typed custom events.</p>
+        <a class="card-link" href="wrapping-web-components-in-react.html">Read &#8594;</a>
       </article>
 
       <article class="card purple" data-categories="security auth">
@@ -133,6 +140,31 @@
         });
       }
 
+      function syncUrl() {
+        var params = new URLSearchParams(window.location.search);
+        if (active.size > 0) {
+          params.set('cat', Array.from(active).join(','));
+        } else {
+          params.delete('cat');
+        }
+        var query = params.toString();
+        var newUrl = window.location.pathname + (query ? '?' + query : '') + window.location.hash;
+        history.replaceState(null, '', newUrl);
+      }
+
+      function restoreFromUrl() {
+        var params = new URLSearchParams(window.location.search);
+        var cat = params.get('cat');
+        if (!cat) return;
+        var known = new Set(Array.from(chips).map(function (chip) { return chip.dataset.category; }));
+        cat.split(',').forEach(function (c) {
+          if (known.has(c)) active.add(c);
+        });
+        chips.forEach(function (chip) {
+          if (active.has(chip.dataset.category)) chip.classList.add('active');
+        });
+      }
+
       chips.forEach(function (chip) {
         chip.addEventListener('click', function () {
           var cat = chip.dataset.category;
@@ -144,8 +176,12 @@
             chip.classList.add('active');
           }
           applyFilter();
+          syncUrl();
         });
       });
+
+      restoreFromUrl();
+      applyFilter();
     })();
   </script>
 </body>
