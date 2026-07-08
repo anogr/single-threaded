@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI in Code Review: Where It Helps and Where Humans Still Decide — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+<style>
+  /* ── Concept card grid (article-local) ── */
+  .concept-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px;
+    margin: 20px 0;
+  }
+  @media (max-width: 900px) {
+    .concept-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+
+<body>
+
+<!-- Mobile header -->
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Docs</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+
+  <div class="sidebar-section">The Shift</div>
+  <a href="#bottleneck">From Writing Bottleneck to Review Bottleneck</a>
+
+  <div class="sidebar-section">How Tools Differ</div>
+  <a href="#tool-categories">Rule-Based, AI, and Hybrid Review</a>
+  <a href="#recall">Recall Over Precision</a>
+
+  <div class="sidebar-section">Practice</div>
+  <a href="#risk-based">A Risk-Based Review Strategy</a>
+  <a href="#human-review">Where Human Review Stays Non-Negotiable</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">AI · Quality &amp; Security</div>
+  <h1>AI in Code Review: <em>Where It Helps and Where Humans Still Decide</em></h1>
+  <p class="subtitle">The review bottleneck AI coding created, and a risk-based way to decide what still needs a human.</p>
+  <div class="byline"><strong>Deep dive</strong><div class="dot"></div><span>~9 min read</span><div class="dot"></div><span>Code review &amp; quality gates</span><div class="dot"></div><span>July 2026</span></div>
+
+  <p>A year or two ago, the bottleneck in software delivery was writing code. For teams that adopted AI coding assistants seriously, that bottleneck has since moved one step to the right: reviewing it. More code gets proposed than any team has time to read line by line, and the sheer volume has forced a rethink of what review is actually supposed to catch, and who or what should be catching it.</p>
+
+  <p>This article closes the loop on the rest of this series. The first covered configuring assistants, the second covered the workflows that get code to a reviewable state safely, the third covered what an agent can reach once it's connected to real systems. This one covers the last gate: what actually happens once a diff, human-authored or not, shows up for review, and how to decide, systematically, what needs a human's full attention and what doesn't.</p>
+
+  <div class="callout info">
+    <div class="callout-title">The deeper treatment promised earlier</div>
+    <p>The <a href="ai-coding-assistants.html#governance">governance basics</a> covered in the first article sketched a risk-based split between code that's fine to generate freely and code that needs a human first. This article is the fuller version of that idea, applied specifically to the review step itself.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="bottleneck">From Writing Bottleneck to Review Bottleneck</h2>
+  <p class="lede">Time-to-first-draft collapsed. That didn't make review faster, it just moved the queue.</p>
+
+  <p>A year ago, an AI-authored pull request was a rounding error on most teams. By 2026, more than one in five code reviews on GitHub involve an agent, and on some of the more aggressively AI-adopting teams, AI-assisted code accounts for somewhere between 40 and 60 percent of committed lines. That's a real acceleration in how fast a first draft shows up.</p>
+
+  <p>It hasn't translated into faster delivery in any simple sense, because the review step didn't get faster along with it. AI-generated pull requests wait something like four to six times longer to get picked up for review than human-written ones, and once someone actually looks, they're accepted far less often: roughly a third of the time, against better than four in five for human-authored PRs. The bottleneck didn't disappear when writing got faster. It moved to whoever has to read the result, and that person is now reading a lot more of it.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="tool-categories">Rule-Based, AI, and Hybrid Review</h2>
+  <p class="lede">A linter and an AI reviewer aren't competing at the same job. They're catching different classes of mistake.</p>
+
+  <p>Traditional static analysis, the kind tools like SonarQube have done for years, works off a fixed rulebook: thousands of known patterns, checked the same deterministic way every time. It's fast, predictable, and blind to anything the rulebook doesn't cover, including anything that depends on how a change relates to the rest of the codebase rather than how the changed lines look in isolation.</p>
+
+  <p>AI-based review works from the opposite direction. Rather than matching a diff against a fixed rule set, it reasons over the change in the context of the surrounding repository. Tools built around this, Qodo is one concrete example, differentiate specifically on that kind of understanding: catching a breaking change to a function other services still call the old way, logic that already exists somewhere else in the repo under a different name, or a new pattern that quietly drifts from an established convention. None of that is a rule that can be written down in advance. It depends entirely on what the rest of the codebase actually looks like right now.</p>
+
+  <p>Increasingly, pipelines run both rather than choosing one. DeepSource is a concrete example of the shape this takes: a deterministic rule engine, thousands of rules across dozens of languages, runs first and catches everything it structurally can. Only after that does an AI pass, working with full codebase context, take a look for the issues the rule engine can't be written to find.</p>
+
+  <p>What gets reviewed has widened too. A diff that includes new tests raises a question neither a linter nor an ordinary reading catches reliably: does the new test actually verify anything, or does it just execute the code and pass? Some review pipelines now run a mutation-testing pass specifically against AI-generated tests, deliberately breaking the code under test and confirming the suite notices, the same check covered in more depth in <a href="agentic-coding-workflows.html#tests-from-specs">the workflows article</a>. A test suite that passes without ever failing on a genuine bug is a coverage number with nothing behind it.</p>
+
+  <div class="concept-grid">
+    <div class="card blue">
+      <div class="card-label">Rule-based</div>
+      <div class="card-title">Fixed rulebook</div>
+      <p>Fast, deterministic, the same result every time. Catches known patterns reliably. Blind to anything outside the rulebook or dependent on the rest of the codebase.</p>
+    </div>
+    <div class="card teal">
+      <div class="card-label">AI-based</div>
+      <div class="card-title">Reasons over context</div>
+      <p>Understands how a change relates to the rest of the repository: breaking changes, duplicated logic, architectural drift. Slower and less predictable than a fixed rule.</p>
+    </div>
+    <div class="card purple">
+      <div class="card-label">Hybrid</div>
+      <div class="card-title">Rules first, AI second</div>
+      <p>A deterministic pass catches what it reliably can, before an AI pass spends its effort on the context-dependent issues the rule engine was never going to find.</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="recall">Recall Over Precision</h2>
+  <p class="lede">The design principle behind a review tool actually worth trusting at the point where code merges.</p>
+
+  <p>Precision and recall pull in different directions. Precision asks: of the things a tool flagged, how many were real problems? Recall asks: of the real problems that existed, how many did it actually flag? A traditional linter tends to optimize for precision, minimizing false alarms, because it isn't the last line of defense and a missed issue elsewhere still has other chances to get caught.</p>
+
+  <p>At the merge boundary, that calculation flips. A false positive costs a developer a moment's attention and gets filtered out before anything ships. A missed real vulnerability rides straight through to production, where the cost of finding out is dramatically higher than the cost of a little extra noise during review. A review tool tuned for recall accepts more false alarms in exchange for catching more of what actually matters, and pushes the job of filtering that noise to a separate pass rather than asking the reviewer itself to be conservative about what it flags.</p>
+
+  <p>The two goals don't have to trade off as sharply as they first appear to. Recent hybrid approaches, combining a language model's judgment with deterministic static analysis, have reported eliminating the large majority of false positives, in the range of 94 to 98 percent in one recent study, while keeping recall high. Catching broadly and staying quiet about noise turn out to be a solvable combination, not an inherent tradeoff.</p>
+
+  <p>The reason recall matters this much isn't hypothetical. Industry survey data through 2026 finds nearly all developers saying they don't fully trust that AI-generated code is functionally correct, yet under half say they always check it before committing. That gap, distrust that doesn't translate into a matching habit of verification, is precisely what a recall-oriented tool sitting in the merge path is meant to close. It doesn't require every developer to close the gap themselves through discipline. It closes it structurally, by catching what a rushed or skipped check would have missed.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="risk-based">A Risk-Based Review Strategy</h2>
+  <p class="lede">Given more code arrives than time exists to read all of it with equal care, the practical answer is deciding in advance what deserves that care.</p>
+
+  <p>Not all code carries the same cost if something slips through. Scaffolding, test fixtures, boilerplate, and documentation are quick to verify by running rather than reading closely, and cheap to redo if something's wrong. Authentication logic, payment handling, data validation, and anything touching personally identifiable information sit at the other end, not because an assistant writes obviously worse code there, but because a mistake is both harder to spot in review and far more expensive once it ships.</p>
+
+  <p>Large-scale audits of production codebases through 2026 give that high end of the tier a sharper edge than intuition alone would. One widely cited analysis found privilege-escalation paths and architectural design flaws showing up several times more often in AI-generated code than in comparable human-written code. None of that shows up by skimming a diff, it shows up by specifically looking for it, which is the entire argument for routing exactly this category to a named human rather than trusting a generally clean-looking review.</p>
+
+  <p>A workable version of this in practice routes different tiers to genuinely different review paths, rather than applying the same process to everything and hoping reviewers naturally spend more attention where it matters:</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Risk tier</th><th>Examples</th><th>Review path</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Low</td><td>Scaffolding, test fixtures, boilerplate, docs</td><td>AI review only<br><span class="badge badge-green">Auto-merge OK</span></td></tr>
+        <tr><td>Medium</td><td>Everyday feature code, most bug fixes</td><td>AI review, plus one human approver</td></tr>
+        <tr><td>High</td><td>Auth, payments, data validation, PII handling</td><td>AI review as a first pass only<br><span class="badge badge-red">Named human required</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>The point of the high tier isn't that the AI's review gets ignored. It's that a clean AI review is never sufficient on its own to merge, regardless of how thorough that review looks, because the cost of being wrong there is categorically different from being wrong in a test fixture.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="human-review">Where Human Review Stays Non-Negotiable</h2>
+  <p class="lede">Even a very good AI reviewer has a blind spot no amount of codebase context fixes.</p>
+
+  <p>An AI review tool reads the diff and the repository around it. It doesn't read the linked ticket, the Slack thread where a workaround got debated, or the reason a particular tradeoff was accepted six months ago and never revisited. It reviews code without knowing why the code exists, which is exactly the kind of context a human reviewer on the team already has, or can go find.</p>
+
+  <p>Architectural decisions fall firmly in this category, along with anything where a team's specific risk appetite matters more than a general best practice a model has absorbed from countless other codebases. The most reliable setups treat an AI reviewer's output as one more input into a human's judgment, not a replacement for it, and reserve unconditional human sign-off for exactly the risk tier where being wrong is genuinely expensive. None of this replaces reading the code that matters. It just changes, correctly, how much of it a human needs to read first.</p>
+
+</main>
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+
+</body>
+</html>

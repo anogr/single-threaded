@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Coding Assistants: Tools and Configuration — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+<style>
+  /* ── Concept card grid (2 or 3 col, article-local) ── */
+  .concept-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 20px 0;
+  }
+  .concept-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+  @media (max-width: 900px) {
+    .concept-grid,
+    .concept-grid.cols-3 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+
+<body>
+
+<!-- Mobile header -->
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Docs</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+
+  <div class="sidebar-section">Landscape</div>
+  <a href="#spectrum">From Autocomplete to Agent</a>
+  <a href="#context-window">How an Agent Sees a Repository</a>
+
+  <div class="sidebar-section">Configuration</div>
+  <a href="#context-files">Context Files: CLAUDE.md &amp; AGENTS.md</a>
+  <a href="#what-belongs">What Belongs in a Context File</a>
+  <a href="#ai-docs">Keeping Documentation in Sync</a>
+  <a href="#bridging">Working Across Multiple Tools</a>
+
+  <div class="sidebar-section">Practical Concerns</div>
+  <a href="#cost">Cost &amp; Token Efficiency</a>
+  <a href="#payoff">Where This Actually Pays Off</a>
+
+  <div class="sidebar-section">Governance</div>
+  <a href="#governance">Governance Basics</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">AI · Developer Tooling</div>
+  <h1>AI Coding Assistants: <em>From Autocomplete to Agent</em></h1>
+  <p class="subtitle">How AI coding assistants evolved from autocomplete to repository-aware agents, and how context files decide whether they actually help.</p>
+  <div class="byline"><strong>Deep dive</strong><div class="dot"></div><span>~15 min read</span><div class="dot"></div><span>AI-assisted development</span><div class="dot"></div><span>July 2026</span></div>
+
+  <p>Two years ago, an AI coding assistant meant autocomplete: a suggestion appearing mid-line, accepted with Tab or ignored. In 2026 the term covers something much bigger. The same class of tool can now read an entire repository, plan a multi-file change, edit every file that change touches, run the test suite, and fix what it broke, all without a human approving each individual step. That range, from a single-line suggestion to an unsupervised multi-file edit, is why configuring one of these tools means something different depending on which end of the range is in use.</p>
+
+  <p>This article covers that range and what it means in practice: how an assistant decides what part of a codebase it can actually see, the context files that have become the main way to steer that behavior, what a token budget costs at team scale, and the governance decisions worth settling before agent-authored code gets anywhere near production.</p>
+
+  <div class="callout info">
+    <div class="callout-title">A note on terms</div>
+    <p>This article uses <strong>assistant</strong> as the umbrella term for any AI tool wired into an editor or terminal, and <strong>agent</strong> specifically for one operating in a loop: planning, editing, running commands, and reacting to the result, without a human approving each individual step. Most current tools support both modes and let the developer choose per task.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="spectrum">From Autocomplete to Agent</h2>
+  <p class="lede">The tools share a name but not a unit of work. Some finish your sentence. Others finish your ticket.</p>
+
+  <p>The oldest form is inline completion. The model predicts the next few tokens as you type, working from whatever's already open in the editor plus a modest lookaround. It's the least disruptive mode and the easiest to trust, because a rejected suggestion costs nothing and an accepted one is reviewed the instant it lands.</p>
+
+  <p>Chat-based assistance sits a step up. A developer asks a question or pastes an error, the model answers with an explanation or a proposed diff, and the developer decides whether to apply it. The unit of work is still small, usually a function or a file, and a human is in the loop on every exchange.</p>
+
+  <p>Agentic tools operate on a bigger unit: an entire task. Point one at a bug report or a short feature description, and it reads the relevant files, forms a plan, edits across as many files as the change touches, runs the build and test suite, and iterates on failures on its own. Cursor, Claude Code, Codex, GitHub Copilot's agent mode, and Cline all work this way today, alongside the same tools' older completion and chat features. The human's job shifts from writing every line to reviewing a finished plan or a finished diff.</p>
+
+  <p>The line between these modes has started to blur in practice. Many agentic tools now support a plan-first pattern: ask for a change, and instead of executing immediately, the tool proposes a plan and pauses for approval before touching a single file. That's a chat-like checkpoint bolted onto agent-like execution, and it's quickly becoming the default rather than a special mode, since letting an agent run fully unsupervised on a repository people actually depend on turns out to work better with a checkpoint in the middle than without one.</p>
+
+  <div class="concept-grid cols-3">
+    <div class="card blue">
+      <div class="card-label">Inline completion</div>
+      <div class="card-title">One token at a time</div>
+      <p>Predicts the next few characters or lines from open-file context. Lowest disruption, easiest to review since acceptance is instant and per line.</p>
+    </div>
+    <div class="card teal">
+      <div class="card-label">Chat / ask</div>
+      <div class="card-title">One exchange at a time</div>
+      <p>A question, an error, or a snippet goes in. An explanation or a proposed change comes back. The developer decides, per exchange, whether to apply it.</p>
+    </div>
+    <div class="card orange">
+      <div class="card-label">Agent</div>
+      <div class="card-title">One task at a time</div>
+      <p>Given a ticket or a bug report, it reads the repo, plans, edits multiple files, runs commands, and iterates on failures, then presents a finished result for review.</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="context-window">How an Agent Sees a Repository</h2>
+  <p class="lede">A model's context window is finite. Almost everything about configuring an agent well comes down to what fills it.</p>
+
+  <p>Every model has a maximum number of tokens it can hold in a single request: its context window. Older, file-by-file tools handled this simply. Whatever file is open, plus maybe a couple of explicitly referenced files, gets sent along with the prompt. That works fine for editing one function. It breaks down the moment a change spans a service boundary, a shared utility, and a test file the assistant never thought to open.</p>
+
+  <p>Repository-aware agents solve this with an indexing step that runs before any editing starts. Some build a semantic index of the codebase and retrieve the handful of files relevant to a task by meaning rather than by filename. Others give the model direct tools, a grep, a file listing, a code search command, and let it decide what to open, the same way a new hire explores an unfamiliar repository by searching and reading rather than being handed a curated file list. Either approach lets the assistant find a usage of a function three directories away from the one it's editing, something a file-by-file tool simply can't do.</p>
+
+  <p>This is also why a repository's size and structure matter more than they used to. A tangled monorepo with no clear module boundaries gives an agent a much harder job of deciding what's relevant, regardless of how capable the underlying model is.</p>
+
+  <p>Context windows have also grown substantially. Where a window of a few thousand tokens was typical a few years ago, current models comfortably hold hundreds of thousands, and some considerably more. That growth doesn't fully solve the retrieval problem on its own. A model handed an entire large codebase in one request still has to work out which parts of it actually matter to the task at hand, and long-context research consistently finds that information buried in the middle of a very long prompt gets weighed less reliably than information near the beginning or end. A bigger window makes brute-force inclusion possible. It doesn't make that a substitute for good retrieval.</p>
+
+  <div class="callout info">
+    <div class="callout-title">Context window vs. context file</div>
+    <p>The context window is a hard limit on how many tokens a single request can hold. A context file, covered next, is a document written once that gets loaded into that window every session. Confusing the two is an easy mistake to make: one is a constraint nobody controls, the other is a lever a team controls directly.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="context-files">Context Files: CLAUDE.md, AGENTS.md, and the Rest <span class="badge-new">2026</span></h2>
+  <p class="lede">If one file determines whether an agent behaves like a senior engineer on the project or a confused newcomer, this is it.</p>
+
+  <p>Nearly every agentic tool now reads a small instruction file from the root of a repository before starting work: a fixed place to put the context a human teammate would pick up during their first week. How the project is built, how tests are run, which conventions differ from the language's defaults, and which parts of the codebase are off-limits all belong here.</p>
+
+  <p>For a while, every vendor invented its own format. Claude Code reads <code>CLAUDE.md</code>. Cursor reads <code>.cursorrules</code>. GitHub Copilot reads a repository custom-instructions file. Maintaining three near-duplicate files that quietly drift out of sync was the predictable result.</p>
+
+  <p><code>AGENTS.md</code> is the answer that emerged to that problem: an open, plain-Markdown convention, backed initially by a group including Sourcegraph, OpenAI, Google, and Cursor, now governed by the Agentic AI Foundation under the Linux Foundation. More than thirty tools and agent frameworks read it today, including Codex, Copilot, Cursor, Gemini CLI, and VS Code. It has become the closest thing the ecosystem has to a shared standard, in much the same way a README is the default place any developer looks first.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>File</th><th>Native to</th><th>Cross-tool reach</th><th>Typical contents</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>AGENTS.md</code></td><td>No single vendor, open convention</td><td>dozens of tools</td><td>The shared, portable instruction set</td></tr>
+        <tr><td><code>CLAUDE.md</code></td><td>Claude Code</td><td>Claude Code natively, bridged elsewhere</td><td>Anthropic-specific conventions, tool permissions</td></tr>
+        <tr><td><code>.cursorrules</code></td><td>Cursor</td><td>Cursor only</td><td>Cursor-specific rule overrides</td></tr>
+        <tr><td>Copilot instructions</td><td>GitHub Copilot</td><td>Copilot only</td><td>Copilot-specific repository instructions</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Standardizing on a shared format also pays off at a scale beyond any single repository. A developer moving between projects, or between employers, already knows roughly where to look for the conventions that matter, the same way a README or a <code>package.json</code> is a known quantity before anyone opens it. That's a small thing per project, and a meaningful one across an entire engineering organization running many of them.</p>
+
+  <p>A minimal <code>AGENTS.md</code> is just a few headings of the kind a new engineer's onboarding doc would already have:</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">AGENTS.md</span>
+      <span class="code-lang">Markdown</span>
+    </div>
+    <pre><code># Project conventions
+
+## Build &amp; test
+- Install: pnpm install
+- Run tests: pnpm test -- --run
+- Lint: pnpm lint
+
+## Conventions
+- Components use function declarations, not arrow functions.
+- No default exports outside of route files.
+
+## Boundaries
+- Never edit files under generated/.
+- Database migrations require human review, don't run them automatically.</code></pre>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="what-belongs">What Actually Belongs in a Context File</h2>
+  <p class="lede">The instinct is to write down everything you know about the project. Resist it.</p>
+
+  <p>A context file competes for the same token budget as everything else in the request. A bloated one either gets truncated or crowds out the actual code the agent needs to read, so the useful content stays narrow: build and test commands with the exact flags a project needs, conventions that genuinely differ from the language or framework's defaults, architectural boundaries such as which service owns which data, and an explicit list of anything the agent should never touch on its own, database migrations, generated code, infrastructure definitions.</p>
+
+  <p>What doesn't belong is a restatement of the whole style guide. Modern models already write idiomatic code in whatever language they're given, so telling one to use camelCase in JavaScript spends tokens confirming something it already does. The same goes for restating framework documentation or explaining what a well-known library does. Save the file for the part that's actually specific to this codebase, usually a small fraction of everything a team could write down about it.</p>
+
+  <div class="concept-grid">
+    <div class="card green">
+      <div class="card-label">Specific to this repo</div>
+      <div class="card-title">Worth including</div>
+      <p>"API routes live under <code>src/routes</code> and must export a validation schema alongside the handler." Something a newcomer couldn't guess from the code alone.</p>
+    </div>
+    <div class="card red">
+      <div class="card-label">Already known</div>
+      <div class="card-title">Not worth including</div>
+      <p>"Use consistent indentation and meaningful variable names." The model already does this by default. Saying so just spends tokens confirming it.</p>
+    </div>
+  </div>
+
+  <p>A context file also needs upkeep. One written during a proof of concept and never touched again will confidently point an agent at a test command that was renamed six months ago, following it just as readily as it would follow an accurate one.</p>
+
+  <div class="callout warn">
+    <div class="callout-title">A stale file actively misleads</div>
+    <p>An agent has no way to know a context file is out of date. It will follow outdated build commands or references to a service that no longer exists just as confidently as it follows accurate ones, and produce something that looks deliberate but is quietly wrong. Treat the file like any other piece of the codebase: reviewed in pull requests, updated the moment a convention changes.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="ai-docs">Keeping Documentation in Sync</h2>
+  <p class="lede">A context file is one kind of document an agent reads. It's also, increasingly, a document an agent writes.</p>
+
+  <p>Docstrings, a README, an architecture decision record explaining why a service is split the way it is: all of these have the same failure mode as a context file. They're accurate the day someone writes them and quietly wrong some months later, once the code has moved on and nobody circled back to the prose describing it. An agent that can already read a diff and explain what changed is, for the same reason, reasonably good at drafting the documentation update that diff implies, provided a human still reads the result before it's treated as settled fact rather than a first draft.</p>
+
+  <p>Architecture decision records are the sharpest version of this. The traditional practice is to write one after a significant decision is made and let it sit as a historical record. What's changed by 2026 is treating that record's creation as a trigger rather than an afterthought: an instruction in the context file telling an agent to draft an ADR whenever it makes a change that affects a service boundary, a data model, or a dependency between modules, the same way a linter runs on every commit rather than whenever someone remembers to run it by hand. The record still gets a human review before it's accepted, the same as any other file, but the habit of writing one at all survives a lot better when producing the first draft costs a few seconds instead of an afternoon.</p>
+
+  <p>There's a second, quieter shift behind this. A traditional ADR is written for a future human maintainer trying to understand a past decision. Increasingly, the more useful version of that same document is written for a future agent: not just an explanation of what was decided and why, but an explicit constraint on what has to stay true regardless of who or what touches the code next, closer to an extension of the context file than a historical memo. The two audiences overlap enough that one well-written document usually serves both, but it's worth writing with the agent as a reader in mind, not just the person.</p>
+
+  <p>None of this is a reason to let documentation drift unreviewed just because producing it got cheaper. A survey-reported majority of developers say AI has genuinely improved documentation and test coverage on their teams, and a genuine improvement is exactly what's at stake if the first draft stops getting checked. Cheaper to produce isn't the same as safe to skip reading.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="bridging">Working Across Multiple Tools</h2>
+  <p class="lede">Most teams don't standardize on a single assistant. The instruction file shouldn't need rewriting for each one anyway.</p>
+
+  <p>It's common for one developer to prefer Cursor's inline editing, another to run Claude Code from a terminal for larger agentic tasks, and for the same team's CI pipeline to call a third tool for automated review. Maintaining a separate instruction file for each quickly turns into the same drift problem <code>AGENTS.md</code> was built to solve, just at team scale instead of vendor scale.</p>
+
+  <p>The practical pattern is to write one <code>AGENTS.md</code> and treat everything else as a thin pointer to it. As of mid-2026, Claude Code doesn't read <code>AGENTS.md</code> natively, so a project that has already adopted the shared file bridges it with a one-line <code>CLAUDE.md</code> that imports it:</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">CLAUDE.md</span>
+      <span class="code-lang">Markdown</span>
+    </div>
+    <pre><code>@AGENTS.md</code></pre>
+  </div>
+
+  <p>Running <code>/init</code> in a repository that already has an <code>AGENTS.md</code> has a similar effect, folding the shared instructions into Claude Code's own configuration. Cursor-specific or Copilot-specific files can follow the same shape: a short pointer plus whatever handful of instructions are genuinely tool-specific, rather than a full copy of the shared file.</p>
+
+  <p>This is a fast-moving corner of the ecosystem. By the time a given tool is actually being configured, native cross-tool support may have closed this particular gap entirely, so it's worth checking current documentation before assuming a bridge is still needed.</p>
+
+  <p>Rolling this out across a team is mostly a documentation exercise rather than a technical one. Whoever owns the shared <code>AGENTS.md</code> becomes the de facto owner of how agents behave on the project, in much the same way someone already owns the linter config or the CI pipeline. Changes to it are worth reviewing the same way, since a careless edit can quietly change how every assistant on the team behaves the next time it opens a file.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="cost">Cost and Token Efficiency</h2>
+  <p class="lede">An agent that reads a repository, runs commands, and iterates on failures spends a lot more tokens than a single autocomplete suggestion. At a certain scale, that difference shows up on an invoice.</p>
+
+  <p>A single inline completion costs a trivial number of tokens: the model sees a small window of surrounding code and returns a few more. An agentic session multiplies that many times over. It reads several files in full, receives the output of every command it runs, and often carries a chunk of that context across several iterations while it fixes a failing test. None of this is wasteful in the sense of doing unnecessary work, it's genuinely what repository-aware editing requires, but it means the cost of a single task can vary by orders of magnitude depending on how much context the task pulled in.</p>
+
+  <p>For an individual developer, this barely registers. For a team running agents across dozens of repositories, or gating every pull request through an automated review pass, token spend becomes a real budget line, and the more capable a model gets, the more it tends to cost to run per session. Well-configured context files help here too: an agent that doesn't have to re-derive a project's build command by exploring the repository from scratch every session is doing less redundant work, which is less redundant spend. Scoping a task narrowly, asking for one focused change rather than an open-ended refactor, has a similar effect, and reserving the most capable and most expensive model for genuinely hard problems while defaulting to a lighter one for scaffolding keeps average cost down without giving up quality where it matters.</p>
+
+  <p>A rough way to feel the difference: a single accepted completion might cost a few hundred tokens. An agentic task that reads a dozen files, runs a test suite twice, and fixes one failure along the way can easily run into the tens of thousands. Multiply that by however many tasks a team runs in a day, and the gap between "this is basically free" and "this needs a budget owner" closes faster than it looks like it should from either end.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="payoff">Where This Actually Pays Off</h2>
+  <p class="lede">Not every task benefits equally. Teams that track this report a consistent shortlist.</p>
+
+  <p>Surveys of developers using these tools day to day converge on a similar ranking of where the time savings are real rather than theoretical. Debugging a stack trace lands near the top: pointing an assistant at an unfamiliar error and asking what's going on is usually faster than tracing the call stack by hand. Refactoring existing code follows closely, since an agent that can see the whole repository can update every call site a signature change touches, not just the ones a search and replace happens to catch. Generating code mid-loop, filling in the obvious part of a function while a developer's attention is on the harder part next to it, ranks high too, along with writing test cases for code that already exists and getting oriented in a codebase or a language a developer hasn't used before.</p>
+
+  <p>The same surveys show comparatively little payoff for large, ambiguous design work: choosing between two competing architectures, deciding how a new feature should fit into a product's existing conventions, or weighing a genuine tradeoff between performance and maintainability. An assistant can describe the tradeoffs perfectly well. It has no basis for knowing which one a specific team, with its specific constraints and its specific appetite for risk, should actually choose. That's still a human call, and probably will be for a while yet.</p>
+
+  <div class="callout ok">
+    <div class="callout-title">Where it earns trust</div>
+    <p>The common thread across the high-value cases is that a human can verify the output quickly. A stack trace either points at the real bug or it doesn't. A passing test suite either still passes or it doesn't. Tasks where correctness is slow or subjective to check are exactly the ones that need the most scrutiny before merging, a theme picked up again below.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="governance">Governance Basics</h2>
+  <p class="lede">None of the previous sections matter much if a team has no answer to a simpler question: who's allowed to ship what an assistant wrote?</p>
+
+  <p>Governance sounds heavier than it needs to be. In practice it comes down to three decisions, written down somewhere the team actually reads, rather than left to individual judgment call by call.</p>
+
+  <p>The case for having an answer at all is largely a maintainability argument. Large-scale analyses of real commit histories through 2026 have found AI-assisted code carrying measurably more of the problems that don't show up until months later: duplicated logic instead of reused functions, and a rising share of code smells, the kind of structural issue that doesn't break a build today but makes the next change harder than it should be. None of that means the code doesn't work. It means unreviewed volume compounds into exactly the kind of debt a usage guideline and an approval process exist to catch before it accumulates.</p>
+
+  <p>The first is a usage guideline: which categories of work an assistant is fine to touch freely, and which need a human writing the first draft. Scaffolding, test generation, boilerplate, and documentation commonly sit on the loose end. Authentication logic, payment handling, data validation, and anything touching personally identifiable information sit on the strict end, not because an assistant can't produce reasonable code there, but because the cost of a subtle mistake is higher and much harder to catch in review. A concrete version of this in practice: a team might let an agent freely generate the fixtures for a new test suite and merge that without a second thought, while requiring that any change touching a password reset flow be written by a human first and only refined with an assistant's help afterward, with a named reviewer required before merge regardless of who authored the diff.</p>
+
+  <p>The second is an approval process: what has to happen before agent-authored code reaches production. For most teams this is closer to their existing pull request process than a new invention, the same review, the same tests, the same deploy gate, just applied with the knowledge that the author might be an agent rather than a person, which changes what a reviewer should actually look for.</p>
+
+  <p>The third is documentation: whether a pull request should note which parts were agent-generated. This isn't about assigning blame. It's information a reviewer can use. A diff flagged as agent-authored in an unfamiliar part of the codebase deserves a closer read than one a senior engineer wrote by hand in code they already own.</p>
+
+  <p>None of this requires elaborate tooling to start. A short usage policy and a habit of flagging AI-authored changes in pull request descriptions covers most of what a team needs before scaling up further. Deciding exactly how that review should be done, and which tools actually help with it, is enough of its own topic to earn separate treatment.</p>
+
+</main>
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+
+</body>
+</html>

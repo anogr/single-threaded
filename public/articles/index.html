@@ -15,72 +15,138 @@
       <p class="index-lead">Concise technical articles about frontend IT architecture and security concepts.</p>
     </header>
 
+    <div class="filter-chips" role="group" aria-label="Filter articles by category">
+      <button type="button" class="chip" data-category="security">Security</button>
+      <button type="button" class="chip" data-category="networking">Networking</button>
+      <button type="button" class="chip" data-category="ai">AI</button>
+      <button type="button" class="chip" data-category="auth">Auth</button>
+      <button type="button" class="chip" data-category="web">Web</button>
+    </div>
+
     <div class="index-grid">
-      <article class="card blue">
-        <div class="card-label">Security · TLS</div>
-        <div class="card-title">HTTPS: The handshake and the Seal</div>
+      <article class="card blue" data-categories="security networking">
+        <div class="card-label">Security · HTTPS</div>
+        <div class="card-title">The Handshake and the Seal</div>
         <p>A deep dive into HTTPS, certificates and the TLS handshake.</p>
         <a class="card-link" href="https.html">Read &#8594;</a>
       </article>
 
-      <article class="card teal">
+      <article class="card teal" data-categories="web">
         <div class="card-label">Web Platform · React</div>
         <div class="card-title">Web Components and React Wrappers</div>
         <p>How to build reusable web components and integrate them with React.</p>
         <a class="card-link" href="web-components-and-react.html">Read &#8594;</a>
       </article>
 
-      <article class="card purple">
+      <article class="card purple" data-categories="security auth">
         <div class="card-label">Security · Auth</div>
         <div class="card-title">OAuth 2.1 &amp; OIDC</div>
         <p>An approachable guide to OAuth 2.1 flows, tokens and OpenID Connect.</p>
         <a class="card-link" href="oauth-oidc.html">Read &#8594;</a>
       </article>
 
-      <article class="card orange">
+      <article class="card orange" data-categories="web networking">
         <div class="card-label">API Design · HTTP</div>
         <div class="card-title">RESTful API Design</div>
         <p>What REST actually specifies, how to apply it correctly, and where GraphQL, gRPC, or tRPC fit better.</p>
         <a class="card-link" href="restful-api-design.html">Read &#8594;</a>
       </article>
 
-      <article class="card green">
+      <article class="card green" data-categories="web networking">
         <div class="card-label">Web Platform · HTTP</div>
         <div class="card-title">HTTP: From Request to Response</div>
         <p>Methods, status codes, caching, cookies, CORS, and the evolution from HTTP/1.1 to HTTP/3.</p>
         <a class="card-link" href="http.html">Read &#8594;</a>
       </article>
 
-      <article class="card red">
+      <article class="card red" data-categories="security">
         <div class="card-label">Security · Foundations</div>
         <div class="card-title">Web Security Principles</div>
         <p>How web applications fail, the principles that prevent it, and a framework for thinking about threats.</p>
         <a class="card-link" href="web-security-principles.html">Read &#8594;</a>
       </article>
 
-      <article class="card gold">
+      <article class="card gold" data-categories="security web">
         <div class="card-label">Security · Browser</div>
         <div class="card-title">Browser Security</div>
         <p>XSS, CSRF, clickjacking, and the HTTP headers that defend against them.</p>
         <a class="card-link" href="browser-security.html">Read &#8594;</a>
       </article>
 
-      <article class="card blue">
+      <article class="card blue" data-categories="security auth">
         <div class="card-label">Security · Auth</div>
         <div class="card-title">Authentication Fundamentals</div>
         <p>Sessions, JWTs, passkeys, refresh tokens, and API keys form the practical credential layer beneath auth flows.</p>
         <a class="card-link" href="authentication-fundamentals.html">Read &#8594;</a>
       </article>
 
-      <article class="card teal">
+      <article class="card teal" data-categories="networking">
         <div class="card-label">Architecture · Networking</div>
         <div class="card-title">Web Application Networking</div>
         <p>The infrastructure between a browser and your backend: firewalls, proxies, load balancers, CDN, and how each shapes security and scalability.</p>
         <a class="card-link" href="web-networking.html">Read &#8594;</a>
       </article>
+
+      <article class="card gold" data-categories="ai">
+        <div class="card-label">AI · Developer Tooling</div>
+        <div class="card-title">AI Coding Assistants: From Autocomplete to Agent</div>
+        <p>How AI coding assistants evolved from autocomplete to repository-aware agents, and how context files decide whether they actually help.</p>
+        <a class="card-link" href="ai-coding-assistants.html">Read &#8594;</a>
+      </article>
+
+      <article class="card green" data-categories="ai">
+        <div class="card-label">AI · Software Delivery</div>
+        <div class="card-title">Agentic Coding Workflows: From Vibe Coding to Spec-Driven Development</div>
+        <p>Why letting an agent freewheel through a codebase works for a prototype and fails in production, and what teams do instead.</p>
+        <a class="card-link" href="agentic-coding-workflows.html">Read &#8594;</a>
+      </article>
+
+      <article class="card orange" data-categories="ai">
+        <div class="card-label">AI · Integration &amp; Governance</div>
+        <div class="card-title">MCP: Connecting AI Tools to Your Systems</div>
+        <p>How the Model Context Protocol lets AI assistants reach internal APIs and data, and what needs to be governed before turning it on.</p>
+        <a class="card-link" href="mcp-ai-integration.html">Read &#8594;</a>
+      </article>
+
+      <article class="card red" data-categories="ai">
+        <div class="card-label">AI · Quality &amp; Security</div>
+        <div class="card-title">AI in Code Review: Where It Helps and Where Humans Still Decide</div>
+        <p>The review bottleneck AI coding created, and a risk-based way to decide what still needs a human.</p>
+        <a class="card-link" href="ai-code-review.html">Read &#8594;</a>
+      </article>
     </div>
 
     <footer>&#169; Single Threaded AB</footer>
   </div>
+
+  <script>
+    (function () {
+      var chips = document.querySelectorAll('.chip');
+      var cards = document.querySelectorAll('.card[data-categories]');
+      var active = new Set();
+
+      function applyFilter() {
+        cards.forEach(function (card) {
+          var cats = card.dataset.categories.split(' ');
+          var show = active.size === 0 || cats.some(function (c) { return active.has(c); });
+          card.classList.toggle('is-hidden', !show);
+        });
+      }
+
+      chips.forEach(function (chip) {
+        chip.addEventListener('click', function () {
+          var cat = chip.dataset.category;
+          if (active.has(cat)) {
+            active.delete(cat);
+            chip.classList.remove('active');
+          } else {
+            active.add(cat);
+            chip.classList.add('active');
+          }
+          applyFilter();
+        });
+      });
+    })();
+  </script>
 </body>
 </html>

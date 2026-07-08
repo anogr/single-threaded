@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agentic Coding Workflows: Vibe Coding to Spec-Driven Development — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+<style>
+  /* ── Concept card grid (article-local) ── */
+  .concept-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 20px 0;
+  }
+  @media (max-width: 900px) {
+    .concept-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+
+<body>
+
+<!-- Mobile header -->
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Docs</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+
+  <div class="sidebar-section">Landscape</div>
+  <a href="#vibe-coding">What Vibe Coding Actually Means</a>
+  <a href="#where-it-works">Where It Legitimately Works</a>
+
+  <div class="sidebar-section">Failure Modes</div>
+  <a href="#production-failures">When It Reaches Production</a>
+
+  <div class="sidebar-section">The Alternative</div>
+  <a href="#spec-driven">Spec-Driven Development</a>
+  <a href="#tests-from-specs">Tests as the Executable Spec</a>
+  <a href="#context-engineering">Context Engineering</a>
+  <a href="#context-blindness">Context Blindness</a>
+
+  <div class="sidebar-section">Practice</div>
+  <a href="#human-gate">Where the Human Gate Belongs</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">AI · Software Delivery</div>
+  <h1>Agentic Coding Workflows: <em>From Vibe Coding to Spec-Driven Development</em></h1>
+  <p class="subtitle">Why letting an agent freewheel through a codebase works for a prototype and fails in production, and what teams do instead.</p>
+  <div class="byline"><strong>Deep dive</strong><div class="dot"></div><span>~13 min read</span><div class="dot"></div><span>Agentic development workflows</span><div class="dot"></div><span>July 2026</span></div>
+
+  <p>"Vibe coding" wasn't a compliment when the term first spread. Andrej Karpathy coined it in February 2025 to describe a specific habit: prompt an AI tool in natural language, accept what comes back, and judge the result by whether it seems to work rather than by reading the code itself. It stuck as a name because the habit is genuinely common, and genuinely fast, for exactly the situations where reading every line would be wasted effort.</p>
+
+  <p>This article draws the line between where that habit is fine and where it quietly turns into a production incident, looks at two 2026 cases that show what the difference actually costs, and walks through spec-driven development, the practice that emerged as an alternative once teams started asking agents to touch code other people depend on.</p>
+
+  <div class="callout info">
+    <div class="callout-title">Building on the previous article</div>
+    <p>This one assumes the assistant/agent distinction covered in <a href="ai-coding-assistants.html">AI Coding Assistants: From Autocomplete to Agent</a>. Vibe coding is something you can do with either an assistant or a fully agentic tool. What changes the risk profile isn't which tool is involved, it's whether a human looked at anything before it shipped.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="vibe-coding">What Vibe Coding Actually Means</h2>
+  <p class="lede">The term names a real, useful pattern, one that turned into an insult only after it started showing up somewhere it didn't belong.</p>
+
+  <p>Stripped of the baggage the term has picked up, vibe coding just means directing an AI tool with natural language and accepting its output based on whether it appears to behave correctly, rather than based on having read and understood the code it produced. That's a legitimate way to work. It's also, by definition, a way of working with no verification step built in.</p>
+
+  <p>What matters isn't the tool, it's the habit layered on top of it. Two developers can run the exact same agent, on the exact same task, and be doing genuinely different things: one reads every diff before it merges, catches the parts that don't fit, and rejects or rewrites what's wrong. The other accepts the result once it runs. Both are "using AI to code." Only one of them is vibe coding in the sense that actually matters for what follows.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="where-it-works">Where It Legitimately Works</h2>
+  <p class="lede">Karpathy's own later framing draws the boundary better than most of the discourse that followed his original post.</p>
+
+  <p>Asked about the backlash his own term generated, Karpathy's position has stayed fairly consistent: vibe coding is harmless when it's confined to small projects that never reach production or a real user base. A weekend prototype, a personal script, a throwaway tool to explore an API before committing to how it should really be built, all fit that description. The common thread across every legitimate case isn't the size of the codebase, it's the blast radius. If it's wrong, the cost of finding out is small, and the cost of starting over is smaller still.</p>
+
+  <p>That calculation flips the moment the same code has to serve anyone other than the person who wrote it. It's not that the tool gets worse when the stakes go up. It's that the absence of a verification step, which cost nothing when only the author's own time was on the line, now carries the cost of whatever a stranger does with a bug nobody caught.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="production-failures">When It Reaches Production</h2>
+  <p class="lede">Two incidents from 2026 show what "nobody reviewed this" actually costs, and, just as usefully, what it doesn't.</p>
+
+  <p>In February 2026, security researchers at Wiz took a look at Moltbook, a vibe-coded social network built for AI agents to interact with each other. They found a Supabase API key sitting in plain sight in the site's client-side JavaScript, the kind of thing anyone can find by opening browser developer tools. On its own, an exposed public key isn't necessarily a problem: Supabase's model treats it as safe to expose as long as Row Level Security policies restrict what it can actually touch. Moltbook had no such policies configured. The key granted full read and write access to the production database, exposing roughly 1.5 million API authentication tokens, tens of thousands of email addresses, and private messages exchanged between agents on the platform. Wiz disclosed the issue immediately and it was patched within hours, but the underlying mistake, a well-known category that a basic security-focused review checks for by default, is exactly the kind of thing that review step exists to catch.</p>
+
+  <p>The second incident is messier, and more useful for it. In May 2026, a security-focused rsync release, version 3.4.3, broke incremental backups for a number of users. Digging into the history, people noticed dozens of commits since the previous minor version attributed jointly to project creator Andrew Tridgell and Claude. A bluntly worded GitHub issue objecting to AI-authored changes in critical infrastructure spread quickly to Hacker News and Reddit, and the conversation shifted almost immediately from "this release has a bug" to a referendum on AI-generated code in open source.</p>
+
+  <p>What actually happened is less dramatic. By Tridgell's own account, the most visible AI-assisted work was a rewrite of rsync's aging shell-script test suite into Python, a project he designed and scoped himself, using several AI tools including Claude for the mechanical parts of the conversion and reviewing the resulting code afterward. A later data-driven analysis of 36 rsync releases found that the version with the most Claude-attributed commits actually had one of the lowest bug rates in the set, and that the problematic 3.4.3 release tracked more closely with the sheer volume of security fixes it shipped than with who or what had written any individual line. The AI attribution in the commit log made an easy villain. The data told a more boring story about what happens when a project ships a large batch of security-driven changes at once.</p>
+
+  <div class="callout warn">
+    <div class="callout-title">Same technology, opposite lessons</div>
+    <p>Moltbook is a case where the absence of any review process led directly to a real, entirely avoidable breach. rsync is a case where review was present the whole time (a human designing the test framework, choosing what to hand off, and reading the output), and the actual defect had more to do with the nature of a large security release than with who typed the code. The commit log looked the same in both cases: an AI tool's name next to a human's. What differed was everything the commit log doesn't show.</p>
+  </div>
+
+  <p>The pattern shows up in survey data too. By mid-2026, a large majority of developers reported using AI coding tools daily, while less than a third said they actually trusted the code those tools produced. That gap isn't irrational. It's what happens when adoption outruns the habit of checking the output, and the two cases above are a reasonable illustration of why the gap exists in the first place.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="spec-driven">Spec-Driven Development</h2>
+  <p class="lede">The practical answer to "how do we get the speed without skipping the part that catches mistakes."</p>
+
+  <p>Spec-driven development's core move is simple: instead of prompting an agent for code directly, a team writes down what the change should do first, as an artifact separate from the code itself, and only starts implementation once that artifact has been reviewed. The specification, the plan, and the task breakdown all become things a human can read and correct before a single file changes, rather than reverse-engineering intent from a finished diff after the fact.</p>
+
+  <p>GitHub's Spec Kit is a concrete, openly available example of the pattern. It structures work into four stages: <code>/specify</code> takes a short prompt and expands it into a full specification, <code>/plan</code> turns that specification into a technical implementation plan, <code>/tasks</code> breaks the plan into an ordered, dependency-aware checklist, and only then does an agent start implementing. It isn't tied to one vendor's tools either, the same workflow runs against Copilot, Claude, Gemini, and others.</p>
+
+  <p>A fragment of what a generated specification looks like in practice, before any plan or code exists:</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">spec.md</span>
+      <span class="code-lang">Markdown</span>
+    </div>
+    <pre><code>## Requirement: Password reset via email
+
+**User story:** As a user who forgot their password, I want to
+request a reset link by email so I can regain access without
+contacting support.
+
+**Acceptance criteria**
+- Reset link expires after 15 minutes
+- Link is single-use, invalidated after first successful reset
+- Rate limited to 3 requests per email per hour
+- No indication given whether the email exists in the system</code></pre>
+  </div>
+
+  <p>Notice what that fragment doesn't contain: no function names, no file paths, nothing that presumes a particular implementation. That's deliberate. A reviewer can catch a missing requirement, like the rate limit or the no-enumeration rule, in the minute it takes to read four bullet points. Catching the same gap in a finished diff means noticing what isn't there, which is a much harder thing to review for.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="tests-from-specs">Tests as the Executable Spec</h2>
+  <p class="lede">A well-written acceptance criterion isn't just readable by a person. It's close enough to a test case that turning one into the other is barely a translation.</p>
+
+  <p>The password reset fragment above already leans on a pattern worth naming directly: <strong>EARS</strong>, the Easy Approach to Requirements Syntax, a small set of sentence shapes originally developed for requirements engineering at Rolls-Royce and now the de facto convention most spec-driven tools converge on. A handful of forms, "when X happens, the system shall Y," "while in state X, the system shall Y," "if X occurs, then the system shall Y," cover most requirements worth writing down. The constraint is the point. A criterion phrased that way reads naturally to a person and parses unambiguously for a model, and because it names a trigger and a required response rather than a vague intention, it maps onto a test case, given this, when this happens, expect this, almost without translation.</p>
+
+  <p>That's also the cleanest way to see how spec-driven development differs from two older practices it keeps getting compared to. Test-driven development says write the failing test first. Behavior-driven development says write the behavior first, in language a non-engineer on the team can still read, then derive the test from it. Spec-driven development pushes the artifact up one more level: write the whole spec, behavior, constraints, and edge cases together, and let an agent generate the code, the tests, and often a first pass at documentation from that single source, rather than treating any one of the three as the starting point everything else follows from.</p>
+
+  <p>Letting an agent generate the tests too raises an obvious question: what stops it from writing a test that passes trivially without checking anything real? The honest answer is that test-generating agents split into different jobs with different failure modes, and each needs a different kind of check before its output is trusted. An agent writing new tests to cover a new code path is the easiest case to verify mechanically: run mutation testing against the result, deliberately introduce small bugs into the code and confirm the new tests actually fail when they should, and treat a suite that doesn't catch the mutations as evidence the tests are hollow rather than as evidence the code is fine. An agent asked to fix a failing test suite is the harder case, because a test edited until it passes again is one small step away from a test edited until it stops checking the thing it was written to check. That path stays behind a human approval gate rather than a mechanical one, for the same reason a diff that quietly deletes an assertion deserves a closer look than one that adds a new file.</p>
+
+  <div class="concept-grid">
+    <div class="card teal">
+      <div class="card-label">Generating new tests</div>
+      <div class="card-title">Mutation-score gate</div>
+      <p>Coverage of a new code path is verified mechanically: mutate the code, confirm the new tests fail on the mutants. A suite that survives mutation without noticing is a hollow suite, whatever its coverage number says.</p>
+    </div>
+    <div class="card orange">
+      <div class="card-label">Editing existing tests</div>
+      <div class="card-title">Human approval gate</div>
+      <p>A test changed to make a red suite green again needs a person to confirm it's still checking the right thing. The failure mode here is silent and doesn't show up in a coverage report.</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="context-engineering">Context Engineering</h2>
+  <p class="lede">The skill that quietly replaced prompt writing as the thing worth getting good at.</p>
+
+  <p>Prompt engineering was about phrasing: finding the wording that got a single request to land correctly. Context engineering is a broader job. It's deciding what an agent can see across an entire session, not just in one message, so that a specification written in step one is still what the agent is working from in step four, rather than something it half-remembers or never actually loaded.</p>
+
+  <p>The context files covered in the previous article are one piece of this, the stable, rarely-changing part of what an agent should always know about a project. Spec-driven development adds a second, session-specific layer on top: the specification and plan generated for this particular task become part of what the agent references while implementing it, effectively acting as working memory for that one piece of work. Getting this right is less about any single clever instruction and more about making sure the right documents are actually in front of the model at the moment they're needed.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="context-blindness">Context Blindness</h2>
+  <p class="lede">A spec can be perfectly well written and still describe a repository that no longer exists.</p>
+
+  <p>Context blindness is the name for a specific way spec-driven workflows still go wrong: the specification and plan are internally consistent (they make sense on their own terms) while being quietly incompatible with the actual state of the codebase. A plan might reference a function signature that got refactored last week, assume a file lives somewhere it was moved from months ago, or describe a data model that a migration already changed. None of that shows up by reading the plan in isolation. It only shows up once an agent tries to execute it against the repository as it really is.</p>
+
+  <p>The mitigation taking shape across newer agentic frameworks is a grounding step: before implementation starts, the agent (or a separate checking pass) verifies specific claims in the plan against the live repository, confirming a referenced function still has the signature the plan assumes, or that a file path actually exists, rather than trusting the plan at face value. This is still an active area of the tooling, and the exact mechanism varies by framework, but the underlying idea is simple: a plan is only as good as its last contact with the real codebase, and that contact needs to happen right before execution, not just once during the original review.</p>
+
+  <div class="concept-grid">
+    <div class="card orange">
+      <div class="card-label">Ungrounded</div>
+      <div class="card-title">Plan trusted at face value</div>
+      <p>The plan reads correctly and gets approved. Execution fails partway through, or worse, succeeds against a stale assumption and produces something quietly wrong.</p>
+    </div>
+    <div class="card teal">
+      <div class="card-label">Grounded</div>
+      <div class="card-title">Plan checked against the repo</div>
+      <p>Before implementation, specific claims in the plan (a signature, a file path, a schema) are verified against the current codebase, and the plan is corrected if reality has moved.</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="human-gate">Where the Human Gate Belongs</h2>
+  <p class="lede">Review the plan, not just the diff.</p>
+
+  <p>Pure vibe coding has no gate at all, which is exactly what makes it fast for a throwaway script and dangerous for anything else. A well-run spec-driven workflow has an obvious place to put one: right after the plan and task list are generated, before any file has actually changed. A wrong plan takes a few minutes to read and correct. A wrong forty-file diff built from that same wrong plan takes much longer to review, and it's far easier for a subtle gap, like the missing rate limit in the earlier example, to survive a diff review than to survive someone reading four acceptance criteria.</p>
+
+  <p>This doesn't replace reviewing the final diff. It adds a cheaper check earlier in the process, catching the mistakes that are obvious in a plan and expensive to spot once they're spread across dozens of files. What that final diff review should actually look for, and which tools help with it, is enough of its own subject to earn separate treatment. So is the question of how an agent gets safe, governed access to systems beyond the repository it's editing, which is where a lot of the production risk in this space actually lives.</p>
+
+</main>
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+
+</body>
+</html>
