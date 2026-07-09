@@ -15,8 +15,10 @@
     gap: 14px;
     margin: 20px 0;
   }
+  .concept-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
   @media (max-width: 900px) {
-    .concept-grid { grid-template-columns: 1fr; }
+    .concept-grid,
+    .concept-grid.cols-3 { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -47,6 +49,7 @@
   <a href="#spec-driven">Spec-Driven Development</a>
   <a href="#tests-from-specs">Tests as the Executable Spec</a>
   <a href="#context-engineering">Context Engineering</a>
+  <a href="#harness-engineering">Harness Engineering</a>
   <a href="#context-blindness">Context Blindness</a>
 
   <div class="sidebar-section">Practice</div>
@@ -58,7 +61,7 @@
   <div class="eyebrow">AI · Software Delivery</div>
   <h1>Agentic Coding Workflows: <em>From Vibe Coding to Spec-Driven Development</em></h1>
   <p class="subtitle">Why letting an agent freewheel through a codebase works for a prototype and fails in production, and what teams do instead.</p>
-  <div class="byline"><strong>Deep dive</strong><div class="dot"></div><span>~13 min read</span><div class="dot"></div><span>Agentic development workflows</span><div class="dot"></div><span>July 2026</span></div>
+  <div class="byline"><strong>Deep dive</strong><div class="dot"></div><span>~15 min read</span><div class="dot"></div><span>Agentic development workflows</span><div class="dot"></div><span>July 2026</span></div>
 
   <p>"Vibe coding" wasn't a compliment when the term first spread. Andrej Karpathy coined it in February 2025 to describe a specific habit: prompt an AI tool in natural language, accept what comes back, and judge the result by whether it seems to work rather than by reading the code itself. It stuck as a name because the habit is genuinely common, and genuinely fast, for exactly the situations where reading every line would be wasted effort.</p>
 
@@ -162,7 +165,35 @@ contacting support.
 
   <p>Prompt engineering was about phrasing: finding the wording that got a single request to land correctly. Context engineering is a broader job. It's deciding what an agent can see across an entire session, not just in one message, so that a specification written in step one is still what the agent is working from in step four, rather than something it half-remembers or never actually loaded.</p>
 
-  <p>The context files covered in the previous article are one piece of this, the stable, rarely-changing part of what an agent should always know about a project. Spec-driven development adds a second, session-specific layer on top: the specification and plan generated for this particular task become part of what the agent references while implementing it, effectively acting as working memory for that one piece of work. Getting this right is less about any single clever instruction and more about making sure the right documents are actually in front of the model at the moment they're needed.</p>
+  <p>The context files covered in the previous article are one piece of this, the stable, rarely-changing part of what an agent should always know about a project. Spec-driven development adds a second, session-specific layer on top: the specification and plan generated for this particular task become part of what the agent references while implementing it, effectively acting as working memory for that one piece of work. <a href="ai-coding-assistants.html#beyond-context-files">Subagents</a> are a third lever on the same problem from the opposite direction, keeping a large exploratory side-task from ever entering the main session's context in the first place rather than managing what's already there. Getting this right is less about any single clever instruction and more about making sure the right documents are actually in front of the model at the moment they're needed.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="harness-engineering">Harness Engineering: The Layer Above Context</h2>
+  <p class="lede">If context engineering asks what the model can see this session, the discipline that's absorbed it in 2026 asks a longer-lived question: what stops it from making the same mistake next session too.</p>
+
+  <p>It's worth having the short history in view, because each step genuinely displaced the one before it rather than just adding a buzzword on top. Prompt engineering, roughly 2023 into 2024, was about wording: finding the phrasing, examples, and structure that got a single request to land correctly. Context engineering, covered just above, argued that phrasing was rarely the actual bottleneck and shifted the effort toward curating what fills the window, specs, project rules, prior decisions, for the length of a session. By 2026, a further layer has taken over as where the real engineering effort goes: harness engineering, named for a shorthand making the rounds that's blunt enough to be useful, agent equals model plus harness.</p>
+
+  <p>The harness is everything standing around the agent that isn't the model itself and isn't any single session's context: which tools it's permitted to reach, what guardrails stop it from taking an irreversible action on its own, what feedback loop lets it notice a mistake and correct course mid-task rather than confidently finishing a wrong approach, what an observability layer actually lets a human watching from outside see. The premise driving the shift is specific. A better-worded prompt or a better-curated context fixes one occurrence, this task, this session. A harness change fixes the whole class of mistake going forward. If an agent keeps treating a database migration as safe to run unsupervised, the durable fix isn't a stronger warning worded into the next prompt, it's a permission the harness simply never grants, so that particular mistake stops being possible rather than merely discouraged.</p>
+
+  <div class="concept-grid cols-3">
+    <div class="card blue">
+      <div class="card-label">2023–2024</div>
+      <div class="card-title">Prompt Engineering</div>
+      <p>Getting a single request phrased well: the wording, the examples, the structure, one exchange at a time.</p>
+    </div>
+    <div class="card teal">
+      <div class="card-label">2024–2025</div>
+      <div class="card-title">Context Engineering</div>
+      <p>Curating what fills the window for a session, specs, rules, prior decisions, so a good prompt has the right material behind it.</p>
+    </div>
+    <div class="card orange">
+      <div class="card-label">2026</div>
+      <div class="card-title">Harness Engineering</div>
+      <p>Building the standing infrastructure around the agent, tool permissions, guardrails, feedback loops, observability, so a whole class of mistake can't recur.</p>
+    </div>
+  </div>
+
+  <p>Read the rest of this article again with that lens and most of what's already been covered turns out to be harness engineering under an older name. The grounding step described next, under context blindness, is a feedback loop that catches a stale plan before it executes rather than after. The mutation-testing gate from the earlier section on generated tests is a guardrail deciding which of an agent's own outputs get trusted without a human looking first. The plan-before-code checkpoint at the center of spec-driven development is a constraint on what the agent is allowed to do before a human has actually seen it. None of these were designed against a shared blueprint labeled "harness" at the time. They converged on the same shape because the same problem, an agent that's fast, confident, and occasionally wrong, keeps demanding the same kind of answer: not a smarter single request, but a system around the agent that assumes it will sometimes be wrong and is built to catch that in advance.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="context-blindness">Context Blindness</h2>

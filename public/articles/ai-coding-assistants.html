@@ -48,6 +48,7 @@
   <a href="#what-belongs">What Belongs in a Context File</a>
   <a href="#ai-docs">Keeping Documentation in Sync</a>
   <a href="#bridging">Working Across Multiple Tools</a>
+  <a href="#beyond-context-files">Skills, Prompt Files &amp; Subagents</a>
 
   <div class="sidebar-section">Practical Concerns</div>
   <a href="#cost">Cost &amp; Token Efficiency</a>
@@ -62,7 +63,7 @@
   <div class="eyebrow">AI · Developer Tooling</div>
   <h1>AI Coding Assistants: <em>From Autocomplete to Agent</em></h1>
   <p class="subtitle">How AI coding assistants evolved from autocomplete to repository-aware agents, and how context files decide whether they actually help.</p>
-  <div class="byline"><strong>Deep dive</strong><div class="dot"></div><span>~15 min read</span><div class="dot"></div><span>AI-assisted development</span><div class="dot"></div><span>July 2026</span></div>
+  <div class="byline"><strong>Deep dive</strong><div class="dot"></div><span>~18 min read</span><div class="dot"></div><span>AI-assisted development</span><div class="dot"></div><span>July 2026</span></div>
 
   <p>Two years ago, an AI coding assistant meant autocomplete: a suggestion appearing mid-line, accepted with Tab or ignored. In 2026 the term covers something much bigger. The same class of tool can now read an entire repository, plan a multi-file change, edit every file that change touches, run the test suite, and fix what it broke, all without a human approving each individual step. That range, from a single-line suggestion to an unsupervised multi-file edit, is why configuring one of these tools means something different depending on which end of the range is in use.</p>
 
@@ -232,6 +233,39 @@
   <p>This is a fast-moving corner of the ecosystem. By the time a given tool is actually being configured, native cross-tool support may have closed this particular gap entirely, so it's worth checking current documentation before assuming a bridge is still needed.</p>
 
   <p>Rolling this out across a team is mostly a documentation exercise rather than a technical one. Whoever owns the shared <code>AGENTS.md</code> becomes the de facto owner of how agents behave on the project, in much the same way someone already owns the linter config or the CI pipeline. Changes to it are worth reviewing the same way, since a careless edit can quietly change how every assistant on the team behaves the next time it opens a file.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="beyond-context-files">Skills, Prompt Files, and Subagents</h2>
+  <p class="lede">A context file has one setting: always loaded, every session. Three newer mechanisms exist because not everything a project needs fits that setting well.</p>
+
+  <p>A context file is background knowledge the agent shouldn't have to be told twice, which is exactly why it stays small: everything in it gets loaded on every single task, whether that task needs it or not. That's the wrong shape for a large body of specialized, situational knowledge, a house style for one particular framework the project uses in one corner of the codebase, a runbook for a migration that comes up twice a year, a script for a narrow job that's the same every time it's needed. Loading all of that into every session's context whether or not it's relevant would waste tokens on nearly every task to save a little effort on a few of them.</p>
+
+  <p><strong>Agent Skills</strong> are the answer that's emerged for that case, and Claude's is the version most tools have converged around. A skill is a folder containing a <code>SKILL.md</code> file, plus optionally whatever scripts or reference material the task needs, and it isn't loaded the way a context file is. At the start of a session, the agent sees only each installed skill's name and a one-line description, cheap enough to keep dozens of them around without any real cost. Only once a task actually matches one does the agent read the full <code>SKILL.md</code> and, if the skill bundles one, run a script rather than write the equivalent code from scratch. A skill for filling out PDF forms costs nothing on a session that never touches a PDF. It's the same idea as lazy loading in ordinary software: pay for what actually gets used.</p>
+
+  <p>A <strong>prompt file</strong> solves a different problem and shouldn't be confused with either of the above. It isn't discovered automatically the way a skill is, and it isn't always-on the way a context file is. It's a saved, reusable request a developer invokes deliberately, closer to a snippet library than a configuration surface. VS Code and GitHub Copilot's <code>.prompt.md</code> convention is a concrete example: a short markdown file, invoked as a slash command, that packages up something asked for often enough to be worth saving, "write a changelog entry from the current diff," say, so it doesn't get retyped from scratch every time it comes up. The distinction worth holding onto: a context file changes what the agent already knows without being asked, a skill adds a capability the agent reaches for when a task calls for it, and a prompt file is a request that still waits for someone to actually run it.</p>
+
+  <p>A <strong>subagent</strong> addresses a third, unrelated problem: a long session's context window fills up with everything the agent has read along the way, and a large exploratory side-task, chasing down every caller of a function slated for removal, auditing a directory for one specific pattern, can crowd out the context that actually matters for the task the developer is there for. A subagent is a separate invocation that starts from an empty context window, defined in its own short markdown file (a name, a description of when to reach for it, which tools it's allowed to use, and its own system prompt) and handed a bounded piece of work. It reports back a result, not its entire scratch process, so the main conversation stays focused on what the developer is actually working on instead of accumulating every file the side-task happened to open. It's also a natural place to route cheap, narrow work to a smaller model while a more capable one stays on the main thread.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Mechanism</th><th>When it loads</th><th>What it's for</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Context file</td><td>Every session, automatically</td><td>Background knowledge every task needs</td></tr>
+        <tr><td>Skill</td><td>On demand, when a task matches</td><td>Situational capability: docs, scripts, a niche procedure</td></tr>
+        <tr><td>Prompt file</td><td>Invoked manually</td><td>A saved, repeatable request</td></tr>
+        <tr><td>Subagent</td><td>Isolated, its own context window</td><td>A bounded side-task delegated off the main thread</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout info">
+    <div class="callout-title">Not the same "prompt" as MCP's</div>
+    <p>The next article in this series covers MCP, which also defines something called a <em>prompt</em>: a reusable interaction template a server offers to whatever host connects to it. A prompt file here is a local, editor-level convention with no relation to that primitive beyond sharing a name. Worth keeping the two apart when the terms show up in the same conversation.</p>
+  </div>
+
+  <p>Skills, prompt files, and subagents are all, in a sense, small pieces of infrastructure built around an agent rather than a single clever instruction to it. <a href="agentic-coding-workflows.html#harness-engineering">The next article covers the broader discipline that name now falls under</a>, harness engineering, and why 2026's engineering effort has shifted from writing better prompts toward building the standing structure that decides what an agent can do in the first place.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="cost">Cost and Token Efficiency</h2>

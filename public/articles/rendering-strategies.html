@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rendering Strategies: Where and When HTML Gets Built — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+<style>
+  /* Article-specific only. Shared patterns (cards, callouts, code blocks,
+     sidebar, tables) come from articles.css. */
+  .figure-wrap {
+    margin: 28px 0 8px;
+  }
+  .figure-wrap svg {
+    max-width: 100%;
+    display: block;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .figure-wrap figcaption {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-top: 10px;
+    line-height: 1.55;
+    max-width: var(--content-w);
+  }
+</style>
+</head>
+
+<body>
+
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Docs</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+  <a class="sidebar-logo" href="index.html">Article<br><span>Rendering Strategies</span></a>
+
+  <div class="sidebar-section">Overview</div>
+  <a href="#overview">The rendering spectrum</a>
+
+  <div class="sidebar-section">The Strategies</div>
+  <a href="#mpa">MPA</a>
+  <a href="#spa">SPA</a>
+  <a href="#ssg">SSG</a>
+  <a href="#ssr">SSR</a>
+  <a href="#isr">ISR</a>
+  <a href="#ppr">PPR</a>
+
+  <div class="sidebar-section">Orthogonal Axes</div>
+  <a href="#islands">Islands &amp; resumability</a>
+  <a href="#speculation-rules">Speculation Rules API</a>
+
+  <div class="sidebar-section">Putting It Together</div>
+  <a href="#hybrid">Mixing strategies</a>
+  <a href="#decision-framework">Choosing a strategy</a>
+  <a href="#migration">Migrating an existing app</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">Frontend · Architecture</div>
+  <h1>Rendering Strategies: <em>Where and When HTML Gets Built</em></h1>
+  <p class="subtitle">How SPA, MPA, SSR, SSG, ISR, and PPR differ in where HTML gets built and when JavaScript takes over, and how to pick the one that fits.</p>
+  <div class="byline">
+    <strong>Deep dive</strong>
+    <div class="dot"></div>
+    <span>~21 min read</span>
+    <div class="dot"></div>
+    <span>Rendering architecture</span>
+    <div class="dot"></div>
+    <span>July 2026</span>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       OVERVIEW
+  ════════════════════════════════════════════════════ -->
+  <section id="overview">
+    <p>Ask a few frontend engineers when a page's HTML actually gets built and the answers start to disagree, because for a long stretch of the 2010s the question had one obvious answer: the browser builds it, after JavaScript runs. That's no longer true for most production sites, and the reasons it stopped being true are what this article is about.</p>
+
+    <p>A page's HTML can be built once at deploy time and served unchanged for months. It can be built fresh on every request. It can be built once and quietly rebuilt in the background while stale copies keep serving traffic. Or it can be built almost entirely in the browser, starting from an empty shell that JavaScript fills in after the page has already loaded. None of these ideas are new on their own. What changed is how many of them a single product now uses at once, often on different routes of the same app.</p>
+
+    <p>This article treats rendering as one axis: when HTML gets produced, and when the JavaScript that makes a page interactive takes over. Six points along that axis get their own section (multi-page apps, single-page apps, static generation, server rendering, incremental static regeneration, and partial prerendering), followed by two ideas that cut across all of them rather than adding a seventh point: islands architecture and the browser's own speculative prefetching.</p>
+
+    <div class="callout info aside">
+      <div class="callout-title">Out of scope: WebAssembly</div>
+      <p>WebAssembly speeds up specific, compute-heavy code paths in the browser: image and video processing, in-browser machine learning inference, codec work. It doesn't change when or where HTML itself gets produced, which is the axis this article is actually about, so it's left out of the comparison entirely.</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════
+       MPA
+  ════════════════════════════════════════════════════ -->
+  <h2 id="mpa">MPA: The Full Reload, Reconsidered</h2>
+  <p class="lede">The oldest rendering strategy on this list just got a reason to look modern again.</p>
+
+  <p>A multi-page app does exactly what the phrase says. Every navigation is a full page load: the browser requests a URL, the server renders that page's complete HTML, and the browser throws away the previous page's DOM and starts over. There's no client-side router, no persistent JavaScript application state, no virtual DOM diffing against a previous render. Each page is its own self-contained document.</p>
+
+  <p>For most of the 2010s, this reload was the reason teams reached for a single-page app instead. A full navigation meant a blank white flash between pages, no way to keep a header or sidebar mounted across routes, and no smooth transition between one screen and the next. Avoiding that flash was, for a lot of products, the actual justification for shipping a large client-side JavaScript framework, rather than a specific technical need for one.</p>
+
+  <p>That justification weakened considerably by 2026. Cross-document View Transitions, a browser-native API that animates the swap between two full page loads, reached roughly 92% combined global browser coverage as of May 2026, with Chrome and Edge supporting it since mid-2024, Safari since late 2024, and Firefox closing the gap in December 2025. The API needs a few lines of declarative CSS and no JavaScript animation library at all.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">styles.css</span>
+      <span class="code-lang">CSS</span>
+    </div>
+    <pre><code><span class="cm">/* Opt every cross-document navigation on the site into a transition */</span>
+<span class="p">@view-transition</span> {
+  <span class="n">navigation</span>: <span class="cn">auto</span>;
+}
+
+<span class="cm">/* Give one element a shared identity across pages, so the browser
+   morphs it instead of just cross-fading it with everything else */</span>
+<span class="n">.product-hero-image</span> {
+  <span class="n">view-transition-name</span>: <span class="cn">hero-image</span>;
+}</code></pre>
+  </div>
+
+  <p>The browser captures a snapshot of the outgoing page, waits for the new page's HTML, and cross-fades or slides between them, all coordinated by the browser's own compositor rather than JavaScript juggling DOM nodes mid-transition. Named <code>view-transition-name</code> regions let specific elements, a product image, a page title, morph smoothly between pages instead of just cross-fading along with everything else.</p>
+
+  <p>None of this makes an MPA behave like an SPA. State still resets on every navigation, so anything that needs to persist, a shopping cart drawer, an audio player, an open modal, has to be re-derived from the server response or from storage rather than kept in memory. But the specific complaint that drove teams toward client-side routing, the visual jank of a reload, no longer has to be one of the tradeoffs. An MPA in 2026 gets a smooth transition from a few lines of CSS, which makes it a genuinely reasonable default for content-first sites: marketing pages, blogs, documentation, catalogs, anything where each page is mostly self-contained and doesn't need to survive a navigation in memory.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       SPA
+  ════════════════════════════════════════════════════ -->
+  <h2 id="spa">SPA: Client-Rendered, Client-Owned</h2>
+  <p class="lede">A single-page app trades a slow first paint for a fast every-paint-after-that.</p>
+
+  <p>A single-page app ships one HTML document, almost empty, and lets JavaScript take over from there. The initial response is a shell: a <code>&lt;div id="root"&gt;</code> and a set of <code>&lt;script&gt;</code> tags. The browser has to download that JavaScript, parse it, execute it, and only then does the application render anything a visitor can actually see. Every subsequent navigation happens client-side, swapping components and updating the URL through the History API, without another full page load.</p>
+
+  <p>The real cost of this approach isn't any single number, it's two separate costs stacked on top of each other. The first is time to first byte for a blank shell, which is fast (there's nothing to render server-side), but that speed is deceptive, because the shell isn't the content. The second, larger cost is the JavaScript bundle tax: the total size of the framework, the application code, and every dependency that has to download, parse, and execute before the page becomes interactive. Published comparisons put largest contentful paint around 1.1 to 1.8 seconds for SSR or SSG pages against roughly 2.8 to 3.5 seconds for a CSR-only SPA rendering equivalent content, and that gap is almost entirely the bundle tax, not server speed.</p>
+
+  <p>That gap is the reason "SPA for the whole product" stopped being the 2026 default for anything public-facing or SEO-dependent. A search crawler or a social-media unfurler that doesn't execute the client bundle sees an empty shell, and a visitor on a slow connection or an older device pays the parse-and-execute cost in full before anything appears. None of that makes the pattern wrong, it makes it situational. Behind an authentication wall, where there's no crawler to satisfy and the visitor has already committed to loading the tool, a pure SPA is often still the right call: internal dashboards, admin panels, and data-heavy tools where the first paint happens once per session and every screen after that benefits from never touching the network for a full document reload.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       SSG
+  ════════════════════════════════════════════════════ -->
+  <h2 id="ssg">SSG: Built Once, Served Forever</h2>
+  <p class="lede">If the content doesn't change per visitor, there's no reason to compute it per visit.</p>
+
+  <p>Static site generation renders every page's HTML at build time, before any visitor ever requests it, and uploads the finished files to a CDN. When a request comes in, the edge node closest to the visitor just returns a file it already has. There's no server-side rendering step at request time, no database query, no template execution, just a static asset being served the same way an image would be.</p>
+
+  <p>This is the cheapest rendering strategy to run, by a wide margin. The cost shape is storage and bandwidth only: no compute happens per request, so traffic spikes don't translate into server load the way they would for a strategy that renders on demand. It's also the fastest strategy in the ordinary sense, since serving a pre-built file from a nearby edge node is about as fast as HTTP gets.</p>
+
+  <p>The tradeoff is that SSG only fits content that's the same for every visitor, or close to it. A blog post, a documentation page, a product marketing page: all of these render once and stay correct until the next deploy. Anything that needs to reflect a specific visitor, a personalized recommendation, a logged-in user's name in the header, live inventory counts, doesn't fit the model without falling back to client-side fetching layered on top of the static shell. That's exactly the seam that incremental static regeneration and partial prerendering exist to smooth over, both covered further down.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       SSR
+  ════════════════════════════════════════════════════ -->
+  <h2 id="ssr">SSR: Rendered Per Request</h2>
+  <p class="lede">Server rendering buys freshness and personalization, and pays for it in time-to-first-byte.</p>
+
+  <p>Server-side rendering runs the same rendering work SSG does at build time, but on every incoming request instead. The server, or an edge function, more on that in a moment, executes the page's rendering logic, fetches whatever data the page needs, and returns fully formed HTML. Because it runs per request, SSR can read the actual visitor's session, personalize content, and reflect data that changed a second ago, none of which a purely static build can do.</p>
+
+  <p>The cost is that time-to-first-byte is now tied directly to how long the server takes to fetch data and render, and if a page waits on three sequential API calls before it can produce any HTML, the visitor waits on all three before seeing anything. Traditional, blocking SSR sends nothing until the entire page is ready, which turns a single slow dependency into a slow page.</p>
+
+  <p>Streaming SSR fixes that specific failure mode of "wait for everything, then send everything." Instead of blocking on the slowest data dependency, the server sends the parts of the page that are ready immediately and streams in the rest as it resolves, using Suspense boundaries to mark which regions can render independently. A product page can send its header, price, and description the moment those resolve, while a slower reviews section streams in a beat later inside its own boundary, rather than holding up the whole response.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">product.tsx</span>
+      <span class="code-lang">React Router</span>
+    </div>
+    <pre><code><span class="cm">// route loader, returns as soon as the fast data is ready</span>
+<span class="kw">export</span> <span class="kw">async</span> <span class="kw">function</span> <span class="fn">loader</span>({ <span class="n">params</span> }: <span class="t">Route</span>.<span class="t">LoaderArgs</span>) {
+  <span class="kw">const</span> <span class="n">product</span> = <span class="kw">await</span> <span class="fn">getProduct</span>(<span class="n">params</span>.<span class="n">id</span>);   <span class="cm">// awaited, fast</span>
+  <span class="kw">const</span> <span class="n">reviews</span> = <span class="fn">getReviews</span>(<span class="n">params</span>.<span class="n">id</span>);        <span class="cm">// not awaited, slow</span>
+  <span class="kw">return</span> { <span class="n">product</span>, <span class="n">reviews</span> };
+}
+
+<span class="kw">export</span> <span class="kw">default</span> <span class="kw">function</span> <span class="fn">Product</span>({ <span class="n">loaderData</span> }: <span class="t">Route</span>.<span class="t">ComponentProps</span>) {
+  <span class="kw">return</span> (
+    <span class="p">&lt;&gt;</span>
+      <span class="p">&lt;ProductDetails</span> <span class="n">product</span>=<span class="p">{loaderData.product}</span> <span class="p">/&gt;</span>
+      <span class="p">&lt;Suspense</span> <span class="n">fallback</span>=<span class="p">{&lt;ReviewsSkeleton /&gt;}</span><span class="p">&gt;</span>
+        <span class="p">&lt;Await</span> <span class="n">resolve</span>=<span class="p">{loaderData.reviews}</span><span class="p">&gt;</span>
+          {(<span class="n">reviews</span>) <span class="kw">=&gt;</span> <span class="p">&lt;Reviews</span> <span class="n">data</span>=<span class="p">{reviews}</span> <span class="p">/&gt;</span>}
+        <span class="p">&lt;/Await&gt;</span>
+      <span class="p">&lt;/Suspense&gt;</span>
+    <span class="p">&lt;/&gt;</span>
+  );
+}</code></pre>
+  </div>
+
+  <p>Because the loader returns before the slow promise resolves, the browser gets a response quickly and the reviews section fills in once its data arrives, without a second round trip and without blocking anything else on the page.</p>
+
+  <p>One more variable belongs in this section rather than getting its own heading: where SSR actually executes. Running it on an edge runtime, Cloudflare Workers or Vercel Edge Functions, instead of an origin Node server trades some compute headroom for near-instant cold starts and lower network latency, since the code runs physically closer to the visitor. This is what "edge-side rendering" means in practice: it's still SSR, just relocated. It's not a different rendering strategy, it's a deployment decision about where the SSR strategy runs.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       ISR
+  ════════════════════════════════════════════════════ -->
+  <h2 id="isr">ISR: Static, With a Background Refresh</h2>
+  <p class="lede">Incremental static regeneration keeps SSG's speed and adds a way to keep the content from going stale.</p>
+
+  <p>Incremental static regeneration starts from the same place as SSG, a page built once and cached, but adds a mechanism for regenerating that cache without a full redeploy. A page can be marked to revalidate after a fixed window (regenerate this page in the background if it's more than sixty seconds old) or on demand, by tagging a specific piece of content so a single API call can invalidate exactly the pages that depend on it, without waiting for a timer or rebuilding anything unrelated.</p>
+
+  <p>The behavior underneath both approaches is stale-while-revalidate: the visitor who happens to trigger a regeneration still gets the old, cached page instantly, while the new version renders in the background and replaces the cache for the next visitor. Nobody waits on a rebuild. This is the detail that makes ISR feel like SSG in terms of speed while behaving more like SSR in terms of freshness, without fully paying either strategy's cost.</p>
+
+  <p>One practical catch: revalidating the origin cache doesn't automatically mean every visitor sees fresh content immediately. The CDN's edge caches have to actually receive and honor the purge, and if that propagation is slow or misconfigured, a regenerated page can sit correctly rebuilt at the origin while edge nodes keep serving the old copy a while longer.</p>
+
+  <p>Because SSG, ISR, and SSR are really the same rendering operation with different caching rules attached, a single fetch API often expresses all three:</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">data.ts</span>
+      <span class="code-lang">TypeScript</span>
+    </div>
+    <pre><code><span class="cm">// SSG: fetched once at build time, cached indefinitely</span>
+<span class="kw">const</span> <span class="n">plans</span> = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="s">'https://api.example.com/plans'</span>);
+
+<span class="cm">// ISR: cached, regenerated in the background after 60 seconds</span>
+<span class="kw">const</span> <span class="n">inventory</span> = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="s">'https://api.example.com/inventory'</span>, {
+  <span class="n">next</span>: { <span class="n">revalidate</span>: <span class="m">60</span>, <span class="n">tags</span>: [<span class="s">'inventory'</span>] }
+});
+
+<span class="cm">// SSR: refetched on every single request, never cached</span>
+<span class="kw">const</span> <span class="n">cart</span> = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="s">'https://api.example.com/cart'</span>, {
+  <span class="n">cache</span>: <span class="s">'no-store'</span>
+});
+
+<span class="cm">// on-demand: invalidate just the 'inventory' tag from a webhook handler,
+// no waiting for the 60-second window</span>
+<span class="kw">await</span> <span class="fn">revalidateTag</span>(<span class="s">'inventory'</span>);</code></pre>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       PPR
+  ════════════════════════════════════════════════════ -->
+  <h2 id="ppr">PPR: Static Shell, Dynamic Holes</h2>
+  <p class="lede">Partial prerendering treats a page as two different rendering strategies stitched into one response.</p>
+
+  <p>Partial prerendering serves a page's static shell from the edge, the same way SSG would, and leaves gaps, holes, for the parts of the page that genuinely need to be computed per request. Those holes stream in after the shell has already reached the browser, each one resolving independently inside its own Suspense boundary, similar to how streaming SSR resolves slow sections without blocking the rest of the page. The difference is that with PPR, most of the page never needed a server render at request time in the first place, only the holes do.</p>
+
+  <p>That distinction shows up directly in time-to-first-byte. When the static shell serves from an edge cache, PPR moves TTFB from something in the 350 to 550 millisecond range, typical for a fully dynamic SSR response, down to roughly 40 to 90 milliseconds, because the browser is receiving a cached file rather than waiting on a server to render anything before the first byte goes out.</p>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 700 260" role="img" aria-label="Wireframe of a page rendered with partial prerendering, showing a static shell for the header and page content, with two highlighted dynamic holes for a personalized banner and cart or auth state that stream in after the shell." xmlns="http://www.w3.org/2000/svg">
+      <!-- outer browser frame -->
+      <rect x="10" y="10" width="680" height="240" rx="8" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+      <!-- chrome bar -->
+      <rect x="10" y="10" width="680" height="26" rx="8" fill="var(--surface-2)"/>
+      <rect x="10" y="24" width="680" height="12" fill="var(--surface-2)"/>
+      <circle cx="26" cy="23" r="3" fill="var(--border)"/>
+      <circle cx="38" cy="23" r="3" fill="var(--border)"/>
+      <circle cx="50" cy="23" r="3" fill="var(--border)"/>
+      <!-- static shell: header/nav -->
+      <rect x="24" y="54" width="652" height="32" rx="4" fill="color-mix(in srgb, var(--accent) 15%, transparent)" stroke="color-mix(in srgb, var(--accent) 35%, transparent)" stroke-width="1"/>
+      <text x="350" y="74" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--accent)">Static shell, header / nav</text>
+      <!-- static shell: page content -->
+      <rect x="24" y="98" width="380" height="132" rx="4" fill="color-mix(in srgb, var(--accent) 15%, transparent)" stroke="color-mix(in srgb, var(--accent) 35%, transparent)" stroke-width="1"/>
+      <text x="214" y="158" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--accent)">Static shell</text>
+      <text x="214" y="176" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">page content, served from edge cache</text>
+      <!-- dynamic hole 1 -->
+      <rect x="418" y="98" width="258" height="60" rx="4" fill="color-mix(in srgb, var(--accent2) 18%, transparent)" stroke="color-mix(in srgb, var(--accent2) 45%, transparent)" stroke-width="1" stroke-dasharray="5,3"/>
+      <text x="547" y="122" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--accent2)">Dynamic hole</text>
+      <text x="547" y="140" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">personalized banner (streams in)</text>
+      <!-- dynamic hole 2 -->
+      <rect x="418" y="170" width="258" height="60" rx="4" fill="color-mix(in srgb, var(--accent2) 18%, transparent)" stroke="color-mix(in srgb, var(--accent2) 45%, transparent)" stroke-width="1" stroke-dasharray="5,3"/>
+      <text x="547" y="194" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--accent2)">Dynamic hole</text>
+      <text x="547" y="212" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">cart / auth state (streams in)</text>
+    </svg>
+    <figcaption>A page rendered with PPR, or built from islands, as a static shell plus a small number of dynamic regions. The shell serves from the edge immediately, and the highlighted holes stream in independently once their data resolves.</figcaption>
+  </div>
+
+  <p>The holes themselves are ordinary dynamic content: a personalized recommendation strip, a cart icon reflecting the visitor's actual session, an A/B test variant. What PPR changes is that none of that dynamic content forces the rest of the page to wait. A visitor's browser paints the static shell almost immediately, then fills in the personalized pieces a moment later, a meaningfully different experience from either a fully static page (fast, but can't personalize) or a fully dynamic SSR page (can personalize, but the whole response waits on it).</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       ISLANDS
+  ════════════════════════════════════════════════════ -->
+  <h2 id="islands">Islands and Resumability: A Different Axis</h2>
+  <p class="lede">Everything above is about when HTML gets built. Islands are about how much JavaScript ships once it does.</p>
+
+  <p>Every strategy covered so far answers the same question: when does rendering happen. Islands architecture and resumability answer a different one: how much of the page needs JavaScript at all, and at what granularity. It's worth treating as a separate axis rather than a seventh point on the same timeline, because a page can combine, say, SSG with islands, or PPR with islands. The two ideas aren't mutually exclusive.</p>
+
+  <p>The islands model, a term coined by Katie Sylor-Miller and popularized more widely by Jason Miller in 2020, treats a page as mostly static HTML with small, independent pockets of interactivity dropped in. Astro is the framework most associated with this pattern: a page ships as plain HTML by default, and a component only gets a JavaScript bundle if it's explicitly marked as interactive, at which point it hydrates on its own, independently of every other island on the page. A product image carousel might hydrate immediately, while a comment form further down the page might not hydrate until it scrolls into view. Neither one waits on the other, and neither one requires the rest of the page to ship any JavaScript at all. Astro's server islands, added in late 2024 and stable as of Astro 5, extend the same idea to server-rendered content: a slow, personalized fragment can render on the server independently of the static parts around it, without holding up the page.</p>
+
+  <p>Qwik takes a more radical approach to the same underlying problem. Rather than shipping a component tree and re-executing it in the browser to attach event listeners, which is what hydration actually is in every framework that does it, Qwik serializes the listener references themselves into the HTML. The browser doesn't re-run any component logic to become interactive, it resumes from exactly where the server left off, downloading the handler code for a specific interaction only when that interaction actually happens. This is why the pattern is called resumability rather than hydration: there's no re-execution step to skip past, because nothing needs to be reconstructed.</p>
+
+  <p>Both approaches converge on the same result: near-zero JavaScript shipped by default, with more added only for the specific pieces of a page that need it. It's worth naming the callback explicitly, because it recurs elsewhere in this series: a <code>'use client'</code> component inside a server-rendered React tree is structurally the same shape as an Astro client island, a small, independently hydrated pocket of interactivity inside an otherwise static or server-rendered page.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       SPECULATION RULES
+  ════════════════════════════════════════════════════ -->
+  <h2 id="speculation-rules">Speculation Rules API: The Browser Prefetches for You</h2>
+  <p class="lede">None of the strategies above account for the browser guessing where a visitor is headed next.</p>
+
+  <p>Every rendering strategy on this list still has to serve the current navigation. The Speculation Rules API sits on top of all of them and handles a different problem: prefetching or fully prerendering a page the browser predicts a visitor is about to navigate to, before they click anything.</p>
+
+  <p>A page declares its intent with a plain JSON block:</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">product-list.html</span>
+      <span class="code-lang">HTML</span>
+    </div>
+    <pre><code><span class="p">&lt;script</span> <span class="n">type</span>=<span class="s">"speculationrules"</span><span class="p">&gt;</span>
+{
+  <span class="json-key">"prerender"</span>: [{
+    <span class="json-key">"where"</span>: { <span class="json-key">"href_matches"</span>: <span class="json-str">"/products/*"</span> },
+    <span class="json-key">"eagerness"</span>: <span class="json-str">"moderate"</span>
+  }]
+}
+<span class="p">&lt;/script&gt;</span></code></pre>
+  </div>
+
+  <p>The browser decides whether to actually honor that hint based on conditions no application code has visibility into: available memory, network type and speed, and current CPU load. On a resource-constrained device or a slow connection, the browser can simply decline to prerender, and the app never knows or needs to know. Nothing in the application runs speculatively, the meaningful difference from a JavaScript-driven prefetch library: this is a browser-native decision, not a heuristic the application team has to tune and maintain.</p>
+
+  <p>The caveat is worth stating plainly rather than glossing over: as of 2026, Speculation Rules support is Chromium-only, Chrome, Edge, and Opera, with no shipped support in Firefox or Safari. That makes it a progressive enhancement layered on top of whichever rendering strategy a page already uses, not something to design an architecture around. A site should work identically with the feature entirely absent, because for a meaningful share of visitors, it will be.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       HYBRID
+  ════════════════════════════════════════════════════ -->
+  <h2 id="hybrid">Mixing Strategies by Default</h2>
+  <p class="lede">Almost no serious 2026 product picks one rendering strategy for the whole site.</p>
+
+  <p>The strategies above read like a menu of mutually exclusive choices, but most production apps in 2026 mix several of them across different routes, and increasingly across different components on the same route. A marketing homepage might be pure SSG. A product listing page might use ISR, regenerating every few minutes as inventory changes. A checkout flow might be SSR end to end, because every byte of it needs to reflect the current session. And within any one of those routes, specific widgets might hydrate as independent islands rather than as one large client-rendered tree.</p>
+
+  <p>A concrete version of this: a route rendered with PPR for its shell, with a handful of genuinely interactive pieces inside that shell, a quantity selector, a "save for later" button, a live chat widget, hydrated independently, island-style, rather than shipped as part of one monolithic client bundle that has to hydrate all at once before any of it responds to a click. The shell handles when the HTML arrives. The islands handle how much JavaScript any given piece of it needs.</p>
+
+  <p>This isn't unique to the React ecosystem. SvelteKit, Nuxt 4, and SolidStart all ship the same underlying idea, a meta-framework that lets a team choose a rendering mode per route rather than committing the whole app to one strategy, in the Svelte, Vue, and Solid ecosystems respectively.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       DECISION FRAMEWORK
+  ════════════════════════════════════════════════════ -->
+  <h2 id="decision-framework">Choosing a Strategy</h2>
+  <p class="lede">Cost, freshness, and personalization pull in different directions, and the right answer is usually route-specific, not site-wide.</p>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 720 400" role="img" aria-label="Swimlane diagram comparing six rendering strategies on a shared logarithmic time axis from server response to interactive: MPA, SPA, streaming SSR, SSG, ISR, and PPR. SPA takes roughly 3.1 seconds to become interactive due to its JavaScript bundle download and hydration, MPA, SSG, ISR, and PPR reach interactive within a few hundred milliseconds, and streaming SSR lands around one second." xmlns="http://www.w3.org/2000/svg">
+      <!-- axis title -->
+      <text x="410" y="18" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--text-dim)">Time to interactive (log scale)</text>
+      <!-- gridlines -->
+      <line x1="282" y1="45" x2="282" y2="340" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,3"/>
+      <line x1="450" y1="45" x2="450" y2="340" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,3"/>
+      <line x1="534" y1="45" x2="534" y2="340" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,3"/>
+      <line x1="621" y1="45" x2="621" y2="340" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,3"/>
+      <line x1="672" y1="45" x2="672" y2="340" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,3"/>
+      <text x="140" y="40" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">0</text>
+      <text x="282" y="40" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">100ms</text>
+      <text x="450" y="40" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">500ms</text>
+      <text x="534" y="40" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">1s</text>
+      <text x="621" y="40" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">2s</text>
+      <text x="672" y="40" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">3s</text>
+
+      <!-- Row 1: MPA -->
+      <text x="132" y="74" text-anchor="end" font-family="'Inter',system-ui,sans-serif" font-size="12" fill="var(--text)">MPA</text>
+      <rect x="140" y="60" width="232" height="20" fill="color-mix(in srgb, var(--accent) 22%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
+      <rect x="372" y="60" width="37" height="20" fill="color-mix(in srgb, var(--teal) 22%, transparent)" stroke="color-mix(in srgb, var(--teal) 40%, transparent)"/>
+      <line x1="424" y1="55" x2="424" y2="85" stroke="var(--green)" stroke-width="2"/>
+      <text x="424" y="50" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--green)">~400ms</text>
+
+      <!-- Row 2: SPA -->
+      <text x="132" y="124" text-anchor="end" font-family="'Inter',system-ui,sans-serif" font-size="12" fill="var(--text)">SPA (CSR)</text>
+      <rect x="140" y="110" width="179" height="20" fill="color-mix(in srgb, var(--accent) 22%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
+      <rect x="319" y="110" width="257" height="20" fill="color-mix(in srgb, var(--gold) 24%, transparent)" stroke="color-mix(in srgb, var(--gold) 45%, transparent)"/>
+      <rect x="576" y="110" width="45" height="20" fill="color-mix(in srgb, var(--orange) 24%, transparent)" stroke="color-mix(in srgb, var(--orange) 45%, transparent)"/>
+      <rect x="621" y="110" width="55" height="20" fill="color-mix(in srgb, var(--text-faint) 16%, transparent)" stroke="color-mix(in srgb, var(--text-faint) 30%, transparent)"/>
+      <line x1="676" y1="105" x2="676" y2="135" stroke="var(--green)" stroke-width="2"/>
+      <text x="676" y="100" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--green)">~3.1s</text>
+
+      <!-- Row 3: Streaming SSR -->
+      <text x="132" y="174" text-anchor="end" font-family="'Inter',system-ui,sans-serif" font-size="12" fill="var(--text)">Streaming SSR</text>
+      <rect x="140" y="160" width="252" height="20" fill="color-mix(in srgb, var(--accent) 22%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
+      <rect x="392" y="160" width="107" height="20" fill="color-mix(in srgb, var(--teal) 22%, transparent)" stroke="color-mix(in srgb, var(--teal) 40%, transparent)"/>
+      <rect x="499" y="160" width="29" height="20" fill="color-mix(in srgb, var(--orange) 24%, transparent)" stroke="color-mix(in srgb, var(--orange) 45%, transparent)"/>
+      <line x1="534" y1="155" x2="534" y2="185" stroke="var(--green)" stroke-width="2"/>
+      <text x="534" y="150" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--green)">~1.0s</text>
+
+      <!-- Row 4: SSG -->
+      <text x="132" y="224" text-anchor="end" font-family="'Inter',system-ui,sans-serif" font-size="12" fill="var(--text)">SSG</text>
+      <rect x="140" y="210" width="124" height="20" fill="color-mix(in srgb, var(--accent) 22%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
+      <rect x="264" y="210" width="74" height="20" fill="color-mix(in srgb, var(--teal) 22%, transparent)" stroke="color-mix(in srgb, var(--teal) 40%, transparent)"/>
+      <line x1="358" y1="205" x2="358" y2="235" stroke="var(--green)" stroke-width="2"/>
+      <text x="358" y="200" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--green)">~220ms</text>
+
+      <!-- Row 5: ISR -->
+      <text x="132" y="274" text-anchor="end" font-family="'Inter',system-ui,sans-serif" font-size="12" fill="var(--text)">ISR</text>
+      <rect x="140" y="260" width="133" height="20" fill="color-mix(in srgb, var(--accent) 22%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
+      <rect x="273" y="260" width="70" height="20" fill="color-mix(in srgb, var(--teal) 22%, transparent)" stroke="color-mix(in srgb, var(--teal) 40%, transparent)"/>
+      <line x1="363" y1="255" x2="363" y2="285" stroke="var(--green)" stroke-width="2"/>
+      <text x="363" y="250" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--green)">~230ms</text>
+
+      <!-- Row 6: PPR -->
+      <text x="132" y="324" text-anchor="end" font-family="'Inter',system-ui,sans-serif" font-size="12" fill="var(--text)">PPR</text>
+      <rect x="140" y="310" width="113" height="20" fill="color-mix(in srgb, var(--accent) 22%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
+      <rect x="253" y="310" width="66" height="20" fill="color-mix(in srgb, var(--teal) 22%, transparent)" stroke="color-mix(in srgb, var(--teal) 40%, transparent)"/>
+      <rect x="319" y="310" width="105" height="20" fill="color-mix(in srgb, var(--accent2) 26%, transparent)" stroke="color-mix(in srgb, var(--accent2) 45%, transparent)"/>
+      <rect x="424" y="310" width="26" height="20" fill="color-mix(in srgb, var(--orange) 24%, transparent)" stroke="color-mix(in srgb, var(--orange) 45%, transparent)"/>
+      <line x1="461" y1="305" x2="461" y2="335" stroke="var(--green)" stroke-width="2"/>
+      <text x="461" y="300" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--green)">~550ms</text>
+
+      <!-- legend -->
+      <rect x="16" y="360" width="10" height="10" fill="color-mix(in srgb, var(--accent) 22%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
+      <text x="30" y="369" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Server / TTFB</text>
+      <rect x="128" y="360" width="10" height="10" fill="color-mix(in srgb, var(--teal) 22%, transparent)" stroke="color-mix(in srgb, var(--teal) 40%, transparent)"/>
+      <text x="142" y="369" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">HTML received</text>
+      <rect x="248" y="360" width="10" height="10" fill="color-mix(in srgb, var(--accent2) 26%, transparent)" stroke="color-mix(in srgb, var(--accent2) 45%, transparent)"/>
+      <text x="262" y="369" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Dynamic holes</text>
+      <rect x="368" y="360" width="10" height="10" fill="color-mix(in srgb, var(--gold) 24%, transparent)" stroke="color-mix(in srgb, var(--gold) 45%, transparent)"/>
+      <text x="382" y="369" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">JS download</text>
+      <rect x="476" y="360" width="10" height="10" fill="color-mix(in srgb, var(--orange) 24%, transparent)" stroke="color-mix(in srgb, var(--orange) 45%, transparent)"/>
+      <text x="490" y="369" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Hydration</text>
+      <line x1="576" y1="360" x2="576" y2="370" stroke="var(--green)" stroke-width="2"/>
+      <text x="584" y="369" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Interactive</text>
+    </svg>
+    <figcaption>Six rendering strategies plotted on a shared, logarithmic time axis from server response to interactive. SPA's JavaScript bundle tax dominates its timeline, MPA, SSG, ISR, and PPR reach interactive within a few hundred milliseconds, and streaming SSR lands in between by sending what's ready immediately.</figcaption>
+  </div>
+
+  <p>Cost is easy to leave out of a purely technical comparison, but it belongs in the decision, because the strategies scale differently under load. SSG costs close to nothing beyond storage and bandwidth, since there's no compute per request. ISR's cost scales with how often content actually regenerates, not with traffic, a page that revalidates every hour costs the same whether it gets ten visitors or ten million. SSR, and edge-SSR alongside it, scale with request volume directly, because every request triggers real compute. An SPA is the cheapest strategy to host, in the narrow sense that a static JS bundle on a CDN costs about the same as any other static file, but that's because the strategy pushes its real cost onto the visitor's device, in the form of JavaScript parse and execute time that never shows up on a hosting bill.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Strategy</th><th>Rendered where / when</th><th>TTFB profile</th><th>Personalization</th><th>Rough cost shape</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>MPA</td><td>Server, per navigation</td><td>Fast, tied to server render time</td><td>Full</td><td>Scales with request volume</td></tr>
+        <tr><td>SPA</td><td>Browser, after JS downloads &amp; runs</td><td>Fast shell, slow content (bundle tax)</td><td>Full</td><td>Cheap to host, cost shifts to device</td></tr>
+        <tr><td>SSG</td><td>Build time, served from edge cache</td><td>Near-instant (cached file)</td><td>None</td><td>Near zero, storage &amp; bandwidth only</td></tr>
+        <tr><td>SSR</td><td>Server or edge, per request</td><td>Tied to server + data-fetch time</td><td>Full</td><td>Scales with request volume</td></tr>
+        <tr><td>ISR</td><td>Build time + background regeneration</td><td>Near-instant on cache hit</td><td>Limited, shared between regenerations</td><td>Scales with regeneration frequency</td></tr>
+        <tr><td>PPR</td><td>Edge (shell) + per-request (holes)</td><td>Near-instant shell, holes stream in</td><td>Partial, within the holes</td><td>Shell near zero, holes scale like SSR</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>None of this reduces to a single rule, but a few questions narrow it quickly. Does the page need to reflect a specific visitor at request time, or is the same content correct for everyone? That's the line between SSG or ISR and SSR. Does the content change often enough that a background regeneration window matters, or is a full rebuild on deploy good enough? That's SSG versus ISR. Is the page public-facing, where a slow first paint or an empty shell for crawlers is a real cost, or is it behind an authentication wall where a visitor has already committed to loading the tool? That's usually where an SPA remains defensible in 2026, and where it doesn't.</p>
+
+  <div class="callout info aside">
+    <div class="callout-title">Where this connects</div>
+    <p>Core Web Vitals in 2026 track INP, which replaced FID as the responsiveness metric, alongside CLS and LCP, and every strategy above moves those numbers differently. The mechanics of each metric belong to a dedicated Core Web Vitals article rather than here. Service Workers are a separate, orthogonal caching layer for offline and fallback behavior, not a rendering strategy, and get their own treatment in a future PWA article.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       MIGRATION
+  ════════════════════════════════════════════════════ -->
+  <h2 id="migration">Migrating an Existing App</h2>
+  <p class="lede">The realistic path off a legacy CSR-only SPA is route by route, not a rewrite.</p>
+
+  <p>A product that's been a pure client-side SPA for years rarely gets rebuilt from scratch to adopt a different rendering strategy, and trying to do so is usually the wrong call anyway. The practical default is incremental: most modern meta-frameworks let a team mix rendering modes per route within the same app, which means a route can move from client-side rendering to SSR, SSG, or PPR on its own schedule, without touching the routes around it.</p>
+
+  <p>The routes worth migrating first are usually the ones where the SPA's weaknesses are most visible: a marketing or landing page that needs to be crawlable and fast on first load, a product or content page where LCP directly affects conversion, anything currently paying the full JavaScript bundle tax just to render text that never changes per visitor. Routes that are genuinely dashboard-like, authenticated, and update-heavy can reasonably stay client-rendered indefinitely, because that's the situation the strategy actually fits.</p>
+
+  <p>This route-by-route approach is also why the earlier framing, rendering as a spectrum rather than a single site-wide choice, matters practically and not just conceptually. A migration doesn't need a target architecture where every route ends up using the same strategy. It needs each route ending up using the strategy that fits what that route actually does.</p>
+
+</main>
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+
+</body>
+</html>

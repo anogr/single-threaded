@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>React Server Components: The Architecture Behind the Hype — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+<style>
+  /* Article-specific only. Shared patterns (cards, callouts, code blocks,
+     sidebar, tables) come from articles.css. */
+  .figure-wrap {
+    margin: 28px 0 8px;
+  }
+  .figure-wrap svg {
+    max-width: 100%;
+    display: block;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .figure-wrap figcaption {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-top: 10px;
+    line-height: 1.55;
+    max-width: var(--content-w);
+  }
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 20px 0;
+  }
+  @media (max-width: 640px) {
+    .compare-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+
+<body>
+
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Docs</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+  <a class="sidebar-logo" href="index.html">Article<br><span>React Server Components</span></a>
+
+  <div class="sidebar-section">Overview</div>
+  <a href="#overview">RSC vs. traditional SSR</a>
+
+  <div class="sidebar-section">The Boundary</div>
+  <a href="#boundary">Server and client components</a>
+  <a href="#not-a-loader">Not just "fetches on the server"</a>
+
+  <div class="sidebar-section">Streaming</div>
+  <a href="#streaming">Suspense and arrival order</a>
+
+  <div class="sidebar-section">Data &amp; Composition</div>
+  <a href="#server-data">Props vs. client-side fetching</a>
+  <a href="#islands">Client components as islands</a>
+
+  <div class="sidebar-section">Mutations</div>
+  <a href="#actions">Server Actions</a>
+
+  <div class="sidebar-section">Running It in Production</div>
+  <a href="#operational-cost">Operational cost</a>
+  <a href="#seo">SEO and social sharing</a>
+  <a href="#testing">Testing the boundary</a>
+  <a href="#security">Security note</a>
+
+  <div class="sidebar-section">Where This Lives</div>
+  <a href="#where-this-lives">Next.js and beyond</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">React · Architecture</div>
+  <h1>React Server Components: <em>The Architecture Behind the Hype</em></h1>
+  <p class="subtitle">Why RSC isn't just SSR with a new name, how the server/client boundary actually works, and when to pass data down instead of fetching it in the browser.</p>
+  <div class="byline">
+    <strong>Deep dive</strong>
+    <div class="dot"></div>
+    <span>~20 min read</span>
+    <div class="dot"></div>
+    <span>React architecture</span>
+    <div class="dot"></div>
+    <span>July 2026</span>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       OVERVIEW
+  ════════════════════════════════════════════════════ -->
+  <section id="overview">
+    <p><a href="rendering-strategies.html#ssr">Traditional server-side rendering</a>, streaming or otherwise, always ends with the same handoff: the server renders a full component tree to HTML, ships the JavaScript for every one of those components alongside it, and the browser re-runs them to attach event listeners and take over. That re-run is hydration, and it happens whether or not a given component ever does anything interactive. A footer that renders a copyright year still downloads its component code, still gets re-executed in the browser, still costs bytes and CPU time it arguably never needed to spend.</p>
+
+    <p>React Server Components remove that requirement for an entire category of components. A component marked as a server component, which in the App Router is the default for everything that doesn't opt out, runs once, on the server, and never ships its source or its logic to the client at all. What crosses the network is a serialized description of what it rendered, not JSX and not a JavaScript bundle, just enough information for React to reconstruct the resulting UI on the client and slot in whichever pieces actually need to be interactive. The server component itself has no client-side existence. There's nothing to hydrate, because there's no client copy of it to reconcile against.</p>
+
+    <p>That's the mechanical difference this article spends most of its time on: not just where rendering happens, timing that SSR already covers, but which parts of a component tree exist on the client at all, and how a project draws that line on purpose instead of by accident.</p>
+
+    <p>By 2026 this isn't an exotic opt-in anymore. A new Next.js App Router project defaults every file to a server component unless something marks it otherwise, which flips the historical default entirely: for most of React's history, every component was implicitly a client component whether it needed to be or not. Teams coming from that older mental model tend to write <code>'use client'</code> out of habit, at the top of files that never actually need interactivity, which quietly defeats the point. The discipline RSC actually rewards is the opposite instinct: leave a component on the server until something concrete, state, an event handler, a browser API, forces it across the boundary.</p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════
+       BOUNDARY
+  ════════════════════════════════════════════════════ -->
+  <h2 id="boundary">Server and Client Components</h2>
+  <p class="lede">The line between server and client isn't a convention, it's an import restriction the framework enforces.</p>
+
+  <p>Every file in a server-components project defaults to being a server component. A component only becomes a client component by adding a <code>'use client'</code> directive at the top of its file, and that directive doesn't just mark the one component, it marks a boundary: everything that file exports, and everything imported into that component's render tree from there down, runs on the client from that point on. There's no way to import a server component into a client component's tree and have it quietly stay a server component. Once a tree crosses into <code>'use client'</code>, it's client all the way down.</p>
+
+  <p>A second directive, <code>'use server'</code>, marks something different: not a component but a function a client component is allowed to call, which still executes on the server despite being invoked from client code. It gets its own section further down. Server Actions are enough of a topic on their own to deserve one.</p>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 700 380" role="img" aria-label="Component tree diagram showing a server-rendered Layout and Page at the top, importing a server Sidebar and a 'use client' DashboardWidget. DashboardWidget in turn renders two client components, Chart and Tooltip. Server components are shown in amber, client components in teal, with arrows showing that imports flow one way, from server components into client components, never back." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+        </marker>
+        <marker id="arrow-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--teal)"/>
+        </marker>
+      </defs>
+
+      <!-- connections -->
+      <line x1="350" y1="60" x2="350" y2="88" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrow-accent)"/>
+      <line x1="310" y1="130" x2="210" y2="178" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrow-accent)"/>
+      <line x1="390" y1="130" x2="490" y2="178" stroke="var(--teal)" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arrow-teal)"/>
+      <line x1="505" y1="220" x2="450" y2="268" stroke="var(--teal)" stroke-width="1.5" marker-end="url(#arrow-teal)"/>
+      <line x1="555" y1="220" x2="600" y2="268" stroke="var(--teal)" stroke-width="1.5" marker-end="url(#arrow-teal)"/>
+
+      <!-- boundary label -->
+      <text x="440" y="150" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--teal)">'use client' boundary</text>
+
+      <!-- server nodes -->
+      <rect x="280" y="20" width="140" height="40" rx="6" fill="color-mix(in srgb, var(--accent) 15%, transparent)" stroke="color-mix(in srgb, var(--accent) 45%, transparent)" stroke-width="1"/>
+      <text x="350" y="45" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--accent)">Layout</text>
+
+      <rect x="280" y="90" width="140" height="40" rx="6" fill="color-mix(in srgb, var(--accent) 15%, transparent)" stroke="color-mix(in srgb, var(--accent) 45%, transparent)" stroke-width="1"/>
+      <text x="350" y="115" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--accent)">Page</text>
+
+      <rect x="100" y="180" width="140" height="40" rx="6" fill="color-mix(in srgb, var(--accent) 15%, transparent)" stroke="color-mix(in srgb, var(--accent) 45%, transparent)" stroke-width="1"/>
+      <text x="170" y="205" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--accent)">Sidebar</text>
+
+      <!-- client node -->
+      <rect x="460" y="180" width="140" height="40" rx="6" fill="color-mix(in srgb, var(--teal) 18%, transparent)" stroke="color-mix(in srgb, var(--teal) 50%, transparent)" stroke-width="1"/>
+      <text x="530" y="199" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--teal)">DashboardWidget</text>
+      <text x="530" y="212" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--teal)">'use client'</text>
+
+      <rect x="370" y="270" width="130" height="40" rx="6" fill="color-mix(in srgb, var(--teal) 15%, transparent)" stroke="color-mix(in srgb, var(--teal) 45%, transparent)" stroke-width="1"/>
+      <text x="435" y="295" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--teal)">Chart</text>
+
+      <rect x="525" y="270" width="130" height="40" rx="6" fill="color-mix(in srgb, var(--teal) 15%, transparent)" stroke="color-mix(in srgb, var(--teal) 45%, transparent)" stroke-width="1"/>
+      <text x="590" y="295" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--teal)">Tooltip</text>
+
+      <!-- legend -->
+      <rect x="150" y="345" width="12" height="12" rx="2" fill="color-mix(in srgb, var(--accent) 15%, transparent)" stroke="color-mix(in srgb, var(--accent) 45%, transparent)"/>
+      <text x="170" y="355" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Server component: code never ships</text>
+
+      <rect x="440" y="345" width="12" height="12" rx="2" fill="color-mix(in srgb, var(--teal) 18%, transparent)" stroke="color-mix(in srgb, var(--teal) 50%, transparent)"/>
+      <text x="460" y="355" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Client component: ships and hydrates</text>
+    </svg>
+    <figcaption>Every file defaults to a server component. A <code>'use client'</code> directive marks the point where a subtree switches to the client, and that switch is one-directional: once a tree is inside a <code>'use client'</code> boundary, everything imported beneath it ships to the browser too.</figcaption>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">app/dashboard/page.tsx</span>
+      <span class="code-lang">Server Component</span>
+    </div>
+    <pre><code><span class="kw">import</span> { getAccountSummary } <span class="kw">from</span> <span class="s">'@/lib/data'</span>;
+<span class="kw">import</span> { SpendingChart } <span class="kw">from</span> <span class="s">'./spending-chart'</span>;
+
+<span class="cm">// no 'use client' directive: this file, and everything it does here, stays on the server</span>
+<span class="kw">export</span> <span class="kw">default</span> <span class="kw">async</span> <span class="kw">function</span> <span class="fn">DashboardPage</span>() {
+  <span class="kw">const</span> <span class="n">summary</span> = <span class="kw">await</span> <span class="fn">getAccountSummary</span>();  <span class="cm">// runs on the server, never ships</span>
+
+  <span class="kw">return</span> (
+    <span class="p">&lt;section&gt;</span>
+      <span class="p">&lt;h1&gt;</span>Account overview<span class="p">&lt;/h1&gt;</span>
+      <span class="cm">{/* summary crosses into the client tree as a plain serialized prop */}</span>
+      <span class="p">&lt;SpendingChart</span> <span class="n">data</span>=<span class="p">{summary.monthlyTotals}</span> <span class="p">/&gt;</span>
+    <span class="p">&lt;/section&gt;</span>
+  );
+}</code></pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">app/dashboard/spending-chart.tsx</span>
+      <span class="code-lang">Client Component</span>
+    </div>
+    <pre><code><span class="s">'use client'</span>;
+
+<span class="kw">import</span> { useState } <span class="kw">from</span> <span class="s">'react'</span>;
+
+<span class="kw">export</span> <span class="kw">function</span> <span class="fn">SpendingChart</span>({ <span class="n">data</span> }: { <span class="n">data</span>: <span class="t">number</span>[] }) {
+  <span class="kw">const</span> [<span class="n">range</span>, <span class="n">setRange</span>] = <span class="fn">useState</span>&lt;<span class="s">'3m'</span> | <span class="s">'12m'</span>&gt;(<span class="s">'3m'</span>);
+  <span class="kw">return</span> <span class="p">&lt;Chart</span> <span class="n">values</span>=<span class="p">{data}</span> <span class="n">range</span>=<span class="p">{range}</span> <span class="n">onRangeChange</span>=<span class="p">{setRange}</span> <span class="p">/&gt;</span>;
+}</code></pre>
+  </div>
+
+  <p>The <code>DashboardPage</code> component above never ships to the browser. Its imports, its data-fetching call, the shape of the account summary itself, none of that is visible to the client. What crosses the boundary is the <code>summary</code> object, serialized into the response and handed to <code>SpendingChart</code> as a plain prop. <code>SpendingChart</code> is a genuine client component: it holds local state, responds to interaction, and its source code does ship, because the browser has to run it. The one-directional rule catches people in both directions: a client component can't import a server component and expect it to render inside its own tree (there's no server left to call once the response has already streamed down), and a server component that imports a client component doesn't make that import a server component either. The <code>'use client'</code> file's boundary sticks.</p>
+
+  <p>That serialization is also where the boundary imposes a real constraint, not just a directional one. Only values React knows how to serialize can cross from server to client: plain objects, arrays, strings, numbers, dates, and a handful of other supported types, but not functions, class instances, or anything that closes over server-only state like a database connection or a file handle. A server component can't pass an <code>onClick</code> handler down as a plain prop, because a function reference has no meaning once it's supposed to run in a different runtime entirely. Server Actions are deliberately the one exception, covered in full further down: a function marked <code>'use server'</code> can cross the boundary as a prop, but only because React replaces it with a reference the client can call back through, not the function's actual code.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       NOT A LOADER
+  ════════════════════════════════════════════════════ -->
+  <h2 id="not-a-loader">Not Just "Fetches on the Server"</h2>
+  <p class="lede">RSC is a specific mechanism, not a synonym for server-side data fetching in general.</p>
+
+  <p>It's tempting to describe RSC as "React finally lets you fetch data on the server" and leave it there, but that description also fits patterns that predate RSC by years and work nothing like it underneath. Remix's loader functions and SvelteKit's <code>load</code> functions both run exclusively on the server, both fetch data before a route renders, and both hand that data to the page as a plain, typed value. Neither one builds a serialized component tree, and neither has anything resembling a <code>'use client'</code> boundary, because in both frameworks the whole page is still one tree once the data arrives, client-rendered or hydrated after SSR. A Remix loader answers "what data does this route need before it renders." RSC answers a different question: "which parts of this tree need to exist on the client at all."</p>
+
+  <div class="compare-grid">
+    <div class="card teal">
+      <div class="card-label">Older pattern</div>
+      <div class="card-title">Remix loaders, SvelteKit <code>load</code></div>
+      <p>Runs on the server and returns data as a value. The whole page is still one tree, client-rendered or hydrated after SSR. No component-level server/client split.</p>
+    </div>
+    <div class="card blue">
+      <div class="card-label">RSC</div>
+      <div class="card-title">Server components</div>
+      <p>Runs on the server and returns a serialized component tree with an explicit <code>'use client'</code> boundary. Whole subtrees genuinely never reach the browser.</p>
+    </div>
+  </div>
+
+  <p>The two problems overlap in the data-fetching case, which is why the conflation is so common, but RSC is solving the second problem. The loader pattern was never trying to.</p>
+
+  <p>The distinction is more than terminology. A team that adopts Remix or SvelteKit gets server-side data fetching without ever touching a serialized component tree, no <code>'use client'</code> directive to reason about, no rule about which imports are safe to nest where. A team adopting RSC takes on the component-tree model deliberately, in exchange for the ability to keep genuinely inert markup, layout chrome, static copy, presentation logic, off the client entirely rather than shipping it as JavaScript that happens to render once and never update again. Neither approach is strictly newer or more advanced than the other. They're solving adjacent but different problems, and a team that only needs server-side data shouldn't feel obligated to adopt RSC's component model just because both get described, loosely, as "server-side React."</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       STREAMING
+  ════════════════════════════════════════════════════ -->
+  <h2 id="streaming">Suspense and Arrival Order</h2>
+  <p class="lede">A server component can stream in long after the shell around it has already painted.</p>
+
+  <p>Server components stream to the client the same way <a href="rendering-strategies.html#ssr">streaming SSR</a> does: wrapped in a Suspense boundary, a slow part of the tree doesn't block the parts that are already ready. Nested boundaries resolve independently, each one streaming in as its own data arrives rather than waiting for the slowest sibling to finish. What's different from plain streaming SSR is what can live inside one of those boundaries. In ordinary streaming SSR, a boundary wraps a component that will eventually hydrate on the client. In RSC, a boundary can wrap a component that never ships to the client in any form. Only its rendered output streams in, later, once its data resolves.</p>
+
+  <p>A product page makes the effect concrete. The header, price, and title resolve almost immediately and stream first. A reviews section that has to aggregate ratings from a slower service might resolve well after that. A related-items strip pulling from a recommendation service might land somewhere in between. None of that has to match the order those sections appear in the document, because streaming delivers content in the order it becomes ready, not the order it's written in the markup.</p>
+
+  <p>Suspense only covers the waiting case, not the failure case, which is why streaming RSC code almost always pairs a Suspense boundary with an error boundary around the same region. If the reviews service times out entirely rather than just running slowly, the Suspense boundary has nothing to resolve into, and without an error boundary wrapping it, that failure can bubble up and take out more of the page than the one section that actually broke. Scoping both boundaries to the same region keeps a single slow or broken dependency contained: the rest of the page keeps working, and the failed section renders its own fallback instead of an unhandled error taking the whole tree down with it.</p>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 700 230" role="img" aria-label="Gantt-style chart showing three Suspense boundaries streaming in after a page shell is sent. In document order they are Product details, Reviews, and Related items. Product details resolves first at 60 milliseconds, matching its document position, but Reviews, which appears second in the document, resolves last at 320 milliseconds, while Related items, which appears third, resolves second at 140 milliseconds. Arrival order does not match document order." xmlns="http://www.w3.org/2000/svg">
+      <text x="390" y="18" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--text-dim)">Time since shell sent</text>
+
+      <line x1="140" y1="40" x2="140" y2="190" stroke="var(--text-faint)" stroke-width="1"/>
+      <text x="140" y="34" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">shell sent</text>
+
+      <line x1="265" y1="40" x2="265" y2="190" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,3"/>
+      <line x1="390" y1="40" x2="390" y2="190" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,3"/>
+      <line x1="515" y1="40" x2="515" y2="190" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,3"/>
+      <line x1="640" y1="40" x2="640" y2="190" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,3"/>
+
+      <line x1="140" y1="190" x2="640" y2="190" stroke="var(--border)" stroke-width="1"/>
+      <text x="140" y="204" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">0ms</text>
+      <text x="265" y="204" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">100ms</text>
+      <text x="390" y="204" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">200ms</text>
+      <text x="515" y="204" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">300ms</text>
+      <text x="640" y="204" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">400ms</text>
+
+      <text x="20" y="66" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text)">1. Product details</text>
+      <rect x="140" y="50" width="75" height="24" rx="3" fill="color-mix(in srgb, var(--accent) 24%, transparent)" stroke="color-mix(in srgb, var(--accent) 45%, transparent)"/>
+      <text x="215" y="44" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--accent)">1st · 60ms</text>
+
+      <text x="20" y="116" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text)">2. Reviews</text>
+      <rect x="140" y="100" width="400" height="24" rx="3" fill="color-mix(in srgb, var(--orange) 24%, transparent)" stroke="color-mix(in srgb, var(--orange) 45%, transparent)"/>
+      <text x="540" y="94" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--orange)">3rd · 320ms</text>
+
+      <text x="20" y="166" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text)">3. Related items</text>
+      <rect x="140" y="150" width="175" height="24" rx="3" fill="color-mix(in srgb, var(--teal) 24%, transparent)" stroke="color-mix(in srgb, var(--teal) 45%, transparent)"/>
+      <text x="315" y="144" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--teal)">2nd · 140ms</text>
+    </svg>
+    <figcaption>Three Suspense boundaries in a product page, listed top to bottom the way they appear in the document. Product details is both first in the document and first to resolve, but Reviews, second in the document, turns out to be the slowest and resolves last, while Related items jumps ahead of it. Streaming delivers content in arrival order, not document order.</figcaption>
+  </div>
+
+  <div class="callout warn aside">
+    <div class="callout-title">Test focus and announcement order</div>
+    <p>Streaming out of DOM order carries a real accessibility cost worth testing for specifically. If a screen reader announces new content in the order it arrives rather than the order it appears in the document, a boundary that resolves last can get announced after content that logically comes after it, which doesn't match how the page reads. And if focus was set on an element that a resolving Suspense boundary later replaces, that focus can silently land nowhere, leaving a keyboard or screen-reader user without a clear sense of where they are. Neither failure is unique to RSC, both apply to any streaming SSR, but RSC's habit of wrapping more of a page in independent boundaries makes it more likely to show up. It's a narrow thing to test for, not a reason to avoid streaming. Broader SPA-versus-SSR accessibility questions, and streaming accessibility in general, belong to a dedicated accessibility article.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       SERVER DATA
+  ════════════════════════════════════════════════════ -->
+  <h2 id="server-data">Props vs. Client-Side Fetching</h2>
+  <p class="lede">Passing data down avoids a fetch waterfall. It's only ever as fresh as the render that produced it.</p>
+
+  <p>A server component that fetches data and passes it down as props sidesteps a specific, common performance problem: the client-side fetch waterfall, where a component renders, fires a request, waits, then renders a child that fires its own request, each round trip adding to the time before anything useful appears. When a server component does that fetching before anything streams to the browser, the client tree receives already-resolved data as a prop and never has to fetch it at all for the initial render.</p>
+
+  <p>That doesn't mean a server component is automatically free of waterfalls of its own. Awaiting one data call and then starting the next only after it resolves recreates the exact problem, inside a single server component, that RSC is supposed to avoid at the client boundary. Starting independent fetches together, with <code>Promise.all</code> or by simply not awaiting a call until its result is actually needed further down the function, keeps a server component's own data fetching parallel instead of accidentally serial.</p>
+
+  <p>The tradeoff is staleness. Data passed down as a prop is a snapshot from the moment the server rendered, and it won't update again unless something re-renders that server component: a full navigation, a server action revalidating a route, or an explicit refresh in frameworks that support one. A dashboard number embedded as a prop is correct as of page load and then quietly frozen until the next render, which is fine for a lot of content and wrong for anything that needs to update while the visitor is still looking at it.</p>
+
+  <p>The pattern that settles this in practice treats server-side fetching as what fills the first paint, and a client-side cache as what handles everything after. TanStack Query's <code>dehydrate</code> and <code>hydrate</code> functions do exactly that: a server component runs a query, dehydrates the resulting cache into a serializable snapshot, and passes it down. A client component picks that snapshot back up with <code>HydrationBoundary</code> and gets a live query, complete with its own refetching, polling, and cache invalidation, seeded with data that was already there on first paint instead of starting from an empty cache and an unavoidable loading spinner.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">app/dashboard/page.tsx</span>
+      <span class="code-lang">Server Component</span>
+    </div>
+    <pre><code><span class="kw">import</span> { dehydrate, QueryClient, HydrationBoundary } <span class="kw">from</span> <span class="s">'@tanstack/react-query'</span>;
+<span class="kw">import</span> { SpendingChart } <span class="kw">from</span> <span class="s">'./spending-chart'</span>;
+
+<span class="kw">export</span> <span class="kw">default</span> <span class="kw">async</span> <span class="kw">function</span> <span class="fn">DashboardPage</span>() {
+  <span class="kw">const</span> <span class="n">queryClient</span> = <span class="kw">new</span> <span class="fn">QueryClient</span>();
+  <span class="kw">await</span> <span class="n">queryClient</span>.<span class="fn">prefetchQuery</span>({
+    <span class="n">queryKey</span>: [<span class="s">'spending'</span>, <span class="s">'monthly'</span>],
+    <span class="n">queryFn</span>: getMonthlyTotals,
+  });
+
+  <span class="kw">return</span> (
+    <span class="p">&lt;HydrationBoundary</span> <span class="n">state</span>=<span class="p">{dehydrate(queryClient)}</span><span class="p">&gt;</span>
+      <span class="p">&lt;SpendingChart</span> <span class="p">/&gt;</span>
+    <span class="p">&lt;/HydrationBoundary&gt;</span>
+  );
+}</code></pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">app/dashboard/spending-chart.tsx</span>
+      <span class="code-lang">Client Component</span>
+    </div>
+    <pre><code><span class="s">'use client'</span>;
+
+<span class="kw">import</span> { useQuery } <span class="kw">from</span> <span class="s">'@tanstack/react-query'</span>;
+
+<span class="kw">export</span> <span class="kw">function</span> <span class="fn">SpendingChart</span>() {
+  <span class="cm">// seeded from the server prefetch, refetches like any other query after that</span>
+  <span class="kw">const</span> { data } = <span class="fn">useQuery</span>({
+    <span class="n">queryKey</span>: [<span class="s">'spending'</span>, <span class="s">'monthly'</span>],
+    <span class="n">queryFn</span>: getMonthlyTotals,
+  });
+  <span class="kw">return</span> <span class="p">&lt;Chart</span> <span class="n">values</span>=<span class="p">{data}</span> <span class="p">/&gt;</span>;
+}</code></pre>
+  </div>
+
+  <p>Server fetch for first paint, client cache for what happens after: that framing is closer to how the pattern gets used in practice than treating server props and client fetching as a binary choice between the two.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       ISLANDS
+  ════════════════════════════════════════════════════ -->
+  <h2 id="islands">Client Components as Islands</h2>
+  <p class="lede">A <code>'use client'</code> component inside a server tree is an island by another name.</p>
+
+  <p>The earlier look at <a href="rendering-strategies.html#islands">islands architecture</a> describes Astro's model as small, independently hydrated pockets of interactivity dropped into an otherwise static or server-rendered page. A <code>'use client'</code> component inside an RSC tree is the same shape: a server-rendered page with one deliberately marked region that ships JavaScript and hydrates, surrounded by server components that never do. The vocabulary differs, Astro calls the boundary a component island and React calls it a client component, but the underlying bet, ship JavaScript only where something genuinely needs to be interactive, and draw that boundary explicitly rather than by default, is the same one made from two different starting points. Astro starts from zero JavaScript and opts components in. RSC starts from a component-tree model and opts specific branches out of the server.</p>
+
+  <p>One difference is worth naming so the analogy doesn't overreach. An Astro page with zero islands ships genuinely zero JavaScript framework runtime. An RSC page, even one with no <code>'use client'</code> components anywhere, still needs React's client runtime present to handle navigation and any future interactive additions, because the framework doesn't know in advance that a route will stay purely static forever. The islands are comparable. The baseline they sit on top of isn't.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       SERVER ACTIONS
+  ════════════════════════════════════════════════════ -->
+  <h2 id="actions">Server Actions</h2>
+  <p class="lede">Mutations get the same treatment reads did: the framework decides which parts of the round trip actually need to run on the client.</p>
+
+  <p>A Server Action is a function marked with <code>'use server'</code>, either at the top of its own file or inline inside a server component, that a client component can call directly as though it were a local function, even though the call crosses the network and executes on the server. React handles serializing the arguments and the return value automatically, so a plain form submission or button click doesn't need a hand-written API route or a manual <code>fetch</code> call underneath it.</p>
+
+  <p>The pattern that settled by 2026 for handling validation is a typed result rather than a thrown exception. An action always returns a value with the same shape, <code>{ ok: true }</code> on success or <code>{ ok: false, fieldErrors }</code> on a validation failure, rather than throwing for the failure case the way an earlier generation of server functions did. That consistency is what lets <code>useActionState</code> render inline field errors straight from an action's return value, with no try/catch at the call site and no separate error state to keep in sync with the form.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">app/dashboard/actions.ts</span>
+      <span class="code-lang">Server Action</span>
+    </div>
+    <pre><code><span class="s">'use server'</span>;
+
+<span class="kw">type</span> <span class="t">ActionResult</span> =
+  | { <span class="n">ok</span>: <span class="cn">true</span> }
+  | { <span class="n">ok</span>: <span class="cn">false</span>; <span class="n">fieldErrors</span>: <span class="t">Record</span>&lt;<span class="t">string</span>, <span class="t">string</span>&gt; };
+
+<span class="kw">export</span> <span class="kw">async</span> <span class="kw">function</span> <span class="fn">updateEmail</span>(
+  <span class="n">prevState</span>: <span class="t">ActionResult</span>,
+  <span class="n">formData</span>: <span class="t">FormData</span>
+): <span class="t">Promise</span>&lt;<span class="t">ActionResult</span>&gt; {
+  <span class="kw">const</span> <span class="n">email</span> = <span class="n">formData</span>.<span class="fn">get</span>(<span class="s">'email'</span>);
+  <span class="kw">if</span> (<span class="kw">typeof</span> <span class="n">email</span> !== <span class="s">'string'</span> || !<span class="n">email</span>.<span class="fn">includes</span>(<span class="s">'@'</span>)) {
+    <span class="kw">return</span> { <span class="n">ok</span>: <span class="cn">false</span>, <span class="n">fieldErrors</span>: { <span class="n">email</span>: <span class="s">'Enter a valid email address.'</span> } };
+  }
+  <span class="kw">await</span> <span class="n">db</span>.<span class="n">user</span>.<span class="fn">update</span>({ <span class="n">email</span> });
+  <span class="kw">return</span> { <span class="n">ok</span>: <span class="cn">true</span> };
+}</code></pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">app/dashboard/email-form.tsx</span>
+      <span class="code-lang">Client Component</span>
+    </div>
+    <pre><code><span class="s">'use client'</span>;
+
+<span class="kw">import</span> { useActionState } <span class="kw">from</span> <span class="s">'react'</span>;
+<span class="kw">import</span> { updateEmail } <span class="kw">from</span> <span class="s">'./actions'</span>;
+
+<span class="kw">export</span> <span class="kw">function</span> <span class="fn">EmailForm</span>() {
+  <span class="kw">const</span> [<span class="n">state</span>, <span class="n">formAction</span>, <span class="n">pending</span>] = <span class="fn">useActionState</span>(<span class="n">updateEmail</span>, { <span class="n">ok</span>: <span class="cn">true</span> });
+
+  <span class="kw">return</span> (
+    <span class="p">&lt;form</span> <span class="n">action</span>=<span class="p">{formAction}</span><span class="p">&gt;</span>
+      <span class="p">&lt;input</span> <span class="n">name</span>=<span class="s">"email"</span> <span class="n">type</span>=<span class="s">"email"</span> <span class="p">/&gt;</span>
+      {<span class="n">state</span>.<span class="n">ok</span> === <span class="cn">false</span> &amp;&amp; <span class="p">&lt;p&gt;</span>{state.fieldErrors.email}<span class="p">&lt;/p&gt;</span>}
+      <span class="p">&lt;button</span> <span class="n">disabled</span>=<span class="p">{pending}</span><span class="p">&gt;</span>Save<span class="p">&lt;/button&gt;</span>
+    <span class="p">&lt;/form&gt;</span>
+  );
+}</code></pre>
+  </div>
+
+  <p><code>useOptimistic</code> pairs with this pattern for the immediate-feedback case, showing a predicted result while the action is still in flight. Its rollback behavior is narrower than it looks: the optimistic value only reverts automatically when the action throws. If an action follows the typed-result convention above and returns <code>{ ok: false, ... }</code> instead of throwing, <code>useOptimistic</code> has no signal to roll back on, and the optimistic UI keeps showing the predicted state until something else, a fresh prop from the parent re-rendering, updates it. Teams that combine the typed-error pattern for <code>useActionState</code> with <code>useOptimistic</code> in the same form need to handle that gap explicitly, usually by deriving the optimistic reset from the action's returned state rather than relying on the hook's automatic behavior.</p>
+
+  <p>Server Actions commonly close the loop on the caching story covered elsewhere in this series: after <code>updateEmail</code> succeeds, a real implementation typically calls something like <code>revalidatePath</code> or <code>revalidateTag</code> so any cached server-rendered page still showing the old value gets marked stale immediately, the same <a href="rendering-strategies.html#isr">on-demand revalidation</a> covered as part of ISR, just triggered from a mutation instead of a webhook.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       OPERATIONAL COST
+  ════════════════════════════════════════════════════ -->
+  <h2 id="operational-cost">Operational Cost</h2>
+  <p class="lede">Moving rendering onto the server doesn't remove cost, it relocates it, and it relocates it into serverless economics specifically.</p>
+
+  <p>Server components shift rendering compute from the visitor's device to a function running per request, which means the usual serverless tradeoffs now apply to page rendering itself, not just to API routes. A function that hasn't run recently pays a cold start before the first byte goes out. A render that streams for several seconds while waiting on slow data holds memory for the whole duration, and enough concurrent slow renders can pressure a function's memory ceiling the same way any long-lived request would. And the RSC model doesn't guarantee zero client-side JavaScript: a large subtree that's genuinely interactive still ships and hydrates like it always did, so time-to-interactive for that portion of the page doesn't automatically improve just because the tree around it is server-rendered. None of this is a performance-tuning concern so much as a capacity-planning one. Cold starts, concurrent render memory, and residual client bundle size are the numbers worth watching, and none of them show up in a single benchmark run.</p>
+
+  <p>Most serverless platforms also cap how long a single function invocation can run, which puts a hard ceiling on how long a streaming RSC response can stay open waiting on a slow dependency, a constraint that doesn't exist in the same way for a long-running origin server process. The <a href="rendering-strategies.html#ssr">edge-versus-origin tradeoff</a> covered for plain SSR carries over here too, and matters more for RSC than for a stateless API route: an edge runtime buys lower cold-start latency in exchange for less compute headroom, and a streaming render has to sustain its connection for the whole duration rather than finishing in one quick round trip.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       SEO
+  ════════════════════════════════════════════════════ -->
+  <h2 id="seo">SEO and Social Sharing</h2>
+  <p class="lede">Metadata that a crawler never has to execute JavaScript to see is a direct, practical win.</p>
+
+  <p>Next.js's <code>generateMetadata</code> function, and its equivalents in other server-first frameworks, runs on the server and produces the actual <code>&lt;title&gt;</code>, description, and Open Graph tags a crawler or a social-media unfurler sees in the initial response, without either of them needing to execute a client bundle to find that information. That's the exact problem a pure client-rendered SPA has: a crawler that doesn't run the bundle sees an empty shell and whatever static meta tags happen to be hardcoded into the document, which is usually wrong for anything beyond the homepage. Server-first rendering doesn't just make metadata correct, it makes it correct for every route without a team having to reason about which crawlers execute JavaScript and which don't.</p>
+
+  <p><code>generateMetadata</code> runs before the page component itself and can await the same data sources the page uses, so a product's title and price end up in both the visible page and its Open Graph tags from one shared fetch, rather than a separate metadata pipeline that quietly drifts out of sync with the page it's describing.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       TESTING
+  ════════════════════════════════════════════════════ -->
+  <h2 id="testing">Testing the Boundary</h2>
+  <p class="lede">A quick heads-up rather than a strategy: server components need a different kind of test harness.</p>
+
+  <p>Server components don't run inside the kind of browser-like harness component tests are normally written against. jsdom and its equivalents simulate a DOM, not a server render pipeline with a serialization boundary running through the middle of it. That pushes a meaningful share of RSC-specific coverage, especially anything that crosses the server/client boundary, out of unit tests and into integration or end-to-end tests that actually run the framework's server and hit it with real requests. In practice that means leaning harder on Playwright or a similar end-to-end tool for anything that spans the boundary, and reserving component-level testing tools for the client components that can genuinely run in an isolated, browser-like environment on their own. The tradeoffs between unit, integration, and end-to-end coverage generally, and where the line should sit for a given team, belong to a dedicated testing strategy article. This is just the part specific to RSC.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       SECURITY
+  ════════════════════════════════════════════════════ -->
+  <h2 id="security">Security Note</h2>
+
+  <div class="callout warn aside">
+    <div class="callout-title">Props cross a serialization boundary, not a security boundary</div>
+    <p>Passing data from a server component to a client component as a prop crosses a serialization boundary, not a trust boundary. Nothing about that crossing sanitizes dynamic content on its own. If a value contains user-supplied HTML or script content, it still needs the same sanitization discipline covered in <a href="browser-security.html#xss">the cross-site scripting section of the browser security article</a>. RSC doesn't add a new defense here, and it doesn't remove the need for an existing one.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       WHERE THIS LIVES
+  ════════════════════════════════════════════════════ -->
+  <h2 id="where-this-lives">Next.js and Beyond</h2>
+  <p class="lede">A framework-level contract, increasingly, rather than a single vendor's feature.</p>
+
+  <p>Next.js's App Router is the flagship implementation of everything above, and for most teams evaluating RSC in 2026, it's also the only one mature enough to bet a production app on today. That's changing rather than settling permanently. Other frameworks, TanStack Start among them, are adopting compatible server and client component patterns rather than treating the model as a Next.js-only feature. Read as a contract, server components, an explicit client boundary, streaming with Suspense, and typed server actions, is closer to where React itself is heading than a feature specific to one meta-framework, even though right now, in practice, learning it still means learning Next.js's implementation of it first.</p>
+
+</main>
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+
+</body>
+</html>
