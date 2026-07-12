@@ -70,7 +70,7 @@
   <a href="#routing">Who owns the address bar</a>
 
   <div class="sidebar-section">Building It</div>
-  <a href="#tooling">The 2026 tooling landscape</a>
+  <a href="#tooling">The current tooling landscape</a>
   <a href="#css-isolation">CSS isolation</a>
   <a href="#shared-deps">Shared dependency pitfalls</a>
   <a href="#auth">Shared auth context</a>
@@ -126,7 +126,7 @@
 
   <p>Runtime composition means each team ships their own independently built and independently deployed bundle, and those bundles only come together once a browser requests the page. Nobody has to wait for anybody else's build to finish, because there isn't a shared build. The checkout team can deploy Thursday and the catalog team can deploy Tuesday, and the only coordination required between them is agreeing on the contract at the seam where their code meets, not the release calendar.</p>
 
-  <p>Module Federation, introduced in webpack 5, is the dominant mechanism for this in 2026. The tooling around it has grown considerably, but the core idea hasn't changed: separately built applications can share code with each other at runtime rather than at bundle time. A host application declares which remote modules it needs and where to find them, a remote application declares which of its own modules it's willing to expose, and the actual loading and wiring happens in the browser when the host runs.</p>
+  <p>Module Federation, introduced in webpack 5, is the dominant mechanism for this today. The tooling around it has grown considerably, but the core idea hasn't changed: separately built applications can share code with each other at runtime rather than at bundle time. A host application declares which remote modules it needs and where to find them, a remote application declares which of its own modules it's willing to expose, and the actual loading and wiring happens in the browser when the host runs.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -363,18 +363,18 @@
   <!-- ═══════════════════════════════════════════════════
        TOOLING
   ════════════════════════════════════════════════════ -->
-  <h2 id="tooling">The 2026 Tooling Landscape <span class="badge-new">2026</span></h2>
+  <h2 id="tooling">The Current Tooling Landscape <span class="badge-new">2026</span></h2>
   <p class="lede">The practical path depends heavily on what a team is already building with.</p>
 
   <p>Module Federation 2.0, shipped as <code>@module-federation/enhanced</code>, reached a stable release across the broader bundler ecosystem in early 2026, and the detail worth knowing is that it decoupled the runtime from webpack specifically. The same federation runtime now works across Rspack, Vite, and Rollup, not just webpack, with added TypeScript type sharing across federated boundaries and manifest-based host discovery so a host doesn't need remote URLs hardcoded at build time. For a team with an existing webpack investment, running Module Federation 2.0 on Rspack rather than plain webpack is currently the practical migration path: Rspack's webpack-compatible configuration API means most of an existing setup carries over directly, while builds run something like five to ten times faster.</p>
 
-  <p>Next.js complicates that picture rather than extending it. Turbopack, the default bundler in Next.js 16, does not support Module Federation as of 2026. It's on the public roadmap and explicitly unshipped, which is a real gap for any team hoping to run Module Federation inside a Turbopack-built Next.js app today. The practical consequence is a growing divergence between Module Federation and Next.js's own architectural direction: teams building microfrontends on Next.js in 2026 are increasingly pointed toward Multi-Zones, single-spa, Astro islands, or a plain monorepo instead, several of which were never solving a genuine runtime-sharing problem to begin with and are better fits for teams whose real need was separate builds and separate teams.</p>
+  <p>Next.js complicates that picture rather than extending it. Turbopack, the default bundler in Next.js 16, does not support Module Federation as of today. It's on the public roadmap and explicitly unshipped, which is a real gap for any team hoping to run Module Federation inside a Turbopack-built Next.js app today. The practical consequence is a growing divergence between Module Federation and Next.js's own architectural direction: teams building microfrontends on Next.js today are increasingly pointed toward Multi-Zones, single-spa, Astro islands, or a plain monorepo instead, several of which were never solving a genuine runtime-sharing problem to begin with and are better fits for teams whose real need was separate builds and separate teams.</p>
 
   <p>Native Federation, maintained by the Angular Architects team, is the framework-agnostic alternative worth knowing about even outside the Angular ecosystem it originated in. It implements the same composition idea, remotes exposing modules a host can consume at runtime, but over native ECMAScript modules and browser import maps instead of a bundler-specific runtime. That makes it lighter than the webpack-derived Module Federation runtime and usable from any build tool that can emit standard ESM, at the cost of some of the manifest tooling and TypeScript-sharing convenience Module Federation 2.0 has built up around itself.</p>
 
   <p>Zephyr sits a level above both, as a build and hosting layer rather than a federation mechanism of its own. It resolves shared dependencies and dedupes assets across a set of federated remotes even when those remotes were built with different bundlers, Webpack, Vite, Rspack, and Rollup among them, using content-addressed storage to avoid shipping the same dependency twice under two different bundlers' output. For an organization where different teams have already settled on different bundlers, which is common once a company reaches the size where microfrontends make sense at all, that cross-bundler resolution is often the more pressing problem than which single federation library to standardize on.</p>
 
-  <p>One more piece of the 2026 landscape is where remotes run, not just how they're built. Hosting a remote's bundle from a Cloudflare Workers edge location, the same edge-versus-origin tradeoff covered for <a href="rendering-strategies.html#ssr">edge SSR</a> in the rendering strategies article, buys the same lower cold-start latency for a federated remote's static assets that it buys for a rendered page, worth considering once a remote's origin location starts showing up in latency numbers for users far from wherever it's currently hosted.</p>
+  <p>One more piece of the current landscape is where remotes run, not just how they're built. Hosting a remote's bundle from a Cloudflare Workers edge location, the same edge-versus-origin tradeoff covered for <a href="rendering-strategies.html#ssr">edge SSR</a> in the rendering strategies article, buys the same lower cold-start latency for a federated remote's static assets that it buys for a rendered page, worth considering once a remote's origin location starts showing up in latency numbers for users far from wherever it's currently hosted.</p>
 
   <div class="table-wrap">
     <table>

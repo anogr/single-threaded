@@ -106,7 +106,7 @@
 
     <p>That's the mechanical difference this article spends most of its time on: not just where rendering happens, timing that SSR already covers, but which parts of a component tree exist on the client at all, and how a project draws that line on purpose instead of by accident.</p>
 
-    <p>By 2026 this isn't an exotic opt-in anymore. A new Next.js App Router project defaults every file to a server component unless something marks it otherwise, which flips the historical default entirely: for most of React's history, every component was implicitly a client component whether it needed to be or not. Teams coming from that older mental model tend to write <code>'use client'</code> out of habit, at the top of files that never actually need interactivity, which quietly defeats the point. The discipline RSC actually rewards is the opposite instinct: leave a component on the server until something concrete, state, an event handler, a browser API, forces it across the boundary.</p>
+    <p>Today this isn't an exotic opt-in anymore. A new Next.js App Router project defaults every file to a server component unless something marks it otherwise, which flips the historical default entirely: for most of React's history, every component was implicitly a client component whether it needed to be or not. Teams coming from that older mental model tend to write <code>'use client'</code> out of habit, at the top of files that never actually need interactivity, which quietly defeats the point. The discipline RSC actually rewards is the opposite instinct: leave a component on the server until something concrete, state, an event handler, a browser API, forces it across the boundary.</p>
   </section>
 
   <!-- ═══════════════════════════════════════════════════
@@ -368,7 +368,7 @@
 
   <p>A Server Action is a function marked with <code>'use server'</code>, either at the top of its own file or inline inside a server component, that a client component can call directly as though it were a local function, even though the call crosses the network and executes on the server. React handles serializing the arguments and the return value automatically, so a plain form submission or button click doesn't need a hand-written API route or a manual <code>fetch</code> call underneath it.</p>
 
-  <p>The pattern that settled by 2026 for handling validation is a typed result rather than a thrown exception. An action always returns a value with the same shape, <code>{ ok: true }</code> on success or <code>{ ok: false, fieldErrors }</code> on a validation failure, rather than throwing for the failure case the way an earlier generation of server functions did. That consistency is what lets <code>useActionState</code> render inline field errors straight from an action's return value, with no try/catch at the call site and no separate error state to keep in sync with the form.</p>
+  <p>The pattern that has settled for handling validation is a typed result rather than a thrown exception. An action always returns a value with the same shape, <code>{ ok: true }</code> on success or <code>{ ok: false, fieldErrors }</code> on a validation failure, rather than throwing for the failure case the way an earlier generation of server functions did. That consistency is what lets <code>useActionState</code> render inline field errors straight from an action's return value, with no try/catch at the call site and no separate error state to keep in sync with the form.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -467,7 +467,7 @@
   <h2 id="where-this-lives">Next.js and Beyond</h2>
   <p class="lede">A framework-level contract, increasingly, rather than a single vendor's feature.</p>
 
-  <p>Next.js's App Router is the flagship implementation of everything above, and for most teams evaluating RSC in 2026, it's also the only one mature enough to bet a production app on today. That's changing rather than settling permanently. Other frameworks, TanStack Start among them, are adopting compatible server and client component patterns rather than treating the model as a Next.js-only feature. Read as a contract, server components, an explicit client boundary, streaming with Suspense, and typed server actions, is closer to where React itself is heading than a feature specific to one meta-framework, even though right now, in practice, learning it still means learning Next.js's implementation of it first.</p>
+  <p>Next.js's App Router is the flagship implementation of everything above, and for most teams evaluating RSC, it's also the only one mature enough to bet a production app on today. That's changing rather than settling permanently. Other frameworks, TanStack Start among them, are adopting compatible server and client component patterns rather than treating the model as a Next.js-only feature. Read as a contract, server components, an explicit client boundary, streaming with Suspense, and typed server actions, is closer to where React itself is heading than a feature specific to one meta-framework, even though right now, in practice, learning it still means learning Next.js's implementation of it first.</p>
 
 </main>
 </div><!-- end .shell -->

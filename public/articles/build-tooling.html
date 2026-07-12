@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Build Tooling: How Bundlers Decide What Ships — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+<style>
+  /* Article-specific only. Shared patterns (cards, callouts, code blocks,
+     sidebar, tables) come from articles.css. */
+  .figure-wrap {
+    margin: 28px 0 8px;
+  }
+  .figure-wrap svg {
+    max-width: 100%;
+    display: block;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .figure-wrap figcaption {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-top: 10px;
+    line-height: 1.55;
+    max-width: var(--content-w);
+  }
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 20px 0;
+  }
+  .compare-grid.three {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+  @media (max-width: 640px) {
+    .compare-grid, .compare-grid.three { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+
+<body>
+
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Docs</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+  <a class="sidebar-logo" href="index.html">Article<br><span>Build Tooling</span></a>
+
+  <div class="sidebar-section">History</div>
+  <a href="#history">From task runners to bundlers</a>
+
+  <div class="sidebar-section">How It Works</div>
+  <a href="#two-jobs">The dev server and the build</a>
+  <a href="#tree-shaking">Tree-shaking fundamentals</a>
+  <a href="#code-splitting">Code-splitting fundamentals</a>
+
+  <div class="sidebar-section">The Landscape</div>
+  <a href="#landscape">Tool by tool</a>
+  <a href="#rust-convergence">The Rust convergence</a>
+
+  <div class="sidebar-section">Deciding</div>
+  <a href="#choosing">Choosing a tool today</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">Frontend · Build Tooling</div>
+  <h1>Build Tooling: <em>How Bundlers Decide What Ships</em></h1>
+  <p class="subtitle">Vite, esbuild, Rollup, webpack, and Turbopack all compile the same kind of source into a browser-ready bundle. How tree-shaking and code-splitting actually work, and which tool fits which job in 2026.</p>
+  <div class="byline">
+    <strong>Deep dive</strong>
+    <div class="dot"></div>
+    <span>~21 min read</span>
+    <div class="dot"></div>
+    <span>Build tooling</span>
+    <div class="dot"></div>
+    <span>July 2026</span>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       INTRO
+  ════════════════════════════════════════════════════ -->
+  <section id="intro">
+    <p>A typical frontend project is written as a few hundred source files that import each other, plus a few thousand more sitting in <code>node_modules</code> that those files pull in transitively. None of that is what a browser should actually load. Shipping every file as a separate request, even over HTTP/2, means paying for round trips and per-file overhead on code the page may never use. A build tool's job is to take that whole graph of modules and turn it into the smallest, fewest set of files that still does exactly what the source did, stripped of TypeScript types and JSX syntax the browser can't parse, with dead branches removed and the result split into chunks that load roughly when they're needed rather than all at once.</p>
+
+    <p>That single sentence hides most of the interesting engineering in this space. Doing it correctly requires statically tracing which exports a program actually reaches, which is tree-shaking. Doing it usefully for a large app requires deciding which parts of that traced graph can be deferred until later, which is code-splitting. And doing both fast enough that a developer doesn't wait on it dozens of times a day is most of why the tooling landscape has reshaped itself twice in the last five years, first around a Go-based bundler, then around a wave of Rust ones. This article covers what tree-shaking and code-splitting actually do under the hood, then works through Vite, esbuild, Rollup, webpack, Turbopack, and the tools that have arrived since, with an eye toward which one actually fits a given job. Bundler choices that are specific to microfrontends, Module Federation and the Rspack and Zephyr tooling built around it, are covered in <a href="microfrontends.html#tooling">the microfrontends article</a> instead of repeated here.</p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════
+       HISTORY
+  ════════════════════════════════════════════════════ -->
+  <h2 id="history">From Task Runners to Bundlers</h2>
+  <p class="lede">Bundling and running tasks used to be the same job. They split apart because they're not actually the same problem.</p>
+
+  <p>Before any of today's tools existed, the browser simply had no module system. Every script tag shared one global scope, and keeping a large jQuery-era codebase from stepping on its own variables was a matter of discipline, not tooling. Browserify, released in 2011, was the first tool to matter here: it let developers write Node-style <code>require()</code> calls and walk the resulting dependency graph into one file the browser could load, effectively smuggling CommonJS modules into a place they were never designed to run. Grunt and Gulp arrived around the same time solving an adjacent but different problem, running a sequence of tasks (compile Sass, minify images, concatenate scripts) rather than resolving a module graph. It's worth keeping that distinction in mind, because a task runner and a bundler are answering different questions, and a fair amount of early tooling confusion came from treating them as competitors.</p>
+
+  <p>webpack, first released in 2012 by Tobias Koppers, absorbed both jobs into one tool and became the default answer for most of the following decade. Its core idea, that literally everything (JavaScript, CSS, images, fonts) is a module that flows through a graph of loaders and plugins, was flexible enough to support the entire ecosystem's fads as they arrived: CSS Modules, hot module replacement, tree-shaking once ES modules made static analysis possible, code-splitting via dynamic <code>import()</code>. Babel, released in 2014 as 6to5, filled the adjacent gap of letting developers write syntax browsers didn't support yet, and the two tools became the standard pairing for years. Rollup, released in 2015 by Rich Harris, took a narrower and more opinionated position: it targeted ES modules specifically, before webpack's tree-shaking existed, and produced flatter, more readable output that library authors preferred over webpack's more general-purpose runtime wrapper.</p>
+
+  <p>The landscape's first real shock came from outside the JavaScript ecosystem entirely. esbuild, released by Evan Wallace in 2020, is written in Go and compiled to native code, and it bundled and transformed source ten to a hundred times faster than the JavaScript-based tools it was compared against, largely because it parallelizes across cores in a way a single-threaded Node process can't. It didn't replace webpack's plugin ecosystem or its code-splitting sophistication, but it made an entire category of work, transforming TypeScript and JSX, bundling dependencies for local development, fast enough to stop being a bottleneck. Vite, released the same year by Evan You, built its dev-time story directly on top of that speed: instead of bundling an app before serving it, Vite serves source files as native ES modules straight to the browser during development, using esbuild only to pre-bundle the (rarely changing) contents of <code>node_modules</code>. That split, covered in detail in the next section, is the architectural idea that reshaped how most new projects approach building for the rest of the decade.</p>
+
+  <p>The second shock has been underway since roughly 2023 and is still reshaping the landscape as of this writing: a wholesale move from Go to Rust across the toolchain. SWC, a Rust-based compiler, replaced Babel inside Next.js years before this trend had a name. Vercel's Turbopack, announced in 2022 and written in Rust by the same Tobias Koppers who built webpack, positioned itself explicitly as webpack's successor. Rspack, from ByteDance, took the opposite approach of cloning webpack's configuration surface in Rust rather than replacing its mental model. And most recently, Rolldown and Oxc, both stewarded by Evan You's company VoidZero, have set out to replace the Rollup-plus-esbuild combination sitting underneath Vite with a single Rust toolchain. The rest of this article treats these not as a list of competing options to memorize, but as answers to two much narrower questions worth understanding on their own: how does a tool decide what code is dead, and how does it decide what to defer.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       TWO JOBS
+  ════════════════════════════════════════════════════ -->
+  <h2 id="two-jobs">The Dev Server and the Production Build Are Different Jobs</h2>
+  <p class="lede">Optimizing for iteration speed and optimizing for shipped-file size pull in opposite directions, which is why the best tools stopped trying to do both with the same code path.</p>
+
+  <p>During development, the only thing that matters is how fast a change to one file reaches the browser. Bundle size is irrelevant because nobody's connection speed matters on localhost, and the fewer things stand between a saved file and an updated screen, the better. During a production build, the opposite priorities apply: build time matters far less than someone waiting on a real network connection, so it's worth spending extra seconds tree-shaking aggressively, splitting chunks carefully, and minifying every byte that ships.</p>
+
+  <p>Vite's architecture is built directly around treating these as separate problems rather than one continuum. Its dev server doesn't bundle application code at all: it serves each source file as a native ES module, and the browser's own module loader requests each import as needed, executing on that native ESM-in-browser support that reduced Vite's dev-time job to "transform this one file quickly," not "resolve the whole graph on every save." <code>node_modules</code> dependencies get a separate treatment, because a package like <code>lodash-es</code> might be spread across hundreds of internal files. Pre-bundling them once at startup, historically with esbuild and now with Rolldown as of Vite 8, converts that into a small number of flat modules so the browser isn't making hundreds of requests for one dependency's internals. Only the production build path actually bundles, tree-shakes, and splits the application's own code, which is exactly what the rest of this article is about.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">vite.config.ts</span>
+      <span class="code-lang">TypeScript</span>
+    </div>
+    <pre><code><span class="kw">import</span> { <span class="fn">defineConfig</span> } <span class="kw">from</span> <span class="s">'vite'</span>;
+
+<span class="kw">export</span> <span class="kw">default</span> <span class="fn">defineConfig</span>({
+  <span class="cm">// dev: serves ES modules directly, esbuild/Rolldown only pre-bundles deps</span>
+  <span class="cm">// build: bundles, tree-shakes, and code-splits the app for production</span>
+  <span class="n">build</span>: {
+    <span class="n">target</span>: <span class="s">'es2022'</span>,
+    <span class="n">sourcemap</span>: <span class="cn">true</span>,
+  },
+});</code></pre>
+  </div>
+
+  <p>This split is also why comparing "Vite versus webpack" head to head is a little imprecise. Vite is a dev server plus a build orchestrator that historically delegated production bundling to Rollup underneath. webpack has always been one bundler used for both jobs, which is part of why its dev-time hot reload was traditionally slower than Vite's, it was running the same bundling machinery both times, just incrementally. Turbopack and Rspack both inherit webpack's single-pipeline model but rebuild the engine in Rust rather than splitting the two jobs the way Vite does, betting that Rust's raw speed can close the dev-time gap without needing an architectural split at all.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       TREE-SHAKING
+  ════════════════════════════════════════════════════ -->
+  <h2 id="tree-shaking">Tree-Shaking Fundamentals</h2>
+  <p class="lede">Tree-shaking isn't smart. It's a reachability check, and it only works when the code is honest about what it can reach.</p>
+
+  <p>The mental model worth holding onto is simple: starting from an app's entry point, a bundler follows every <code>import</code> statement it can see and marks each export it reaches as live. Anything never reached by that walk, an unused named export, a function nobody imports, gets dropped from the final bundle entirely, not just minified into a shorter name. This only works reliably against ES modules, because <code>import</code> and <code>export</code> are static, they have to appear at the top level of a file and reference fixed names, so a bundler can build that reachability graph without running any code. CommonJS's <code>require()</code> and <code>module.exports</code> are just function calls and object assignments at runtime, which a bundler generally can't safely trace the same way, so a library shipped only as CommonJS is close to a black box as far as tree-shaking is concerned, all or nothing.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">utils.ts</span>
+      <span class="code-lang">TypeScript</span>
+    </div>
+    <pre><code><span class="kw">export</span> <span class="kw">function</span> <span class="fn">formatDate</span>(<span class="n">d</span>: <span class="t">Date</span>) { <span class="kw">return</span> <span class="n">d</span>.<span class="fn">toISOString</span>(); }
+<span class="kw">export</span> <span class="kw">function</span> <span class="fn">formatCurrency</span>(<span class="n">n</span>: <span class="t">number</span>) { <span class="kw">return</span> <span class="s">`$${</span><span class="n">n</span>.<span class="fn">toFixed</span>(<span class="m">2</span>)<span class="s">}`</span>; }
+<span class="kw">export</span> <span class="kw">function</span> <span class="fn">debugLog</span>(...<span class="n">args</span>: <span class="t">unknown</span>[]) { <span class="n">console</span>.<span class="fn">log</span>(...<span class="n">args</span>); }</code></pre>
+  </div>
+
+  <p>If <code>entry.ts</code> only ever writes <code>import { formatDate, formatCurrency } from './utils'</code>, a bundler can prove that <code>debugLog</code> is never reachable from the entry point and drop it, and everything it alone depends on, from the final bundle without executing a single line of it.</p>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 700 300" role="img" aria-label="Diagram showing tree-shaking as reachability from an entry point. An entry.ts box at the top has solid green arrows down to two reachable export boxes, formatDate and formatCurrency, which in turn have arrows down into a shipped bundle box. A third export box, debugLog, sits off to the side with a dashed faint border, no arrow connecting it to the entry point, and a label reading no import path, dropped." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrow-green-ts" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--green)"/>
+        </marker>
+      </defs>
+
+      <text x="350" y="24" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" font-weight="700" fill="var(--accent)">REACHABILITY FROM THE ENTRY POINT</text>
+
+      <rect x="280" y="42" width="140" height="36" rx="6" fill="var(--accent-wash)" stroke="color-mix(in srgb, var(--accent) 45%, transparent)"/>
+      <text x="350" y="65" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="var(--accent)">entry.ts</text>
+
+      <line x1="330" y1="78" x2="170" y2="118" stroke="var(--green)" stroke-width="1.5" marker-end="url(#arrow-green-ts)"/>
+      <line x1="360" y1="78" x2="395" y2="118" stroke="var(--green)" stroke-width="1.5" marker-end="url(#arrow-green-ts)"/>
+
+      <rect x="70" y="122" width="180" height="42" rx="6" fill="var(--green-wash)" stroke="color-mix(in srgb, var(--green) 45%, transparent)"/>
+      <text x="160" y="148" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10.5" fill="var(--green)">formatDate()</text>
+
+      <rect x="310" y="122" width="180" height="42" rx="6" fill="var(--green-wash)" stroke="color-mix(in srgb, var(--green) 45%, transparent)"/>
+      <text x="400" y="148" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10.5" fill="var(--green)">formatCurrency()</text>
+
+      <rect x="540" y="122" width="120" height="42" rx="6" fill="transparent" stroke="color-mix(in srgb, var(--text-faint) 45%, transparent)" stroke-dasharray="4,3"/>
+      <text x="600" y="143" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--text-faint)" text-decoration="line-through">debugLog()</text>
+      <text x="600" y="182" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="8.5" fill="var(--text-faint)">no import path</text>
+
+      <line x1="160" y1="164" x2="270" y2="212" stroke="var(--green)" stroke-width="1.5" marker-end="url(#arrow-green-ts)"/>
+      <line x1="400" y1="164" x2="330" y2="212" stroke="var(--green)" stroke-width="1.5" marker-end="url(#arrow-green-ts)"/>
+
+      <rect x="210" y="216" width="240" height="44" rx="6" fill="var(--green-wash)" stroke="color-mix(in srgb, var(--green) 55%, transparent)"/>
+      <text x="330" y="234" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--green)">shipped bundle</text>
+      <text x="330" y="250" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">formatDate + formatCurrency only</text>
+
+      <text x="600" y="284" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">dropped, not minified</text>
+    </svg>
+    <figcaption>A bundler traces every static import from the entry point. formatDate and formatCurrency are reachable and end up in the shipped bundle. debugLog has no import path leading to it, so it's removed entirely rather than shrunk, the same treatment applies to anything that function alone depended on.</figcaption>
+  </div>
+
+  <p>Two things break this in practice more often than the mechanism itself does. The first is barrel files, an <code>index.ts</code> that re-exports everything from a directory so consumers can write one tidy import line instead of five. A bundler still has to prove each individual re-exported name is unreachable before dropping it, and some barrel patterns, particularly ones mixing <code>export *</code> with modules that have side effects, make that proof hard enough that bundlers fall back to keeping the whole file. The second is the <code>sideEffects</code> field in <code>package.json</code>. A side effect here means a module does something observable just by being imported, installing a polyfill, mutating a global, registering a custom element, beyond exposing its named exports. Without that field, a bundler has to assume any module might have one, and keeping a module around "just in case" defeats tree-shaking for anything that module touches, even exports nobody uses. Setting <code>"sideEffects": false</code> tells the bundler none of a package's modules do this, or listing specific files (<code>"sideEffects": ["./src/polyfills.js", "*.css"]</code>) narrows that promise to exactly the files that need it.</p>
+
+  <div class="callout warn">
+    <div class="callout-title">The whole-library import trap</div>
+    <p>Writing <code>import _ from 'lodash'</code> pulls in a reference to the entire default export object, and a bundler generally can't prove which of its dozens of methods the rest of the file actually calls off of it. Named imports from an ESM-native build, <code>import { debounce } from 'lodash-es'</code>, give the bundler a specific, traceable export to reach instead of an opaque object, which is usually the actual fix when a bundle analyzer turns up a surprisingly large dependency that "should" have been small.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       CODE-SPLITTING
+  ════════════════════════════════════════════════════ -->
+  <h2 id="code-splitting">Code-Splitting Fundamentals</h2>
+  <p class="lede">Tree-shaking removes code nobody uses. Code-splitting defers code somebody uses, just not yet.</p>
+
+  <p>Even after tree-shaking, a real application's reachable code can be large, a settings page, a rarely used export flow, an admin panel most visitors never open. Code-splitting is the decision to ship that code as a separate file the browser only fetches when it's actually needed, rather than folding everything reachable into one bundle a visitor downloads on their very first page load. The mechanism that triggers a split is almost always a dynamic <code>import()</code> call, which returns a promise rather than resolving synchronously the way a static <code>import</code> does. That syntactic difference is also the signal a bundler uses to decide where a chunk boundary belongs: a dynamic <code>import()</code> tells the bundler "this can safely be its own file, fetched later," in a way a static import at the top of a module cannot.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">router.tsx</span>
+      <span class="code-lang">TypeScript / React</span>
+    </div>
+    <pre><code><span class="kw">import</span> { <span class="fn">lazy</span>, <span class="fn">Suspense</span> } <span class="kw">from</span> <span class="s">'react'</span>;
+
+<span class="cm">// SettingsPage and its dependencies become their own chunk,</span>
+<span class="cm">// fetched only when a visitor actually navigates to /settings</span>
+<span class="kw">const</span> <span class="cn">SettingsPage</span> = <span class="fn">lazy</span>(() => <span class="fn">import</span>(<span class="s">'./pages/SettingsPage'</span>));
+
+<span class="kw">function</span> <span class="fn">Route</span>() {
+  <span class="kw">return</span> (
+    <span class="p">&lt;</span><span class="t">Suspense</span> <span class="n">fallback</span>=<span class="p">{&lt;</span><span class="t">Spinner</span> <span class="p">/&gt;}&gt;</span>
+      <span class="p">&lt;</span><span class="t">SettingsPage</span> <span class="p">/&gt;</span>
+    <span class="p">&lt;/</span><span class="t">Suspense</span><span class="p">&gt;</span>
+  );
+}</code></pre>
+  </div>
+
+  <p>Route-based splitting is the most common shape this takes in practice, and most metaframeworks, Next.js among them, apply it by default without any explicit <code>lazy()</code> call: each page or route segment becomes its own chunk automatically, so navigating to <code>/settings</code> fetches the settings chunk rather than code that was already sitting unused in the bundle for the homepage. What lands in the client bundle at all is itself upstream of code-splitting entirely for apps built around <a href="react-server-components.html#boundary">Server and Client Components</a>: a component that never crosses the <a href="react-server-components.html#islands">client boundary</a> doesn't need to be split at all, because it never ships to the browser in the first place. Code-splitting decides when reachable client code arrives. The server/client boundary decides whether it needs to arrive as JavaScript at all, and the two decisions compound rather than substitute for each other.</p>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 700 300" role="img" aria-label="Two-panel comparison. Left panel, single bundle, shows one large box containing Home, Dashboard, and Settings all together, with a label reading everything downloads before first paint. Right panel, route-based split, shows a small app shell and router box at the top with a solid arrow down to a Home chunk box, labeled loaded eagerly, and two dashed arrows down to Dashboard chunk and Settings chunk boxes, labeled loaded only on navigation." xmlns="http://www.w3.org/2000/svg">
+      <line x1="350" y1="20" x2="350" y2="280" stroke="var(--border)" stroke-width="1"/>
+
+      <defs>
+        <marker id="arrow-accent-cs" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+        </marker>
+        <marker id="arrow-teal-cs" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--teal)"/>
+        </marker>
+      </defs>
+
+      <!-- LEFT: single bundle -->
+      <text x="175" y="26" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" font-weight="700" fill="var(--accent)">SINGLE BUNDLE</text>
+
+      <rect x="60" y="46" width="230" height="150" rx="6" fill="var(--accent-wash)" stroke="color-mix(in srgb, var(--accent) 45%, transparent)"/>
+      <text x="175" y="86" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--accent)">Home</text>
+      <text x="175" y="110" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--accent)">Dashboard</text>
+      <text x="175" y="134" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--accent)">Settings</text>
+      <text x="175" y="158" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--accent)">vendor libs</text>
+
+      <text x="175" y="222" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="var(--text-faint)">everything downloads</text>
+      <text x="175" y="238" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="var(--text-faint)">before first paint</text>
+
+      <!-- RIGHT: route-based split -->
+      <text x="525" y="26" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" font-weight="700" fill="var(--teal)">ROUTE-BASED SPLIT</text>
+
+      <rect x="455" y="44" width="140" height="34" rx="6" fill="var(--teal-wash)" stroke="color-mix(in srgb, var(--teal) 45%, transparent)"/>
+      <text x="525" y="65" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--teal)">shell + router</text>
+
+      <line x1="480" y1="78" x2="425" y2="110" stroke="var(--teal)" stroke-width="1.5" marker-end="url(#arrow-teal-cs)"/>
+      <line x1="525" y1="78" x2="525" y2="110" stroke="var(--teal)" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow-teal-cs)"/>
+      <line x1="565" y1="78" x2="625" y2="110" stroke="var(--teal)" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow-teal-cs)"/>
+
+      <rect x="375" y="114" width="90" height="40" rx="5" fill="var(--teal-wash)" stroke="color-mix(in srgb, var(--teal) 50%, transparent)"/>
+      <text x="420" y="138" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--teal)">Home chunk</text>
+
+      <rect x="480" y="114" width="90" height="40" rx="5" fill="transparent" stroke="color-mix(in srgb, var(--teal) 50%, transparent)" stroke-dasharray="3,2"/>
+      <text x="525" y="138" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--teal)">Dashboard chunk</text>
+
+      <rect x="585" y="114" width="90" height="40" rx="5" fill="transparent" stroke="color-mix(in srgb, var(--teal) 50%, transparent)" stroke-dasharray="3,2"/>
+      <text x="630" y="138" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--teal)">Settings chunk</text>
+
+      <text x="420" y="172" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="8.5" fill="var(--text-faint)">loaded eagerly</text>
+      <text x="577" y="172" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="8.5" fill="var(--text-faint)">loaded only on navigation</text>
+
+      <text x="525" y="222" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="var(--text-faint)">only the current route's code</text>
+      <text x="525" y="238" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="var(--text-faint)">downloads before first paint</text>
+    </svg>
+    <figcaption>A single bundle ships every route's code on first visit whether or not it's ever used. A route-based split keeps the shell and the landing route's chunk eager, since those are needed immediately, and fetches Dashboard or Settings only once a visitor actually navigates there.</figcaption>
+  </div>
+
+  <p>Splitting also creates a genuine coordination problem worth naming: shared dependencies. If <code>Dashboard</code> and <code>Settings</code> both import a large date-formatting library, a naive splitter would duplicate that library into both chunks. Modern bundlers instead compute a separate shared, or vendor, chunk for dependencies used across multiple entry points, so it's fetched once and cached rather than shipped twice. Getting this right is a genuine optimization problem, split too aggressively and a page waits on a dozen small round trips instead of one larger file, split too coarsely and visitors download code for routes they'll never open, which is why frameworks increasingly make this decision automatically rather than asking developers to hand-tune chunk boundaries themselves.</p>
+
+  <p>One detail ties code-splitting to caching directly: bundlers name each output chunk with a content hash, <code>settings.a1b2c3.js</code> rather than <code>settings.js</code>, so the filename itself changes whenever the content does. That lets every chunk carry a <code>max-age</code> far in the future, the kind of long-lived <a href="http.html#caching">HTTP caching</a> covered in the HTTP article, safely, since a stale cached copy simply can never match a new deployment's filenames. It's a small mechanical detail, but it's the reason aggressive splitting doesn't come at the cost of aggressive re-downloading on every visit.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       LANDSCAPE
+  ════════════════════════════════════════════════════ -->
+  <h2 id="landscape">The Tool-by-Tool Landscape</h2>
+  <p class="lede">Most of these tools aren't really competing for the same job. Knowing which job each one signed up for clears up most of the confusion.</p>
+
+  <p>Vite has settled into the role of default choice for new frontend projects that aren't tied to a specific metaframework's own bundler, and is the build tool underneath Vue, Svelte, Solid, and Astro's own tooling, alongside plenty of plain React setups. Its dev-server split covered earlier is the headline feature, but its plugin API, modeled closely on Rollup's, is what let it absorb the ecosystem so quickly: a plugin written against Rollup's hook interface mostly works in Vite unmodified. As of Vite 8, released in March 2026, Rolldown is the bundler underneath both dev pre-bundling and production builds by default, no opt-in required, replacing the esbuild-plus-Rollup combination Vite ran on for its first several years.</p>
+
+  <p>esbuild remains, on its own, the fastest widely used transform-and-bundle tool for a small app or a single package, and it's still actively maintained by Evan Wallace. Its niche today is narrower than it looked in 2020: it's the engine quietly running inside other tools' dev-time transform steps more often than it's reached for directly as an app's production bundler, and it remains a common choice for building small libraries and CLIs where its limited code-splitting sophistication isn't a real constraint.</p>
+
+  <p>Rollup's audience has stayed exactly where it was: library authors who care about clean, flat ESM and CJS output more than raw build speed, since a library's build runs occasionally rather than dozens of times a day the way an app's dev server does. tsup, a zero-config wrapper that has increasingly become the default starting point for new TypeScript library templates, runs on top of Rolldown rather than the original Rollup for teams that want that same output quality with less configuration.</p>
+
+  <p>webpack itself is best described today as stable rather than stagnant. Its core team still ships bug fixes and the plugin ecosystem is still active enough that major frameworks test against it, but active feature development has clearly slowed, and Tobias Koppers, its original author, now works on Turbopack instead. Large, mature codebases with years of accumulated webpack configuration and loaders are the main place it's still the pragmatic choice, not because a rewrite is impossible but because Rspack now offers a lower-risk path off it than a full migration to a differently shaped tool ever did.</p>
+
+  <p>Turbopack, Vercel's Rust-based bundler, is tightly coupled to Next.js and is the framework's default for both development and, since Next.js 16, production builds as well. Its value proposition is specific to that coupling: because Vercel controls both the framework and the bundler, Turbopack can make assumptions and optimizations a general-purpose bundler can't, at the cost of being a poor fit for anything that isn't a Next.js app.</p>
+
+  <p>Rspack takes the opposite bet from Turbopack: instead of a new mental model, it reimplements webpack's own configuration surface and loader API in Rust, aiming for close to drop-in compatibility. For a large existing webpack codebase, that compatibility is the entire pitch, migrations commonly complete in days rather than the months a move to a differently configured bundler would take, trading some ecosystem coverage (not every webpack loader has an Rspack-compatible equivalent yet) for a large, immediate build-time improvement with minimal config changes.</p>
+
+  <p>Bun, primarily known as an all-in-one JavaScript runtime, ships its own bundler via <code>bun build</code>, written in Zig rather than Rust or Go. It's a reasonable choice for simple app or server bundles and for teams already committed to Bun as their runtime and package manager, though most teams that adopt Bun for its runtime and install speed still reach for Vite specifically for frontend dev serving and production builds, which captures most of the practical benefit without giving up Vite's plugin ecosystem.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Tool</th><th>Primary role</th><th>Engine</th><th>Best fit today</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Vite</td><td>Dev server + app bundler</td><td>Rolldown (Rust), since v8</td><td>Default for new apps outside a metaframework's own bundler</td></tr>
+        <tr><td>esbuild</td><td>Fast standalone transform/bundle</td><td>Go</td><td>Small libraries, CLIs, transform step inside other tools</td></tr>
+        <tr><td>Rollup</td><td>Library bundler</td><td>JavaScript (Rolldown optional)</td><td>Publishing packages needing clean ESM/CJS output</td></tr>
+        <tr><td>webpack</td><td>General-purpose bundler</td><td>JavaScript</td><td>Large existing codebases, mature plugin needs</td></tr>
+        <tr><td>Turbopack</td><td>Framework-integrated bundler</td><td>Rust</td><td>Next.js apps specifically</td></tr>
+        <tr><td>Rspack</td><td>Drop-in webpack replacement</td><td>Rust</td><td>Migrating a large webpack app without a rewrite</td></tr>
+        <tr><td>Bun</td><td>Runtime with a built-in bundler</td><td>Zig</td><td>Simple bundles inside a Bun-native stack</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       RUST CONVERGENCE
+  ════════════════════════════════════════════════════ -->
+  <h2 id="rust-convergence">The Rust Convergence <span class="badge-new">2026</span></h2>
+  <p class="lede">The same rewrite that hit esbuild's category in 2020 is now happening one layer down, in the parsing and transform code every one of these tools depends on.</p>
+
+  <p>Oxc, short for the Oxidation Compiler, is a Rust toolchain covering parsing, linting, resolving module paths, and transforming syntax, stripping TypeScript types or lowering JSX among other jobs. Rather than one more bundler, it's shared low-level infrastructure other tools build on, the same role Babel's parser used to play for the JavaScript-based generation of tooling. Rolldown, a Rust bundler with a Rollup-compatible plugin API and esbuild-level feature coverage, is built on top of it and reached a stable 1.0 release in May 2026 with a locked API and backward-compatibility guarantees, clearing the way for Vite 8 to make it the default a few months later.</p>
+
+  <p>The clearest sign of how seriously the ecosystem is treating this shift arrived in June 2026, when Cloudflare acquired VoidZero, the company behind Vite, Vitest, Rolldown, and Oxc, and folded Evan You's team into its own engineering organization. Cloudflare committed to keeping all of it MIT-licensed and vendor-agnostic, and set up an independently governed fund to support contributors unaffiliated with either company, a deliberate hedge against the toolchain underneath most of the frontend ecosystem becoming a single vendor's proprietary lever. Whatever its business motivations, the acquisition is a fair marker of how central Vite's toolchain has become: it's no longer treated as one bundler brand competing with others so much as shared substrate underneath a large share of the ecosystem.</p>
+
+  <p>It's worth being honest about what hasn't converged yet. esbuild remains Go and actively maintained, not a relic being quietly retired, and webpack's JavaScript codebase isn't going anywhere either given how much production infrastructure still depends on it. The convergence is real at the level of new default choices, new projects, new Vite installs, new library scaffolding, rather than a wholesale replacement of what's already deployed. That distinction matters for the decision framework below: migrating an existing, working build pipeline for a marginal speed gain is a different calculus than picking a starting point for something new.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       CHOOSING
+  ════════════════════════════════════════════════════ -->
+  <h2 id="choosing">Choosing a Tool Today</h2>
+  <p class="lede">The honest answer to "which bundler" is usually "whichever one your framework already picked for you."</p>
+
+  <p>For a new project built on Next.js, the decision is effectively made already: Turbopack is the default and the path with the least friction, and there's little reason to fight that default outside of a narrow, specific compatibility gap. For a new project not tied to a particular metaframework, a Vue, Svelte, Solid, or plain React app built without Next.js's constraints, Vite is the reasonable default, and picking it also means inheriting Rolldown's speed without having to evaluate that choice directly.</p>
+
+  <p>For a team maintaining a large, working application already built on webpack, the calculation is about migration cost rather than which tool is theoretically best. Rewriting onto Vite means adjusting to a genuinely different plugin model and dev-time architecture. Migrating to Rspack instead means keeping the existing configuration and loader setup largely intact while swapping the engine underneath it, which is why it's become the pragmatic first move for exactly this situation rather than a destination in its own right. Reassessing whether a bigger rewrite is worth it can happen later, once the build-time pain that prompted the migration in the first place is no longer forcing the decision.</p>
+
+  <p>For a package meant to be published and consumed by projects the author doesn't control, the priority shifts again: clean, predictable output across module formats matters more than build speed, since the build itself runs occasionally rather than on every save. Rollup, or tsup as a lower-configuration wrapper around the same output quality, remains the better fit than an app-oriented bundler tuned for iteration speed instead.</p>
+
+  <div class="compare-grid three">
+    <div class="card blue">
+      <div class="card-label">New app, no metaframework</div>
+      <div class="card-title">Vite</div>
+      <p>Default choice. Fast dev server, Rolldown-powered build, broad plugin ecosystem inherited from Rollup's API.</p>
+    </div>
+    <div class="card teal">
+      <div class="card-label">New app, Next.js</div>
+      <div class="card-title">Turbopack</div>
+      <p>Already the framework default for dev and production builds since Next.js 16. Fighting it buys little.</p>
+    </div>
+    <div class="card orange">
+      <div class="card-label">Existing large webpack app</div>
+      <div class="card-title">Rspack</div>
+      <p>Keeps existing config and loaders largely intact. The pragmatic migration path, not a permanent destination.</p>
+    </div>
+  </div>
+
+  <p>One case sits outside this framework entirely: a team building microfrontends, where the bundler choice is entangled with a composition mechanism like Module Federation rather than a single app's build. That decision, along with why Rspack shows up again there for a different reason (Module Federation 2.0's unified runtime) and where Zephyr fits for cross-bundler dependency resolution, belongs to <a href="microfrontends.html#tooling">the tooling section of the microfrontends article</a> rather than a repeat of it here. The through-line worth keeping from this article into that one is the same: tree-shaking and code-splitting are properties of how a bundler reasons about a single module graph, and composing several independently built graphs into one page, which is what microfrontends actually do, is a layer on top of everything covered here, not a replacement for it.</p>
+
+</main>
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+
+</bod

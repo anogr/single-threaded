@@ -107,7 +107,7 @@
 
   <p>For most of the 2010s, this reload was the reason teams reached for a single-page app instead. A full navigation meant a blank white flash between pages, no way to keep a header or sidebar mounted across routes, and no smooth transition between one screen and the next. Avoiding that flash was, for a lot of products, the actual justification for shipping a large client-side JavaScript framework, rather than a specific technical need for one.</p>
 
-  <p>That justification weakened considerably by 2026. Cross-document View Transitions, a browser-native API that animates the swap between two full page loads, reached roughly 92% combined global browser coverage as of May 2026, with Chrome and Edge supporting it since mid-2024, Safari since late 2024, and Firefox closing the gap in December 2025. The API needs a few lines of declarative CSS and no JavaScript animation library at all.</p>
+  <p>That justification has weakened considerably. Cross-document View Transitions, a browser-native API that animates the swap between two full page loads, reached roughly 92% combined global browser coverage as of May 2026, with Chrome and Edge supporting it since mid-2024, Safari since late 2024, and Firefox closing the gap in December 2025. The API needs a few lines of declarative CSS and no JavaScript animation library at all.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -129,7 +129,7 @@
 
   <p>The browser captures a snapshot of the outgoing page, waits for the new page's HTML, and cross-fades or slides between them, all coordinated by the browser's own compositor rather than JavaScript juggling DOM nodes mid-transition. Named <code>view-transition-name</code> regions let specific elements, a product image, a page title, morph smoothly between pages instead of just cross-fading along with everything else.</p>
 
-  <p>None of this makes an MPA behave like an SPA. State still resets on every navigation, so anything that needs to persist, a shopping cart drawer, an audio player, an open modal, has to be re-derived from the server response or from storage rather than kept in memory. But the specific complaint that drove teams toward client-side routing, the visual jank of a reload, no longer has to be one of the tradeoffs. An MPA in 2026 gets a smooth transition from a few lines of CSS, which makes it a genuinely reasonable default for content-first sites: marketing pages, blogs, documentation, catalogs, anything where each page is mostly self-contained and doesn't need to survive a navigation in memory.</p>
+  <p>None of this makes an MPA behave like an SPA. State still resets on every navigation, so anything that needs to persist, a shopping cart drawer, an audio player, an open modal, has to be re-derived from the server response or from storage rather than kept in memory. But the specific complaint that drove teams toward client-side routing, the visual jank of a reload, no longer has to be one of the tradeoffs. An MPA today gets a smooth transition from a few lines of CSS, which makes it a genuinely reasonable default for content-first sites: marketing pages, blogs, documentation, catalogs, anything where each page is mostly self-contained and doesn't need to survive a navigation in memory.</p>
 
   <!-- ═══════════════════════════════════════════════════
        SPA
@@ -141,7 +141,7 @@
 
   <p>The real cost of this approach isn't any single number, it's two separate costs stacked on top of each other. The first is time to first byte for a blank shell, which is fast (there's nothing to render server-side), but that speed is deceptive, because the shell isn't the content. The second, larger cost is the JavaScript bundle tax: the total size of the framework, the application code, and every dependency that has to download, parse, and execute before the page becomes interactive. Published comparisons put largest contentful paint around 1.1 to 1.8 seconds for SSR or SSG pages against roughly 2.8 to 3.5 seconds for a CSR-only SPA rendering equivalent content, and that gap is almost entirely the bundle tax, not server speed.</p>
 
-  <p>That gap is the reason "SPA for the whole product" stopped being the 2026 default for anything public-facing or SEO-dependent. A search crawler or a social-media unfurler that doesn't execute the client bundle sees an empty shell, and a visitor on a slow connection or an older device pays the parse-and-execute cost in full before anything appears. None of that makes the pattern wrong, it makes it situational. Behind an authentication wall, where there's no crawler to satisfy and the visitor has already committed to loading the tool, a pure SPA is often still the right call: internal dashboards, admin panels, and data-heavy tools where the first paint happens once per session and every screen after that benefits from never touching the network for a full document reload.</p>
+  <p>That gap is the reason "SPA for the whole product" stopped being the default today for anything public-facing or SEO-dependent. A search crawler or a social-media unfurler that doesn't execute the client bundle sees an empty shell, and a visitor on a slow connection or an older device pays the parse-and-execute cost in full before anything appears. None of that makes the pattern wrong, it makes it situational. Behind an authentication wall, where there's no crawler to satisfy and the visitor has already committed to loading the tool, a pure SPA is often still the right call: internal dashboards, admin panels, and data-heavy tools where the first paint happens once per session and every screen after that benefits from never touching the network for a full document reload.</p>
 
   <!-- ═══════════════════════════════════════════════════
        SSG
@@ -319,15 +319,15 @@
 
   <p>The browser decides whether to actually honor that hint based on conditions no application code has visibility into: available memory, network type and speed, and current CPU load. On a resource-constrained device or a slow connection, the browser can simply decline to prerender, and the app never knows or needs to know. Nothing in the application runs speculatively, the meaningful difference from a JavaScript-driven prefetch library: this is a browser-native decision, not a heuristic the application team has to tune and maintain.</p>
 
-  <p>The caveat is worth stating plainly rather than glossing over: as of 2026, Speculation Rules support is Chromium-only, Chrome, Edge, and Opera, with no shipped support in Firefox or Safari. That makes it a progressive enhancement layered on top of whichever rendering strategy a page already uses, not something to design an architecture around. A site should work identically with the feature entirely absent, because for a meaningful share of visitors, it will be.</p>
+  <p>The caveat is worth stating plainly rather than glossing over: as of today, Speculation Rules support is Chromium-only, Chrome, Edge, and Opera, with no shipped support in Firefox or Safari. That makes it a progressive enhancement layered on top of whichever rendering strategy a page already uses, not something to design an architecture around. A site should work identically with the feature entirely absent, because for a meaningful share of visitors, it will be.</p>
 
   <!-- ═══════════════════════════════════════════════════
        HYBRID
   ════════════════════════════════════════════════════ -->
   <h2 id="hybrid">Mixing Strategies by Default</h2>
-  <p class="lede">Almost no serious 2026 product picks one rendering strategy for the whole site.</p>
+  <p class="lede">Almost no serious product today picks one rendering strategy for the whole site.</p>
 
-  <p>The strategies above read like a menu of mutually exclusive choices, but most production apps in 2026 mix several of them across different routes, and increasingly across different components on the same route. A marketing homepage might be pure SSG. A product listing page might use ISR, regenerating every few minutes as inventory changes. A checkout flow might be SSR end to end, because every byte of it needs to reflect the current session. And within any one of those routes, specific widgets might hydrate as independent islands rather than as one large client-rendered tree.</p>
+  <p>The strategies above read like a menu of mutually exclusive choices, but most production apps today mix several of them across different routes, and increasingly across different components on the same route. A marketing homepage might be pure SSG. A product listing page might use ISR, regenerating every few minutes as inventory changes. A checkout flow might be SSR end to end, because every byte of it needs to reflect the current session. And within any one of those routes, specific widgets might hydrate as independent islands rather than as one large client-rendered tree.</p>
 
   <p>A concrete version of this: a route rendered with PPR for its shell, with a handful of genuinely interactive pieces inside that shell, a quantity selector, a "save for later" button, a live chat widget, hydrated independently, island-style, rather than shipped as part of one monolithic client bundle that has to hydrate all at once before any of it responds to a click. The shell handles when the HTML arrives. The islands handle how much JavaScript any given piece of it needs.</p>
 
@@ -438,11 +438,11 @@
     </table>
   </div>
 
-  <p>None of this reduces to a single rule, but a few questions narrow it quickly. Does the page need to reflect a specific visitor at request time, or is the same content correct for everyone? That's the line between SSG or ISR and SSR. Does the content change often enough that a background regeneration window matters, or is a full rebuild on deploy good enough? That's SSG versus ISR. Is the page public-facing, where a slow first paint or an empty shell for crawlers is a real cost, or is it behind an authentication wall where a visitor has already committed to loading the tool? That's usually where an SPA remains defensible in 2026, and where it doesn't.</p>
+  <p>None of this reduces to a single rule, but a few questions narrow it quickly. Does the page need to reflect a specific visitor at request time, or is the same content correct for everyone? That's the line between SSG or ISR and SSR. Does the content change often enough that a background regeneration window matters, or is a full rebuild on deploy good enough? That's SSG versus ISR. Is the page public-facing, where a slow first paint or an empty shell for crawlers is a real cost, or is it behind an authentication wall where a visitor has already committed to loading the tool? That's usually where an SPA remains defensible today, and where it doesn't.</p>
 
   <div class="callout info aside">
     <div class="callout-title">Where this connects</div>
-    <p>Core Web Vitals in 2026 track INP, which replaced FID as the responsiveness metric, alongside CLS and LCP, and every strategy above moves those numbers differently. The mechanics of each metric belong to a dedicated Core Web Vitals article rather than here. Service Workers are a separate, orthogonal caching layer for offline and fallback behavior, not a rendering strategy, and get their own treatment in a future PWA article.</p>
+    <p>Core Web Vitals today track INP, which replaced FID as the responsiveness metric, alongside CLS and LCP, and every strategy above moves those numbers differently. The mechanics of each metric belong to a dedicated Core Web Vitals article rather than here. Service Workers are a separate, orthogonal caching layer for offline and fallback behavior, not a rendering strategy, and get their own treatment in a future PWA article.</p>
   </div>
 
   <!-- ═══════════════════════════════════════════════════
