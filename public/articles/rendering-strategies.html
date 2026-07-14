@@ -57,8 +57,11 @@
   <a href="#ppr">PPR</a>
 
   <div class="sidebar-section">Orthogonal Axes</div>
-  <a href="#islands">Islands &amp; resumability</a>
+  <a href="#islands">Hydration, islands &amp; resumability</a>
   <a href="#speculation-rules">Speculation Rules API</a>
+
+  <div class="sidebar-section">Frameworks</div>
+  <a href="#frameworks">Where frameworks land</a>
 
   <div class="sidebar-section">Putting It Together</div>
   <a href="#hybrid">Mixing strategies</a>
@@ -74,7 +77,7 @@
   <div class="byline">
     <strong>Deep dive</strong>
     <div class="dot"></div>
-    <span>~21 min read</span>
+    <span>~25 min read</span>
     <div class="dot"></div>
     <span>Rendering architecture</span>
     <div class="dot"></div>
@@ -107,27 +110,9 @@
 
   <p>For most of the 2010s, this reload was the reason teams reached for a single-page app instead. A full navigation meant a blank white flash between pages, no way to keep a header or sidebar mounted across routes, and no smooth transition between one screen and the next. Avoiding that flash was, for a lot of products, the actual justification for shipping a large client-side JavaScript framework, rather than a specific technical need for one.</p>
 
-  <p>That justification has weakened considerably. Cross-document View Transitions, a browser-native API that animates the swap between two full page loads, reached roughly 92% combined global browser coverage as of May 2026, with Chrome and Edge supporting it since mid-2024, Safari since late 2024, and Firefox closing the gap in December 2025. The API needs a few lines of declarative CSS and no JavaScript animation library at all.</p>
+  <p>That justification has weakened considerably. Cross-document View Transitions, a browser-native API that animates the swap between two full page loads, reached roughly 92% combined global browser coverage as of May 2026, with Chrome and Edge supporting it since mid-2024, Safari since late 2024, and Firefox closing the gap in December 2025. Turning it on takes two declarative pieces and no JavaScript animation library at all: a site-wide rule that opts every cross-document navigation into a transition, and, optionally, a shared <code>view-transition-name</code> on one element, a product image, a page title, so the browser morphs that element between pages instead of just cross-fading everything at once.</p>
 
-  <div class="code-block">
-    <div class="code-header">
-      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-filename">styles.css</span>
-      <span class="code-lang">CSS</span>
-    </div>
-    <pre><code><span class="cm">/* Opt every cross-document navigation on the site into a transition */</span>
-<span class="p">@view-transition</span> {
-  <span class="n">navigation</span>: <span class="cn">auto</span>;
-}
-
-<span class="cm">/* Give one element a shared identity across pages, so the browser
-   morphs it instead of just cross-fading it with everything else */</span>
-<span class="n">.product-hero-image</span> {
-  <span class="n">view-transition-name</span>: <span class="cn">hero-image</span>;
-}</code></pre>
-  </div>
-
-  <p>The browser captures a snapshot of the outgoing page, waits for the new page's HTML, and cross-fades or slides between them, all coordinated by the browser's own compositor rather than JavaScript juggling DOM nodes mid-transition. Named <code>view-transition-name</code> regions let specific elements, a product image, a page title, morph smoothly between pages instead of just cross-fading along with everything else.</p>
+  <p>The browser captures a snapshot of the outgoing page, waits for the new page's HTML, and cross-fades or slides between them, all coordinated by the browser's own compositor rather than JavaScript juggling DOM nodes mid-transition.</p>
 
   <p>None of this makes an MPA behave like an SPA. State still resets on every navigation, so anything that needs to persist, a shopping cart drawer, an audio player, an open modal, has to be re-derived from the server response or from storage rather than kept in memory. But the specific complaint that drove teams toward client-side routing, the visual jank of a reload, no longer has to be one of the tradeoffs. An MPA today gets a smooth transition from a few lines of CSS, which makes it a genuinely reasonable default for content-first sites: marketing pages, blogs, documentation, catalogs, anything where each page is mostly self-contained and doesn't need to survive a navigation in memory.</p>
 
@@ -165,36 +150,7 @@
 
   <p>The cost is that time-to-first-byte is now tied directly to how long the server takes to fetch data and render, and if a page waits on three sequential API calls before it can produce any HTML, the visitor waits on all three before seeing anything. Traditional, blocking SSR sends nothing until the entire page is ready, which turns a single slow dependency into a slow page.</p>
 
-  <p>Streaming SSR fixes that specific failure mode of "wait for everything, then send everything." Instead of blocking on the slowest data dependency, the server sends the parts of the page that are ready immediately and streams in the rest as it resolves, using Suspense boundaries to mark which regions can render independently. A product page can send its header, price, and description the moment those resolve, while a slower reviews section streams in a beat later inside its own boundary, rather than holding up the whole response.</p>
-
-  <div class="code-block">
-    <div class="code-header">
-      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-filename">product.tsx</span>
-      <span class="code-lang">React Router</span>
-    </div>
-    <pre><code><span class="cm">// route loader, returns as soon as the fast data is ready</span>
-<span class="kw">export</span> <span class="kw">async</span> <span class="kw">function</span> <span class="fn">loader</span>({ <span class="n">params</span> }: <span class="t">Route</span>.<span class="t">LoaderArgs</span>) {
-  <span class="kw">const</span> <span class="n">product</span> = <span class="kw">await</span> <span class="fn">getProduct</span>(<span class="n">params</span>.<span class="n">id</span>);   <span class="cm">// awaited, fast</span>
-  <span class="kw">const</span> <span class="n">reviews</span> = <span class="fn">getReviews</span>(<span class="n">params</span>.<span class="n">id</span>);        <span class="cm">// not awaited, slow</span>
-  <span class="kw">return</span> { <span class="n">product</span>, <span class="n">reviews</span> };
-}
-
-<span class="kw">export</span> <span class="kw">default</span> <span class="kw">function</span> <span class="fn">Product</span>({ <span class="n">loaderData</span> }: <span class="t">Route</span>.<span class="t">ComponentProps</span>) {
-  <span class="kw">return</span> (
-    <span class="p">&lt;&gt;</span>
-      <span class="p">&lt;ProductDetails</span> <span class="n">product</span>=<span class="p">{loaderData.product}</span> <span class="p">/&gt;</span>
-      <span class="p">&lt;Suspense</span> <span class="n">fallback</span>=<span class="p">{&lt;ReviewsSkeleton /&gt;}</span><span class="p">&gt;</span>
-        <span class="p">&lt;Await</span> <span class="n">resolve</span>=<span class="p">{loaderData.reviews}</span><span class="p">&gt;</span>
-          {(<span class="n">reviews</span>) <span class="kw">=&gt;</span> <span class="p">&lt;Reviews</span> <span class="n">data</span>=<span class="p">{reviews}</span> <span class="p">/&gt;</span>}
-        <span class="p">&lt;/Await&gt;</span>
-      <span class="p">&lt;/Suspense&gt;</span>
-    <span class="p">&lt;/&gt;</span>
-  );
-}</code></pre>
-  </div>
-
-  <p>Because the loader returns before the slow promise resolves, the browser gets a response quickly and the reviews section fills in once its data arrives, without a second round trip and without blocking anything else on the page.</p>
+  <p>Streaming SSR fixes that specific failure mode of "wait for everything, then send everything." The server marks which regions of the page are allowed to render independently of the rest. A data dependency that resolves quickly is awaited normally and included in the first flush of HTML. A slower one gets its own boundary with a placeholder, so the server can send the fast parts of the page the moment they're ready and keep the connection open for the slow part rather than buffering the entire response until every dependency has settled. A product page can send its header, price, and description within that first flush, while a slower reviews section streams in a beat later inside its own boundary and patches into place once it arrives, without a second round trip and without blocking anything else on the page.</p>
 
   <p>One more variable belongs in this section rather than getting its own heading: where SSR actually executes. Running it on an edge runtime, Cloudflare Workers or Vercel Edge Functions, instead of an origin Node server trades some compute headroom for near-instant cold starts and lower network latency, since the code runs physically closer to the visitor. This is what "edge-side rendering" means in practice: it's still SSR, just relocated. It's not a different rendering strategy, it's a deployment decision about where the SSR strategy runs.</p>
 
@@ -208,33 +164,12 @@
 
   <p>The behavior underneath both approaches is stale-while-revalidate: the visitor who happens to trigger a regeneration still gets the old, cached page instantly, while the new version renders in the background and replaces the cache for the next visitor. Nobody waits on a rebuild. This is the detail that makes ISR feel like SSG in terms of speed while behaving more like SSR in terms of freshness, without fully paying either strategy's cost.</p>
 
-  <p>One practical catch: revalidating the origin cache doesn't automatically mean every visitor sees fresh content immediately. The CDN's edge caches have to actually receive and honor the purge, and if that propagation is slow or misconfigured, a regenerated page can sit correctly rebuilt at the origin while edge nodes keep serving the old copy a while longer.</p>
-
-  <p>Because SSG, ISR, and SSR are really the same rendering operation with different caching rules attached, a single fetch API often expresses all three:</p>
-
-  <div class="code-block">
-    <div class="code-header">
-      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-filename">data.ts</span>
-      <span class="code-lang">TypeScript</span>
-    </div>
-    <pre><code><span class="cm">// SSG: fetched once at build time, cached indefinitely</span>
-<span class="kw">const</span> <span class="n">plans</span> = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="s">'https://api.example.com/plans'</span>);
-
-<span class="cm">// ISR: cached, regenerated in the background after 60 seconds</span>
-<span class="kw">const</span> <span class="n">inventory</span> = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="s">'https://api.example.com/inventory'</span>, {
-  <span class="n">next</span>: { <span class="n">revalidate</span>: <span class="m">60</span>, <span class="n">tags</span>: [<span class="s">'inventory'</span>] }
-});
-
-<span class="cm">// SSR: refetched on every single request, never cached</span>
-<span class="kw">const</span> <span class="n">cart</span> = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="s">'https://api.example.com/cart'</span>, {
-  <span class="n">cache</span>: <span class="s">'no-store'</span>
-});
-
-<span class="cm">// on-demand: invalidate just the 'inventory' tag from a webhook handler,
-// no waiting for the 60-second window</span>
-<span class="kw">await</span> <span class="fn">revalidateTag</span>(<span class="s">'inventory'</span>);</code></pre>
+  <div class="callout warn">
+    <div class="callout-title">Regenerating the origin isn't the same as refreshing the edge</div>
+    <p>Revalidating the origin cache doesn't automatically mean every visitor sees fresh content immediately. The CDN's edge caches have to actually receive and honor the purge, and if that propagation is slow or misconfigured, a regenerated page can sit correctly rebuilt at the origin while edge nodes keep serving the old copy a while longer.</p>
   </div>
+
+  <p>SSG, ISR, and SSR are really the same rendering operation with different caching rules attached, which is why most metaframeworks expose all three through one setting rather than three separate systems: fetch once and cache indefinitely (SSG), fetch and cache with a revalidation window measured in seconds (ISR), or skip the cache entirely and fetch on every request (SSR). On-demand invalidation is a fourth option layered on top of the same knob, tagging a specific piece of content so one call from a webhook can invalidate exactly the pages that depend on it, without waiting for the timer to expire.</p>
 
   <!-- ═══════════════════════════════════════════════════
        PPR
@@ -280,16 +215,53 @@
   <!-- ═══════════════════════════════════════════════════
        ISLANDS
   ════════════════════════════════════════════════════ -->
-  <h2 id="islands">Islands and Resumability: A Different Axis</h2>
-  <p class="lede">Everything above is about when HTML gets built. Islands are about how much JavaScript ships once it does.</p>
+  <h2 id="islands">Hydration, Islands, and Resumability: A Different Axis</h2>
+  <p class="lede">Everything above is about when HTML gets built. This section is about how much JavaScript ships once it does, and how a static-looking page becomes interactive at all.</p>
 
-  <p>Every strategy covered so far answers the same question: when does rendering happen. Islands architecture and resumability answer a different one: how much of the page needs JavaScript at all, and at what granularity. It's worth treating as a separate axis rather than a seventh point on the same timeline, because a page can combine, say, SSG with islands, or PPR with islands. The two ideas aren't mutually exclusive.</p>
+  <p>Every strategy covered so far answers the same question: when does rendering happen. Hydration, islands, and resumability answer a different one: how much of the page needs JavaScript at all, and at what granularity. It's worth treating as a separate axis rather than a seventh point on the same timeline, because a page can combine, say, SSG with islands, or PPR with islands. The two ideas aren't mutually exclusive.</p>
 
-  <p>The islands model, a term coined by Katie Sylor-Miller and popularized more widely by Jason Miller in 2020, treats a page as mostly static HTML with small, independent pockets of interactivity dropped in. Astro is the framework most associated with this pattern: a page ships as plain HTML by default, and a component only gets a JavaScript bundle if it's explicitly marked as interactive, at which point it hydrates on its own, independently of every other island on the page. A product image carousel might hydrate immediately, while a comment form further down the page might not hydrate until it scrolls into view. Neither one waits on the other, and neither one requires the rest of the page to ship any JavaScript at all. Astro's server islands, added in late 2024 and stable as of Astro 5, extend the same idea to server-rendered content: a slow, personalized fragment can render on the server independently of the static parts around it, without holding up the page.</p>
+  <p>Start with hydration itself, since the other three ideas in this section are all reactions to it. Any page whose HTML was produced ahead of time, by SSG, SSR, or ISR, arrives in the browser already looking correct, but that HTML is inert: none of its buttons respond to a click yet, because no JavaScript has run. Hydration is the step that fixes this. The browser downloads the same component code the server used, runs it again against the DOM that's already sitting on the page, and uses that second pass to attach event listeners and wire up internal state, rather than throwing the existing markup away and rebuilding it from scratch. Done correctly, hydration is invisible: the visitor never sees a flash of rebuilt content, only a page that goes from static to responsive.</p>
 
-  <p>Qwik takes a more radical approach to the same underlying problem. Rather than shipping a component tree and re-executing it in the browser to attach event listeners, which is what hydration actually is in every framework that does it, Qwik serializes the listener references themselves into the HTML. The browser doesn't re-run any component logic to become interactive, it resumes from exactly where the server left off, downloading the handler code for a specific interaction only when that interaction actually happens. This is why the pattern is called resumability rather than hydration: there's no re-execution step to skip past, because nothing needs to be reconstructed.</p>
+  <p>The default version of this, sometimes called monolithic hydration, treats the whole page as one unit. The browser can't attach a single event listener until it has downloaded, parsed, and re-executed the entire component tree, even for the ninety percent of the page that has nothing to do with the one button a visitor is about to click. Progressive hydration narrows that cost without removing it: the framework still ships and eventually runs the same component tree, but it prioritizes the order, hydrating whatever's visible in the viewport first and deferring the rest until it's needed or until the browser is idle. It reduces how long a visitor waits for the important part to become interactive, but the total JavaScript payload doesn't shrink.</p>
 
-  <p>Both approaches converge on the same result: near-zero JavaScript shipped by default, with more added only for the specific pieces of a page that need it. It's worth naming the callback explicitly, because it recurs elsewhere in this series: a <code>'use client'</code> component inside a server-rendered React tree is structurally the same shape as an Astro client island, a small, independently hydrated pocket of interactivity inside an otherwise static or server-rendered page.</p>
+  <p>Islands architecture, a term coined by Katie Sylor-Miller and popularized more widely by Jason Miller in 2020, is where the payload actually shrinks. A page is treated as mostly static HTML with small, independent pockets of interactivity dropped in, and each pocket hydrates on its own rather than as part of one shared tree. Astro is the framework most associated with this pattern: a page ships as plain HTML by default, and a component only gets a JavaScript bundle if it's explicitly marked as interactive. A product image carousel might hydrate immediately, while a comment form further down the page might not hydrate until it scrolls into view. Neither one waits on the other, and neither one requires the rest of the page to ship any JavaScript at all. Astro's server islands, added in late 2024 and carried forward through Astro 6 in 2026 via the <code>server:defer</code> directive, extend the same idea to server-rendered content: a slow, personalized fragment can render on the server independently of the static parts around it, without holding up the page.</p>
+
+  <p>Qwik takes a more radical approach to the same underlying problem, one that skips hydration entirely rather than shrinking its footprint. Instead of shipping a component tree for the browser to re-execute, Qwik serializes the listener references themselves into the HTML at build time. The browser never re-runs any component logic to become interactive. It resumes from exactly where the server left off, downloading the handler code for a specific interaction only when that interaction actually happens. This is why the pattern is called resumability rather than hydration: there's no re-execution step to skip past, because nothing needs to be reconstructed in the first place.</p>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 700 300" role="img" aria-label="Diagram comparing three ways a page becomes interactive: monolithic hydration, where the entire component tree must download and re-execute before any part of the page responds to input, islands, where only the components marked interactive ship JavaScript and each hydrates independently, and resumability, where the browser resumes from serialized state without re-executing any component logic." xmlns="http://www.w3.org/2000/svg">
+      <!-- Row 1: monolithic hydration -->
+      <text x="20" y="30" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text)">Monolithic hydration</text>
+      <rect x="20" y="42" width="660" height="34" rx="4" fill="color-mix(in srgb, var(--orange) 20%, transparent)" stroke="color-mix(in srgb, var(--orange) 45%, transparent)"/>
+      <text x="350" y="63" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--orange)">Whole component tree downloads and re-executes before anything responds</text>
+
+      <!-- Row 2: islands -->
+      <text x="20" y="112" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text)">Islands</text>
+      <rect x="20" y="124" width="660" height="34" rx="4" fill="color-mix(in srgb, var(--accent) 14%, transparent)" stroke="color-mix(in srgb, var(--accent) 30%, transparent)"/>
+      <text x="90" y="145" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="9" fill="var(--text-faint)">static HTML</text>
+      <rect x="170" y="124" width="130" height="34" rx="4" fill="color-mix(in srgb, var(--teal) 24%, transparent)" stroke="color-mix(in srgb, var(--teal) 45%, transparent)"/>
+      <text x="235" y="145" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--teal)">island: carousel</text>
+      <rect x="320" y="124" width="150" height="34" rx="4" fill="color-mix(in srgb, var(--accent) 14%, transparent)" stroke="color-mix(in srgb, var(--accent) 30%, transparent)"/>
+      <text x="395" y="145" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="9" fill="var(--text-faint)">static HTML</text>
+      <rect x="490" y="124" width="150" height="34" rx="4" fill="color-mix(in srgb, var(--teal) 24%, transparent)" stroke="color-mix(in srgb, var(--teal) 45%, transparent)"/>
+      <text x="565" y="145" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--teal)">island: comment form</text>
+      <text x="20" y="172" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Each teal island hydrates on its own, static regions never ship any JavaScript</text>
+
+      <!-- Row 3: resumability -->
+      <text x="20" y="210" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text)">Resumability</text>
+      <rect x="20" y="222" width="660" height="34" rx="4" fill="color-mix(in srgb, var(--green) 16%, transparent)" stroke="color-mix(in srgb, var(--green) 40%, transparent)"/>
+      <text x="350" y="243" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--green)">Listener state already serialized in HTML, handler code loads only on interaction</text>
+      <text x="20" y="278" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">All three start from the same server-rendered HTML. What differs is how much JavaScript the browser has to run before the page responds to input.</text>
+    </svg>
+    <figcaption>Three ways a page goes from inert server-rendered HTML to interactive: hydrating everything at once, hydrating only the marked islands, or skipping re-execution entirely and resuming from serialized state.</figcaption>
+  </div>
+
+  <div class="callout warn aside">
+    <div class="callout-title">Hydration mismatches</div>
+    <p>Hydration assumes the HTML the browser downloaded matches what the component tree would produce if it rendered again right now. When it doesn't, because a value depends on the visitor's timezone, on <code>Math.random()</code>, or on browser-only APIs that weren't available during the server render, the framework detects the mismatch and either patches the DOM or, in stricter setups, throws a warning and re-renders the affected subtree from scratch. It's a common source of console warnings in server-rendered React and Vue apps, and the fix is almost always to make the mismatched value deterministic or to defer it until after hydration completes.</p>
+  </div>
+
+  <p>Islands and resumability both converge on the same result: near-zero JavaScript shipped by default, with more added only for the specific pieces of a page that need it. It's worth naming one callback explicitly, because it recurs elsewhere in this series: a <code>'use client'</code> component inside a server-rendered React tree is structurally the same shape as an Astro client island, a small, independently hydrated pocket of interactivity inside an otherwise static or server-rendered page.</p>
 
   <!-- ═══════════════════════════════════════════════════
        SPECULATION RULES
@@ -299,27 +271,52 @@
 
   <p>Every rendering strategy on this list still has to serve the current navigation. The Speculation Rules API sits on top of all of them and handles a different problem: prefetching or fully prerendering a page the browser predicts a visitor is about to navigate to, before they click anything.</p>
 
-  <p>A page declares its intent with a plain JSON block:</p>
-
-  <div class="code-block">
-    <div class="code-header">
-      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-filename">product-list.html</span>
-      <span class="code-lang">HTML</span>
-    </div>
-    <pre><code><span class="p">&lt;script</span> <span class="n">type</span>=<span class="s">"speculationrules"</span><span class="p">&gt;</span>
-{
-  <span class="json-key">"prerender"</span>: [{
-    <span class="json-key">"where"</span>: { <span class="json-key">"href_matches"</span>: <span class="json-str">"/products/*"</span> },
-    <span class="json-key">"eagerness"</span>: <span class="json-str">"moderate"</span>
-  }]
-}
-<span class="p">&lt;/script&gt;</span></code></pre>
-  </div>
+  <p>A page declares its intent with a small, declarative block inside a <code>&lt;script type="speculationrules"&gt;</code> tag rather than any JavaScript: a URL pattern to match, and an eagerness level ranging from conservative (prerender only on a strong signal, like a pointer press) to eager (prerender as soon as a matching link scrolls into view).</p>
 
   <p>The browser decides whether to actually honor that hint based on conditions no application code has visibility into: available memory, network type and speed, and current CPU load. On a resource-constrained device or a slow connection, the browser can simply decline to prerender, and the app never knows or needs to know. Nothing in the application runs speculatively, the meaningful difference from a JavaScript-driven prefetch library: this is a browser-native decision, not a heuristic the application team has to tune and maintain.</p>
 
   <p>The caveat is worth stating plainly rather than glossing over: as of today, Speculation Rules support is Chromium-only, Chrome, Edge, and Opera, with no shipped support in Firefox or Safari. That makes it a progressive enhancement layered on top of whichever rendering strategy a page already uses, not something to design an architecture around. A site should work identically with the feature entirely absent, because for a meaningful share of visitors, it will be.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       FRAMEWORKS
+  ════════════════════════════════════════════════════ -->
+  <h2 id="frameworks">Where the Popular Frameworks Land</h2>
+  <p class="lede">None of the strategies above are theoretical. Here's what today's frameworks actually ship, and where they differ from each other.</p>
+
+  <p>Next.js's App Router covers most of the ground in this article inside one framework. Static pages render at build time for SSG, a <code>revalidate</code> window plus tag-based invalidation covers both timed and on-demand ISR, and streaming SSR is the default for anything dynamic. Partial prerendering, introduced experimentally in 2023, was folded into what Next.js 16 calls Cache Components in late 2025: a page opts in with a <code>"use cache"</code> directive rather than a separate feature flag, but the underlying idea, a static shell with dynamic holes, is the same one covered earlier in this article. React Server Components give the framework its island-like boundary too, since a component stays server-only unless it's explicitly marked with <code>'use client'</code>.</p>
+
+  <div class="callout new">
+    <div class="callout-title">A name change worth knowing</div>
+    <p>Readers researching PPR today will often land on Next.js documentation that talks about Cache Components instead. It's the same static-shell-plus-dynamic-holes model this article describes under PPR, repackaged under a broader caching API rather than deprecated.</p>
+  </div>
+
+  <p>Nuxt, SvelteKit, and SolidStart all take the same structural approach: pick a rendering mode per route rather than committing an entire app to one strategy. Nuxt's <code>routeRules</code> config is the most explicit about it, with dedicated settings for prerendering, server rendering, and a built-in stale-while-revalidate cache that behaves like ISR without any extra setup. SvelteKit exposes the same per-route choice through page-level <code>prerender</code> and <code>ssr</code> options, though ISR-style background regeneration there comes from the deployment adapter rather than the framework itself, Vercel's SvelteKit adapter is the common way to get it. SolidStart, built on the same underlying server engine as Nuxt, offers the same spread of SSR, streaming, and prerendering, and Solid's fine-grained, signal-based reactivity means hydration attaches listeners directly to existing DOM nodes rather than re-running a full render pass, which lowers the cost of hydration without removing it as a step.</p>
+
+  <p>Astro remains the clearest expression of islands architecture: static by default, with on-demand rendering and server islands available once an adapter is added for a specific host. A team can run an entire Astro site as SSG, flip individual routes to server rendering, or leave most of a page static while a handful of components hydrate independently, all in the same project.</p>
+
+  <p>Qwik and Qwik City build resumability in as the default rather than an opt-in, so every page effectively serves near-zero JavaScript until a visitor actually interacts with something. The tradeoff is ecosystem size: Qwik's adoption remains modest next to the frameworks around it, worth weighing alongside the technical benefit before committing a large team to it.</p>
+
+  <p>React Router v7, the result of Remix merging into React Router in late 2024, defaults to server rendering with streaming built in, but a route can also be pre-rendered at build time through a <code>prerender</code> config function that returns the list of URLs to generate, covering the SSG case for routes that don't need per-request data. Mixing rendered-per-request routes with pre-rendered ones inside the same app is a normal pattern here, not an exception.</p>
+
+  <p>Angular's story is SSR and SSG rather than ISR. Non-destructive hydration, stable since Angular 17, means the framework reuses server-rendered DOM instead of discarding and rebuilding it, and incremental hydration, added in Angular 19, extends that to hydrate parts of a page on demand rather than the whole tree at once, the same progressive-hydration idea covered earlier in this article. What Angular doesn't have today is a native background-regeneration mechanism equivalent to ISR: static routes are rebuilt at deploy time, not revalidated on a timer.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Framework</th><th>SSG</th><th>ISR</th><th>Streaming SSR</th><th>Partial rendering / islands</th><th>Resumability</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Next.js</td><td>Yes</td><td>Yes, timed &amp; on-demand</td><td>Yes</td><td>Yes, via Cache Components</td><td>No</td></tr>
+        <tr><td>Nuxt</td><td>Yes</td><td>Yes, via <code>routeRules</code></td><td>Yes</td><td>No dedicated islands model</td><td>No</td></tr>
+        <tr><td>SvelteKit</td><td>Yes</td><td>Adapter-dependent</td><td>Yes</td><td>No dedicated islands model</td><td>No</td></tr>
+        <tr><td>SolidStart</td><td>Yes</td><td>No</td><td>Yes</td><td>No dedicated islands model</td><td>No</td></tr>
+        <tr><td>Astro</td><td>Yes, default</td><td>No</td><td>Via adapter</td><td>Yes, islands by design</td><td>No</td></tr>
+        <tr><td>Qwik City</td><td>Yes</td><td>No</td><td>Yes</td><td>Fine-grained by default</td><td>Yes, default</td></tr>
+        <tr><td>React Router v7</td><td>Yes, via <code>prerender</code></td><td>No</td><td>Yes</td><td>No dedicated islands model</td><td>No</td></tr>
+        <tr><td>Angular</td><td>Yes</td><td>No</td><td>Yes</td><td>Incremental hydration</td><td>No</td></tr>
+      </tbody>
+    </table>
+  </div>
 
   <!-- ═══════════════════════════════════════════════════
        HYBRID
@@ -331,7 +328,7 @@
 
   <p>A concrete version of this: a route rendered with PPR for its shell, with a handful of genuinely interactive pieces inside that shell, a quantity selector, a "save for later" button, a live chat widget, hydrated independently, island-style, rather than shipped as part of one monolithic client bundle that has to hydrate all at once before any of it responds to a click. The shell handles when the HTML arrives. The islands handle how much JavaScript any given piece of it needs.</p>
 
-  <p>This isn't unique to the React ecosystem. SvelteKit, Nuxt 4, and SolidStart all ship the same underlying idea, a meta-framework that lets a team choose a rendering mode per route rather than committing the whole app to one strategy, in the Svelte, Vue, and Solid ecosystems respectively.</p>
+  <p>This isn't unique to the React ecosystem, either. As the framework rundown above shows, per-route mixing is closer to the default assumption across the field than a Next.js-specific trick.</p>
 
   <!-- ═══════════════════════════════════════════════════
        DECISION FRAMEWORK
