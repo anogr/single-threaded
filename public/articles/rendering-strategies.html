@@ -66,7 +66,6 @@
   <div class="sidebar-section">Putting It Together</div>
   <a href="#hybrid">Mixing strategies</a>
   <a href="#decision-framework">Choosing a strategy</a>
-  <a href="#migration">Migrating an existing app</a>
 </nav>
 
 <main>
@@ -88,11 +87,11 @@
        OVERVIEW
   ════════════════════════════════════════════════════ -->
   <section id="overview">
-    <p>For most of the web's history, pages were multi-page apps. The server built the HTML and the browser reloaded it in full on every navigation. Single-page apps changed that starting in the 2010s, moving rendering into the browser and building pages from an empty shell that JavaScript filled in after the fact. For a long stretch of that decade, the client-rendered SPA was the default choice for new projects. Neither picture is the whole story today, and the reasons why are what this article is about.</p>
+    <p>For most of the web's history, pages were multi-page apps. The server built the HTML and the browser reloaded it in full on every navigation. Single-page apps changed that in the 2010s. Rendering moved into the browser, and a page now started from an empty shell that JavaScript filled in. For a long stretch of that decade, the client-rendered single-page app was the default choice for new projects. Neither picture is the whole story today, and the reasons why are what this article is about.</p>
 
     <p>A page's HTML can be built once at deploy time and served unchanged for months. It can be built fresh on every request. It can be built once and quietly rebuilt in the background while stale copies keep serving traffic. Or it can be built almost entirely in the browser, starting from an empty shell that JavaScript fills in after the page has already loaded. None of these ideas are new on their own. What changed is how many of them a single product now uses at once, often on different routes of the same app.</p>
 
-    <p>What follows treats rendering as more than one question, because in practice it is. Four separate axes get bundled under the same word. One is who owns navigation once a page has loaded, whether a click reloads the full document or gets intercepted by client-side JavaScript. Another is when a given response's HTML actually gets computed, and how long that computation stays valid. A third is how much JavaScript ships to make static-looking HTML respond to input, and whether it activates all at once or piece by piece. A fourth is whether the browser gets a head start on a navigation before a visitor commits to it. The strategies ahead map onto these axes unevenly. MPA and SPA are the two ends of the navigation axis. SSG, ISR, PPR, and SSR are four answers to the timing axis, which is really a question about the server or build side of an app, since a pure SPA has nothing to precompute beyond an empty shell. Hydration, islands, and resumability form a third axis about how much JavaScript a page needs once it exists, independent of how or when that page's markup was produced. Speculative prefetching is a fourth axis, layered on top of whichever combination of the first three an app has already chosen.</p>
+    <p>What follows treats rendering as more than one question, because in practice it is. Rendering strategies cover four separate independent axes. One is who owns navigation once a page has loaded, whether a click on a link reloads the full document or gets intercepted by client-side JavaScript. Another is when a given response's HTML actually gets computed, and how long that computation stays valid. A third is how much JavaScript ships to make static-looking HTML respond to input, and whether it activates all at once or piece by piece. A fourth is whether the browser gets a head start on a navigation before a visitor commits to it. The strategies ahead map onto these axes unevenly. Multi-page apps (MPA) and single-page apps (SPA) are the two ends of the navigation axis. Static site generation (SSG), incremental static regeneration (ISR), partial prerendering (PPR), and server-side rendering (SSR) are four answers to the timing axis, which is really a question about the server or build side of an app, since a pure single-page app has nothing to precompute beyond an empty shell. Hydration, islands, and resumability form a third axis about how much JavaScript a page needs once it exists, independent of how or when that page's markup was produced. Speculative prefetching is a fourth axis, layered on top of whichever combination of the first three an app has already chosen.</p>
 
     <div class="table-wrap">
       <table>
@@ -108,7 +107,7 @@
       </table>
     </div>
 
-    <p>Two strategies from the same axis are mutually exclusive for a given response: a page can't be both SSG and SSR at once, because they're two different answers to the same question. Strategies from different axes aren't exclusive at all, which is why "SSR with islands" or "SSG wrapped in client-side navigation" are ordinary combinations rather than contradictions. That distinction, same axis versus different axis, holds for the rest of the article.</p>
+    <p>Two strategies from the same axis are mutually exclusive for a given response: a page can't be both statically generated and server-rendered at once, because they're two different answers to the same question. Strategies from different axes aren't exclusive at all, which is why combining server rendering with islands, or static generation wrapped in client-side navigation, is an ordinary pairing rather than a contradiction. That distinction, same axis versus different axis, holds for the rest of the article.</p>
 
     <div class="figure-wrap">
       <svg viewBox="0 0 700 310" role="img" aria-label="Diagram mapping rendering strategies onto three independent axes. The navigation axis spans MPA, full document reload every navigation, to SPA, client-side router owns navigation after load. The timing axis spans SSG, built once at deploy, ISR, built once and refreshed in the background, PPR, static shell with per-request holes, and SSR, computed fresh on every request. The hydration axis spans monolithic hydration, progressive hydration, islands, and resumability. A caption notes that each row is a separate question, and an app picks one option per row rather than one option overall." xmlns="http://www.w3.org/2000/svg">
@@ -177,7 +176,7 @@
 
   <p>None of this makes an MPA behave like an SPA. State still resets on every navigation, so anything that needs to persist, a shopping cart drawer, an audio player, an open modal, has to be re-derived from the server response or from storage rather than kept in memory. But the specific complaint that drove teams toward client-side routing, the visual jank of a reload, no longer has to be one of the tradeoffs. An MPA today gets a smooth transition from a few lines of CSS, which makes it a genuinely reasonable default for content-first sites: marketing pages, blogs, documentation, catalogs, anything where each page is mostly self-contained and doesn't need to survive a navigation in memory.</p>
 
-  <p>MPA answers exactly one question, the navigation axis, and says nothing about how any individual page's HTML got produced. Its pages can be static files built once (SSG), rebuilt on a background timer (ISR), or computed fresh per request (SSR), and the reload behavior stays the same regardless. The timing axis and the hydration axis are both still open choices once "full reload per navigation" has been decided.</p>
+  <p>MPA answers exactly one question, the navigation axis, and says nothing about how any individual page's HTML got produced. Its pages can be static files built once, rebuilt on a background timer, or computed fresh per request, and the reload behavior stays the same regardless. The timing axis and the hydration axis are both still open choices once "full reload per navigation" has been decided.</p>
 
   <!-- ═══════════════════════════════════════════════════
        SPA
@@ -187,13 +186,13 @@
 
   <p>A <strong>single-page app</strong> (SPA) trades a slow first paint for a fast every-paint-after-that. It ships one HTML document, almost empty, and lets JavaScript take over from there. The initial response is a shell: a <code>&lt;div id="root"&gt;</code> and a set of <code>&lt;script&gt;</code> tags. The browser has to download that JavaScript, parse it, execute it, and only then does the application render anything a visitor can actually see. Every subsequent navigation happens client-side, swapping components and updating the URL through the History API, without another full page load.</p>
 
-  <p>The cost of this approach isn't one number, it's two costs stacked on top of each other. The first is <strong>time to first byte</strong> (TTFB) for a blank shell, which is fast (there's nothing to render server-side), but that speed is deceptive, because the shell isn't the content. The second, larger cost is the <strong>JavaScript bundle tax</strong>: the total size of the framework, the application code, and every dependency that has to download, parse, and execute before the page becomes interactive. Published comparisons put <strong>largest contentful paint</strong> (LCP) around 1.1 to 1.8 seconds for SSR or SSG pages against roughly 2.8 to 3.5 seconds for an SPA rendering equivalent content entirely in the browser, and that gap is almost entirely the bundle tax, not server speed.</p>
+  <p>The cost of this approach isn't one number, it's two costs stacked on top of each other. The first is <strong>time to first byte</strong> (TTFB) for a blank shell, which is fast (there's nothing to render server-side), but that speed is deceptive, because the shell isn't the content. The second, larger cost is the <strong>JavaScript bundle tax</strong>: the total size of the framework, the application code, and every dependency that has to download, parse, and execute before the page becomes interactive. <strong>Largest contentful paint</strong> (LCP) for an SSR or SSG page typically lands in a fraction of a second. An SPA rendering equivalent content entirely in the browser routinely takes several seconds longer, and that gap is almost entirely the bundle tax, not server speed.</p>
 
   <p>That gap is the reason "SPA for the whole product" stopped being the default today for anything public-facing or SEO-dependent. A search crawler or a social-media unfurler that doesn't execute the client bundle sees an empty shell, and a visitor on a slow connection or an older device pays the parse-and-execute cost in full before anything appears. None of that makes the pattern wrong, it makes it situational. Behind an authentication wall, where there's no crawler to satisfy and the visitor has already committed to loading the tool, a pure SPA is often still the right call: internal dashboards, admin panels, and data-heavy tools where the first paint happens once per session and every screen after that benefits from never touching the network for a full document reload.</p>
 
   <div class="callout info aside">
-    <div class="callout-title">Most "SSR apps" are actually hybrids</div>
-    <p>MPA and SPA are described here as opposite ends of the navigation axis, but most metaframework apps today, the ones people casually call "SSR apps" or "Next.js apps", don't sit at either end. A hard load gets a fully server-rendered response, and once that document has loaded, clicking a link inside the app is usually handled by a client-side router instead of triggering another full reload, exactly like an SPA would. Combining a server-rendered timing answer with a client-routed navigation answer inside one app gets its own full treatment later, in the section on mixing strategies.</p>
+    <div class="callout-title">Most "server-rendered apps" are actually hybrids</div>
+    <p>MPA and SPA are described here as opposite ends of the navigation axis, but most metaframework apps today, the ones people casually call "server-rendered apps" or "Next.js apps", don't sit at either end. A hard load gets a fully server-rendered response, and once that document has loaded, clicking a link inside the app is usually handled by a client-side router instead of triggering another full reload, exactly like an SPA would. Combining a server-rendered timing answer with a client-routed navigation answer inside one app gets its own full treatment later, in the section on mixing strategies.</p>
   </div>
 
   <!-- ═══════════════════════════════════════════════════
@@ -348,7 +347,7 @@
     <figcaption>Only step 1 happens ahead of time. Everything from step 2 on happens within a single request, which is why the shell in the wireframe below can serve instantly while the holes still catch up a moment later.</figcaption>
   </div>
 
-  <p>That distinction shows up directly in time-to-first-byte. When the static shell serves from an edge cache, PPR moves TTFB from something in the 350 to 550 millisecond range, typical for a fully dynamic SSR response, down to roughly 40 to 90 milliseconds, because the browser is receiving a cached file rather than waiting on a server to render anything before the first byte goes out.</p>
+  <p>That distinction shows up directly in time-to-first-byte. A fully dynamic SSR response has to wait on the server before sending anything, so its TTFB tracks however long that render takes. When the static shell serves from an edge cache instead, PPR's TTFB drops to roughly what a cached static file takes, because the browser is receiving a file that was already sitting at the edge rather than waiting on a server to render anything before the first byte goes out.</p>
 
   <div class="figure-wrap">
     <svg viewBox="0 0 700 260" role="img" aria-label="Wireframe of a page rendered with partial prerendering, showing a static shell for the header and page content, with two highlighted dynamic holes for a personalized banner and cart or auth state that stream in after the shell." xmlns="http://www.w3.org/2000/svg">
@@ -432,7 +431,7 @@
     <p>Hydration assumes the HTML the browser downloaded matches what the component tree would produce if it rendered again right now. When it doesn't, because a value depends on the visitor's timezone, on <code>Math.random()</code>, or on browser-only APIs that weren't available during the server render, the framework detects the mismatch and either patches the DOM or, in stricter setups, throws a warning and re-renders the affected subtree from scratch. It's a common source of console warnings in server-rendered React and Vue apps, and the fix is almost always to make the mismatched value deterministic or to defer it until after hydration completes.</p>
   </div>
 
-  <p>Islands and resumability both converge on the same result: near-zero JavaScript shipped by default, with more added only for the specific pieces of a page that need it. It's worth naming one callback explicitly, because it recurs elsewhere in this series: a <code>'use client'</code> component inside a server-rendered React tree is structurally the same shape as an Astro client island, a small, independently hydrated pocket of interactivity inside an otherwise static or server-rendered page.</p>
+  <p>Islands and resumability both converge on the same result: near-zero JavaScript shipped by default, with more added only for the specific pieces of a page that need it. It's worth naming one comparison explicitly, because it recurs elsewhere in this series. A <code>'use client'</code> component inside a server-rendered React tree plays a similar role to an Astro client island, marking where an otherwise static or server-rendered page hands off to a pocket of client-shipped interactivity. The isolation isn't identical, though. An Astro island hydrates as its own separate root and can't share context with another island, while a <code>'use client'</code> boundary sits inside one continuous React tree, so client components can share context with each other and even wrap server-rendered components as children, composing more like a single fractal tree than a set of independent islands.</p>
 
   <!-- ═══════════════════════════════════════════════════
        SPECULATION RULES
@@ -495,7 +494,7 @@
   <h2 id="hybrid">Mixing Strategies by Default</h2>
   <p class="lede">Almost no serious product today picks one rendering strategy for the whole site.</p>
 
-  <p>The strategies above read like a menu of mutually exclusive choices, but that's an artifact of writing about them one at a time. Mixing happens in two different senses, and it's worth telling them apart. Different routes in the same app routinely pick different answers to the timing axis: a marketing homepage might be pure SSG, a product listing might use ISR to stay roughly fresh, and a checkout flow might be SSR end to end because every byte of it has to reflect the current session. That's ordinary route-by-route variation within a single axis, no different in kind from picking different page layouts per route. Separately, and this is the more important point, any single route can combine its own timing-axis answer with its own navigation-axis and hydration-axis answers, because those are different questions with independent answers. A checkout route can be SSR on the timing axis, sit inside an app whose navigation is client-routed after the first load, and hydrate only its payment form as an island rather than the whole page, and none of those three decisions constrains either of the other two.</p>
+  <p>Different routes in the same app routinely pick different answers to the timing axis: a marketing homepage might be pure SSG, a product listing might use ISR to stay roughly fresh, and a checkout flow might be SSR end to end because every byte of it has to reflect the current session. That's ordinary route-by-route variation within a single axis, no different in kind from picking different page layouts per route. Separately, and this is the more important point, any single route can combine its own timing-axis answer with its own navigation-axis and hydration-axis answers, because those are different questions with independent answers. A checkout route can be SSR on the timing axis, sit inside an app whose navigation is client-routed after the first load, and hydrate only its payment form as an island rather than the whole page, and none of those three decisions constrains either of the other two.</p>
 
   <p>A concrete version of the within-route case: a route rendered with PPR for its shell, with a handful of genuinely interactive pieces inside that shell, a quantity selector, a "save for later" button, a live chat widget, hydrated independently, island-style, rather than shipped as part of one monolithic client bundle that has to hydrate all at once before any of it responds to a click. The shell handles when the HTML arrives. The islands handle how much JavaScript any given piece of it needs.</p>
 
@@ -510,84 +509,58 @@
   <p class="lede">Cost, freshness, and personalization pull in different directions, and the right answer is usually route-specific, not site-wide.</p>
 
   <div class="figure-wrap">
-    <svg viewBox="0 0 720 400" role="img" aria-label="Swimlane diagram comparing six rendering strategies on a shared logarithmic time axis from server response to interactive: MPA, SPA, streaming SSR, SSG, ISR, and PPR. SPA takes roughly 3.1 seconds to become interactive due to its JavaScript bundle download and hydration, MPA, SSG, ISR, and PPR reach interactive within a few hundred milliseconds, and streaming SSR lands around one second." xmlns="http://www.w3.org/2000/svg">
-      <!-- axis title -->
-      <text x="410" y="18" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--text-dim)">Time to interactive (log scale)</text>
-      <!-- gridlines -->
-      <line x1="282" y1="45" x2="282" y2="340" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,3"/>
-      <line x1="450" y1="45" x2="450" y2="340" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,3"/>
-      <line x1="534" y1="45" x2="534" y2="340" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,3"/>
-      <line x1="621" y1="45" x2="621" y2="340" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,3"/>
-      <line x1="672" y1="45" x2="672" y2="340" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,3"/>
-      <text x="140" y="40" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">0</text>
-      <text x="282" y="40" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">100ms</text>
-      <text x="450" y="40" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">500ms</text>
-      <text x="534" y="40" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">1s</text>
-      <text x="621" y="40" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">2s</text>
-      <text x="672" y="40" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">3s</text>
+    <svg viewBox="0 0 700 440" role="img" aria-label="Bar chart showing relative, illustrative time to interactive for the four timing-axis strategies: SSG and ISR reach interactive almost immediately, PPR's shell is immediate with dynamic holes trailing slightly behind, and streaming SSR is noticeably slower because the server has to render before sending anything. A fifth bar, set apart with a divider, shows a fully client-rendered SPA for comparison. It is far longer than the other four because the browser must download, parse, and execute its JavaScript bundle before anything responds. The SPA bar is included as a reference point, not as a sixth timing strategy, since a pure SPA has no timing strategy of its own. Bar lengths are illustrative and not drawn from measured benchmark data." xmlns="http://www.w3.org/2000/svg">
+      <!-- title -->
+      <text x="20" y="20" font-family="'Inter',system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--text-dim)">Time to interactive, relative ordering only</text>
+      <text x="20" y="36" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">Bar lengths are illustrative, not measured benchmark data.</text>
 
-      <!-- Row 1: MPA -->
-      <text x="132" y="74" text-anchor="end" font-family="'Inter',system-ui,sans-serif" font-size="12" fill="var(--text)">MPA</text>
-      <rect x="140" y="60" width="232" height="20" fill="color-mix(in srgb, var(--accent) 22%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
-      <rect x="372" y="60" width="37" height="20" fill="color-mix(in srgb, var(--teal) 22%, transparent)" stroke="color-mix(in srgb, var(--teal) 40%, transparent)"/>
-      <line x1="424" y1="55" x2="424" y2="85" stroke="var(--green)" stroke-width="2"/>
-      <text x="424" y="50" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--green)">~400ms</text>
+      <!-- Row 1: SSG -->
+      <text x="20" y="68" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text)">SSG</text>
+      <rect x="20" y="74" width="40" height="18" fill="color-mix(in srgb, var(--accent) 22%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
+      <text x="20" y="105" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Near-instant. Served straight from cache, no per-request server compute.</text>
 
-      <!-- Row 2: SPA -->
-      <text x="132" y="124" text-anchor="end" font-family="'Inter',system-ui,sans-serif" font-size="12" fill="var(--text)">SPA</text>
-      <rect x="140" y="110" width="179" height="20" fill="color-mix(in srgb, var(--accent) 22%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
-      <rect x="319" y="110" width="257" height="20" fill="color-mix(in srgb, var(--gold) 24%, transparent)" stroke="color-mix(in srgb, var(--gold) 45%, transparent)"/>
-      <rect x="576" y="110" width="45" height="20" fill="color-mix(in srgb, var(--orange) 24%, transparent)" stroke="color-mix(in srgb, var(--orange) 45%, transparent)"/>
-      <rect x="621" y="110" width="55" height="20" fill="color-mix(in srgb, var(--text-faint) 16%, transparent)" stroke="color-mix(in srgb, var(--text-faint) 30%, transparent)"/>
-      <line x1="676" y1="105" x2="676" y2="135" stroke="var(--green)" stroke-width="2"/>
-      <text x="676" y="100" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--green)">~3.1s</text>
+      <!-- Row 2: ISR -->
+      <text x="20" y="130" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text)">ISR</text>
+      <rect x="20" y="136" width="45" height="18" fill="color-mix(in srgb, var(--accent) 22%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
+      <text x="20" y="167" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Near-instant on a cache hit, the same speed as SSG until a background regeneration is due.</text>
 
-      <!-- Row 3: Streaming SSR -->
-      <text x="132" y="174" text-anchor="end" font-family="'Inter',system-ui,sans-serif" font-size="12" fill="var(--text)">Streaming SSR</text>
-      <rect x="140" y="160" width="252" height="20" fill="color-mix(in srgb, var(--accent) 22%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
-      <rect x="392" y="160" width="107" height="20" fill="color-mix(in srgb, var(--teal) 22%, transparent)" stroke="color-mix(in srgb, var(--teal) 40%, transparent)"/>
-      <rect x="499" y="160" width="29" height="20" fill="color-mix(in srgb, var(--orange) 24%, transparent)" stroke="color-mix(in srgb, var(--orange) 45%, transparent)"/>
-      <line x1="534" y1="155" x2="534" y2="185" stroke="var(--green)" stroke-width="2"/>
-      <text x="534" y="150" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--green)">~1.0s</text>
+      <!-- Row 3: PPR -->
+      <text x="20" y="192" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text)">PPR</text>
+      <rect x="20" y="198" width="50" height="18" fill="color-mix(in srgb, var(--accent) 22%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
+      <rect x="70" y="198" width="90" height="18" fill="color-mix(in srgb, var(--accent2) 26%, transparent)" stroke="color-mix(in srgb, var(--accent2) 45%, transparent)"/>
+      <text x="20" y="229" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Shell near-instant from the edge, with dynamic holes streaming in a moment behind.</text>
 
-      <!-- Row 4: SSG -->
-      <text x="132" y="224" text-anchor="end" font-family="'Inter',system-ui,sans-serif" font-size="12" fill="var(--text)">SSG</text>
-      <rect x="140" y="210" width="124" height="20" fill="color-mix(in srgb, var(--accent) 22%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
-      <rect x="264" y="210" width="74" height="20" fill="color-mix(in srgb, var(--teal) 22%, transparent)" stroke="color-mix(in srgb, var(--teal) 40%, transparent)"/>
-      <line x1="358" y1="205" x2="358" y2="235" stroke="var(--green)" stroke-width="2"/>
-      <text x="358" y="200" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--green)">~220ms</text>
+      <!-- Row 4: Streaming SSR -->
+      <text x="20" y="254" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text)">Streaming SSR</text>
+      <rect x="20" y="260" width="90" height="18" fill="color-mix(in srgb, var(--accent) 22%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
+      <rect x="110" y="260" width="170" height="18" fill="color-mix(in srgb, var(--teal) 22%, transparent)" stroke="color-mix(in srgb, var(--teal) 40%, transparent)"/>
+      <text x="20" y="291" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Noticeably slower to start than the three above, since the server renders before sending anything.</text>
 
-      <!-- Row 5: ISR -->
-      <text x="132" y="274" text-anchor="end" font-family="'Inter',system-ui,sans-serif" font-size="12" fill="var(--text)">ISR</text>
-      <rect x="140" y="260" width="133" height="20" fill="color-mix(in srgb, var(--accent) 22%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
-      <rect x="273" y="260" width="70" height="20" fill="color-mix(in srgb, var(--teal) 22%, transparent)" stroke="color-mix(in srgb, var(--teal) 40%, transparent)"/>
-      <line x1="363" y1="255" x2="363" y2="285" stroke="var(--green)" stroke-width="2"/>
-      <text x="363" y="250" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--green)">~230ms</text>
+      <!-- divider -->
+      <text x="20" y="309" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-faint)">For comparison, outside the timing axis:</text>
+      <line x1="20" y1="315" x2="680" y2="315" stroke="var(--border)" stroke-width="1" stroke-dasharray="3,3"/>
 
-      <!-- Row 6: PPR -->
-      <text x="132" y="324" text-anchor="end" font-family="'Inter',system-ui,sans-serif" font-size="12" fill="var(--text)">PPR</text>
-      <rect x="140" y="310" width="113" height="20" fill="color-mix(in srgb, var(--accent) 22%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
-      <rect x="253" y="310" width="66" height="20" fill="color-mix(in srgb, var(--teal) 22%, transparent)" stroke="color-mix(in srgb, var(--teal) 40%, transparent)"/>
-      <rect x="319" y="310" width="105" height="20" fill="color-mix(in srgb, var(--accent2) 26%, transparent)" stroke="color-mix(in srgb, var(--accent2) 45%, transparent)"/>
-      <rect x="424" y="310" width="26" height="20" fill="color-mix(in srgb, var(--orange) 24%, transparent)" stroke="color-mix(in srgb, var(--orange) 45%, transparent)"/>
-      <line x1="461" y1="305" x2="461" y2="335" stroke="var(--green)" stroke-width="2"/>
-      <text x="461" y="300" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--green)">~550ms</text>
+      <!-- Row 5: SPA -->
+      <text x="20" y="343" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text)">SPA (client-rendered)</text>
+      <rect x="20" y="349" width="30" height="18" fill="color-mix(in srgb, var(--accent) 22%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
+      <rect x="50" y="349" width="350" height="18" fill="color-mix(in srgb, var(--gold) 24%, transparent)" stroke="color-mix(in srgb, var(--gold) 45%, transparent)"/>
+      <rect x="400" y="349" width="180" height="18" fill="color-mix(in srgb, var(--orange) 24%, transparent)" stroke="color-mix(in srgb, var(--orange) 45%, transparent)"/>
+      <text x="20" y="380" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">By far the slowest of the group, dominated by downloading, parsing, and executing the JS bundle.</text>
+      <text x="20" y="394" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">Shown for comparison because a pure SPA has no timing strategy to plot, not as a sixth competing option.</text>
 
       <!-- legend -->
-      <rect x="16" y="360" width="10" height="10" fill="color-mix(in srgb, var(--accent) 22%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
-      <text x="30" y="369" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Server / TTFB</text>
-      <rect x="128" y="360" width="10" height="10" fill="color-mix(in srgb, var(--teal) 22%, transparent)" stroke="color-mix(in srgb, var(--teal) 40%, transparent)"/>
-      <text x="142" y="369" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">HTML received</text>
-      <rect x="248" y="360" width="10" height="10" fill="color-mix(in srgb, var(--accent2) 26%, transparent)" stroke="color-mix(in srgb, var(--accent2) 45%, transparent)"/>
-      <text x="262" y="369" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Dynamic holes</text>
-      <rect x="368" y="360" width="10" height="10" fill="color-mix(in srgb, var(--gold) 24%, transparent)" stroke="color-mix(in srgb, var(--gold) 45%, transparent)"/>
-      <text x="382" y="369" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">JS download</text>
-      <rect x="476" y="360" width="10" height="10" fill="color-mix(in srgb, var(--orange) 24%, transparent)" stroke="color-mix(in srgb, var(--orange) 45%, transparent)"/>
-      <text x="490" y="369" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Hydration</text>
-      <line x1="576" y1="360" x2="576" y2="370" stroke="var(--green)" stroke-width="2"/>
-      <text x="584" y="369" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Interactive</text>
+      <rect x="20" y="410" width="10" height="10" fill="color-mix(in srgb, var(--accent) 22%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
+      <text x="34" y="419" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Server / TTFB</text>
+      <rect x="140" y="410" width="10" height="10" fill="color-mix(in srgb, var(--teal) 22%, transparent)" stroke="color-mix(in srgb, var(--teal) 40%, transparent)"/>
+      <text x="154" y="419" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">HTML received</text>
+      <rect x="270" y="410" width="10" height="10" fill="color-mix(in srgb, var(--accent2) 26%, transparent)" stroke="color-mix(in srgb, var(--accent2) 45%, transparent)"/>
+      <text x="284" y="419" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Dynamic holes</text>
+      <rect x="400" y="410" width="10" height="10" fill="color-mix(in srgb, var(--gold) 24%, transparent)" stroke="color-mix(in srgb, var(--gold) 45%, transparent)"/>
+      <text x="414" y="419" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">JS download</text>
+      <rect x="510" y="410" width="10" height="10" fill="color-mix(in srgb, var(--orange) 24%, transparent)" stroke="color-mix(in srgb, var(--orange) 45%, transparent)"/>
+      <text x="524" y="419" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Hydration</text>
     </svg>
-    <figcaption>Six rendering strategies plotted on a shared, logarithmic time axis from server response to interactive. SPA's JavaScript bundle tax dominates its timeline, MPA, SSG, ISR, and PPR reach interactive within a few hundred milliseconds, and streaming SSR lands in between by sending what's ready immediately.</figcaption>
+    <figcaption>Relative time to interactive for the four timing-axis strategies, fastest to slowest. A fully client-rendered SPA is set apart below the divider for comparison, since it belongs to the navigation axis, not the timing axis, and has no timing strategy of its own to plot alongside the other four. Bar lengths are illustrative, not measured.</figcaption>
   </div>
 
   <p>Cost is easy to leave out of a purely technical comparison, but it belongs in the decision, because the strategies scale differently under load. SSG costs close to nothing beyond storage and bandwidth, since there's no compute per request. ISR's cost scales with how often content actually regenerates, not with traffic, a page that revalidates every hour costs the same whether it gets ten visitors or ten million. SSR, and edge-SSR alongside it, scale with request volume directly, because every request triggers real compute. An SPA is the cheapest strategy to host, in the narrow sense that a static JS bundle on a CDN costs about the same as any other static file, but that's because the strategy pushes its real cost onto the visitor's device, in the form of JavaScript parse and execute time that never shows up on a hosting bill.</p>
@@ -612,20 +585,8 @@
 
   <div class="callout info aside">
     <div class="callout-title">Where this connects</div>
-    <p>Core Web Vitals today track Interaction to Next Paint (INP), which replaced First Input Delay (FID) as the responsiveness metric, alongside Cumulative Layout Shift (CLS) and LCP, and every strategy above moves those numbers differently. The mechanics of each metric belong to a dedicated Core Web Vitals article rather than here. Service Workers are a separate, orthogonal caching layer for offline and fallback behavior, not a rendering strategy, and get their own treatment in a future PWA article.</p>
+    <p>Core Web Vitals today track Interaction to Next Paint (INP), which replaced First Input Delay (FID) as the responsiveness metric, alongside Cumulative Layout Shift (CLS) and LCP, and every strategy above moves those numbers differently. The mechanics of each metric belong to a dedicated Core Web Vitals article rather than here. Service Workers are a separate, orthogonal caching layer for offline and fallback behavior, not a rendering strategy.</p>
   </div>
-
-  <!-- ═══════════════════════════════════════════════════
-       MIGRATION
-  ════════════════════════════════════════════════════ -->
-  <h2 id="migration">Migrating an Existing App</h2>
-  <p class="lede">The realistic path off a legacy, fully client-rendered SPA is route by route, not a rewrite.</p>
-
-  <p>A product that's been a pure client-side SPA for years rarely gets rebuilt from scratch to adopt a different rendering strategy, and trying to do so is usually the wrong call anyway. The practical default is incremental: most modern meta-frameworks let a team mix rendering modes per route within the same app, which means a route can move from client-side rendering to SSR, SSG, or PPR on its own schedule, without touching the routes around it.</p>
-
-  <p>The routes worth migrating first are usually the ones where the SPA's weaknesses are most visible: a marketing or landing page that needs to be crawlable and fast on first load, a product or content page where LCP directly affects conversion, anything currently paying the full JavaScript bundle tax just to render text that never changes per visitor. Routes that are genuinely dashboard-like, authenticated, and update-heavy can reasonably stay client-rendered indefinitely, because that's the situation the strategy actually fits.</p>
-
-  <p>A migration doesn't need a target architecture where every route ends up using the same strategy. It needs each route matched to the strategy that fits what it actually does, on each axis independently.</p>
 
 </main>
 </div><!-- end .shell -->
