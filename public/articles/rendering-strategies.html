@@ -49,12 +49,12 @@
   <a href="#overview">Four axes, not one spectrum</a>
 
   <div class="sidebar-section">The Strategies</div>
-  <a href="#mpa">MPA</a>
-  <a href="#spa">SPA</a>
-  <a href="#ssg">SSG</a>
-  <a href="#ssr">SSR</a>
-  <a href="#isr">ISR</a>
-  <a href="#ppr">PPR</a>
+  <a href="#mpa">Multi-Page Apps</a>
+  <a href="#spa">Single-Page Apps</a>
+  <a href="#ssg">Static Site Generation</a>
+  <a href="#ssr">Server-Side Rendering</a>
+  <a href="#isr">Incremental Static Regeneration</a>
+  <a href="#ppr">Partial Prerendering</a>
 
   <div class="sidebar-section">Orthogonal Axes</div>
   <a href="#islands">Hydration, islands &amp; resumability</a>
@@ -73,7 +73,7 @@
 
   <div class="eyebrow">Frontend · Architecture</div>
   <h1>Rendering Strategies: <em>Where and When HTML Gets Built</em></h1>
-  <p class="subtitle">How SPA, MPA, SSR, SSG, ISR, and PPR differ in where HTML gets built and when JavaScript takes over, and how to pick the one that fits.</p>
+  <p class="subtitle">How six different rendering strategies differ in where HTML gets built and when JavaScript takes over, and how to pick the one that fits.</p>
   <div class="byline">
     <strong>Deep dive</strong>
     <div class="dot"></div>
@@ -88,7 +88,7 @@
        OVERVIEW
   ════════════════════════════════════════════════════ -->
   <section id="overview">
-    <p>Ask a few frontend engineers when a page's HTML actually gets built and the answers start to disagree, because for a long stretch of the 2010s the question had one obvious answer: the browser builds it, after JavaScript runs. That's no longer true for most production sites, and the reasons it stopped being true are what this article is about.</p>
+    <p>For most of the web's history, pages were multi-page apps. The server built the HTML and the browser reloaded it in full on every navigation. Single-page apps changed that starting in the 2010s, moving rendering into the browser and building pages from an empty shell that JavaScript filled in after the fact. For a long stretch of that decade, the client-rendered SPA was the default choice for new projects. Neither picture is the whole story today, and the reasons why are what this article is about.</p>
 
     <p>A page's HTML can be built once at deploy time and served unchanged for months. It can be built fresh on every request. It can be built once and quietly rebuilt in the background while stale copies keep serving traffic. Or it can be built almost entirely in the browser, starting from an empty shell that JavaScript fills in after the page has already loaded. None of these ideas are new on their own. What changed is how many of them a single product now uses at once, often on different routes of the same app.</p>
 
@@ -164,14 +164,14 @@
   <!-- ═══════════════════════════════════════════════════
        MPA
   ════════════════════════════════════════════════════ -->
-  <h2 id="mpa">MPA: The Full Reload, Reconsidered</h2>
-  <p class="lede">The oldest rendering strategy on this list just got a reason to look modern again.</p>
+  <h2 id="mpa">Multi-Page Apps</h2>
+  <p class="lede">The Full Reload, Reconsidered</p>
 
-  <p>A multi-page app does exactly what the phrase says. Every navigation is a full page load: the browser requests a URL, the server renders that page's complete HTML, and the browser throws away the previous page's DOM and starts over. There's no client-side router, no persistent JavaScript application state, no virtual DOM diffing against a previous render. Each page is its own self-contained document.</p>
+  <p>The oldest rendering strategy on this list just got a reason to look modern again. A <strong>multi-page app</strong> (MPA) does exactly what the phrase says. Every navigation is a full page load: the browser requests a URL, the server renders that page's complete HTML, and the browser throws away the previous page's DOM and starts over. There's no client-side router, no persistent JavaScript application state, no virtual DOM diffing against a previous render. Each page is its own self-contained document.</p>
 
   <p>For most of the 2010s, this reload was the reason teams reached for a single-page app instead. A full navigation meant a blank white flash between pages, no way to keep a header or sidebar mounted across routes, and no smooth transition between one screen and the next. Avoiding that flash was, for a lot of products, the actual justification for shipping a large client-side JavaScript framework, rather than a specific technical need for one.</p>
 
-  <p>That justification has weakened considerably. Cross-document View Transitions, a browser-native API that animates the swap between two full page loads, has shipped in Chrome and Edge since mid-2024 and in Safari since late 2024, putting combined coverage in the neighborhood of 85 to 90% of global traffic. Firefox is the holdout: same-document transitions landed in Firefox 144 in October 2025, but the cross-document version, the one that matters for an MPA, still sits behind a flag rather than shipping by default. Turning it on takes two declarative pieces and no JavaScript animation library at all: a site-wide rule that opts every cross-document navigation into a transition, and, optionally, a shared <code>view-transition-name</code> on one element, a product image, a page title, so the browser morphs that element between pages instead of just cross-fading everything at once.</p>
+  <p>That justification has weakened considerably. <strong>Cross-document View Transitions</strong>, a browser-native API that animates the swap between two full page loads, has shipped in Chrome, Edge, and Safari since 2024 and now covers most global traffic. Firefox is the holdout. It added same-document transitions in late 2025, but the cross-document version, the one that matters for an MPA, still sits behind a flag rather than shipping by default. Turning it on takes two declarative pieces and no JavaScript animation library at all: a site-wide rule that opts every cross-document navigation into a transition, and, optionally, a shared <code>view-transition-name</code> on one element, a product image, a page title, so the browser morphs that element between pages instead of just cross-fading everything at once.</p>
 
   <p>The browser captures a snapshot of the outgoing page, waits for the new page's HTML, and cross-fades or slides between them, all coordinated by the browser's own compositor rather than JavaScript juggling DOM nodes mid-transition.</p>
 
@@ -182,12 +182,12 @@
   <!-- ═══════════════════════════════════════════════════
        SPA
   ════════════════════════════════════════════════════ -->
-  <h2 id="spa">SPA: Client-Rendered, Client-Owned</h2>
-  <p class="lede">A single-page app trades a slow first paint for a fast every-paint-after-that.</p>
+  <h2 id="spa">Single-Page Apps</h2>
+  <p class="lede">Client-Rendered, Client-Owned</p>
 
-  <p>A single-page app ships one HTML document, almost empty, and lets JavaScript take over from there. The initial response is a shell: a <code>&lt;div id="root"&gt;</code> and a set of <code>&lt;script&gt;</code> tags. The browser has to download that JavaScript, parse it, execute it, and only then does the application render anything a visitor can actually see. Every subsequent navigation happens client-side, swapping components and updating the URL through the History API, without another full page load.</p>
+  <p>A <strong>single-page app</strong> (SPA) trades a slow first paint for a fast every-paint-after-that. It ships one HTML document, almost empty, and lets JavaScript take over from there. The initial response is a shell: a <code>&lt;div id="root"&gt;</code> and a set of <code>&lt;script&gt;</code> tags. The browser has to download that JavaScript, parse it, execute it, and only then does the application render anything a visitor can actually see. Every subsequent navigation happens client-side, swapping components and updating the URL through the History API, without another full page load.</p>
 
-  <p>The cost of this approach isn't one number, it's two costs stacked on top of each other. The first is time to first byte for a blank shell, which is fast (there's nothing to render server-side), but that speed is deceptive, because the shell isn't the content. The second, larger cost is the JavaScript bundle tax: the total size of the framework, the application code, and every dependency that has to download, parse, and execute before the page becomes interactive. Published comparisons put largest contentful paint around 1.1 to 1.8 seconds for SSR or SSG pages against roughly 2.8 to 3.5 seconds for a CSR-only SPA rendering equivalent content, and that gap is almost entirely the bundle tax, not server speed.</p>
+  <p>The cost of this approach isn't one number, it's two costs stacked on top of each other. The first is <strong>time to first byte</strong> (TTFB) for a blank shell, which is fast (there's nothing to render server-side), but that speed is deceptive, because the shell isn't the content. The second, larger cost is the <strong>JavaScript bundle tax</strong>: the total size of the framework, the application code, and every dependency that has to download, parse, and execute before the page becomes interactive. Published comparisons put <strong>largest contentful paint</strong> (LCP) around 1.1 to 1.8 seconds for SSR or SSG pages against roughly 2.8 to 3.5 seconds for an SPA rendering equivalent content entirely in the browser, and that gap is almost entirely the bundle tax, not server speed.</p>
 
   <p>That gap is the reason "SPA for the whole product" stopped being the default today for anything public-facing or SEO-dependent. A search crawler or a social-media unfurler that doesn't execute the client bundle sees an empty shell, and a visitor on a slow connection or an older device pays the parse-and-execute cost in full before anything appears. None of that makes the pattern wrong, it makes it situational. Behind an authentication wall, where there's no crawler to satisfy and the visitor has already committed to loading the tool, a pure SPA is often still the right call: internal dashboards, admin panels, and data-heavy tools where the first paint happens once per session and every screen after that benefits from never touching the network for a full document reload.</p>
 
@@ -199,10 +199,10 @@
   <!-- ═══════════════════════════════════════════════════
        SSG
   ════════════════════════════════════════════════════ -->
-  <h2 id="ssg">SSG: Built Once, Served Forever</h2>
-  <p class="lede">If the content doesn't change per visitor, there's no reason to compute it per visit.</p>
+  <h2 id="ssg">Static Site Generation</h2>
+  <p class="lede">Built Once, Served Forever</p>
 
-  <p>Static site generation renders every page's HTML at build time, before any visitor ever requests it, and uploads the finished files to a CDN. When a request comes in, the edge node closest to the visitor just returns a file it already has. There's no server-side rendering step at request time, no database query, no template execution, just a static asset being served the same way an image would be.</p>
+  <p>If the content doesn't change per visitor, there's no reason to compute it per visit. <strong>Static site generation</strong> (SSG) renders every page's HTML at build time, before any visitor ever requests it, and uploads the finished files to a CDN. When a request comes in, the edge node closest to the visitor just returns a file it already has. There's no server-side rendering step at request time, no database query, no template execution, just a static asset being served the same way an image would be.</p>
 
   <div class="figure-wrap">
     <svg viewBox="0 0 700 270" role="img" aria-label="Sequence diagram for static site generation in four numbered steps. Ahead of time: 1, the build process renders every page's HTML from its templates and data. 2, the finished HTML files are uploaded to a CDN. Per request: 3, a visitor requests the page and hits the nearest edge node. 4, the edge node returns the file it already has, with no server-side computation for this request at all." xmlns="http://www.w3.org/2000/svg">
@@ -238,31 +238,31 @@
   <!-- ═══════════════════════════════════════════════════
        SSR
   ════════════════════════════════════════════════════ -->
-  <h2 id="ssr">SSR: Rendered Per Request</h2>
-  <p class="lede">Server rendering buys freshness and personalization, and pays for it in time-to-first-byte.</p>
+  <h2 id="ssr">Server-Side Rendering</h2>
+  <p class="lede">Rendered Per Request</p>
 
-  <p>Server-side rendering runs the same rendering work SSG does at build time, but on every incoming request instead. The server, or an edge function, more on that in a moment, executes the page's rendering logic, fetches whatever data the page needs, and returns fully formed HTML. Because it runs per request, SSR can read the actual visitor's session, personalize content, and reflect data that changed a second ago, none of which a purely static build can do.</p>
+  <p>Server rendering buys freshness and personalization, and pays for it in time-to-first-byte. <strong>Server-side rendering</strong> (SSR) runs the same rendering work SSG does at build time, but on every incoming request instead. The server, or an <strong>edge function</strong>, more on that in a moment, executes the page's rendering logic, fetches whatever data the page needs, and returns fully formed HTML. Because it runs per request, SSR can read the actual visitor's session, personalize content, and reflect data that changed a second ago, none of which a purely static build can do.</p>
 
   <p>The cost is that time-to-first-byte is now tied directly to how long the server takes to fetch data and render, and if a page waits on three sequential API calls before it can produce any HTML, the visitor waits on all three before seeing anything. Traditional, blocking SSR sends nothing until the entire page is ready, which turns a single slow dependency into a slow page.</p>
 
-  <p>Streaming SSR fixes that specific failure mode of "wait for everything, then send everything." The server marks which regions of the page are allowed to render independently of the rest. A data dependency that resolves quickly is awaited normally and included in the first flush of HTML. A slower one gets its own boundary with a placeholder, so the server can send the fast parts of the page the moment they're ready and keep the connection open for the slow part rather than buffering the entire response until every dependency has settled. A product page can send its header, price, and description within that first flush, while a slower reviews section streams in a beat later inside its own boundary and patches into place once it arrives, without a second round trip and without blocking anything else on the page.</p>
+  <p><strong>Streaming SSR</strong> fixes that specific failure mode of "wait for everything, then send everything." The server marks which regions of the page are allowed to render independently of the rest. A data dependency that resolves quickly is awaited normally and included in the first flush of HTML. A slower one gets its own boundary with a placeholder, so the server can send the fast parts of the page the moment they're ready and keep the connection open for the slow part rather than buffering the entire response until every dependency has settled. A product page can send its header, price, and description within that first flush, while a slower reviews section streams in a beat later inside its own boundary and patches into place once it arrives, without a second round trip and without blocking anything else on the page.</p>
 
   <div class="callout info aside">
     <div class="callout-title">What "streaming" actually means on the wire</div>
-    <p>A normal HTTP response declares its size upfront in a <code>Content-Length</code> header, which forces the server to know the whole body before it writes the first byte. Streaming responses use chunked transfer encoding instead, sending the body as a sequence of chunks over the same open connection without ever committing to a total size. The browser's HTML parser has always been able to consume a document incrementally as bytes arrive rather than waiting for the end of the stream, which is why even old-fashioned, non-streaming SSR pages painted progressively long before any framework offered a streaming API. What a streaming boundary adds on top of that is control over ordering: the placeholder markup goes out in the first chunk, and once the slow data resolves, the server writes the real markup into a later chunk on that same connection, alongside a small inline script that swaps it into the placeholder's position and removes the placeholder. Nothing about this needs a second request, because the connection never closed.</p>
+    <p>A normal HTTP response declares its size upfront in a <code>Content-Length</code> header, which forces the server to know the whole body before it writes the first byte. Streaming responses use <strong>chunked transfer encoding</strong> instead, sending the body as a sequence of chunks over the same open connection without ever committing to a total size. The browser's HTML parser has always been able to consume a document incrementally as bytes arrive rather than waiting for the end of the stream, which is why even old-fashioned, non-streaming SSR pages painted progressively long before any framework offered a streaming API. What a streaming boundary adds on top of that is control over ordering: the placeholder markup goes out in the first chunk, and once the slow data resolves, the server writes the real markup into a later chunk on that same connection, alongside a small inline script that swaps it into the placeholder's position and removes the placeholder. Nothing about this needs a second request, because the connection never closed.</p>
   </div>
 
-  <p>One more variable belongs in this section rather than getting its own heading: where SSR actually executes. Running it on an edge runtime, Cloudflare Workers or Vercel Edge Functions, instead of an origin Node server trades some compute headroom for near-instant cold starts and lower network latency, since the code runs physically closer to the visitor. This is what "edge-side rendering" means in practice: it's still SSR, just relocated. It's not a different rendering strategy, it's a deployment decision about where the SSR strategy runs.</p>
+  <p>One more variable belongs in this section rather than getting its own heading: where SSR actually executes. Running it on an edge runtime, Cloudflare Workers or Vercel Edge Functions, instead of an origin Node server trades some compute headroom for near-instant cold starts and lower network latency, since the code runs physically closer to the visitor. This is what <strong>"edge-side rendering"</strong> means in practice: it's still SSR, just relocated. It's not a different rendering strategy, it's a deployment decision about where the SSR strategy runs.</p>
 
   <!-- ═══════════════════════════════════════════════════
        ISR
   ════════════════════════════════════════════════════ -->
-  <h2 id="isr">ISR: Static, With a Background Refresh</h2>
-  <p class="lede">Incremental static regeneration keeps SSG's speed and adds a way to keep the content from going stale.</p>
+  <h2 id="isr">Incremental Static Regeneration</h2>
+  <p class="lede">Static, With a Background Refresh</p>
 
-  <p>Incremental static regeneration starts from the same place as SSG, a page built once and cached, but adds a mechanism for regenerating that cache without a full redeploy. A page can be marked to revalidate after a fixed window (regenerate this page in the background if it's more than sixty seconds old) or on demand, by tagging a specific piece of content so a single API call can invalidate exactly the pages that depend on it, without waiting for a timer or rebuilding anything unrelated.</p>
+  <p><strong>Incremental static regeneration</strong> (ISR) keeps SSG's speed and adds a way to keep the content from going stale. It starts from the same place as SSG, a page built once and cached, but adds a mechanism for regenerating that cache without a full redeploy. A page can be marked to revalidate after a fixed window (regenerate this page in the background if it's more than sixty seconds old) or on demand, by tagging a specific piece of content so a single API call can invalidate exactly the pages that depend on it, without waiting for a timer or rebuilding anything unrelated.</p>
 
-  <p>The behavior underneath both approaches is stale-while-revalidate: the visitor who happens to trigger a regeneration still gets the old, cached page instantly, while the new version renders in the background and replaces the cache for the next visitor. Nobody waits on a rebuild. This is the detail that makes ISR feel like SSG in terms of speed while behaving more like SSR in terms of freshness, without fully paying either strategy's cost.</p>
+  <p>The behavior underneath both approaches is <strong>stale-while-revalidate</strong>: the visitor who happens to trigger a regeneration still gets the old, cached page instantly, while the new version renders in the background and replaces the cache for the next visitor. Nobody waits on a rebuild. This is the detail that makes ISR feel like SSG in terms of speed while behaving more like SSR in terms of freshness, without fully paying either strategy's cost.</p>
 
   <div class="figure-wrap">
     <svg viewBox="0 0 700 340" role="img" aria-label="Sequence diagram for incremental static regeneration in six numbered steps. Ahead of time: 1, the page builds once and gets cached, the same starting point as static generation. Per request, once the revalidation window has passed: 2, a visitor requests the page after the cache has gone stale. 3, the stale cached page serves immediately, so this visitor sees the old version and nothing waits on a rebuild. 4, a regeneration kicks off in the background using current data. 5, the cache is replaced once regeneration finishes, so the origin now holds the freshly rendered version. 6, the next visitor gets the new version once edge caches catch up, since propagation to edge nodes is a separate step that can lag." xmlns="http://www.w3.org/2000/svg">
@@ -306,15 +306,15 @@
     <p>Revalidating the origin cache doesn't automatically mean every visitor sees fresh content immediately. The CDN's edge caches have to actually receive and honor the purge, and if that propagation is slow or misconfigured, a regenerated page can sit correctly rebuilt at the origin while edge nodes keep serving the old copy a while longer.</p>
   </div>
 
-  <p>On-demand invalidation is a second way to trigger regeneration, layered on top of the timed revalidation window: tagging a specific piece of content means one call from a webhook can invalidate exactly the pages that depend on it, without waiting for the timer to expire.</p>
+  <p>On-demand invalidation is a second way to trigger regeneration, layered on top of the timed revalidation window. Tagging a specific piece of content means one call from a webhook can invalidate exactly the pages that depend on it, without waiting for the timer to expire.</p>
 
   <!-- ═══════════════════════════════════════════════════
        PPR
   ════════════════════════════════════════════════════ -->
-  <h2 id="ppr">PPR: Static Shell, Dynamic Holes</h2>
-  <p class="lede">Partial prerendering treats a page as two different rendering strategies stitched into one response.</p>
+  <h2 id="ppr">Partial Prerendering</h2>
+  <p class="lede">Static Shell, Dynamic Holes</p>
 
-  <p>Partial prerendering serves a page's static shell from the edge, the same way SSG would, and leaves gaps, holes, for the parts of the page that genuinely need to be computed per request. Those holes stream in after the shell has already reached the browser, each one resolving independently inside its own boundary, similar to how streaming SSR resolves slow sections without blocking the rest of the page. The difference is that with PPR, most of the page never needed a server render at request time in the first place, only the holes do.</p>
+  <p><strong>Partial prerendering</strong> (PPR) treats a page as two different rendering strategies stitched into one response. It serves a page's static shell from the edge, the same way SSG would, and leaves gaps, holes, for the parts of the page that genuinely need to be computed per request. Those holes stream in after the shell has already reached the browser, each one resolving independently inside its own boundary, similar to how streaming SSR resolves slow sections without blocking the rest of the page. The difference is that with PPR, most of the page never needed a server render at request time in the first place, only the holes do.</p>
 
   <div class="figure-wrap">
     <svg viewBox="0 0 700 290" role="img" aria-label="Sequence diagram for partial prerendering in five numbered steps. Ahead of time: 1, the static shell builds and gets cached at the edge, the same way SSG would. Per request: 2, a visitor requests the page and hits the nearest edge node. 3, the shell serves immediately from the cache, with holes rendering as placeholders inside it. 4, each hole starts resolving on the server, in parallel, the same per-request work SSR would do but scoped to just the holes. 5, holes stream into place as they resolve, with real markup replacing each placeholder and no second request needed." xmlns="http://www.w3.org/2000/svg">
@@ -391,13 +391,13 @@
 
   <p>Everything covered so far sits on one of two axes: who owns navigation (MPA, SPA) or when a page's HTML gets computed (SSG, ISR, PPR, SSR). Hydration, islands, and resumability answer a third question entirely, orthogonal to both: how much of the page needs JavaScript at all, and at what granularity. That independence is what makes combinations like "SSG with islands" or "PPR with islands inside its holes" ordinary rather than exceptional, they're answers to three different questions, not competing answers to one.</p>
 
-  <p>Start with hydration itself, since the other three ideas in this section are all reactions to it. Any page whose HTML was produced ahead of time, by SSG, SSR, or ISR, arrives in the browser already looking correct, but that HTML is inert: none of its buttons respond to a click yet, because no JavaScript has run. Hydration is the step that fixes this. The browser downloads the same component code the server used, runs it again against the DOM that's already sitting on the page, and uses that second pass to attach event listeners and wire up internal state, rather than throwing the existing markup away and rebuilding it from scratch. Done correctly, hydration is invisible: the visitor never sees a flash of rebuilt content, only a page that goes from static to responsive.</p>
+  <p>Start with hydration itself, since the other three ideas in this section are all reactions to it. Any page whose HTML was produced ahead of time, by SSG, SSR, or ISR, arrives in the browser already looking correct, but that HTML is inert: none of its buttons respond to a click yet, because no JavaScript has run. <strong>Hydration</strong> is the step that fixes this. The browser downloads the same component code the server used, runs it again against the DOM that's already sitting on the page, and uses that second pass to attach event listeners and wire up internal state, rather than throwing the existing markup away and rebuilding it from scratch. Done correctly, hydration is invisible: the visitor never sees a flash of rebuilt content, only a page that goes from static to responsive.</p>
 
-  <p>The default version of this, sometimes called monolithic hydration, treats the whole page as one unit. The browser can't attach a single event listener until it has downloaded, parsed, and re-executed the entire component tree, even for the ninety percent of the page that has nothing to do with the one button a visitor is about to click. Progressive hydration narrows that cost without removing it: the framework still ships and eventually runs the same component tree, but it prioritizes the order, hydrating whatever's visible in the viewport first and deferring the rest until it's needed or until the browser is idle. It reduces how long a visitor waits for the important part to become interactive, but the total JavaScript payload doesn't shrink.</p>
+  <p>The default version of this, sometimes called <strong>monolithic hydration</strong>, treats the whole page as one unit. The browser can't attach a single event listener until it has downloaded, parsed, and re-executed the entire component tree, even for the ninety percent of the page that has nothing to do with the one button a visitor is about to click. <strong>Progressive hydration</strong> narrows that cost without removing it: the framework still ships and eventually runs the same component tree, but it prioritizes the order, hydrating whatever's visible in the viewport first and deferring the rest until it's needed or until the browser is idle. It reduces how long a visitor waits for the important part to become interactive, but the total JavaScript payload doesn't shrink.</p>
 
-  <p>Islands architecture, a term coined by Katie Sylor-Miller and popularized more widely by Jason Miller in 2020, is where the payload actually shrinks. A page is treated as mostly static HTML with small, independent pockets of interactivity dropped in, and each pocket hydrates on its own rather than as part of one shared tree. Astro is the framework most associated with this pattern: a page ships as plain HTML by default, and a component only gets a JavaScript bundle if it's explicitly marked as interactive. A product image carousel might hydrate immediately, while a comment form further down the page might not hydrate until it scrolls into view. Neither one waits on the other, and neither one requires the rest of the page to ship any JavaScript at all. The same idea extends to server-rendered fragments too, not just client-side ones: a slow or personalized piece of a page can render on the server independently of the static parts around it, without holding up the rest. How individual frameworks implement that extension is covered in the frameworks rundown below.</p>
+  <p><strong>Islands architecture</strong>, a term coined by Katie Sylor-Miller and popularized more widely by Jason Miller in 2020, is where the payload actually shrinks. A page is treated as mostly static HTML with small, independent pockets of interactivity dropped in, and each pocket hydrates on its own rather than as part of one shared tree. Astro is the framework most associated with this pattern: a page ships as plain HTML by default, and a component only gets a JavaScript bundle if it's explicitly marked as interactive. A product image carousel might hydrate immediately, while a comment form further down the page might not hydrate until it scrolls into view. Neither one waits on the other, and neither one requires the rest of the page to ship any JavaScript at all. The same idea extends to server-rendered fragments too, not just client-side ones: a slow or personalized piece of a page can render on the server independently of the static parts around it, without holding up the rest. How individual frameworks implement that extension is covered in the frameworks rundown below.</p>
 
-  <p>Qwik takes a more radical approach to the same underlying problem, one that skips hydration entirely rather than shrinking its footprint. Instead of shipping a component tree for the browser to re-execute, Qwik serializes the listener references themselves into the HTML at build time. The browser never re-runs any component logic to become interactive. It resumes from exactly where the server left off, downloading the handler code for a specific interaction only when that interaction actually happens. This is why the pattern is called resumability rather than hydration: there's no re-execution step to skip past, because nothing needs to be reconstructed in the first place.</p>
+  <p>Qwik takes a more radical approach to the same underlying problem, one that skips hydration entirely rather than shrinking its footprint. Instead of shipping a component tree for the browser to re-execute, Qwik serializes the listener references themselves into the HTML at build time. The browser never re-runs any component logic to become interactive. It resumes from exactly where the server left off, downloading the handler code for a specific interaction only when that interaction actually happens. This is why the pattern is called <strong>resumability</strong> rather than hydration: there's no re-execution step to skip past, because nothing needs to be reconstructed in the first place.</p>
 
   <div class="figure-wrap">
     <svg viewBox="0 0 700 300" role="img" aria-label="Diagram comparing three ways a page becomes interactive: monolithic hydration, where the entire component tree must download and re-execute before any part of the page responds to input, islands, where only the components marked interactive ship JavaScript and each hydrates independently, and resumability, where the browser resumes from serialized state without re-executing any component logic." xmlns="http://www.w3.org/2000/svg">
@@ -440,7 +440,7 @@
   <h2 id="speculation-rules">Speculation Rules API: The Browser Prefetches for You</h2>
   <p class="lede">None of the strategies above account for the browser guessing where a visitor is headed next.</p>
 
-  <p>Every rendering strategy on this list still has to serve the current navigation. The Speculation Rules API sits on top of all of them and handles a different problem: prefetching or fully prerendering a page the browser predicts a visitor is about to navigate to, before they click anything.</p>
+  <p>Every rendering strategy on this list still has to serve the current navigation. The <strong>Speculation Rules API</strong> sits on top of all of them and handles a different problem: prefetching or fully prerendering a page the browser predicts a visitor is about to navigate to, before they click anything.</p>
 
   <p>A page declares its intent with a small, declarative block inside a <code>&lt;script type="speculationrules"&gt;</code> tag rather than any JavaScript: a URL pattern to match, and an eagerness level ranging from conservative (prerender only on a strong signal, like a pointer press) to eager (prerender as soon as a matching link scrolls into view).</p>
 
@@ -454,7 +454,7 @@
   <h2 id="frameworks">Where the Popular Frameworks Land</h2>
   <p class="lede">None of the strategies above are theoretical. Here's what today's frameworks actually ship, and where they differ from each other.</p>
 
-  <p>Next.js's App Router covers most of the ground in this article inside one framework. Static pages render at build time for SSG, a <code>revalidate</code> window plus tag-based invalidation covers both timed and on-demand ISR, and streaming SSR is the default for anything dynamic. Partial prerendering, introduced experimentally in 2023, was folded into what Next.js 16 calls Cache Components in late 2025: a page opts in with a <code>"use cache"</code> directive rather than a separate feature flag, but the underlying idea, a static shell with dynamic holes, is the same one covered earlier in this article. React Server Components give the framework its island-like boundary too, since a component stays server-only unless it's explicitly marked with <code>'use client'</code>.</p>
+  <p>Next.js's App Router covers most of the ground in this article inside one framework. Static pages render at build time for SSG, a <code>revalidate</code> window plus tag-based invalidation covers both timed and on-demand ISR, and streaming SSR is the default for anything dynamic. Partial prerendering, introduced experimentally in 2023, was folded into what Next.js 16 calls <strong>Cache Components</strong> in late 2025: a page opts in with a <code>"use cache"</code> directive rather than a separate feature flag, but the underlying idea, a static shell with dynamic holes, is the same one covered earlier in this article. <strong>React Server Components</strong> give the framework its island-like boundary too, since a component stays server-only unless it's explicitly marked with <code>'use client'</code>.</p>
 
   <div class="callout new">
     <div class="callout-title">A name change worth knowing</div>
@@ -534,7 +534,7 @@
       <text x="424" y="50" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--green)">~400ms</text>
 
       <!-- Row 2: SPA -->
-      <text x="132" y="124" text-anchor="end" font-family="'Inter',system-ui,sans-serif" font-size="12" fill="var(--text)">SPA (CSR)</text>
+      <text x="132" y="124" text-anchor="end" font-family="'Inter',system-ui,sans-serif" font-size="12" fill="var(--text)">SPA</text>
       <rect x="140" y="110" width="179" height="20" fill="color-mix(in srgb, var(--accent) 22%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
       <rect x="319" y="110" width="257" height="20" fill="color-mix(in srgb, var(--gold) 24%, transparent)" stroke="color-mix(in srgb, var(--gold) 45%, transparent)"/>
       <rect x="576" y="110" width="45" height="20" fill="color-mix(in srgb, var(--orange) 24%, transparent)" stroke="color-mix(in srgb, var(--orange) 45%, transparent)"/>
@@ -612,14 +612,14 @@
 
   <div class="callout info aside">
     <div class="callout-title">Where this connects</div>
-    <p>Core Web Vitals today track INP, which replaced FID as the responsiveness metric, alongside CLS and LCP, and every strategy above moves those numbers differently. The mechanics of each metric belong to a dedicated Core Web Vitals article rather than here. Service Workers are a separate, orthogonal caching layer for offline and fallback behavior, not a rendering strategy, and get their own treatment in a future PWA article.</p>
+    <p>Core Web Vitals today track Interaction to Next Paint (INP), which replaced First Input Delay (FID) as the responsiveness metric, alongside Cumulative Layout Shift (CLS) and LCP, and every strategy above moves those numbers differently. The mechanics of each metric belong to a dedicated Core Web Vitals article rather than here. Service Workers are a separate, orthogonal caching layer for offline and fallback behavior, not a rendering strategy, and get their own treatment in a future PWA article.</p>
   </div>
 
   <!-- ═══════════════════════════════════════════════════
        MIGRATION
   ════════════════════════════════════════════════════ -->
   <h2 id="migration">Migrating an Existing App</h2>
-  <p class="lede">The realistic path off a legacy CSR-only SPA is route by route, not a rewrite.</p>
+  <p class="lede">The realistic path off a legacy, fully client-rendered SPA is route by route, not a rewrite.</p>
 
   <p>A product that's been a pure client-side SPA for years rarely gets rebuilt from scratch to adopt a different rendering strategy, and trying to do so is usually the wrong call anyway. The practical default is incremental: most modern meta-frameworks let a team mix rendering modes per route within the same app, which means a route can move from client-side rendering to SSR, SSG, or PPR on its own schedule, without touching the routes around it.</p>
 
