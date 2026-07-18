@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Stack Fits the Team, Not the Other Way Around — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+<style>
+  /* ── Team Topologies card grid (article-local) ── */
+  .topology-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 20px 0;
+  }
+  @media (max-width: 900px) {
+    .topology-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+
+<body>
+
+<!-- Mobile header -->
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Docs</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+
+  <div class="sidebar-section">The Principle</div>
+  <a href="#organizations-shape-architecture">Why Organizations Shape Architecture</a>
+
+  <div class="sidebar-section">The Factors</div>
+  <a href="#people">The People Building the System</a>
+  <a href="#collaboration">How the Team Collaborates</a>
+  <a href="#quality">How Quality Is Created</a>
+  <a href="#operations">Who Operates the System</a>
+  <a href="#evolution">How the Organization Evolves</a>
+
+  <div class="sidebar-section">Putting It Together</div>
+  <a href="#wrong-choice">When the Best Choice Is the Wrong Choice</a>
+  <a href="#framework">A Practical Decision Framework</a>
+  <a href="#case-study">Case Study: SSR, Two Ways</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">Architecture · Organizational Design</div>
+  <h1>The Stack Fits the Team, <em>Not the Other Way Around</em></h1>
+  <p class="subtitle">Why the best technology choice is the one an organization can actually execute, not the one that wins the benchmark.</p>
+  <div class="byline"><strong>Deep dive</strong><div class="dot"></div><span>~18 min read</span><div class="dot"></div><span>Tech stack decision-making</span><div class="dot"></div><span>July 2026</span></div>
+
+  <p>Two teams looking at the same shortlist, Next.js against a homegrown server-rendering layer, say, or Kubernetes against a single managed platform, tend to reach for the same evaluation criteria. Which one benchmarks faster. Which one has the richer ecosystem. Which one checks more boxes on the requirements list. That comparison produces a confident-looking answer, and it's often the wrong one, because it evaluates the technology in isolation from the thing actually being decided: whether a specific group of people, with a specific set of skills, working in a specific way, spread across however many locations, can build and operate this thing for as long as it needs to exist.</p>
+
+  <p>The stacks that trade publications call "best" swap in and out every year without any of that changing. What determines whether a choice works out has less to do with the technology and more to do with the organization picking it up. A five-person startup and a two-hundred-person engineering org facing an identical technical requirement should not, as a rule, land on the identical stack. When they do land on the same one, it should be because they separately weighed the organizational fit and arrived at the same answer, not because they skipped that step and read the same benchmark.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="organizations-shape-architecture">Why Organizations Shape Architecture</h2>
+  <p class="lede">The rule was named in 1968, and nothing since has repealed it.</p>
+
+  <p>In 1968, computer scientist Melvin Conway observed that organizations which design systems are constrained to produce designs that copy the communication structure of the organization itself. Four teams building four modules will draw the seams between those modules roughly where the human boundaries between the teams already sit, whether or not anyone planned it that way. A single team building the same four modules draws the seams somewhere else entirely, usually wherever makes technical sense, because there's no organizational boundary forcing a different answer.</p>
+
+  <p>This is why "architecture" and "org chart" aren't two separate concerns that can be decided independently and reconciled later. They converge whether anyone plans for it or not. A system is what practitioners now call a socio-technical system: the code, the people who write and run it, and the process connecting them, treated as one system rather than a technical layer with an organizational layer bolted on top. Pick the technology without accounting for the people, and the people will reshape the technology anyway. Just later, more expensively, and without anyone having decided to.</p>
+
+  <p>Some organizations use this deliberately rather than fighting it. The inverse Conway maneuver restructures teams first, to produce the communication pattern that will naturally yield the target architecture, instead of designing the architecture first and hoping the org grows to fit it. A company that wants three independently deployable services doesn't just draw three service boundaries on a diagram. It stands up three teams, each owning one, and lets Conway's Law do the rest.</p>
+
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 560 500" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A layered socio-technical model showing business goals shaping organization structure, which shapes teams and communication, which shapes engineering practices, which shapes operational capability, which finally shapes technology choices, with a dashed line showing technology constraints feeding back into the organization over time" style="max-width:100%;display:block;background:var(--surface);border:1px solid var(--border);border-radius:8px;">
+      <defs>
+        <marker id="st-down" markerWidth="7" markerHeight="7" refX="3" refY="6" orient="auto"><polygon points="0 0,6 0,3 6" fill="var(--text-faint)"/></marker>
+        <marker id="st-back" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="var(--accent2)"/></marker>
+      </defs>
+
+      <!-- Box column: x=90, width=340, height=56 -->
+      <!-- Layer 1: Business Goals -->
+      <rect x="90" y="16" width="340" height="56" rx="8" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="260" y="40" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="13" font-weight="700" fill="var(--text)">Business Goals</text>
+      <text x="260" y="58" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-faint)">what the company is optimizing for</text>
+
+      <line x1="260" y1="72" x2="260" y2="99" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#st-down)"/>
+
+      <!-- Layer 2: Organization Structure -->
+      <rect x="90" y="100" width="340" height="56" rx="8" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="260" y="124" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="13" font-weight="700" fill="var(--text)">Organization Structure</text>
+      <text x="260" y="142" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-faint)">who has authority, budget, headcount</text>
+
+      <line x1="260" y1="156" x2="260" y2="183" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#st-down)"/>
+
+      <!-- Layer 3: Teams & Communication -->
+      <rect x="90" y="184" width="340" height="56" rx="8" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="260" y="208" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="13" font-weight="700" fill="var(--text)">Teams &amp; Communication</text>
+      <text x="260" y="226" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-faint)">team topology, ownership, distance</text>
+
+      <line x1="260" y1="240" x2="260" y2="267" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#st-down)"/>
+
+      <!-- Layer 4: Engineering Practices -->
+      <rect x="90" y="268" width="340" height="56" rx="8" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="260" y="292" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="13" font-weight="700" fill="var(--text)">Engineering Practices</text>
+      <text x="260" y="310" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-faint)">testing, review, documentation</text>
+
+      <line x1="260" y1="324" x2="260" y2="351" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#st-down)"/>
+
+      <!-- Layer 5: Operational Capability -->
+      <rect x="90" y="352" width="340" height="56" rx="8" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="260" y="376" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="13" font-weight="700" fill="var(--text)">Operational Capability</text>
+      <text x="260" y="394" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-faint)">who runs it, and how well</text>
+
+      <line x1="260" y1="408" x2="260" y2="435" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#st-down)"/>
+
+      <!-- Layer 6: Technology Choices -->
+      <rect x="90" y="436" width="340" height="56" rx="8" fill="color-mix(in srgb, var(--accent) 6%, transparent)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="260" y="460" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="13" font-weight="700" fill="var(--accent)">Technology Choices</text>
+      <text x="260" y="478" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-faint)">the stack itself</text>
+
+      <!-- Feedback path: right edge of Technology Choices, up to right edge of Business Goals -->
+      <path d="M 430 464 L 492 464 L 492 44 L 434 44" fill="none" stroke="var(--accent2)" stroke-dasharray="4,3" stroke-width="1.5" marker-end="url(#st-back)"/>
+      <text x="498" y="248" font-family="IBM Plex Mono,monospace" font-size="9" fill="var(--accent2)">feeds back</text>
+      <text x="498" y="260" font-family="IBM Plex Mono,monospace" font-size="9" fill="var(--accent2)">into the org</text>
+    </svg>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">Technology choices sit at the bottom of the stack, not the top. Left unmanaged, the constraints they create work their way back up into the organization anyway.</figcaption>
+  </figure>
+
+  <p>The rest of this article walks through five concrete places this shows up in a stack decision: who's building it, how they coordinate, how quality gets made, who operates it once it ships, and how the organization itself keeps changing underneath the decision.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="people">The People Building the System</h2>
+  <p class="lede">A stack the team already knows beats a better one they'd have to learn from scratch, most of the time.</p>
+
+  <p>A technology's technical merit is only ever half the equation. The other half is whether the team already knows it, or how hard it would be to hire for. A team of five Java developers adopting Rust for a new service because Rust is faster and memory-safer is making a defensible technical call and a risky organizational one at the same time. The service will run well right up until it needs a change nobody on the team can confidently make without first learning a new language under time pressure. At that point the "objectively better" choice becomes the thing blocking the fix.</p>
+
+  <p>Cognitive load matters here too, and it's narrower than it sounds: how much a developer has to hold in working memory to get something done. Every additional language, framework, or deployment target a team carries is a tax on everything else that team does, not just on the thing it was added for. A useful rough heuristic, borrowed from the Team Topologies literature, is that a single stream-aligned team can responsibly own two or three production technologies before the tax starts showing up as slower delivery across the board, not just around the new addition.</p>
+
+  <p>Build-versus-buy decisions run into the same math from a different angle. Authentication, search, CI, monitoring, container orchestration: every one of these is something a team can build in-house or adopt off the shelf, and organizations reliably underestimate the maintenance cost of the "build" side. An internal authentication service maintained by one engineer who understands its edge cases is a bigger operational risk than a slower off-the-shelf option maintained by a company for whom that product is the entire business.</p>
+
+  <div class="callout warn">
+    <div class="callout-title">The bus factor problem hides inside "we built it ourselves"</div>
+    <p>Bus factor, the number of people who'd need to leave before a project stalls, tends to be lowest exactly where a team is proudest of its work: the homegrown framework, the bespoke deploy pipeline, the internal library with no public documentation because the person who wrote it never needed any. None of that shows up as a line item in a stack comparison. It shows up eighteen months later, when that person changes teams and nobody else can safely touch the code they left behind.</p>
+  </div>
+
+  <p>Onboarding time is where all of this becomes visible fastest. A new hire who already knows the stack, because it's popular enough that they've used it before, is productive in days. A new hire learning an undocumented internal framework built by people no longer on the team is productive in weeks, and every week of that gap is a week the rest of the team spends answering questions instead of shipping.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="collaboration">How the Team Collaborates</h2>
+  <p class="lede">Two developers sitting six feet apart patch gaps in documentation with a tap on the shoulder. Two developers eight time zones apart can't.</p>
+
+  <p>Team Topologies gives a useful vocabulary for this that goes further than "distributed versus co-located." A stream-aligned team owns a slice of the product end to end and needs a stack simple enough to run without deep, constant coordination with anyone else. A platform team builds internal capability as a self-service product, which is what makes something like Kubernetes viable for teams that couldn't run it themselves: the platform team absorbs the operational complexity so the stream-aligned teams don't have to. An enabling team exists temporarily to help others adopt something new, and a complicated-subsystem team owns a piece of the system that genuinely needs deep specialist knowledge, video encoding or a pricing engine are typical examples. Which of these four shapes a proposed stack change actually falls into changes the decision more than whether the people involved sit in the same building.</p>
+
+  <div class="topology-grid">
+    <div class="card blue">
+      <div class="card-label">Stream-aligned</div>
+      <div class="card-title">Owns a slice end to end</div>
+      <p>Needs a stack simple enough to run without constant coordination with other teams.</p>
+    </div>
+    <div class="card teal">
+      <div class="card-label">Platform</div>
+      <div class="card-title">Provides capability as a service</div>
+      <p>Absorbs operational complexity so stream-aligned teams don't have to run it themselves.</p>
+    </div>
+    <div class="card gold">
+      <div class="card-label">Enabling</div>
+      <div class="card-title">Helps others adopt something new</div>
+      <p>Exists temporarily, until the receiving team can own the new capability on its own.</p>
+    </div>
+    <div class="card purple">
+      <div class="card-label">Complicated subsystem</div>
+      <div class="card-title">Owns deep specialist knowledge</div>
+      <p>The rest of the org treats it as a dependency, not something to reimplement elsewhere.</p>
+    </div>
+  </div>
+
+  <p>Distance, physical or organizational, changes what has to be written down instead of said out loud. A team in one room can resolve an ambiguous API contract with a five-minute conversation. A team split across three time zones can't, so the contract itself has to carry more weight: a documented schema, a typed interface, something a developer working eight hours out of sync with everyone else can read and trust without waiting for someone to wake up. Architecture decision records, popularized by Michael Nygard in 2011, exist for the same reason applied to decisions rather than interfaces. A short, dated document that captures what was decided, why, and what it costs is what lets someone six months and one time zone away find the reasoning instead of re-litigating it from scratch.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">adr-009-checkout-schema.md</span>
+      <span class="code-lang">Markdown</span>
+    </div>
+    <pre><code><span class="kw"># ADR-009: Adopt a shared OpenAPI schema for the checkout API</span>
+
+<span class="cn">## Status</span>
+Accepted, March 2026
+
+<span class="cn">## Context</span>
+Two frontend teams and one backend team ship changes to checkout
+independently. Without a single source of truth for the request and
+response shape, contract drift has caused three production incidents
+in the last quarter, each caught only after deploy.
+
+<span class="cn">## Decision</span>
+The backend team owns and publishes an OpenAPI schema for the
+checkout API. Frontend clients generate their types from it in CI.
+Hand-written interfaces for this API are no longer accepted in review.
+
+<span class="cn">## Consequences</span>
+A schema change now requires a version bump and a migration window
+instead of a silent breaking change. Onboarding a new frontend
+engineer no longer requires asking the backend team what a field
+actually contains.</code></pre>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="quality">How Quality Is Created</h2>
+  <p class="lede">Without a dedicated tester on the team, the safety net has to move earlier in the pipeline.</p>
+
+  <p>Teams with a dedicated QA function can rely on a human catching what slips past the developer who wrote the change. Teams without one have to build that safety net into the stack itself: strong static typing that catches a category of mistake before the code runs at all, a CI pipeline that runs the test suite on every change rather than trusting someone to run it locally, and code review that's actually enforced rather than optional. None of these substitute perfectly for a tester, but together they move the point where a mistake gets caught from production back toward the moment it was written, which is the same goal a QA function serves, achieved with different tools.</p>
+
+  <p>The stack itself decides how expensive this is to set up. A language with a strong type system makes a whole class of bug unrepresentable rather than merely testable. A framework with an established testing convention makes it easy to write the test rather than something the team has to invent a pattern for first. And a fast local build and test loop, developer experience, in the less catchy but more accurate phrase, decides whether developers actually run the tests before committing or skip them because a three-minute wait feels like friction not worth the interruption. A stack that's a little slower to write in but fast to verify usually beats one that's faster to write in and slow to test against.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="operations">Who Operates the System</h2>
+  <p class="lede">The architecture that looks elegant on a whiteboard still needs someone holding the pager when it breaks at two in the morning.</p>
+
+  <p>Operational maturity is the gap between what a stack is capable of and what the team running it can actually sustain. Kubernetes is a genuinely well-designed piece of infrastructure, and it's also a piece of infrastructure that assumes a level of operational investment, dedicated platform expertise, monitoring, an on-call rotation that knows how to debug it, that a five-person team rarely has. A managed platform that does less is, for that team, the better system, because "better" here means the team can actually keep it running, not that the software is more capable in the abstract. The same logic extends to the practices a stack quietly assumes a team already has in place: how dependencies get updated, how a new vulnerability gets triaged, how a production incident gets traced back to its cause. A stack that assumes mature practices in all three areas is a bigger ask for a team that doesn't have them yet than the feature comparison ever mentions.</p>
+
+  <p>Cost follows a similar pattern of looking different at different scales. Usage-based pricing on a managed service is often the cheapest option at prototype scale and the biggest line item on the bill once the product finds real usage. Self-hosting shifts that cost from money to engineering time, which is only a good trade if the team genuinely has spare engineering time to give it, not just spare budget.</p>
+
+  <p>Underneath all of this sits a question a technical comparison never asks: who actually has the authority to approve this, who's paying for it, and who's expected to still be maintaining it two years after the person who chose it has moved to a different team. A technically sound decision that nobody with budget authority will sign off on isn't a real option, whatever the comparison chart says. What leadership is actually optimizing for right now, speed to market, cost control, stability, decides more about which stack "wins" than any benchmark does.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="evolution">How the Organization Evolves</h2>
+  <p class="lede">The stack that fit a twelve-person startup doesn't automatically fit the two-hundred-person company it becomes.</p>
+
+  <p>Every stack decision is made at a specific moment in an organization's life and has to survive whatever the organization becomes next. Some of that is predictable: headcount grows, and tooling that worked because three developers could hold the whole system in their heads starts breaking down at thirty, when tribal knowledge stops scaling and the team needs the conventions, enforced typing, and codegen it never bothered with before. Some of it isn't predictable at decision time: an acquisition merges two codebases with two different stacks, a new product line spins up a team that has to either adopt the existing choice or fight for a different one, or the first enterprise customer arrives with a compliance requirement nobody was designing for a year earlier.</p>
+
+  <p>This is why reversibility deserves its own weight in the decision, separate from how good the option looks today. Some choices are cheap to undo: a UI component library can be swapped out with a few weeks of work. Others are expensive: a database, a monorepo-versus-polyrepo split, a cloud provider. These carry years of accumulated assumptions once anything real is built on top of them. The harder a decision is to reverse, the more conservative it deserves to be, independent of how appealing the alternative looks in a demo. What Ford, Parsons, and Kua call an evolutionary architecture is the practice of designing for this directly: building in the seams and the automated checks, sometimes called fitness functions, that let a system absorb organizational change without a full rewrite every time the organization does.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="wrong-choice">When the Best Choice Is the Wrong Choice</h2>
+  <p class="lede">The best answer to a technical question and the best answer to the question actually in front of you aren't always the same answer.</p>
+
+  <p>Everything so far points at the same uncomfortable conclusion. Rust may be the objectively faster, safer choice for a given service. A team of five Java developers, with a Java-shaped hiring pipeline and Java-shaped operational tooling built up over years, adopting Rust for that one service creates an island: one thing nobody else on the team can maintain, extend, or debug under pressure without first learning a new language while something is on fire. The technically superior tool became, in this specific context, the worse decision. Not because Rust got worse, but because the fit between the tool and the organization using it determined the outcome, not the tool's standalone merit.</p>
+
+  <p>Kubernetes and a managed platform make the same point from the operations side. Kubernetes is architecturally elegant for the problems it was built to solve. For a five-person team without a platform function, the elegance is real and irrelevant, because the team can't operate what it adopts. Choosing the managed platform instead isn't a technical concession. It's the correct answer to the actual question, which was never "which system is better designed" but "which system can this specific team run reliably."</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="framework">A Practical Decision Framework</h2>
+  <p class="lede">None of these dimensions are yes-or-no questions. What matters is which ones carry the most weight in this specific decision.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Dimension</th><th>Weight</th><th>Key question</th><th>Risk if ignored</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Team skill &amp; hiring</td><td><span class="badge badge-muted">score it</span></td><td>Does the team already know this, or is it easy to hire for?</td><td>Long ramp time, dependence on a handful of specialists</td></tr>
+        <tr><td>Testing &amp; quality safety net</td><td><span class="badge badge-muted">score it</span></td><td>Does the team have QA, or does the stack itself need to carry that weight?</td><td>Defects reach production that a testing-oriented stack would have caught earlier</td></tr>
+        <tr><td>Team distance &amp; coordination</td><td><span class="badge badge-muted">score it</span></td><td>How much of what the team knows is written down versus tacit?</td><td>Decisions and context get lost across time zones and team boundaries</td></tr>
+        <tr><td>Operational maturity</td><td><span class="badge badge-muted">score it</span></td><td>Can this team actually run what it's choosing, on call, at 2 a.m.?</td><td>Elegant architecture nobody can reliably operate</td></tr>
+        <tr><td>Reversibility &amp; time horizon</td><td><span class="badge badge-muted">score it</span></td><td>How expensive is this to undo two years from now?</td><td>Locked into an early decision that no longer fits</td></tr>
+        <tr><td>Organizational incentives</td><td><span class="badge badge-muted">score it</span></td><td>Who approves it, who pays for it, who maintains it after the person who chose it leaves?</td><td>Technically sound decision that never gets budget or a real owner</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Scoring each row from one to five for how heavily it should weigh in a given decision turns the framework into something reusable rather than a one-time checklist. A greenfield prototype at a three-person startup will weight team skill and reversibility heavily and operational maturity lightly, because there's little to operate yet and everything is still cheap to undo. A ten-year-old platform serving regulated customers will weight operational maturity and organizational incentives heavily and skimp on skill and hiring, because the team already exists and the system already runs. The technology comparison still matters. It just stops being the only input, and in most real decisions, it stops being the deciding one.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="case-study">Case Study: SSR, Two Ways</h2>
+  <p class="lede">A forty-person product company decides whether to keep extending its own server-rendering layer or adopt Next.js for a new product line.</p>
+
+  <p>Atlas Software has run its own server-rendering layer since 2021. It was worth building at the time: the App Router that Next.js ships with today didn't exist yet, and the team had specific streaming requirements no framework of that era handled well. Five years later, three different teams touch that layer, none of them own it outright, and Atlas is deciding whether to keep extending it for a new product line or adopt Next.js instead. Running the decision through each factor in turn is more useful than asking which framework is better.</p>
+
+  <p><strong>Skill and hiring.</strong> The two engineers who built the original layer left the company two years ago. Everyone still on the team learned it by reading the code, and new hires take roughly six weeks to get comfortable enough to ship a change confidently. Next.js candidates tend to show up already knowing the framework, because it's what most of the market has been building with, and a trial run with two recent hires put a productive first contribution inside the first week.</p>
+
+  <p><strong>Testing and quality.</strong> Atlas has no dedicated QA function. The homegrown layer's routing internals are untyped, so a route can silently break without a compile-time signal, something a recent incident traced back to exactly that gap. Next.js's stronger TypeScript-first conventions close a meaningful share of that risk by construction rather than by adding process.</p>
+
+  <p><strong>Coordination.</strong> Three teams share ownership of the homegrown layer with no single team accountable for it, so changes routinely surface issues in a part of the codebase the changing team didn't know they were touching. Adopting a standard framework doesn't hand anyone clean ownership by itself, but it does mean any of the three teams can find an answer in public documentation instead of tracking down whoever remembers that part of the system.</p>
+
+  <p><strong>Operations.</strong> This is the one axis where the incumbent wins outright. The homegrown layer has run in production for five years, and whatever its faults, the team knows exactly how it behaves under load and exactly what breaks it. That operational maturity took years to build and doesn't come bundled with a new framework.</p>
+
+  <p><strong>Incentives.</strong> The platform team is the natural owner of either option and already has budget allocated. Migrating shifts an internal engineer's maintenance time onto either a self-hosted open-source deployment or a usage-based hosting bill, and the second of those needs sign-off from someone above the platform team lead before it happens.</p>
+
+  <p><strong>Reversibility.</strong> Atlas doesn't attempt a full migration. The new product line ships on Next.js while the existing surface stays on the homegrown layer, which turns the decision into a real option rather than an irreversible bet. If the new stack doesn't earn its keep, nothing forces a second migration to undo it.</p>
+
+  <p>No single row decided this on its own. What decided it was that almost every factor except the one Atlas already had, operational familiarity, pointed the same direction, and the migration was structured so that direction could be tested on one product line before it became company-wide policy.</p>
+
+  <p>The way to know whether Atlas got this right isn't a retrospective opinion six months later. It's measurable: whether onboarding time on the new product line actually dropped, whether the platform team's on-call load for that code path went down, whether the next hire shipped in the first week the way the pilot suggested. A good stack decision, like any other organizational decision, should be judged by what it changes for the people living with it, not by which option looked better in the comparison that started the conversation.</p>
+
+</main>
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+
+</body>
+</html>
+   

@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Client State — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+<style>
+  /*
+   * Article-specific styles only.
+   */
+</style>
+</head>
+
+<body>
+
+<!-- Mobile header -->
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Articles</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+  <a class="sidebar-logo" href="index.html">Article<br><span>Client State</span></a>
+
+  <div class="sidebar-section">Overview</div>
+  <a href="#overview">Four questions, not one problem</a>
+
+  <div class="sidebar-section">Ownership</div>
+  <a href="#ownership">Ownership, Not Location</a>
+  <a href="#taxonomy">The Shapes of Client State</a>
+  <a href="#redux-history">What Redux Got Right</a>
+  <a href="#server-state-cache">Managing Server State as a Cache</a>
+
+  <div class="sidebar-section">Mechanics</div>
+  <a href="#store-vs-atom">One Store vs. Many Atoms</a>
+  <a href="#signals">Signals: A Different Reactivity Model</a>
+
+  <div class="sidebar-section">Putting It Together</div>
+  <a href="#do-you-need-a-library">Do You Need a Library?</a>
+  <a href="#decision-framework">Choosing Where State Belongs</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">State &amp; Data · Client State</div>
+  <h1>Client State</h1>
+  <p class="subtitle">Why treating client and server state as one problem broke down, and the four questions that replaced it.</p>
+  <div class="byline">
+    <strong>Deep dive</strong>
+    <div class="dot"></div>
+    <span>~15 min read</span>
+    <div class="dot"></div>
+    <span>State management</span>
+    <div class="dot"></div>
+    <span>July 2026</span>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       OVERVIEW
+  ════════════════════════════════════════════════════ -->
+  <section id="overview">
+    <p>For a long stretch of the 2010s, state management meant one thing: put everything into a single global store and read it back out with selectors. It didn't matter whether the data came from a user typing into a form, a toggle in the interface, or a response from an API call. All of it went through the same dispatch mechanism and showed up in the same devtools timeline. Redux was the default answer almost regardless of the question being asked.</p>
+
+    <p>That collapse didn't mean every Redux app mixed a dropdown's open state and an API response in the same reducer without a second thought. Plenty of teams kept that boundary clean. The real gap was that Redux was the only tool built for coordinating state at all, so a product record fetched from an API got coordinated through the same actions and reducers as genuinely client-owned data, because nothing else was designed to hold it. A shopping cart shared across three components and a product fetched from an API don't share a lifecycle, and coordinating both by hand through the same mechanism is what made the store's async logic swell.</p>
+
+    <p>What follows treats client state as four separate questions instead of one collapsed problem. The table below maps each question to the section that answers it. The article then works through them in order, ending with a framework for placing any given piece of state correctly.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Axis</th><th>Question it answers</th><th>Covered by</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Ownership</td><td>Is this data owned by the server or by the client?</td><td><a href="#ownership">Ownership, Not Location</a>, <a href="#redux-history">What Redux Got Right</a>, <a href="#server-state-cache">Managing Server State as a Cache</a></td></tr>
+          <tr><td>Placement</td><td>Once it's client-owned, where should it live: local state, the URL, or a shared store?</td><td><a href="#taxonomy">The Shapes of Client State</a>, <a href="#do-you-need-a-library">Do You Need a Library?</a></td></tr>
+          <tr><td>Organization</td><td>If it lives in a shared store, is it one object or many independent atoms?</td><td><a href="#store-vs-atom">One Store vs. Many Atoms</a></td></tr>
+          <tr><td>Propagation</td><td>How do updates reach the screen: a component re-render, or a tracked signal?</td><td><a href="#signals">Signals: A Different Reactivity Model</a></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════
+       OWNERSHIP
+  ════════════════════════════════════════════════════ -->
+  <h2 id="ownership">Ownership, Not Location</h2>
+  <p class="lede">Client state and server state aren't defined by which side of the network they run on. They're defined by who's allowed to change the answer.</p>
+
+  <p>The distinction that matters is <strong>ownership</strong>: which side of a system is the authoritative source for a piece of data, and therefore has the final say over when it changes. A product's price, a user's account balance, and an order's shipping status are all owned by the server, even though a browser might display them, cache them, or optimistically update them the moment a user acts. Whatever the browser is holding is, at best, a recent copy. Data whose lifecycle is owned this way is usually called <strong>server state</strong>.</p>
+
+  <p>Whether a dropdown is open, what text is currently typed but not yet submitted, and which tab is active are owned by the client instead. No server request created them and none can override them, because the server was never asked and has no opinion on the matter. Data owned this way is <strong>client state</strong>.</p>
+
+  <p>Ownership doesn't track rendering strategy. A page rendered entirely on the server for its first paint still has client-owned state the moment a menu opens in the browser, and a single-page app still has server-owned state the instant it fetches a record over the network. The question of who owns a piece of data is separate from the question of where its markup gets produced, which is why the two get confused so often. Conflating them is what led teams to store server-owned data in tools built for client ownership, and to build ad-hoc syncing logic to keep client-owned drafts in a database table that never needed to know about them.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       TAXONOMY
+  ════════════════════════════════════════════════════ -->
+  <h2 id="taxonomy">The Shapes of Client State</h2>
+  <p class="lede">Once server-owned data is set aside, what's left splits into four kinds, and only one of them should usually be avoided.</p>
+
+  <p>The smallest and most common kind is <strong>ephemeral state</strong>: values that exist only to drive the interface in the moment, like whether a dropdown is open, which row is hovered, or what a user has typed into a field before submitting it. It usually lives in a single component, disappears the instant that component unmounts, and never needs to be shared, so a built-in hook is normally the entire solution.</p>
+
+  <p>Some state looks ephemeral but isn't, because a user expects to bookmark it, share it, or hit the back button and land where they left off. Filters on a product listing, the active tab on a settings page, and the current page number in a paginated table all belong in the URL as <strong>navigation state</strong> rather than in memory. Storing them in a component instead is why refreshing a filtered search so often resets it to defaults.</p>
+
+  <p><strong>Application state</strong> is what's left once the first two categories are excluded: data shared across parts of the tree that don't share a nearby parent, and that isn't tied to one URL or one component's lifetime. An authenticated user's profile, a shopping cart, and a color theme are typical examples. This is the smallest category in practice, and it's the one people reach for a dedicated library to manage.</p>
+
+  <p>The fourth kind is <strong>derived state</strong>: a value computed entirely from other state, such as a cart's total price computed from its line items, or a filtered list computed from a source list and a search term. Derived state is the one kind that usually shouldn't be stored at all. Storing it means it can drift out of sync with the values it was computed from, a bug class that computing it fresh on every render eliminates by construction.</p>
+
+  <div class="callout warn aside">
+    <div class="callout-title">A stored total is a total that can lie</div>
+    <p>A cart total kept in its own field will eventually disagree with its line items, whether from a missed update path or a race between two handlers. Computing it on read, or memoizing the computation, costs a little more CPU time and guarantees it's never wrong.</p>
+  </div>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 700 300" role="img" aria-label="Four kinds of client state arranged in a grid: ephemeral UI state such as a dropdown's open flag, navigation state such as a URL filter, application state such as a shopping cart, and derived state such as a computed total, marked as usually not stored." xmlns="http://www.w3.org/2000/svg">
+      <rect x="20" y="20" width="320" height="110" rx="6" fill="color-mix(in srgb, var(--accent) 14%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
+      <text x="40" y="48" font-family="'Inter',system-ui,sans-serif" font-size="13" font-weight="600" fill="var(--accent)">Ephemeral state</text>
+      <text x="40" y="68" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text-dim)">Dropdown open, hovered row,</text>
+      <text x="40" y="83" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text-dim)">unsent form input</text>
+      <text x="40" y="105" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">Lives in one component,</text>
+      <text x="40" y="119" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">dies when it unmounts</text>
+
+      <rect x="360" y="20" width="320" height="110" rx="6" fill="color-mix(in srgb, var(--teal) 14%, transparent)" stroke="color-mix(in srgb, var(--teal) 40%, transparent)"/>
+      <text x="380" y="48" font-family="'Inter',system-ui,sans-serif" font-size="13" font-weight="600" fill="var(--teal)">Navigation state</text>
+      <text x="380" y="68" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text-dim)">Search filters, active tab,</text>
+      <text x="380" y="83" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text-dim)">current page number</text>
+      <text x="380" y="105" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">Belongs in the URL, so it</text>
+      <text x="380" y="119" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">survives refresh and sharing</text>
+
+      <rect x="20" y="150" width="320" height="110" rx="6" fill="color-mix(in srgb, var(--accent2) 14%, transparent)" stroke="color-mix(in srgb, var(--accent2) 40%, transparent)"/>
+      <text x="40" y="178" font-family="'Inter',system-ui,sans-serif" font-size="13" font-weight="600" fill="var(--accent2)">Application state</text>
+      <text x="40" y="198" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text-dim)">Authenticated user, cart,</text>
+      <text x="40" y="213" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text-dim)">color theme</text>
+      <text x="40" y="235" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">Shared across distant parts</text>
+      <text x="40" y="249" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">of the tree</text>
+
+      <rect x="360" y="150" width="320" height="110" rx="6" fill="color-mix(in srgb, var(--gold) 12%, transparent)" stroke="color-mix(in srgb, var(--gold) 45%, transparent)" stroke-dasharray="5 4"/>
+      <text x="380" y="178" font-family="'Inter',system-ui,sans-serif" font-size="13" font-weight="600" fill="var(--gold)">Derived state</text>
+      <text x="380" y="198" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text-dim)">Cart total, filtered list</text>
+      <text x="380" y="220" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">Usually shouldn't be stored,</text>
+      <text x="380" y="234" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">compute it on read instead</text>
+
+      <text x="20" y="285" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-faint)">Dashed border marks the one kind that's usually a computation, not a stored value.</text>
+    </svg>
+    <figcaption>The four shapes client state takes once server-owned data is set aside. Only derived state carries a caution: it's a computation, not something to store independently.</figcaption>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       REDUX HISTORY
+  ════════════════════════════════════════════════════ -->
+  <h2 id="redux-history">What Redux Got Right, and Where It Was Misapplied</h2>
+  <p class="lede">Redux solved the coordination problem it was built for. The problem was never really "too much state" so much as the wrong state ending up in it.</p>
+
+  <p>Before Redux, coordinating state across a large tree meant passing callbacks down through however many component layers separated a change from the components that needed to react to it, or reaching for whatever ad-hoc global object a team invented that week. Redux replaced both with one store, one way to change it through actions and reducers, and a devtools timeline that could replay any sequence of updates. For genuinely global, frequently cross-cutting application state in a large codebase, that combination was, and still is, a real improvement over the alternatives it replaced.</p>
+
+  <p>What actually drove the "Redux everywhere" era wasn't the store's design. It was the absence of anywhere else to put fetched data. Before dedicated server-state tools existed, a product record pulled from an API had nowhere purpose-built to live, so it went into the same store used for coordinating client-owned state instead, regardless of how carefully a given team kept its reducers organized. Every team then built its own loading flags, error handling, and refetch logic by hand inside reducers, thunks, or sagas, and every team's version had slightly different bugs. The complaint that followed was "Redux has too much boilerplate," but the boilerplate was mostly the cost of manually reimplementing a cache, not a cost of coordinating client-owned state.</p>
+
+  <div class="callout info aside">
+    <div class="callout-title">Redux Toolkit didn't disappear</div>
+    <p>Large, established codebases with genuinely complex, deeply cross-cutting client state still use Redux Toolkit in 2026, and it remains a reasonable choice for that specific problem. What changed is the size of the problem it gets reached for, now that server data has somewhere else to go.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       SERVER STATE AS CACHE
+  ════════════════════════════════════════════════════ -->
+  <h2 id="server-state-cache">Managing Server State as a Cache</h2>
+  <p class="lede">If the server owns the data, the client's job was never to store it correctly. It was to keep an appropriately fresh copy.</p>
+
+  <p>A <strong>cache</strong>, in this sense, is a local copy of data that's allowed to be temporarily wrong, expires on a known schedule, and can be silently replaced with a fresher copy without anyone needing to be told. That's a different contract than a store, which promises the data inside it is correct until something explicitly changes it. Server-owned data can only ever meet the cache contract, because the client was never the authority on it in the first place.</p>
+
+  <p>Tools built around this idea fetch data, keep it under a key derived from its parameters, mark it stale after a configurable window, and quietly refetch it in the background while the stale copy keeps rendering, a pattern generally known as <strong>stale-while-revalidate</strong>. Loading and error states fall out of the fetch's own lifecycle instead of being tracked by hand. Two components requesting the same data at once get deduplicated into a single request rather than firing twice.</p>
+
+  <p>TanStack Query, which began life as React Query, is the clearest example and by 2026 the default choice for this job in most new React codebases. It's also deliberately framework-agnostic. The same caching core ships as Solid Query, Vue Query, and Svelte Query, a reasonable sign that the underlying pattern is a general answer to server-owned data rather than a trick specific to one framework's rendering model. The deeper mechanics of cache invalidation, staleness windows, and how this interacts with browser and CDN caching are worth a dedicated look elsewhere. What matters here is narrower: once a value is recognized as server-owned, reaching for a cache instead of a store is the direct consequence of the ownership question from earlier, not a separate decision.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       STORE VS ATOM
+  ════════════════════════════════════════════════════ -->
+  <h2 id="store-vs-atom">One Store vs. Many Atoms</h2>
+  <p class="lede">This is a question about shape, not about how updates travel. That question comes next.</p>
+
+  <p>Once a piece of state is confirmed as client-owned application state, meaning it survived both the taxonomy above and the "do you actually need to store this" question that closes this article, there's still a choice about how to organize it. A <strong>store-based</strong> approach keeps one shared object holding many fields, updated through actions or setter functions, with components subscribing to whichever slice they read. Zustand and Redux Toolkit both work this way, differing mainly in how much ceremony sits between a component and an update.</p>
+
+  <p>An <strong>atom-based</strong> approach splits the same state into many small, independently addressable units instead of one object, an approach Jotai is built around. A component that reads one atom only re-renders when that specific atom changes, regardless of how many other atoms exist elsewhere in the app. That avoids a failure mode store-based approaches have to solve deliberately with selectors: a broad store update causing every subscriber to reconsider itself even when most of them don't care about the field that changed.</p>
+
+  <p>By 2026 the practical split is fairly settled. Zustand has become the default lightweight store for most apps that need one, largely because it requires no provider wrapping and has a small enough API to learn in an afternoon. Jotai holds a real niche wherever atomic granularity matters enough to be worth the extra conceptual step of thinking in individually composable units. Redux Toolkit persists mainly in large, already-established codebases that were built around it and have no pressing reason to migrate.</p>
+
+  <p>Whichever shape client state takes, updating it in either model still means telling the framework to re-render whatever depends on it. That's a separate question from how the state is organized, and it's where the next section picks up.</p>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 700 250" role="img" aria-label="Comparison of a store-based model, one shared object containing user, cart, and theme fields inside a single boundary, against an atom-based model, the same three pieces of state as independent atoms with no shared boundary." xmlns="http://www.w3.org/2000/svg">
+      <text x="175" y="24" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text-dim)">Store-based (Zustand, Redux Toolkit)</text>
+      <rect x="30" y="40" width="290" height="150" rx="8" fill="color-mix(in srgb, var(--accent) 10%, transparent)" stroke="color-mix(in srgb, var(--accent) 45%, transparent)" stroke-width="2"/>
+      <rect x="55" y="60" width="240" height="30" rx="4" fill="color-mix(in srgb, var(--accent) 22%, transparent)"/>
+      <text x="175" y="80" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text)">user</text>
+      <rect x="55" y="98" width="240" height="30" rx="4" fill="color-mix(in srgb, var(--accent) 22%, transparent)"/>
+      <text x="175" y="118" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text)">cart</text>
+      <rect x="55" y="136" width="240" height="30" rx="4" fill="color-mix(in srgb, var(--accent) 22%, transparent)"/>
+      <text x="175" y="156" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text)">theme</text>
+      <text x="175" y="212" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">One boundary, subscribers narrowed</text>
+      <text x="175" y="224" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">with selectors</text>
+
+      <text x="525" y="24" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--teal)">Atom-based (Jotai)</text>
+      <circle cx="450" cy="90" r="42" fill="color-mix(in srgb, var(--teal) 18%, transparent)" stroke="color-mix(in srgb, var(--teal) 45%, transparent)" stroke-width="2"/>
+      <text x="450" y="94" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text)">user</text>
+      <circle cx="565" cy="68" r="42" fill="color-mix(in srgb, var(--teal) 18%, transparent)" stroke="color-mix(in srgb, var(--teal) 45%, transparent)" stroke-width="2"/>
+      <text x="565" y="72" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text)">cart</text>
+      <circle cx="510" cy="165" r="42" fill="color-mix(in srgb, var(--teal) 18%, transparent)" stroke="color-mix(in srgb, var(--teal) 45%, transparent)" stroke-width="2"/>
+      <text x="510" y="169" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text)">theme</text>
+      <text x="525" y="212" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">No shared boundary, each atom is</text>
+      <text x="525" y="224" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">tracked and read independently</text>
+    </svg>
+    <figcaption>A shared store keeps related fields inside one boundary and relies on selectors to narrow subscriptions. Atoms skip the boundary entirely: each piece of state is its own independently subscribable unit from the start.</figcaption>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       SIGNALS
+  ════════════════════════════════════════════════════ -->
+  <h2 id="signals">Signals: A Different Reactivity Model</h2>
+  <p class="lede">The store-versus-atom question was about how state is organized. This one is about how a change actually reaches the screen.</p>
+
+  <p>React's model is component-centric. When state changes, React re-renders the component that owns it and, by default, the subtree beneath it, computes what the result looks like, and diffs that result against the previous render before patching only the parts of the real document that actually differ. The state change itself doesn't know what depends on it. The framework finds out by re-running components and comparing outputs.</p>
+
+  <p><strong>Signals</strong> take a different approach: a signal tracks, at the moment it's read, exactly which computations or DOM bindings depend on it, so when its value changes, only those specific dependents update. Nothing re-runs a component function, and nothing diffs a tree, because the framework already knows precisely what needs to change and updates it directly.</p>
+
+  <p>By 2026, signals have become the norm almost everywhere except React. Solid pioneered the fine-grained version of this model and remains the performance reference point for it. Angular made signals the default reactive primitive and, starting with Angular 21, ships zoneless by default. That means it no longer needs Zone.js patching every asynchronous browser API just to detect that something might have changed. Zone.js became fully optional in Angular 22, cutting bundle size and removing a layer of change-detection overhead that used to run on every event regardless of whether it mattered. Svelte 5's runes look like ordinary variables, using <code>$state</code>, <code>$derived</code>, and <code>$effect</code> instead of a signal's usual get and set syntax, but they converge on the same signal-style tracking underneath. Preact ships signals as an add-on that can even be used inside a React tree for the specific components that need fine-grained updates without leaving the ecosystem.</p>
+
+  <p>React staying component-centric isn't an oversight. It's arguably the reason the React ecosystem grew so many separate, specialized tools instead of folding server caching and fine-grained client updates into one built-in primitive. TanStack Query, Zustand, and Jotai each solve part of a problem that frameworks with native signals solve with one reactive model. Placement, in a React codebase, is partly a workaround for a reactivity model that was never built to do fine-grained updates on its own.</p>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 700 340" role="img" aria-label="Comparison of React's component-centric update pipeline, state change leading to component re-render, subtree diff, and DOM patch, against a signal-based model where a signal write updates only the specific tracked bindings that depend on it, each patching its DOM node directly." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--text-faint)"/>
+        </marker>
+      </defs>
+
+      <text x="175" y="24" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text-dim)">Component-centric (React)</text>
+
+      <rect x="45" y="40" width="260" height="42" rx="5" fill="color-mix(in srgb, var(--accent) 18%, transparent)" stroke="color-mix(in srgb, var(--accent) 45%, transparent)"/>
+      <text x="175" y="66" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text)">State changes</text>
+
+      <line x1="175" y1="82" x2="175" y2="104" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#arrow)"/>
+      <rect x="45" y="106" width="260" height="42" rx="5" fill="color-mix(in srgb, var(--accent) 18%, transparent)" stroke="color-mix(in srgb, var(--accent) 45%, transparent)"/>
+      <text x="175" y="132" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text)">Component re-renders</text>
+
+      <line x1="175" y1="148" x2="175" y2="170" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#arrow)"/>
+      <rect x="45" y="172" width="260" height="42" rx="5" fill="color-mix(in srgb, var(--accent) 18%, transparent)" stroke="color-mix(in srgb, var(--accent) 45%, transparent)"/>
+      <text x="175" y="198" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text)">Subtree diffed against last render</text>
+
+      <line x1="175" y1="214" x2="175" y2="236" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#arrow)"/>
+      <rect x="45" y="238" width="260" height="42" rx="5" fill="color-mix(in srgb, var(--accent) 18%, transparent)" stroke="color-mix(in srgb, var(--accent) 45%, transparent)"/>
+      <text x="175" y="264" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text)">DOM patched where different</text>
+
+      <text x="175" y="300" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">Four sequential steps run for</text>
+      <text x="175" y="314" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">every update, subtree-wide</text>
+
+      <text x="525" y="24" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--teal)">Dependency-tracked (signals)</text>
+
+      <rect x="395" y="40" width="260" height="42" rx="5" fill="color-mix(in srgb, var(--teal) 18%, transparent)" stroke="color-mix(in srgb, var(--teal) 45%, transparent)"/>
+      <text x="525" y="66" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text)">Signal writes</text>
+
+      <line x1="460" y1="82" x2="422" y2="124" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#arrow)"/>
+      <line x1="525" y1="82" x2="525" y2="124" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#arrow)"/>
+      <line x1="590" y1="82" x2="628" y2="124" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+      <rect x="365" y="128" width="110" height="40" rx="5" fill="color-mix(in srgb, var(--teal) 14%, transparent)" stroke="color-mix(in srgb, var(--teal) 40%, transparent)"/>
+      <text x="420" y="152" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text)">Tracked binding A</text>
+      <rect x="470" y="128" width="110" height="40" rx="5" fill="color-mix(in srgb, var(--teal) 14%, transparent)" stroke="color-mix(in srgb, var(--teal) 40%, transparent)"/>
+      <text x="525" y="152" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text)">Tracked binding B</text>
+      <rect x="575" y="128" width="110" height="40" rx="5" fill="color-mix(in srgb, var(--teal) 14%, transparent)" stroke="color-mix(in srgb, var(--teal) 40%, transparent)"/>
+      <text x="630" y="152" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text)">Tracked binding C</text>
+
+      <line x1="420" y1="168" x2="420" y2="190" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#arrow)"/>
+      <line x1="525" y1="168" x2="525" y2="190" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#arrow)"/>
+      <line x1="630" y1="168" x2="630" y2="190" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+      <rect x="365" y="192" width="110" height="40" rx="5" fill="color-mix(in srgb, var(--teal) 22%, transparent)" stroke="color-mix(in srgb, var(--teal) 50%, transparent)"/>
+      <text x="420" y="216" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text)">DOM updated</text>
+      <rect x="470" y="192" width="110" height="40" rx="5" fill="color-mix(in srgb, var(--teal) 22%, transparent)" stroke="color-mix(in srgb, var(--teal) 50%, transparent)"/>
+      <text x="525" y="216" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text)">DOM updated</text>
+      <rect x="575" y="192" width="110" height="40" rx="5" fill="color-mix(in srgb, var(--teal) 22%, transparent)" stroke="color-mix(in srgb, var(--teal) 50%, transparent)"/>
+      <text x="630" y="216" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text)">DOM updated</text>
+
+      <text x="525" y="270" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">No component re-render, no diff:</text>
+      <text x="525" y="284" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">each dependent updates on its own</text>
+    </svg>
+    <figcaption>React re-renders a component and diffs its subtree on every state change, a fixed pipeline that runs regardless of how much actually changed. A signal write instead notifies only the specific bindings that read it, each updating its own DOM node directly.</figcaption>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       DO YOU NEED A LIBRARY
+  ════════════════════════════════════════════════════ -->
+  <h2 id="do-you-need-a-library">Do You Need a Library at All?</h2>
+  <p class="lede">Once ephemeral state has a hook, navigation state has the URL, and server state has a cache, what's left over for a dedicated library is often smaller than it looks.</p>
+
+  <p>A typical 2026 app handles most of its state without reaching for a global store. Ephemeral state lives in <code>useState</code> or <code>useReducer</code> and dies with its component. Navigation state lives in the URL through a router's search params. Server state lives in a cache. What remains is genuine application state, and in a lot of products that's a short list, small enough for React's context API or its framework's equivalent to handle without a dependency: an authenticated user, a theme, maybe a cart.</p>
+
+  <p>State shared between two adjacent components doesn't need to be promoted to global scope either. Lifting it to their nearest common parent and passing it down usually solves the problem with less machinery than a store would add.</p>
+
+  <div class="callout ok aside">
+    <div class="callout-title">When a store earns its place</div>
+    <p>Reach for Zustand, Jotai, or an equivalent once state is read and written from many unrelated parts of the tree, changes at high frequency, or needs derived selectors to avoid re-rendering components that don't care about the specific field that changed. A multi-step wizard, a collaborative canvas, or a dashboard with dozens of interacting filters are typical cases where context alone starts causing broad re-renders or turns into prop drilling, and a proper store pays for itself.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       DECISION FRAMEWORK
+  ════════════════════════════════════════════════════ -->
+  <h2 id="decision-framework">Choosing Where State Belongs</h2>
+  <p class="lede">The four questions from the start of this article resolve, in practice, into one sequence.</p>
+
+  <p>Start with ownership: is the server the authoritative source for this data? If so, the answer is a cache, not a store, and trying to keep a hand-synced copy correct is solving a problem a caching library already solves better. If the data is genuinely client-owned, ask whether it needs to survive a page refresh or be shareable through a link. If it does, it belongs in the URL as navigation state, not in memory. If neither applies, ask whether the state is local to one component or a couple of adjacent ones. If it is, local state is not just sufficient but preferable, since promoting it to a global store adds indirection with nothing to show for it.</p>
+
+  <p>What's left after all three questions is the actual candidate for a store or an atom set: state that's genuinely client-owned, doesn't need to live in the URL, and is read or written across distant, unrelated parts of the tree. Which of those two fits depends on whether the state naturally forms one cohesive object or a set of independently changing pieces. If the framework already has native signals, a good part of the propagation question may already be handled without adding anything at all.</p>
+
+  <p>The failure of the "Redux everywhere" era wasn't that a global store is a bad idea. It's that one tool was asked to answer all four of these questions the same way, for every piece of state, regardless of what actually owned it or how it needed to update. Placing state correctly was always less about which library gets installed and more about answering ownership, placement, organization, and propagation honestly for each piece of data as it's created.</p>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 700 380" role="img" aria-label="Decision flowchart for placing a piece of state: first ask whether the server owns it, if yes cache it. If no, ask whether it must survive a refresh or be shareable, if yes put it in the URL. If no, ask whether it is local to one or two components, if yes use local state. Otherwise it is a candidate for a shared store or atom set." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrow2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--text-faint)"/>
+        </marker>
+      </defs>
+
+      <rect x="20" y="20" width="340" height="52" rx="6" fill="color-mix(in srgb, var(--accent) 14%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
+      <text x="190" y="42" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text)">Does the server own this data?</text>
+      <text x="190" y="58" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">the ownership question</text>
+
+      <rect x="420" y="20" width="260" height="52" rx="6" fill="color-mix(in srgb, var(--green) 16%, transparent)" stroke="color-mix(in srgb, var(--green) 45%, transparent)"/>
+      <text x="550" y="42" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text)">Cache it</text>
+      <text x="550" y="58" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">TanStack Query or similar</text>
+      <line x1="360" y1="46" x2="410" y2="46" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#arrow2)"/>
+      <text x="384" y="38" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--green)">yes</text>
+
+      <line x1="190" y1="72" x2="190" y2="102" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#arrow2)"/>
+      <text x="204" y="90" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">no</text>
+
+      <rect x="20" y="104" width="340" height="52" rx="6" fill="color-mix(in srgb, var(--accent) 14%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
+      <text x="190" y="126" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text)">Must it survive a refresh or</text>
+      <text x="190" y="141" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text)">be shareable through a link?</text>
+
+      <rect x="420" y="104" width="260" height="52" rx="6" fill="color-mix(in srgb, var(--green) 16%, transparent)" stroke="color-mix(in srgb, var(--green) 45%, transparent)"/>
+      <text x="550" y="126" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text)">Put it in the URL</text>
+      <text x="550" y="142" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">navigation state</text>
+      <line x1="360" y1="130" x2="410" y2="130" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#arrow2)"/>
+      <text x="384" y="122" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--green)">yes</text>
+
+      <line x1="190" y1="156" x2="190" y2="186" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#arrow2)"/>
+      <text x="204" y="174" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">no</text>
+
+      <rect x="20" y="188" width="340" height="52" rx="6" fill="color-mix(in srgb, var(--accent) 14%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
+      <text x="190" y="210" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text)">Local to one or two adjacent</text>
+      <text x="190" y="225" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text)">components?</text>
+
+      <rect x="420" y="188" width="260" height="52" rx="6" fill="color-mix(in srgb, var(--green) 16%, transparent)" stroke="color-mix(in srgb, var(--green) 45%, transparent)"/>
+      <text x="550" y="210" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text)">Local state</text>
+      <text x="550" y="226" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">useState, or lift to the parent</text>
+      <line x1="360" y1="214" x2="410" y2="214" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#arrow2)"/>
+      <text x="384" y="206" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--green)">yes</text>
+
+      <line x1="190" y1="240" x2="190" y2="270" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#arrow2)"/>
+      <text x="204" y="258" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">no</text>
+
+      <rect x="20" y="272" width="660" height="64" rx="6" fill="color-mix(in srgb, var(--gold) 14%, transparent)" stroke="color-mix(in srgb, var(--gold) 45%, transparent)"/>
+      <text x="350" y="296" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text)">A shared store or atom set, organized by shape</text>
+      <text x="350" y="313" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">check whether the framework already has native signals before adding one</text>
+
+      <text x="350" y="358" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">Each question is asked in order. The first "yes" settles where the state lives.</text>
+    </svg>
+    <figcaption>Placing a piece of state means walking these four questions in order. The first "yes" answer settles it, and only state that clears all three questions becomes a candidate for a shared store.</figcaption>
+  </div>
+
+</main>
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+
+</body>
+</html>
