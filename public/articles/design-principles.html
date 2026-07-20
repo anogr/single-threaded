@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Software Design Principles — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+<style>
+  /* Article-specific only. Shared patterns (cards, callouts, code blocks,
+     sidebar, tables) come from articles.css. */
+  .figure-wrap {
+    margin: 28px 0 8px;
+  }
+  .figure-wrap svg {
+    max-width: 100%;
+    display: block;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .figure-wrap figcaption {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-top: 10px;
+    line-height: 1.55;
+    max-width: var(--content-w);
+  }
+</style>
+</head>
+
+<body>
+
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Articles</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+  <a href="#intro">Introduction</a>
+  <a href="#history">History</a>
+
+  <div class="sidebar-section">Build less</div>
+  <a href="#yagni">YAGNI</a>
+  <a href="#kiss">KISS</a>
+  <a href="#rule-of-three">Rule of Three</a>
+  <a href="#dry">DRY</a>
+
+  <div class="sidebar-section">Organize code well</div>
+  <a href="#encapsulation">Encapsulation</a>
+  <a href="#separation-of-concerns">Separation of Concerns</a>
+  <a href="#srp">Single Responsibility</a>
+  <a href="#isp">Interface Segregation</a>
+  <a href="#cohesion-coupling">Cohesion &amp; coupling</a>
+
+  <div class="sidebar-section">Depend safely</div>
+  <a href="#ocp">Open/Closed</a>
+  <a href="#lsp">Liskov Substitution</a>
+  <a href="#composition">Composition over inheritance</a>
+  <a href="#dip">Dependency Inversion</a>
+  <a href="#di">Dependency Injection</a>
+  <a href="#ioc">Inversion of Control</a>
+
+  <div class="sidebar-section">Communicate cleanly</div>
+  <a href="#law-of-demeter">Law of Demeter</a>
+  <a href="#tell-dont-ask">Tell, Don't Ask</a>
+  <a href="#cqs">Command Query Separation</a>
+
+  <div class="sidebar-section">Wrap-up</div>
+  <a href="#fail-fast">Fail Fast</a>
+  <a href="#tension">Where principles pull against each other</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">Architecture · Principles</div>
+  <h1>Software Design Principles</h1>
+  <p class="subtitle">Why the same handful of rules for structuring code and dependencies keep reappearing across languages and decades, and when to bend them.</p>
+  <div class="byline">
+    <strong>Deep dive</strong>
+    <div class="dot"></div>
+    <span>~28 min read</span>
+    <div class="dot"></div>
+    <span>Software design</span>
+    <div class="dot"></div>
+    <span>July 2026</span>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       INTRODUCTION
+  ════════════════════════════════════════════════════ -->
+  <section id="intro">
+    <p>A <strong>design principle</strong> is a rule of thumb for shaping code and the dependencies between its parts. It emerges from repeated observations of the same kind of mistake across many projects. A principle isn't enforced by the compiler, nor is it universally correct. Instead, it's a trade-off that pays off in a particular context, and understanding when to apply it is just as important as understanding the principle itself. This article explores the most enduring design principles, not as a checklist to apply everywhere, but as tools for solving recurring problems in real codebases.</p>
+    <p>
+      All design principles reduce one of the same four costs:
+    </p>
+    <ul>
+      <li><strong>Reading a codebase costs time</strong>, because someone has to build a mental model of what it does before touching it.</li>
+      <li><strong>Changing it costs time</strong>, because a change in one place risks breaking something in another.</li>
+      <li><strong>Testing it costs time</strong>, because behavior has to be verified in isolation before it can be trusted in combination.</li>
+      <li><strong>Extending it costs time</strong>, because new behavior has to fit into what already exists without warping it.</li>
+    </ul>
+    <p>Every principle in this article trims one of those four costs somewhere in a codebase. Every principle also has a failure mode with the same shape. Pushed past the cost it was actually solving, it starts adding a different one of those same four costs back in.
+    <p>
+      The figure below categorizes every principle in this article into four branches by what it's actually for. One principle, fail fast, sits outside that tree on purpose. It's a runtime discipline about how quickly a program surfaces a problem, not a structural rule about how code is arranged, so folding it into one of the four branches would misrepresent what it does.
+    </p>
+
+    <div class="figure-wrap">
+      <svg viewBox="0 0 700 260" role="img" aria-label="Tree diagram. Root node: keep systems easy to change. Four branches follow. Build less contains YAGNI, KISS, Rule of Three, and DRY. Organize code well contains encapsulation, separation of concerns, single responsibility principle, interface segregation principle, and cohesion and coupling. Depend safely contains open/closed principle, Liskov substitution principle, composition over inheritance, dependency inversion principle, dependency injection, and inversion of control. Communicate cleanly contains law of Demeter, tell don't ask, and command query separation.">
+        <defs>
+          <marker id="tree-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--text-faint)"/>
+          </marker>
+        </defs>
+
+        <rect x="270" y="18" width="160" height="42" rx="7" fill="color-mix(in srgb, var(--accent) 10%, transparent)" stroke="var(--accent)" stroke-width="1.2"/>
+        <text x="350" y="35" text-anchor="middle" font-family="var(--font-mono)" font-size="10.5" fill="var(--accent)">THE THESIS</text>
+        <text x="350" y="51" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11.5" fill="var(--text)">Keep systems easy to change</text>
+
+        <line x1="350" y1="60" x2="350" y2="90" stroke="var(--text-faint)" stroke-width="1.2"/>
+        <line x1="95" y1="90" x2="605" y2="90" stroke="var(--text-faint)" stroke-width="1.2"/>
+        <line x1="95" y1="90" x2="95" y2="140" stroke="var(--text-faint)" stroke-width="1.2" marker-end="url(#tree-arrow)"/>
+        <line x1="265" y1="90" x2="265" y2="140" stroke="var(--text-faint)" stroke-width="1.2" marker-end="url(#tree-arrow)"/>
+        <line x1="435" y1="90" x2="435" y2="140" stroke="var(--text-faint)" stroke-width="1.2" marker-end="url(#tree-arrow)"/>
+        <line x1="605" y1="90" x2="605" y2="140" stroke="var(--text-faint)" stroke-width="1.2" marker-end="url(#tree-arrow)"/>
+
+        <g font-family="Inter, system-ui, sans-serif">
+          <rect x="20" y="144" width="150" height="106" rx="7" fill="var(--surface-2)" stroke="var(--border)" stroke-width="1"/>
+          <text x="95" y="163" text-anchor="middle" font-size="12" fill="var(--text)" font-weight="600">Build less</text>
+          <text x="95" y="180" text-anchor="middle" font-size="9.5" fill="var(--text-dim)">YAGNI</text>
+          <text x="95" y="193" text-anchor="middle" font-size="9.5" fill="var(--text-dim)">KISS</text>
+          <text x="95" y="206" text-anchor="middle" font-size="9.5" fill="var(--text-dim)">Rule of Three</text>
+          <text x="95" y="219" text-anchor="middle" font-size="9.5" fill="var(--text-dim)">DRY</text>
+
+          <rect x="190" y="144" width="150" height="106" rx="7" fill="var(--surface-2)" stroke="var(--border)" stroke-width="1"/>
+          <text x="265" y="163" text-anchor="middle" font-size="12" fill="var(--text)" font-weight="600">Organize well</text>
+          <text x="265" y="180" text-anchor="middle" font-size="9.5" fill="var(--text-dim)">Encapsulation</text>
+          <text x="265" y="193" text-anchor="middle" font-size="9.5" fill="var(--text-dim)">Separation of concerns</text>
+          <text x="265" y="206" text-anchor="middle" font-size="9.5" fill="var(--text-dim)">SRP · ISP</text>
+          <text x="265" y="219" text-anchor="middle" font-size="9.5" fill="var(--text-dim)">Cohesion &amp; coupling</text>
+
+          <rect x="360" y="144" width="150" height="106" rx="7" fill="var(--surface-2)" stroke="var(--border)" stroke-width="1"/>
+          <text x="435" y="163" text-anchor="middle" font-size="12" fill="var(--text)" font-weight="600">Depend safely</text>
+          <text x="435" y="180" text-anchor="middle" font-size="9.5" fill="var(--text-dim)">OCP · LSP</text>
+          <text x="435" y="193" text-anchor="middle" font-size="9.5" fill="var(--text-dim)">Composition</text>
+          <text x="435" y="206" text-anchor="middle" font-size="9.5" fill="var(--text-dim)">DIP · DI</text>
+          <text x="435" y="219" text-anchor="middle" font-size="9.5" fill="var(--text-dim)">Inversion of control</text>
+
+          <rect x="530" y="144" width="150" height="106" rx="7" fill="var(--surface-2)" stroke="var(--border)" stroke-width="1"/>
+          <text x="605" y="163" text-anchor="middle" font-size="12" fill="var(--text)" font-weight="600">Communicate</text>
+          <text x="605" y="180" text-anchor="middle" font-size="9.5" fill="var(--text-dim)">Law of Demeter</text>
+          <text x="605" y="193" text-anchor="middle" font-size="9.5" fill="var(--text-dim)">Tell, don't ask</text>
+          <text x="605" y="206" text-anchor="middle" font-size="9.5" fill="var(--text-dim)">Command query sep.</text>
+        </g>
+      </svg>
+      <figcaption>Grouped by the problem each principle actually solves rather than by acronym. Fail fast sits outside this tree, covered in its own closing section.</figcaption>
+    </div>
+  </section>
+
+  <h2 id="history">History</h2>
+    <p>
+      Every idea in this article showed up independently. A Navy contractor described one in the 1960s. A researcher building an experimental object-oriented language described another in 1972. A pair of graduate students at Northeastern rediscovered a version of a third in the 1980s while working on something else entirely. None of them were reading each other's papers. None of them were trying to build a unified theory of software design. Each was staring at a different kind of mess and reaching for whatever fixed it.
+    </p>
+    <p>
+      That's why these principles keep resurfacing under different names in different decades.
+    </p>
+
+    <div class="callout info">
+      <div class="callout-title">Older than the acronym</div>
+      <p>These principles span roughly sixty years and several unrelated fields, not one software-methodology moment.</p>
+      <div class="table-wrap" style="margin-top:10px;">
+        <table>
+          <thead>
+            <tr><th>Era</th><th>Principles</th><th>Origin</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>1960s–70s</td><td>KISS, information hiding, separation of concerns</td><td>U.S. Navy engineering (KISS)<br>David Parnas, 1972 (information hiding)<br>Edsger Dijkstra, 1974 (separation of concerns)</td></tr>
+            <tr><td>1980s</td><td>Law of Demeter, Liskov Substitution, Open/Closed, Command Query Separation</td><td>Karl Lieberherr and Ian Holland's Demeter project, Northeastern, 1987 (Law of Demeter)<br>Barbara Liskov's OOPSLA keynote, 1987 (Liskov Substitution)<br>Bertrand Meyer, <em>Object-Oriented Software Construction</em>, 1988 (Open/Closed, Command Query Separation)</td></tr>
+            <tr><td>1990s</td><td>Rule of Three, DRY, YAGNI, Tell Don't Ask, SRP/ISP/DIP</td><td>Roberts &amp; Johnson and Fowler's <em>Refactoring</em>, 1999 (Rule of Three)<br>Hunt &amp; Thomas, <em>The Pragmatic Programmer</em>, 1999 (DRY)<br>Extreme Programming, ~1999 (YAGNI)<br>Robert C. Martin's papers through the decade (SRP, ISP, DIP)</td></tr>
+            <tr><td>2000s</td><td>SOLID as a named acronym, Dependency Injection as a named pattern</td><td>Michael Feathers coined the SOLID acronym around 2004 from Martin's already-published principles<br>Martin Fowler named and popularized Dependency Injection in a 2004 article</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top:10px;">Several of the principles bundled into "SOLID" (Open/Closed, Liskov Substitution) and Command Query Separation predate the acronym by more than a decade. SOLID branded existing ideas. It didn't invent them.</p>
+    </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       1. BUILD LESS
+  ════════════════════════════════════════════════════ -->
+  <h2 id="build-less">Build less</h2>
+  <p class="lede">The cheapest code to maintain is the code that was never written, so this branch comes first. It decides what shouldn't exist before the next branch worries about how to organize what does.</p>
+
+  <h3 id="yagni">YAGNI</h3>
+  <p>
+    A configuration flag gets added for a use case that seems inevitable. A parameter accepts three strategies even though the product only has one today. Six months later the flag has one value in every environment that has ever run the service, and nobody remembers why the branch exists. That's the failure <strong>YAGNI</strong> (You Aren't Gonna Need It) names. Capability built for a need that may never arrive gets paid for immediately, in code that has to be read, tested, and kept working, against a benefit that may never materialize. The principle comes out of Extreme Programming in the late 1990s, and its instruction is blunt. Don't build it until something in front of you actually requires it.
+  </p>
+  <p>
+    The most common misreading of YAGNI is "never plan ahead." That's not what it says. YAGNI is about refusing to build speculative <em>capability</em>, not about refusing an obvious, cheap structural choice that's already in front of you. Naming a variable clearly, or putting a data-access call behind a small function instead of scattering it across a component, costs nothing extra today and isn't what YAGNI is warning against. The principle targets the flag nobody asked for, the abstraction layer built for a second implementation that never gets written, and the plugin system for one plugin.
+  </p>
+
+  <h3 id="kiss">KISS</h3>
+  <p>
+    <strong>KISS</strong> (Keep It Simple, Stupid) traces to a mid-century engineering culture, U.S. Navy and aerospace teams reacting to systems whose complexity had outgrown the people maintaining them. In software it means the same thing it meant to them. Complexity is a cost, not a sign of sophistication, and it should only exist where the problem actually requires it. KISS in practice looks like a conditional inverted to remove nesting, an early return that collapses three branches into one, or a function that does one thing instead of five under one name. The test is whether a reader can hold the logic in their head, not whether the code looks impressive.
+  </p>
+  <p>
+    Overused, KISS becomes an excuse to hide complexity instead of removing it. Collapsing three genuinely distinct cases into one branch that "mostly" handles all of them isn't simplification. It's a bug waiting for the input that exposes the case that got merged away. Real simplicity reduces the number of things a reader has to track without reducing the number of things the code correctly handles.
+  </p>
+
+  <h3 id="rule-of-three">Rule of Three</h3>
+  <p>
+    Extracting an abstraction from one example is a guess. The <strong>Rule of Three</strong>, associated with Don Roberts and Ralph Johnson's research and popularized through Martin Fowler's <em>Refactoring</em> (1999), gives that guess a deadline. Wait for a third occurrence of a pattern before generalizing it. The first occurrence is just code. The second might be coincidence, two things that happen to look similar today for unrelated reasons. Only the third gives enough evidence that the shape is real rather than a resemblance that will diverge the moment either call site changes for its own reason.
+  </p>
+  <p>
+    The rule cuts both ways. Extracting after the second occurrence risks generalizing from a coincidence, building an abstraction shaped by two examples that happen to look alike today for unrelated reasons. Waiting past the third occurrence has its own cost. Every call site that should have shared logic keeps drifting further from the others until unifying them means reconciling three or four subtly different implementations instead of two. There's no fixed count that's correct for every case. Three is a reasonable default because it's the point where a real pattern is more likely than a coincidence, not a guarantee.
+  </p>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 700 230" role="img" aria-label="Decision flow diagram. First occurrence of a pattern: write it inline. Second occurrence: notice the similarity but do not extract yet, since extracting here risks the wrong abstraction with only one prior example to generalize from. Third occurrence: extract the abstraction now.">
+      <defs>
+        <marker id="roft-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--text-faint)"/>
+        </marker>
+      </defs>
+
+      <rect x="40" y="30" width="140" height="70" rx="7" fill="var(--surface-2)" stroke="var(--border)" stroke-width="1"/>
+      <text x="110" y="55" text-anchor="middle" font-family="var(--font-mono)" font-size="10.5" fill="var(--text-dim)">1st occurrence</text>
+      <text x="110" y="75" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="10.5" fill="var(--text)">Write it inline</text>
+
+      <line x1="180" y1="65" x2="280" y2="65" stroke="var(--text-faint)" stroke-width="1.2" marker-end="url(#roft-arrow)"/>
+
+      <rect x="280" y="30" width="140" height="70" rx="7" fill="var(--surface-2)" stroke="var(--border)" stroke-width="1"/>
+      <text x="350" y="55" text-anchor="middle" font-family="var(--font-mono)" font-size="10.5" fill="var(--text-dim)">2nd occurrence</text>
+      <text x="350" y="75" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="10.5" fill="var(--text)">Notice, don't extract</text>
+
+      <line x1="420" y1="65" x2="520" y2="65" stroke="var(--text-faint)" stroke-width="1.2" marker-end="url(#roft-arrow)"/>
+
+      <rect x="520" y="30" width="140" height="70" rx="7" fill="var(--surface-2)" stroke="var(--border)" stroke-width="1"/>
+      <text x="590" y="55" text-anchor="middle" font-family="var(--font-mono)" font-size="10.5" fill="var(--text-dim)">3rd occurrence</text>
+      <text x="590" y="75" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="10.5" fill="var(--text)">Extract now</text>
+
+      <line x1="590" y1="100" x2="590" y2="150" stroke="var(--green)" stroke-width="1.2" marker-end="url(#roft-arrow)"/>
+      <rect x="500" y="150" width="180" height="50" rx="7" fill="var(--green-wash)" stroke="var(--green)" stroke-width="1"/>
+      <text x="590" y="180" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="10.5" fill="var(--text)">Extract the abstraction</text>
+
+      <line x1="350" y1="100" x2="350" y2="150" stroke="var(--orange)" stroke-width="1.2" marker-end="url(#roft-arrow)"/>
+      <rect x="240" y="150" width="220" height="50" rx="7" fill="var(--orange-wash)" stroke="var(--orange)" stroke-width="1"/>
+      <text x="350" y="170" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="9.5" fill="var(--text)">Extracting here risks the wrong</text>
+      <text x="350" y="184" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="9.5" fill="var(--text)">shape, only one prior example</text>
+
+      <line x1="460" y1="175" x2="495" y2="175" stroke="var(--text-faint)" stroke-width="1" stroke-dasharray="3,3" marker-end="url(#roft-arrow)"/>
+      <text x="478" y="167" text-anchor="middle" font-family="var(--font-mono)" font-size="8.5" fill="var(--text-faint)">wait</text>
+    </svg>
+    <figcaption>The Rule of Three is the timing rule that keeps DRY and YAGNI from fighting each other. Extract too early and you're guessing at a shape with only one data point. Wait too long and knowledge stays duplicated across call sites.</figcaption>
+  </div>
+
+  <h3 id="dry">DRY</h3>
+  <p>
+    <strong>DRY</strong> (Don't Repeat Yourself) is about a single source of truth for a piece of <em>knowledge</em>, not a rule against two code blocks looking similar. Andrew Hunt and David Thomas stated it precisely in <em>The Pragmatic Programmer</em> (1999). Every piece of knowledge must have a single, unambiguous, authoritative representation. The failure it targets is a business rule that changes in one place a developer remembers to update, while an identical rule sitting somewhere else quietly goes stale.
+  </p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">validate-email.ts</span>
+      <span class="code-lang">TS</span>
+    </div>
+    <pre><code><span class="cm">// The same shape existed inline in createUser, updateUser, and</span>
+<span class="cm">// importUsers before the third call site made it worth naming.</span>
+<span class="kw">function</span> <span class="fn">assertValidEmail</span>(<span class="n">email</span>: <span class="t">string</span>): <span class="t">void</span> {
+  <span class="kw">if</span> (!<span class="n">email</span>.<span class="fn">includes</span>(<span class="s">'@'</span>) || <span class="n">email</span>.<span class="fn">startsWith</span>(<span class="s">'@'</span>)) {
+    <span class="kw">throw</span> <span class="kw">new</span> <span class="fn">Error</span>(<span class="s">`Invalid email: </span><span class="p">${</span><span class="n">email</span><span class="p">}</span><span class="s">`</span>);
+  }
+}</code></pre>
+  </div>
+
+  <p>
+    Two things had to be true for the extraction above to be sound. The check had to appear a third time, per the Rule of Three, and it had to represent the same piece of knowledge each time, not three rules that merely resembled each other today. That second condition is where DRY is most often misapplied. Merging two things that only <em>look</em> alike into one shared abstraction feels productive in the moment. It stops feeling productive once they diverge for unrelated reasons and the shared function grows an <code>if (isSpecialCase)</code> branch to keep serving both, until the abstraction is harder to read than the duplication it replaced. A wrong abstraction costs more than the duplication it was meant to remove.
+  </p>
+
+  <!-- ═══════════════════════════════════════════════════
+       2. ORGANIZE CODE WELL
+  ════════════════════════════════════════════════════ -->
+  <h2 id="organize-code-well">Organize code well</h2>
+  <p class="lede">Once a piece of behavior earns its place in the codebase, the next question is where it lives and what it's allowed to know about its neighbors.</p>
+
+  <h3 id="encapsulation">Encapsulation and information hiding</h3>
+  <p>
+    David Parnas's 1972 paper "On the Criteria to Be Used in Decomposing Systems into Modules" made an argument that still holds. A module should hide an implementation decision behind a stable interface, so that changing the decision later doesn't require changing everything that depends on the module. Parnas called this <strong>information hiding</strong>. <strong>Encapsulation</strong> is the practice that follows from it in most languages today. Expose a method that performs an operation, not the internal data structure that operation happens to use today. A queue class exposing <code>enqueue()</code> and <code>dequeue()</code> can switch its internal storage from an array to a linked list without a single caller noticing. A queue class that exposes its backing array directly can't.
+  </p>
+  <p>
+    This is the oldest of the organizational principles here, predating separation of concerns by two years. The two principles that follow in this section are really encapsulation applied at a specific scale. Single responsibility is encapsulation at the level of a module. Interface segregation is encapsulation at the level of an interface. Overdone, encapsulation turns defensive. Every field gets a getter and a setter that exposes it right back out, hiding nothing, or a legitimate configuration need routes through three layers of indirection because nothing was left adjustable. Hiding a decision is only valuable when the decision might actually change.
+  </p>
+
+  <h3 id="separation-of-concerns">Separation of concerns</h3>
+  <p>
+    Edsger Dijkstra used the phrase "<strong>separation of concerns</strong>" in a 1974 essay on the discipline of programming, describing it as a way of thinking rather than a way of organizing folders. A concern is a distinct area of responsibility, such as what the user sees, what the business rule says should happen, or how the data gets stored. When one piece of code handles more than one concern, a change to one risks breaking the other, because they were never truly separate, only sitting in the same function.
+  </p>
+  <p>
+    Separation of concerns is often read as a statement about file structure, such as a UI folder and a services folder. That's a side effect, not the point. Two functions can live in the same file and still be properly separated if one only computes a value and the other only renders it. Two functions can live in different folders and still violate the principle if the rendering function reaches back to recompute business logic on its own.
+  </p>
+  <p>
+    Overapplied, separation of concerns produces layers that don't correspond to anything real. A single, genuinely cohesive piece of logic gets split into a controller, a service, and a repository, each doing almost nothing on its own. A change to that one concern now means editing three files that were only ever separated on paper. Splitting pays off when the pieces can plausibly change for different reasons and at different rates. It doesn't pay off just because a template exists for a three-layer folder structure.
+  </p>
+
+  <h3 id="srp">Single Responsibility Principle</h3>
+  <p>
+    Robert C. Martin's phrasing for the <strong>Single Responsibility Principle</strong> (SRP) is "a module should have one, and only one, reason to change." The word doing the real work in that sentence is "reason," not "method." A module that validates a form, persists it to a database, and sends a confirmation email is doing three jobs. Each job changes for a different business reason, such as a new validation rule, a new storage backend, or a new email provider. Any one of those changes forces an edit to code that has nothing to do with the actual reason for the change, and risks breaking the two unrelated responsibilities sitting next to it.
+  </p>
+  <p>
+    SRP is the principle most often taken too literally. Reading "one reason to change" as "one method per class" produces the opposite of the intended result. The class count balloons into dozens of one-line classes, each trivially simple on its own. The actual logic ends up scattered so thin across them that understanding one piece of business behavior means opening ten files instead of one. A responsibility is a reason a stakeholder would ask for a change, not a count of lines.
+  </p>
+
+  <h3 id="isp">Interface Segregation Principle</h3>
+  <p>
+    The <strong>Interface Segregation Principle</strong> (ISP) applies the same idea to interfaces instead of modules. A caller shouldn't be forced to depend on methods it never uses. A single <code>Machine</code> interface requiring <code>print()</code>, <code>scan()</code>, and <code>fax()</code> forces a print-only device to implement two methods it can't support. It also couples every caller of <code>print()</code> to changes made to the scanning method it never touches. Splitting that one interface into <code>Printer</code>, <code>Scanner</code>, and <code>Fax</code> lets a caller depend on exactly the capability it needs and nothing else. That's what makes the principle a form of encapsulation applied at the interface boundary rather than the module boundary.
+  </p>
+  <p>
+    Taken too far, ISP produces an interface for every single method, such as a <code>Printable</code>, a <code>Scannable</code>, or a <code>Faxable</code>, each with exactly one member. A class that genuinely needs all three now implements three interfaces to do the job one interface could have described. A reader has to open three files to see the full shape of what the class does. The split is worth making when callers actually differ in which capability they need. It isn't worth making just to keep interfaces small for their own sake.
+  </p>
+
+  <h3 id="cohesion-coupling">High cohesion, low coupling</h3>
+  <p>
+    <strong>Cohesion</strong> and <strong>coupling</strong> are the vocabulary that names what the four principles above are collectively for. Cohesion describes how closely the responsibilities within a module belong together. High cohesion means the module's responsibilities naturally fit together. Encapsulation and the Single Responsibility Principle (SRP), when applied well, tend to promote high cohesion. Coupling describes the dependencies between modules. Low coupling means modules depend as little as possible on one another. Separation of concerns and the Interface Segregation Principle (ISP) applied well help reduce coupling between modules.
+  </p>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 700 210" role="img" aria-label="Two module diagrams side by side, separated by a dividing line. Left, labeled high cohesion, low coupling: three evenly sized modules in a row, each containing a tight cluster of internal items, with a single connecting line between each pair of neighboring modules. Right, labeled low cohesion, high coupling: three irregularly sized modules with internal items scattered apart inside each one, linked by four crossing lines, most of which run directly from an item inside one module to an item inside another rather than stopping at the module's edge.">
+      <text x="180" y="22" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--green)">HIGH COHESION, LOW COUPLING</text>
+      <text x="520" y="22" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--red)">LOW COHESION, HIGH COUPLING</text>
+
+      <line x1="350" y1="34" x2="350" y2="205" stroke="var(--border)" stroke-width="1" stroke-dasharray="3,4"/>
+
+      <!-- Left: high cohesion, low coupling — three same-size modules, tight internal clusters, one connector per neighboring pair -->
+      <g>
+        <rect x="45" y="60" width="70" height="80" rx="7" fill="var(--surface-2)" stroke="var(--green)" stroke-width="1"/>
+        <circle cx="75" cy="95" r="3" fill="var(--text-dim)"/><circle cx="85" cy="95" r="3" fill="var(--text-dim)"/><circle cx="76" cy="106" r="3" fill="var(--text-dim)"/><circle cx="86" cy="105" r="3" fill="var(--text-dim)"/>
+
+        <rect x="145" y="60" width="70" height="80" rx="7" fill="var(--surface-2)" stroke="var(--green)" stroke-width="1"/>
+        <circle cx="175" cy="95" r="3" fill="var(--text-dim)"/><circle cx="185" cy="95" r="3" fill="var(--text-dim)"/><circle cx="176" cy="106" r="3" fill="var(--text-dim)"/><circle cx="186" cy="105" r="3" fill="var(--text-dim)"/>
+
+        <rect x="245" y="60" width="70" height="80" rx="7" fill="var(--surface-2)" stroke="var(--green)" stroke-width="1"/>
+        <circle cx="275" cy="95" r="3" fill="var(--text-dim)"/><circle cx="285" cy="95" r="3" fill="var(--text-dim)"/><circle cx="276" cy="106" r="3" fill="var(--text-dim)"/><circle cx="286" cy="105" r="3" fill="var(--text-dim)"/>
+      </g>
+      <line x1="115" y1="100" x2="145" y2="100" stroke="var(--green)" stroke-width="1.2"/>
+      <line x1="215" y1="100" x2="245" y2="100" stroke="var(--green)" stroke-width="1.2"/>
+
+      <!-- Right: low cohesion, high coupling — irregular modules, scattered internals, lines reaching straight into each other's internals -->
+      <g>
+        <rect x="380" y="55" width="80" height="75" rx="7" fill="var(--surface-2)" stroke="var(--red)" stroke-width="1"/>
+        <circle cx="390" cy="65" r="3" fill="var(--text-dim)"/><circle cx="450" cy="70" r="3" fill="var(--text-dim)"/><circle cx="395" cy="120" r="3" fill="var(--text-dim)"/><circle cx="452" cy="115" r="3" fill="var(--text-dim)"/>
+
+        <rect x="515" y="32" width="60" height="55" rx="7" fill="var(--surface-2)" stroke="var(--red)" stroke-width="1"/>
+        <circle cx="523" cy="42" r="3" fill="var(--text-dim)"/><circle cx="567" cy="80" r="3" fill="var(--text-dim)"/>
+
+        <rect x="575" y="115" width="90" height="80" rx="7" fill="var(--surface-2)" stroke="var(--red)" stroke-width="1"/>
+        <circle cx="585" cy="125" r="3" fill="var(--text-dim)"/><circle cx="655" cy="130" r="3" fill="var(--text-dim)"/><circle cx="590" cy="185" r="3" fill="var(--text-dim)"/><circle cx="658" cy="180" r="3" fill="var(--text-dim)"/>
+      </g>
+      <line x1="450" y1="70" x2="523" y2="42" stroke="var(--red)" stroke-width="1.2"/>
+      <line x1="452" y1="115" x2="585" y2="125" stroke="var(--red)" stroke-width="1.2"/>
+      <line x1="567" y1="80" x2="590" y2="185" stroke="var(--red)" stroke-width="1.2"/>
+      <line x1="460" y1="92" x2="655" y2="130" stroke="var(--red)" stroke-width="1.2"/>
+    </svg>
+    <figcaption>Cohesion measures how tightly what's inside one module belongs together. Coupling measures how tangled one module is with another. The two are independent. A module can be internally messy but loosely connected, or internally tidy but wired into everything around it. The goal is high on the first, low on the second.</figcaption>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       3. DEPEND SAFELY
+  ════════════════════════════════════════════════════ -->
+  <h2 id="depend-safely">Depend safely</h2>
+  <p class="lede">Organizing code well decides where a responsibility lives, and lowers coupling by shaping what's inside each module. This branch reduces the same coupling from a different angle. It decides how one piece of code is allowed to depend on another, without the two becoming impossible to change independently.</p>
+
+  <h3 id="ocp">Open/Closed Principle</h3>
+  <p>
+    Bertrand Meyer stated the <strong>Open/Closed Principle</strong> (OCP) in <em>Object-Oriented Software Construction</em> (1988). A module should be open for extension but closed for modification. In practice this shows up as a growing chain of conditionals. A <code>charge()</code> function with a branch per payment method works fine until the fifth payment method needs to be added. At that point every new case is a new edit to a function that every existing case already depends on. A mistake in the new branch can break a payment method that had nothing to do with the change.
+  </p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">charge.ts</span>
+      <span class="code-lang">TS</span>
+    </div>
+    <pre><code><span class="cm">// Before: a new payment method means editing this function again,</span>
+<span class="cm">// next to every method that already works.</span>
+<span class="kw">function</span> <span class="fn">charge</span>(<span class="n">method</span>: <span class="t">string</span>, <span class="n">amount</span>: <span class="t">number</span>) {
+  <span class="kw">if</span> (<span class="n">method</span> === <span class="s">'card'</span>) <span class="kw">return</span> <span class="fn">chargeCard</span>(<span class="n">amount</span>);
+  <span class="kw">if</span> (<span class="n">method</span> === <span class="s">'wallet'</span>) <span class="kw">return</span> <span class="fn">chargeWallet</span>(<span class="n">amount</span>);
+  <span class="kw">if</span> (<span class="n">method</span> === <span class="s">'invoice'</span>) <span class="kw">return</span> <span class="fn">chargeInvoice</span>(<span class="n">amount</span>);
+  <span class="kw">throw</span> <span class="kw">new</span> <span class="fn">Error</span>(<span class="s">`Unsupported method: </span><span class="p">${</span><span class="n">method</span><span class="p">}</span><span class="s">`</span>);
+}
+
+<span class="cm">// After: adding a new provider is a new entry, not a new branch,</span>
+<span class="cm">// and existing entries are untouched.</span>
+<span class="kw">const</span> <span class="n">chargeHandlers</span>: <span class="t">Record</span>&lt;<span class="t">string</span>, (<span class="n">amount</span>: <span class="t">number</span>) =&gt; <span class="t">Charge</span>&gt; = {
+  <span class="n">card</span>: <span class="n">chargeCard</span>,
+  <span class="n">wallet</span>: <span class="n">chargeWallet</span>,
+  <span class="n">invoice</span>: <span class="n">chargeInvoice</span>,
+};
+
+<span class="kw">function</span> <span class="fn">charge</span>(<span class="n">method</span>: <span class="t">string</span>, <span class="n">amount</span>: <span class="t">number</span>) {
+  <span class="kw">const</span> <span class="n">handler</span> = <span class="n">chargeHandlers</span>[<span class="n">method</span>];
+  <span class="kw">if</span> (!<span class="n">handler</span>) <span class="kw">throw</span> <span class="kw">new</span> <span class="fn">Error</span>(<span class="s">`Unsupported method: </span><span class="p">${</span><span class="n">method</span><span class="p">}</span><span class="s">`</span>);
+  <span class="kw">return</span> <span class="fn">handler</span>(<span class="n">amount</span>);
+}</code></pre>
+  </div>
+
+  <p>
+    OCP is easy to overapply. Building a registration table, a plugin loader, or a strategy interface for a case that has exactly one implementation and no realistic second one adds a layer of indirection. That costs a reader time to trace, in exchange for flexibility nothing will ever use. The branch chain above was worth replacing because payment methods actually multiply. A function with one permanently fixed behavior doesn't need the same treatment.
+  </p>
+
+  <h3 id="lsp">Liskov Substitution Principle</h3>
+  <p>
+    Barbara Liskov introduced what became known as the <strong>Liskov Substitution Principle</strong> (LSP) in a 1987 OOPSLA keynote, later formalized with Jeannette Wing. The idea: if <code>S</code> is a subtype of <code>T</code>, a program built to work with objects of type <code>T</code> should keep working correctly when handed an object of type <code>S</code> instead. The textbook illustration is a <code>Square</code> that extends <code>Rectangle</code> and overrides <code>setWidth()</code> to also change the height. It compiles cleanly, but it breaks any code that set a rectangle's width and height independently and expected the two to stay that way.
+  </p>
+  <p>
+    A more realistic version of the same failure shows up whenever a subclass narrows what its base type promised rather than fully supporting it. A caching repository that extends a general-purpose <code>Repository</code> class but backs onto a read-only cache is a natural thing to write and technically compiles.
+  </p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">caching-repository.ts</span>
+      <span class="code-lang">TS</span>
+    </div>
+    <pre><code><span class="kw">class</span> <span class="t">Repository</span>&lt;<span class="t">T</span>&gt; {
+  <span class="fn">write</span>(<span class="n">item</span>: <span class="t">T</span>): <span class="t">void</span> { <span class="cm">/* persist to the primary store */</span> }
+  <span class="fn">read</span>(<span class="n">id</span>: <span class="t">string</span>): <span class="t">T</span> { <span class="cm">/* ... */</span> }
+}
+
+<span class="cm">// Compiles cleanly. Breaks every caller that trusted the base</span>
+<span class="cm">// Repository's contract that write() succeeds.</span>
+<span class="kw">class</span> <span class="t">CachingRepository</span>&lt;<span class="t">T</span>&gt; <span class="kw">extends</span> <span class="t">Repository</span>&lt;<span class="t">T</span>&gt; {
+  <span class="fn">write</span>(<span class="n">item</span>: <span class="t">T</span>): <span class="t">void</span> {
+    <span class="kw">throw</span> <span class="kw">new</span> <span class="fn">Error</span>(<span class="s">'CachingRepository is read-only'</span>);
+  }
+}</code></pre>
+  </div>
+
+  <p>
+    Any caller written against <code>Repository</code>, unaware that this particular subtype throws on <code>write()</code>, breaks the moment it receives a <code>CachingRepository</code> instead. The usual instinct when this surfaces is to add an <code>instanceof</code> check at every call site that might receive the subtype. That papers over one violation while creating a second problem. Every caller now has to know about every subtype's quirks, which is exactly the coupling encapsulation was supposed to prevent. The actual fix is to stop modeling the relationship as inheritance in the first place.
+  </p>
+
+  <h3 id="composition">Composition over inheritance</h3>
+  <p>
+    The LSP violation above is a symptom of modeling "is-a" where the real relationship is "has-a." A caching repository isn't a kind of repository that happens to reject writes. It's a thing that <em>holds</em> a cache and a repository and coordinates between them. <strong>Composition over inheritance</strong> means building behavior this way by default. Assemble an object out of smaller collaborators with their own clear contracts, rather than extending a base class and hoping every method it exposes makes sense for the new case.
+  </p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">caching-repository.ts</span>
+      <span class="code-lang">TS</span>
+    </div>
+    <pre><code><span class="kw">class</span> <span class="t">CachingRepository</span>&lt;<span class="t">T</span>&gt; {
+  <span class="kw">constructor</span>(<span class="kw">private</span> <span class="n">cache</span>: <span class="t">Cache</span>&lt;<span class="t">T</span>&gt;, <span class="kw">private</span> <span class="n">source</span>: <span class="t">Repository</span>&lt;<span class="t">T</span>&gt;) {}
+
+  <span class="fn">read</span>(<span class="n">id</span>: <span class="t">string</span>): <span class="t">T</span> {
+    <span class="kw">return</span> <span class="kw">this</span>.<span class="n">cache</span>.<span class="fn">get</span>(<span class="n">id</span>) ?? <span class="kw">this</span>.<span class="n">source</span>.<span class="fn">read</span>(<span class="n">id</span>);
+  }
+  <span class="cm">// No write() method to promise and then break.</span>
+}</code></pre>
+  </div>
+
+  <p>
+    Rebuilt this way, <code>CachingRepository</code> never claims to be a full <code>Repository</code>, so there's no promise to break. Composition solves the substitution problem directly instead of working around it. The failure mode at this end of the spectrum is the opposite of inheritance's. Compose too many small, single-purpose collaborators, and following one request through the system means opening ten files to find where anything actually happens.
+  </p>
+
+  <h3 id="dip">Dependency Inversion Principle</h3>
+  <p>
+    A high-level policy, "send a welcome email on signup," hard-wired to a low-level detail, a specific SMTP client, means changing the detail requires editing the policy. The <strong>Dependency Inversion Principle</strong> (DIP), from Robert C. Martin, is the fix stated abstractly. Depend on abstractions, not concretions. High-level modules and low-level modules should both depend on an interface between them, rather than the high-level module depending directly on the low-level module's implementation.
+  </p>
+  <p>
+    DIP is a principle, not a technique, and it's worth being precise about the difference, because it gets conflated constantly with the pattern that follows it. Dependency inversion says what should be true of the relationship between two modules. Dependency injection, next, is one way of making it true in code, not a synonym for it.
+  </p>
+
+  <h3 id="di">Dependency Injection</h3>
+  <p>
+    <strong>Dependency Injection</strong> (DI) satisfies DIP concretely. A class receives its dependency from outside instead of constructing it internally. Martin Fowler's 2004 article on inversion of control containers gave the pattern its modern name. It also gave it a now-standard justification. A class built this way can be tested against a fake dependency and swapped onto a different implementation without its own code changing.
+  </p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">signup-service.ts</span>
+      <span class="code-lang">TS</span>
+    </div>
+    <pre><code><span class="cm">// Hard-wired: SignupService can't be tested or swapped onto a</span>
+<span class="cm">// different mailer without editing this class.</span>
+<span class="kw">class</span> <span class="t">SignupService</span> {
+  <span class="kw">private</span> <span class="n">mailer</span> = <span class="kw">new</span> <span class="fn">SmtpMailer</span>();
+  <span class="fn">complete</span>(<span class="n">email</span>: <span class="t">string</span>) { <span class="kw">this</span>.<span class="n">mailer</span>.<span class="fn">send</span>(<span class="n">email</span>, <span class="s">'Welcome'</span>); }
+}
+
+<span class="cm">// Injected: the dependency arrives from outside, satisfying DIP.</span>
+<span class="kw">class</span> <span class="t">SignupService</span> {
+  <span class="kw">constructor</span>(<span class="kw">private</span> <span class="n">mailer</span>: <span class="t">Mailer</span>) {}
+  <span class="fn">complete</span>(<span class="n">email</span>: <span class="t">string</span>) { <span class="kw">this</span>.<span class="n">mailer</span>.<span class="fn">send</span>(<span class="n">email</span>, <span class="s">'Welcome'</span>); }
+}</code></pre>
+  </div>
+
+  <p>
+    Overused, DI produces an interface and an injected dependency for something with exactly one implementation and no realistic second one, ever. That's DIP's ceremony without DIP's benefit. The layer of indirection exists because the pattern is familiar, not because two independently changeable modules actually needed to be decoupled.
+  </p>
+
+  <h3 id="ioc">Inversion of Control</h3>
+  <p>
+    Code that drives its own control flow can only be reused inside that same flow. A function that calls its own dependencies directly, in the order it chooses, can't easily be run inside a test harness, a UI framework's render cycle, or a plugin host. All of those need to be the one calling the shots. <strong>Inversion of Control</strong> (IoC), sometimes called the Hollywood principle after "don't call us, we'll call you," inverts that. The framework or container calls your code, instead of your code calling the framework.
+  </p>
+  <p>
+    An event listener is IoC in its simplest form. The browser decides when <code>onClick</code> runs, not the code that defines it. A test framework invoking every function named like a test is the same shape at a larger scale. Dependency injection is frequently the mechanism IoC uses to hand control over. A container builds an object graph and calls into it, rather than the object graph reaching out to build itself.
+  </p>
+  <p>
+    The same inversion that makes code reusable also makes it harder to trace. Once a container decides when and with what to call a piece of code, tracing that call means reading the container's wiring, not just reading the code in order. A stack trace that used to point at the calling function now points at framework internals, and a new developer can't always answer "who calls this?" by searching the codebase. IoC is worth the cost when a framework, a test runner, or a plugin host genuinely needs to own the call. A small script or a linear pipeline with one obvious caller doesn't need a container standing in the middle.
+  </p>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 700 220" role="img" aria-label="Before and after diagram of inversion of control. Before: a class constructs its own dependency internally, arrow pointing from the class to a new instance it creates. After: an external container constructs the dependency and calls into the class, arrow pointing from the container to the class.">
+      <text x="175" y="24" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--text-dim)">BEFORE: CLASS CONTROLS ITS OWN FLOW</text>
+      <text x="525" y="24" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--accent)">AFTER: CONTAINER DRIVES THE CLASS</text>
+
+      <rect x="95" y="50" width="160" height="50" rx="7" fill="var(--surface-2)" stroke="var(--border)" stroke-width="1"/>
+      <text x="175" y="80" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" fill="var(--text)">SignupService</text>
+
+      <path d="M 175 100 C 100 130, 100 150, 150 165" fill="none" stroke="var(--text-faint)" stroke-width="1.2" marker-end="url(#roft-arrow)"/>
+      <rect x="95" y="165" width="160" height="45" rx="7" fill="var(--surface-2)" stroke="var(--border)" stroke-width="1"/>
+      <text x="175" y="192" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--text-dim)">new SmtpMailer()</text>
+
+      <rect x="465" y="35" width="160" height="45" rx="7" fill="color-mix(in srgb, var(--accent) 10%, transparent)" stroke="var(--accent)" stroke-width="1.2"/>
+      <text x="545" y="62" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" fill="var(--text)">Container</text>
+
+      <line x1="545" y1="80" x2="545" y2="130" stroke="var(--accent)" stroke-width="1.2" marker-end="url(#roft-arrow)"/>
+
+      <rect x="465" y="130" width="160" height="45" rx="7" fill="var(--surface-2)" stroke="var(--border)" stroke-width="1"/>
+      <text x="545" y="157" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" fill="var(--text)">SignupService</text>
+
+      <line x1="545" y1="175" x2="545" y2="190" stroke="var(--accent)" stroke-width="1.2" marker-end="url(#roft-arrow)"/>
+      <text x="545" y="205" text-anchor="middle" font-family="var(--font-mono)" font-size="9.5" fill="var(--text-dim)">mailer: Mailer (injected)</text>
+    </svg>
+    <figcaption>Inversion of control makes the direction of the arrow the whole point. Control moves from the class constructing what it needs, to an external container handing the class what it needs.</figcaption>
+  </div>
+
+  <div class="callout info">
+    <div class="callout-title">DIP, DI, and IoC are not the same thing</div>
+    <p>These three get used interchangeably in conversation, but each names something different.</p>
+    <ul>
+      <li><strong>Dependency Inversion Principle</strong> is the rule itself, that two modules should depend on a shared abstraction rather than one depending on the other's concrete implementation.</li>
+      <li><strong>Dependency Injection</strong> is one concrete technique for satisfying it, where a class receives its dependencies from outside instead of constructing them itself.</li>
+      <li><strong>Inversion of Control</strong> is the broader pattern behind dependency injection, where a framework or container calls your code instead of your code calling it.</li>
+    </ul>
+    <p style="margin-top:10px;">DIP states the goal, DI is one way to reach it in code, and IoC is the shift in control that makes DI possible.</p>
+  </div>
+
+  <div class="callout new">
+    <div class="callout-title">Where SOLID fits</div>
+    <p>Single Responsibility and Interface Segregation from the previous section, plus Open/Closed, Liskov Substitution, and Dependency Inversion from this one, are the five principles bundled historically as SOLID (see the <a href="#history">history</a>). They're grouped in this article by what they actually govern, responsibility placement versus dependency safety, rather than by acronym position, but the acronym isn't lost. It's just not the organizing structure.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       4. COMMUNICATE CLEANLY
+  ════════════════════════════════════════════════════ -->
+  <h2 id="communicate-cleanly">Communicate cleanly</h2>
+  <p class="lede">The last branch asks a narrower question than the first three. Once an object exists and owns its own state, what should it expose, and who gets to decide based on it?</p>
+
+  <h3 id="law-of-demeter">Law of Demeter</h3>
+  <p>
+    The <strong>Law of Demeter</strong> (LoD) came out of Karl Lieberherr and Ian Holland's Demeter project at Northeastern University in 1987, and its informal statement is "only talk to your immediate friends." A method should call methods on objects it directly holds, not reach through one object to get a second object and then call a method on that.
+  </p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">billing-city.ts</span>
+      <span class="code-lang">TS</span>
+    </div>
+    <pre><code><span class="cm">// Breaks if Customer ever restructures how it stores an address.</span>
+<span class="kw">const</span> <span class="n">city</span> = <span class="n">order</span>.<span class="fn">getCustomer</span>().<span class="fn">getAddress</span>().<span class="fn">getCity</span>();
+
+<span class="cm">// Order only talks to its immediate collaborator.</span>
+<span class="kw">const</span> <span class="n">city</span> = <span class="n">order</span>.<span class="fn">getBillingCity</span>();</code></pre>
+  </div>
+
+  <p>
+    The first version chains through three classes' internal structure at once, touching <code>Order</code>, <code>Customer</code>, and <code>Address</code> in a single expression. If <code>Customer</code> ever stores a shipping address and a billing address separately instead of one <code>address</code> field, every chain like this one breaks, scattered across however many call sites reach into the object graph. The delegating method on the second line is the same coupling problem section two named for modules, applied to a single call chain.
+  </p>
+  <p>
+    Overused, the Law of Demeter turns into a rule about syntax instead of dependencies. Every class in the chain grows a one-line wrapper method whose only job is forwarding a call to the next collaborator. The codebase fills with wrapper-method bloat like <code>getBillingCity()</code> that exist purely to satisfy the rule. That's worth doing when <code>Customer</code>'s internal structure is genuinely likely to change. It's wasted ceremony when it isn't, an extra method to read, test, and maintain for a structure that was never going anywhere. The rule is about not depending on another object's internal structure, not about refusing to chain method calls. A chain over immutable value objects, such as a fluent builder, is harmless, because there's no changeable internal structure to leak in the first place.
+  </p>
+
+  <h3 id="tell-dont-ask">Tell, Don't Ask</h3>
+  <p>
+    Pulling an object's internal state out to make a decision about it externally duplicates logic that belongs with the data, and it breaks the same encapsulation boundary the Law of Demeter protects. <strong>Tell, Don't Ask</strong> is the corrective habit. Instead of reading a flag and branching on it outside the object, tell the object what outcome is wanted. Let it decide how, using only the state it needs to see. A shopping cart shouldn't expose its item count so calling code can decide whether it's empty. It should expose a method that answers that question itself.
+  </p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">checkout.ts</span>
+      <span class="code-lang">TS</span>
+    </div>
+    <pre><code><span class="cm">// Checkout reads the cart's raw count and re-implements the</span>
+<span class="cm">// "is it empty" decision outside the object that owns the state.</span>
+<span class="kw">function</span> <span class="fn">canCheckout</span>(<span class="n">cart</span>: <span class="t">Cart</span>, <span class="n">user</span>: <span class="t">User</span>): <span class="t">boolean</span> {
+  <span class="kw">return</span> <span class="n">cart</span>.<span class="n">items</span>.<span class="n">length</span> &gt; <span class="m">0</span> &amp;&amp; <span class="fn">hasValidPayment</span>(<span class="n">user</span>);
+}
+
+<span class="cm">// The cart answers a question about its own state. Checkout still</span>
+<span class="cm">// owns the broader decision, composed from checks that are its job.</span>
+<span class="kw">class</span> <span class="t">Cart</span> {
+  <span class="fn">hasItems</span>(): <span class="t">boolean</span> { <span class="kw">return</span> <span class="kw">this</span>.<span class="n">items</span>.<span class="n">length</span> &gt; <span class="m">0</span>; }
+}
+
+<span class="kw">function</span> <span class="fn">canCheckout</span>(<span class="n">cart</span>: <span class="t">Cart</span>, <span class="n">user</span>: <span class="t">User</span>): <span class="t">boolean</span> {
+  <span class="kw">return</span> <span class="n">cart</span>.<span class="fn">hasItems</span>() &amp;&amp; <span class="fn">hasValidPayment</span>(<span class="n">user</span>);
+}</code></pre>
+  </div>
+
+  <p>
+    The <code>hasItems</code> method draws a deliberate line. It answers for the cart's own state and nothing else. Pushed too far, Tell Don't Ask pulls decisions into an object that has no business making them. A shopping cart can reasonably decide whether it's empty. It can't reasonably decide whether checkout is allowed today, because that depends on inventory, the user's account standing, and a promotion schedule the cart has never heard of. Forcing that decision inside the cart means either injecting every collaborator it might ever need an answer from, or duplicating their logic locally to avoid asking. Some decisions genuinely belong to a caller with a wider view, and asking a few objects for their state is more honest than pretending one of them can decide alone.
+  </p>
+
+  <h3 id="cqs">Command Query Separation</h3>
+  <p>
+    Bertrand Meyer's <strong>Command Query Separation</strong> (CQS), also from <em>Object-Oriented Software Construction</em>, draws a line between two kinds of methods. A command does something and returns nothing. A query answers something and changes nothing. A method that does both is unsafe to call from a place that only meant to observe, a log statement or a debugger watch expression, because observing it also changes state.
+  </p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">cart-queue.ts</span>
+      <span class="code-lang">TS</span>
+    </div>
+    <pre><code><span class="cm">// Reading this call also empties the cart, so a log statement</span>
+<span class="cm">// that calls it silently changes what happens next.</span>
+<span class="kw">function</span> <span class="fn">popNextItem</span>(<span class="n">cart</span>: <span class="t">Cart</span>): <span class="t">Item</span> {
+  <span class="kw">return</span> <span class="n">cart</span>.<span class="n">items</span>.<span class="fn">shift</span>();
+}
+
+<span class="cm">// Command and query, safe to call independently or not at all.</span>
+<span class="kw">function</span> <span class="fn">removeNextItem</span>(<span class="n">cart</span>: <span class="t">Cart</span>): <span class="t">void</span> { <span class="n">cart</span>.<span class="n">items</span>.<span class="fn">shift</span>(); }
+<span class="kw">function</span> <span class="fn">peekNextItem</span>(<span class="n">cart</span>: <span class="t">Cart</span>): <span class="t">Item</span> { <span class="kw">return</span> <span class="n">cart</span>.<span class="n">items</span>[<span class="m">0</span>]; }</code></pre>
+  </div>
+
+  <p>
+    CQS is a guideline, not a hard constraint, and plenty of well-established methods break it on purpose. <code>Array.prototype.pop()</code> removes the last element and returns it in one call, and nobody considers that a design flaw. An auto-incrementing counter that returns the new value on every call does the same thing, and so does a SQL <code>INSERT</code> that returns the generated id from the same statement that created the row. Splitting either into a separate command and query would mean an extra round trip, or a second read that could see a different answer than the write just produced. The line worth holding is narrower than "never combine." A method that returns state while changing it is fine when the return value is inseparable from the change, the very thing the write just produced. It's a problem when the return value is incidental and calling the method for its side effect alone becomes a trap for the next person to read it.
+  </p>
+
+  <p>
+    Law of Demeter, Tell Don't Ask, and Command Query Separation all circle back to the same underlying question, what an object should expose and who decides based on it. Each approaches it from a different angle, one about traversal, one about control flow, one about method shape. That's why they're grouped together here rather than scattered across other sections.
+  </p>
+
+  <!-- ═══════════════════════════════════════════════════
+       5. FAIL FAST
+  ════════════════════════════════════════════════════ -->
+  <h2 id="fail-fast">Fail fast</h2>
+  <p class="lede">Every principle so far is about how code is arranged. This one is about how quickly a program admits something is wrong, which is why it sits outside the tree above rather than inside one of its branches.</p>
+  <p>
+    Invalid state discovered far from where it was introduced is expensive to debug. The error message points at the symptom, not the cause, and tracing backward through however many function calls separate them takes real time. <strong>Fail fast</strong> is the discipline of surfacing a problem at its source instead of letting it propagate. In practice that's a guard clause at a function's boundary that throws immediately on an invalid argument, rather than passing it through and letting it corrupt something three calls later.
+  </p>
+  <p>
+    A quieter version of the same mistake is a function that can't do what it was asked to do, and returns as if it had anyway. A save that silently drops a write on a duplicate key hides the failure. So does an update that returns without changing anything because the record it was supposed to update doesn't exist. Both look like they succeeded from the caller's side. The caller has no way to tell "done" from "silently skipped," and the bug surfaces later as whatever code assumes work that never actually ran.
+  </p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">update-email.ts</span>
+      <span class="code-lang">TS</span>
+    </div>
+    <pre><code><span class="cm">// Returns normally whether the update happened or not. A caller</span>
+<span class="cm">// can't tell "saved" from "silently did nothing."</span>
+<span class="kw">function</span> <span class="fn">updateEmail</span>(<span class="n">id</span>: <span class="t">string</span>, <span class="n">email</span>: <span class="t">string</span>): <span class="t">void</span> {
+  <span class="kw">const</span> <span class="n">user</span> = <span class="n">users</span>.<span class="fn">get</span>(<span class="n">id</span>);
+  <span class="kw">if</span> (!<span class="n">user</span>) <span class="kw">return</span>;
+  <span class="n">user</span>.<span class="n">email</span> = <span class="n">email</span>;
+}
+
+<span class="cm">// Fails at the point where the assumption breaks, not three</span>
+<span class="cm">// calls later when something expects the email to have changed.</span>
+<span class="kw">function</span> <span class="fn">updateEmail</span>(<span class="n">id</span>: <span class="t">string</span>, <span class="n">email</span>: <span class="t">string</span>): <span class="t">void</span> {
+  <span class="kw">const</span> <span class="n">user</span> = <span class="n">users</span>.<span class="fn">get</span>(<span class="n">id</span>);
+  <span class="kw">if</span> (!<span class="n">user</span>) <span class="kw">throw</span> <span class="kw">new</span> <span class="fn">Error</span>(<span class="s">`No user with id </span><span class="p">${</span><span class="n">id</span><span class="p">}</span><span class="s">`</span>);
+  <span class="n">user</span>.<span class="n">email</span> = <span class="n">email</span>;
+}</code></pre>
+  </div>
+
+  <p>
+    The exception is a function whose job is to reach a state rather than perform an action. Deleting a record that's already gone is the clearest case. The caller wanted the record gone, and it already is. Returning as if the delete succeeded is accurate, not a swallowed failure. The same reasoning covers a create-if-missing call, or cancelling a subscription that's already cancelled. What makes the silent return acceptable here is that the desired end state already holds. Nothing was skipped that the caller was depending on.
+  </p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">delete-user.ts</span>
+      <span class="code-lang">TS</span>
+    </div>
+    <pre><code><span class="cm">// No error if the id was already gone. The caller's goal, "this</span>
+<span class="cm">// record shouldn't exist," is already true, so this isn't a failure.</span>
+<span class="kw">function</span> <span class="fn">deleteUser</span>(<span class="n">id</span>: <span class="t">string</span>): <span class="t">void</span> {
+  <span class="n">users</span>.<span class="fn">delete</span>(<span class="n">id</span>);
+}</code></pre>
+  </div>
+
+  <p>
+    In a modern TypeScript codebase, fail fast increasingly happens before the program even runs. Strict mode turns a value that might be <code>undefined</code> into a compile error at the point it's used, not a runtime crash the first time a user hits the missing case. An exhaustive <code>switch</code> over a union type, checked with a <code>never</code> assertion in the default branch, fails to compile the moment a new case is added to the union without a matching branch. That catches the gap before the code ships rather than after. Static typing enforced this way is fail fast moved one step earlier, from the first bad input to the first bad line.
+  </p>
+  <p>
+    The failure mode is treating every unexpected input as a hard crash. Code that calls a service which occasionally times out, and which the caller can reasonably retry or fall back from, shouldn't throw an unrecoverable error at the first sign of trouble. Fail fast is for state that's actually invalid and shouldn't be allowed to continue, not for every condition a caller might reasonably want to handle itself.
+  </p>
+
+  <!-- ═══════════════════════════════════════════════════
+       6. WHERE THESE PRINCIPLES PULL AGAINST EACH OTHER
+  ════════════════════════════════════════════════════ -->
+  <h2 id="tension">Where these principles pull against each other</h2>
+  <p class="lede">Return to the opening claim. Every principle reduces one of four costs, namely understanding, changing, testing, or extending. Every misuse story above is one of those same four costs being paid back after a different one was reduced.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Principle</th><th>Reduces</th><th>Overused becomes</th><th>Cost that comes back</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>DRY</td><td>Duplicate knowledge</td><td>A wrong shared abstraction forced to cover cases that were never really the same</td><td>Understanding, changing</td></tr>
+        <tr><td>SRP</td><td>Mixed responsibilities</td><td>Hundreds of tiny classes, logic scattered thin across all of them</td><td>Understanding</td></tr>
+        <tr><td>OCP</td><td>Modification risk</td><td>A plugin or strategy architecture for a case that will never have a second variant</td><td>Understanding, extending</td></tr>
+        <tr><td>DIP / DI</td><td>Hard-wired concretions</td><td>An interface with exactly one implementation, forever</td><td>Understanding</td></tr>
+        <tr><td>KISS</td><td>Accidental complexity</td><td>Oversimplification that hides real edge cases instead of removing them</td><td>Extending, testing</td></tr>
+        <tr><td>YAGNI</td><td>Speculative building</td><td>Read as "never plan," creating debt the moment the "unlikely" need arrives anyway</td><td>Changing</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>
+    The pattern in that table is the whole argument of this article compressed into one shape. Nothing on this list is free, and nothing on this list is free of a stopping point. DRY removes duplicated knowledge until the abstraction it creates has to serve two things that were never actually the same thing. OCP removes the risk of editing working code until the extension point it adds is speculation dressed up as architecture. The practical heuristic that falls out of all seventeen principles is the same one. Apply a principle when it removes a cost you can already point to in the code in front of you. That cost might be a specific change that's hard to make, a specific concept that's hard to follow, or a specific case that's hard to test. Not because the principle is well known, and not preemptively, before that cost has actually shown up.
+  </p>
+
+</main>
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+
+</body>
+</html>
