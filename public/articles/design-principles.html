@@ -81,11 +81,11 @@
 
   <div class="eyebrow">Architecture · Principles</div>
   <h1>Software Design Principles</h1>
-  <p class="subtitle">Why the same handful of rules for structuring code and dependencies keep reappearing across languages and decades, and when to bend them.</p>
+  <p class="subtitle">Why the same handful of rules for structuring code and dependencies keep reappearing across languages.</p>
   <div class="byline">
     <strong>Deep dive</strong>
     <div class="dot"></div>
-    <span>~28 min read</span>
+    <span>~31 min read</span>
     <div class="dot"></div>
     <span>Software design</span>
     <div class="dot"></div>
@@ -97,19 +97,25 @@
   ════════════════════════════════════════════════════ -->
   <section id="intro">
     <p>A <strong>design principle</strong> is a rule of thumb for shaping code and the dependencies between its parts. It emerges from repeated observations of the same kind of mistake across many projects. A principle isn't enforced by the compiler, nor is it universally correct. Instead, it's a trade-off that pays off in a particular context, and understanding when to apply it is just as important as understanding the principle itself. This article explores the most enduring design principles, not as a checklist to apply everywhere, but as tools for solving recurring problems in real codebases.</p>
+    <p>A codebase that ignores these principles doesn't fail loudly. A one-line fix in a payment method breaks checkout, because two features were quietly sharing state neither owner knew about. A new hire spends a full day tracing what a single function does before daring to touch it, because it does five unrelated things under one name. A test can't run without spinning up a database, a mail server, and half the application, because nothing in the code was built to run in isolation. Each of these traces back to the same handful of recurring issues:</p>
+    <ul>
+      <li><strong>Understanding gets harder</strong>, because behavior that looks self-contained turns out to depend on something two files away that nobody documented.</li>
+      <li><strong>Changing gets riskier</strong>, because a fix in one place can break a feature that was silently relying on it.</li>
+      <li><strong>Testing gets harder</strong>, because nothing can be verified without dragging in the rest of the system.</li>
+      <li><strong>Extending gets more fragile</strong>, because new behavior has to be wedged into a structure that wasn't built to expect it.</li>
+    </ul>
     <p>
-      All design principles reduce one of the same four costs:
+      Every principle in this article addresses one or more of these costs, though pushed past the problem it was meant to solve, most start adding costs of their own back into the system. Many other concerns, such as correctness and security, also benefit indirectly when a system is easier to understand, change, test, and extend.
+    </p>
+    <p>
+      This article groups the structural principles into four branches, based on the kind of decision each one governs.
     </p>
     <ul>
-      <li><strong>Reading a codebase costs time</strong>, because someone has to build a mental model of what it does before touching it.</li>
-      <li><strong>Changing it costs time</strong>, because a change in one place risks breaking something in another.</li>
-      <li><strong>Testing it costs time</strong>, because behavior has to be verified in isolation before it can be trusted in combination.</li>
-      <li><strong>Extending it costs time</strong>, because new behavior has to fit into what already exists without warping it.</li>
+      <li><strong>Build less</strong> principles decide whether a piece of code should exist at all, before anything gets organized.</li>
+      <li><strong>Organize code well</strong> principles decide where a responsibility lives once it does exist, and what it's allowed to know about its neighbors.</li>
+      <li><strong>Depend safely</strong> principles decide how one piece of code is allowed to rely on another without the two becoming impossible to change independently.</li>
+      <li><strong>Communicate cleanly</strong> principles decide what an object should expose about itself, and who gets to make decisions based on it.</li>
     </ul>
-    <p>Every principle in this article trims one of those four costs somewhere in a codebase. Every principle also has a failure mode with the same shape. Pushed past the cost it was actually solving, it starts adding a different one of those same four costs back in.
-    <p>
-      The figure below categorizes every principle in this article into four branches by what it's actually for. One principle, fail fast, sits outside that tree on purpose. It's a runtime discipline about how quickly a program surfaces a problem, not a structural rule about how code is arranged, so folding it into one of the four branches would misrepresent what it does.
-    </p>
 
     <div class="figure-wrap">
       <svg viewBox="0 0 700 260" role="img" aria-label="Tree diagram. Root node: keep systems easy to change. Four branches follow. Build less contains YAGNI, KISS, Rule of Three, and DRY. Organize code well contains encapsulation, separation of concerns, single responsibility principle, interface segregation principle, and cohesion and coupling. Depend safely contains open/closed principle, Liskov substitution principle, composition over inheritance, dependency inversion principle, dependency injection, and inversion of control. Communicate cleanly contains law of Demeter, tell don't ask, and command query separation.">
@@ -120,8 +126,8 @@
         </defs>
 
         <rect x="270" y="18" width="160" height="42" rx="7" fill="color-mix(in srgb, var(--accent) 10%, transparent)" stroke="var(--accent)" stroke-width="1.2"/>
-        <text x="350" y="35" text-anchor="middle" font-family="var(--font-mono)" font-size="10.5" fill="var(--accent)">THE THESIS</text>
-        <text x="350" y="51" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11.5" fill="var(--text)">Keep systems easy to change</text>
+        <text x="350" y="35" text-anchor="middle" font-family="var(--font-mono)" font-size="10.5" fill="var(--accent)">STRUCTURAL</text>
+        <text x="350" y="51" text-anchor="middle" font-family="var(--font-mono)" font-size="10.5" fill="var(--accent)">DESIGN PRINCIPLES</text>
 
         <line x1="350" y1="60" x2="350" y2="90" stroke="var(--text-faint)" stroke-width="1.2"/>
         <line x1="95" y1="90" x2="605" y2="90" stroke="var(--text-faint)" stroke-width="1.2"/>
@@ -161,11 +167,15 @@
       </svg>
       <figcaption>Grouped by the problem each principle actually solves rather than by acronym. Fail fast sits outside this tree, covered in its own closing section.</figcaption>
     </div>
+
+    <p>
+      Fail fast sits outside all four, since it's a runtime discipline about how quickly a problem surfaces, not a structural rule about how code is arranged.
+    </p>
   </section>
 
   <h2 id="history">History</h2>
     <p>
-      Every idea in this article showed up independently. A Navy contractor described one in the 1960s. A researcher building an experimental object-oriented language described another in 1972. A pair of graduate students at Northeastern rediscovered a version of a third in the 1980s while working on something else entirely. None of them were reading each other's papers. None of them were trying to build a unified theory of software design. Each was staring at a different kind of mess and reaching for whatever fixed it.
+      These ideas didn't arrive from one place. Some genuinely emerged in isolation. A Navy contractor described one in the 1960s. A researcher building an experimental object-oriented language described another in 1972. A pair of graduate students at Northeastern rediscovered a version of a third in the 1980s while working on something else entirely. Other ideas share more of a common thread. Liskov, Meyer, and Lieberherr were all working inside the same academic object-oriented research community in the late 1980s, and their principles arrived within a year of each other. What both groups have in common is the absence of any coordinated effort. Nobody sat down to build a unified theory of software design. Each was staring at a different kind of mess and reaching for whatever fixed it.
     </p>
     <p>
       That's why these principles keep resurfacing under different names in different decades.
@@ -180,7 +190,7 @@
             <tr><th>Era</th><th>Principles</th><th>Origin</th></tr>
           </thead>
           <tbody>
-            <tr><td>1960s–70s</td><td>KISS, information hiding, separation of concerns</td><td>U.S. Navy engineering (KISS)<br>David Parnas, 1972 (information hiding)<br>Edsger Dijkstra, 1974 (separation of concerns)</td></tr>
+            <tr><td>1960s–70s</td><td>KISS, information hiding, separation of concerns</td><td>popularly credited to U.S. Navy engineering, though disputed (KISS)<br>David Parnas, 1972 (information hiding)<br>Edsger Dijkstra, 1974 (separation of concerns)</td></tr>
             <tr><td>1980s</td><td>Law of Demeter, Liskov Substitution, Open/Closed, Command Query Separation</td><td>Karl Lieberherr and Ian Holland's Demeter project, Northeastern, 1987 (Law of Demeter)<br>Barbara Liskov's OOPSLA keynote, 1987 (Liskov Substitution)<br>Bertrand Meyer, <em>Object-Oriented Software Construction</em>, 1988 (Open/Closed, Command Query Separation)</td></tr>
             <tr><td>1990s</td><td>Rule of Three, DRY, YAGNI, Tell Don't Ask, SRP/ISP/DIP</td><td>Roberts &amp; Johnson and Fowler's <em>Refactoring</em>, 1999 (Rule of Three)<br>Hunt &amp; Thomas, <em>The Pragmatic Programmer</em>, 1999 (DRY)<br>Extreme Programming, ~1999 (YAGNI)<br>Robert C. Martin's papers through the decade (SRP, ISP, DIP)</td></tr>
             <tr><td>2000s</td><td>SOLID as a named acronym, Dependency Injection as a named pattern</td><td>Michael Feathers coined the SOLID acronym around 2004 from Martin's already-published principles<br>Martin Fowler named and popularized Dependency Injection in a 2004 article</td></tr>
@@ -273,7 +283,7 @@
     <pre><code><span class="cm">// The same shape existed inline in createUser, updateUser, and</span>
 <span class="cm">// importUsers before the third call site made it worth naming.</span>
 <span class="kw">function</span> <span class="fn">assertValidEmail</span>(<span class="n">email</span>: <span class="t">string</span>): <span class="t">void</span> {
-  <span class="kw">if</span> (!<span class="n">email</span>.<span class="fn">includes</span>(<span class="s">'@'</span>) || <span class="n">email</span>.<span class="fn">startsWith</span>(<span class="s">'@'</span>)) {
+  <span class="kw">if</span> (!<span class="s">/^[^\s@]+@[^\s@]+\.[^\s@]+$/</span>.<span class="fn">test</span>(<span class="n">email</span>)) {
     <span class="kw">throw</span> <span class="kw">new</span> <span class="fn">Error</span>(<span class="s">`Invalid email: </span><span class="p">${</span><span class="n">email</span><span class="p">}</span><span class="s">`</span>);
   }
 }</code></pre>
@@ -287,14 +297,14 @@
        2. ORGANIZE CODE WELL
   ════════════════════════════════════════════════════ -->
   <h2 id="organize-code-well">Organize code well</h2>
-  <p class="lede">Once a piece of behavior earns its place in the codebase, the next question is where it lives and what it's allowed to know about its neighbors.</p>
+  <p class="lede">Once a piece of behavior earns its place in the codebase, the next question is where it lives and what it's allowed to know about its neighbors. Get that right, and the same code becomes easier to find, easier to reason about, and easier to test on its own.</p>
 
   <h3 id="encapsulation">Encapsulation and information hiding</h3>
   <p>
     David Parnas's 1972 paper "On the Criteria to Be Used in Decomposing Systems into Modules" made an argument that still holds. A module should hide an implementation decision behind a stable interface, so that changing the decision later doesn't require changing everything that depends on the module. Parnas called this <strong>information hiding</strong>. <strong>Encapsulation</strong> is the practice that follows from it in most languages today. Expose a method that performs an operation, not the internal data structure that operation happens to use today. A queue class exposing <code>enqueue()</code> and <code>dequeue()</code> can switch its internal storage from an array to a linked list without a single caller noticing. A queue class that exposes its backing array directly can't.
   </p>
   <p>
-    This is the oldest of the organizational principles here, predating separation of concerns by two years. The two principles that follow in this section are really encapsulation applied at a specific scale. Single responsibility is encapsulation at the level of a module. Interface segregation is encapsulation at the level of an interface. Overdone, encapsulation turns defensive. Every field gets a getter and a setter that exposes it right back out, hiding nothing, or a legitimate configuration need routes through three layers of indirection because nothing was left adjustable. Hiding a decision is only valuable when the decision might actually change.
+    This is the oldest of the organizational principles here, predating separation of concerns by two years. The two principles that follow in this section overlap heavily with encapsulation applied at a specific scale, though neither reduces to it completely. Single responsibility is partly encapsulation at the level of a module, and partly a claim about cohesion, keeping together the code that changes for one reason. Interface segregation is partly encapsulation at the level of an interface, and partly about limiting how much of an interface's volatility a caller is exposed to. Overdone, encapsulation turns defensive. Every field gets a getter and a setter that exposes it right back out, hiding nothing, or a legitimate configuration need routes through three layers of indirection because nothing was left adjustable. Hiding a decision is only valuable when the decision might actually change. That's also why a plain, immutable value object, a coordinate pair or a date range, is usually better off exposing its fields directly. There's no implementation decision underneath a value object like that to protect, so a method wrapped around the field would just be encapsulation with nothing to hide.
   </p>
 
   <h3 id="separation-of-concerns">Separation of concerns</h3>
@@ -326,7 +336,7 @@
 
   <h3 id="cohesion-coupling">High cohesion, low coupling</h3>
   <p>
-    <strong>Cohesion</strong> and <strong>coupling</strong> are the vocabulary that names what the four principles above are collectively for. Cohesion describes how closely the responsibilities within a module belong together. High cohesion means the module's responsibilities naturally fit together. Encapsulation and the Single Responsibility Principle (SRP), when applied well, tend to promote high cohesion. Coupling describes the dependencies between modules. Low coupling means modules depend as little as possible on one another. Separation of concerns and the Interface Segregation Principle (ISP) applied well help reduce coupling between modules.
+    <strong>Cohesion</strong> and <strong>coupling</strong> are the clearest lens for what the four principles above have in common, though not a complete account of what each one does on its own. Cohesion describes how closely the responsibilities within a module belong together. High cohesion means the module's responsibilities naturally fit together. Encapsulation and the Single Responsibility Principle (SRP), when applied well, tend to promote high cohesion, and both also make a module easier to test in isolation. Coupling describes the dependencies between modules. Low coupling means modules depend as little as possible on one another. Separation of concerns and the Interface Segregation Principle (ISP) applied well help reduce coupling between modules. ISP's narrower interfaces carry the added benefit of making it easier to discover which capability a caller actually needs.
   </p>
 
   <div class="figure-wrap">
@@ -411,7 +421,11 @@
   </div>
 
   <p>
-    OCP is easy to overapply. Building a registration table, a plugin loader, or a strategy interface for a case that has exactly one implementation and no realistic second one adds a layer of indirection. That costs a reader time to trace, in exchange for flexibility nothing will ever use. The branch chain above was worth replacing because payment methods actually multiply. A function with one permanently fixed behavior doesn't need the same treatment.
+    The map itself still gets a new line for every payment method. That's not the textbook form of OCP, where a new class is added in a new file and nothing existing is touched at all. What it does close off is the risk that used to matter most. A new case can no longer break an existing one, because adding <code>chargeWallet</code>'s entry can't alter what <code>chargeCard</code>'s entry does. A plugin registry or a common interface implemented by a new class gets closer to the classic form, but reaching for that heavier structure before it's earned is its own mistake.
+  </p>
+
+  <p>
+    Building a registration table, a plugin loader, or a strategy interface for a case that has exactly one implementation and no realistic second one adds a layer of indirection. That costs a reader time to trace, in exchange for flexibility nothing will ever use. The branch chain earlier in this section was worth replacing because payment methods actually multiply. A function with one permanently fixed behavior doesn't need the same treatment.
   </p>
 
   <h3 id="lsp">Liskov Substitution Principle</h3>
@@ -516,7 +530,7 @@
     An event listener is IoC in its simplest form. The browser decides when <code>onClick</code> runs, not the code that defines it. A test framework invoking every function named like a test is the same shape at a larger scale. Dependency injection is frequently the mechanism IoC uses to hand control over. A container builds an object graph and calls into it, rather than the object graph reaching out to build itself.
   </p>
   <p>
-    The same inversion that makes code reusable also makes it harder to trace. Once a container decides when and with what to call a piece of code, tracing that call means reading the container's wiring, not just reading the code in order. A stack trace that used to point at the calling function now points at framework internals, and a new developer can't always answer "who calls this?" by searching the codebase. IoC is worth the cost when a framework, a test runner, or a plugin host genuinely needs to own the call. A small script or a linear pipeline with one obvious caller doesn't need a container standing in the middle.
+    The same inversion that makes code reusable also makes it harder to trace. Once a container decides when and with what to call a piece of code, tracing that call means reading the container's wiring, not just reading the code in order. A new developer can't always answer "who calls this?" just by reading the codebase, because the call happens through configuration or a naming convention, not a direct reference. IoC is worth the cost when a framework, a test runner, or a plugin host genuinely needs to own the call. A small script or a linear pipeline with one obvious caller doesn't need a container standing in the middle.
   </p>
 
   <div class="figure-wrap">
@@ -565,7 +579,7 @@
        4. COMMUNICATE CLEANLY
   ════════════════════════════════════════════════════ -->
   <h2 id="communicate-cleanly">Communicate cleanly</h2>
-  <p class="lede">The last branch asks a narrower question than the first three. Once an object exists and owns its own state, what should it expose, and who gets to decide based on it?</p>
+  <p class="lede">The last branch asks a narrower question than the first three. Once an object exists and owns its own state, what should it expose, and who gets to decide based on it? Get it wrong, and a change three objects away ripples into code that never asked to know about it.</p>
 
   <h3 id="law-of-demeter">Law of Demeter</h3>
   <p>
