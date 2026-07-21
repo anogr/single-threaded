@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Containers and Orchestration — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+<style>
+  /* Article-specific only. Shared patterns (cards, callouts, code blocks,
+     sidebar, tables) come from articles.css. */
+</style>
+</head>
+
+<body>
+
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Articles</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+
+  <div class="sidebar-section">Foundations</div>
+  <a href="#why-containers">Why Containers</a>
+  <a href="#what-is-a-container">What a Container Is</a>
+  <a href="#images">Images &amp; Supply Chain</a>
+
+  <div class="sidebar-section">Orchestration</div>
+  <a href="#why-orchestration">Why Orchestration</a>
+  <a href="#architecture">Control Plane &amp; Nodes</a>
+  <a href="#core-objects">Core Objects</a>
+  <a href="#scheduling">Scheduling</a>
+  <a href="#networking">Networking</a>
+  <a href="#state">State &amp; Storage</a>
+
+  <div class="sidebar-section">Operating It</div>
+  <a href="#deployment-strategies">Deployment Strategies</a>
+  <a href="#scaling">Scaling</a>
+  <a href="#limits">What It Doesn't Solve</a>
+
+  <div class="sidebar-section">Decision Guide</div>
+  <a href="#choosing-platform">Choosing a Platform</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">Architecture · Deployment</div>
+  <h1>Containers and Orchestration</h1>
+  <p class="subtitle">Docker and Kubernetes at the level a deployment decision requires, from what a container actually is to when Kubernetes is the wrong choice.</p>
+  <div class="byline">
+    <strong>Deep dive</strong>
+    <div class="dot"></div><span>~26 min read</span>
+    <div class="dot"></div><span>Containers &amp; Kubernetes</span>
+    <div class="dot"></div><span>July 2026</span>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <section id="intro">
+  <p>Before containers, deploying an application meant reproducing an entire server environment by hand: the right operating system version, the right system libraries, the right runtime, and the right versions of everything the application depended on. A developer's laptop and a production server rarely agreed on all of these at once, which is why "it works on my machine" became a running joke rather than a debugging step.</p>
+
+  <p>Containers solve a narrower problem than virtual machines do, and that narrowness is exactly what makes them fast and portable. Once containers become numerous enough, though, another problem appears: hundreds of containers spread across dozens of machines still need something deciding what runs where, restarting what fails, and rerouting traffic when conditions change. That's the role of a container orchestrator. Kubernetes is by far the most widely adopted example, and the one this article focuses on.</p>
+
+  <p>This article works through both layers at the level a deployment decision requires. It builds up from what a container actually is, through why orchestration becomes necessary, to how Kubernetes structures that job, and closes with a framework for deciding whether Kubernetes is the right choice at all.</p>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="why-containers">Why Containers</h2>
+  <p class="lede">The technology makes more sense once the operational problems it solves are clear.</p>
+
+  <p>Long before containers, most applications ran on dedicated physical servers. A server was provisioned, an operating system installed, and the application configured directly on top of it. Moving that application to a new server, or scaling it by adding a second one, meant repeating the entire setup by hand. Two servers that were supposedly identical routinely weren't, because some dependency had been upgraded on one and not the other, or a configuration file had drifted since the last change. This gap between environments, commonly called environment drift, was one of the most persistent sources of production incidents.</p>
+
+  <p>Virtual machines improved on this by letting one physical server run several isolated operating systems at once, each with its own kernel, memory, and disk. A hypervisor sits between the hardware and each guest operating system, giving every virtual machine (VM) the illusion of dedicated hardware. That isolation is strong, but it's also expensive: every VM carries the weight of a full guest operating system, which means minutes to boot and gigabytes of disk spent on an OS the application doesn't actually need.</p>
+
+  <p>Containers keep the isolation but drop the duplicated operating system. A container packages an application with its dependencies and shares the host machine's kernel instead of running its own. <strong>A container is an isolated process, not a separate machine.</strong> That difference is why a container starts in milliseconds instead of minutes, why a container image measures in megabytes rather than gigabytes, and why a single host can run far more containers than it could virtual machines.</p>
+
+  <p>Containers also change how deployments are managed. Instead of a server that evolves over time through patches and configuration changes, the application itself becomes the unit of deployment. A new container image is built, tested, and started to replace the old one wholesale, rather than patched in place with a change that might not match whatever was tested. This pattern, known as <strong>immutable infrastructure</strong>, treats a running instance as disposable: if something is wrong, it isn't fixed in place, it's replaced with a new image built from a known-good definition. Combined with a registry that stores every built image, this also turns a rollback into starting the previous image again, rather than reconstructing what a server looked like before a bad change.</p>
+
+  <p>The figure below makes the comparison concrete: the same layers of a deployment stack, with containers replacing an entire guest operating system per instance with a much thinner isolation boundary enforced by the host kernel itself.</p>
+
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 560 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Layered comparison of a virtual machine stack and a container stack. Both share hardware and a host operating system, but a virtual machine adds a hypervisor and a full guest operating system per instance, while a container replaces both with a single container runtime and kernel-level namespaces and cgroups." style="max-width:100%;display:block;background:var(--surface);border:1px solid var(--border);border-radius:8px;">
+
+      <rect x="8" y="8" width="268" height="272" rx="6" fill="color-mix(in srgb, var(--teal) 4%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <text x="142" y="28" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="700" fill="var(--teal)" letter-spacing="0.05em">VIRTUAL MACHINES</text>
+
+      <rect x="284" y="8" width="268" height="272" rx="6" fill="color-mix(in srgb, var(--accent) 4%, transparent)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="418" y="28" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="700" fill="var(--accent)" letter-spacing="0.05em">CONTAINERS</text>
+
+      <!-- VM stack -->
+      <rect x="20" y="44" width="118" height="30" rx="4" fill="var(--surface-2)" stroke="var(--green)" stroke-width="1.5"/>
+      <text x="79" y="63" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="var(--green)">App A</text>
+      <rect x="146" y="44" width="118" height="30" rx="4" fill="var(--surface-2)" stroke="var(--green)" stroke-width="1.5"/>
+      <text x="205" y="63" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="var(--green)">App B</text>
+
+      <rect x="20" y="90" width="118" height="30" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="79" y="109" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">Guest OS A</text>
+      <rect x="146" y="90" width="118" height="30" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="205" y="109" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">Guest OS B</text>
+
+      <rect x="20" y="136" width="244" height="30" rx="4" fill="var(--surface-2)" stroke="var(--teal)" stroke-width="1.5"/>
+      <text x="142" y="155" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" font-weight="600" fill="var(--teal)">Hypervisor</text>
+
+      <rect x="20" y="182" width="244" height="30" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="142" y="201" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text-dim)">Host OS</text>
+
+      <rect x="20" y="228" width="244" height="30" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="142" y="247" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text-dim)">Hardware</text>
+
+      <text x="142" y="273" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">a full OS duplicated per instance</text>
+
+      <!-- Container stack -->
+      <rect x="296" y="44" width="118" height="30" rx="4" fill="var(--surface-2)" stroke="var(--green)" stroke-width="1.5"/>
+      <text x="355" y="63" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="var(--green)">App A</text>
+      <rect x="422" y="44" width="118" height="30" rx="4" fill="var(--surface-2)" stroke="var(--green)" stroke-width="1.5"/>
+      <text x="481" y="63" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="var(--green)">App B</text>
+
+      <rect x="296" y="90" width="244" height="30" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="418" y="109" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">Namespaces &amp; cgroups</text>
+
+      <rect x="296" y="136" width="244" height="30" rx="4" fill="var(--surface-2)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="418" y="155" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" font-weight="600" fill="var(--accent)">Container Runtime</text>
+
+      <rect x="296" y="182" width="244" height="30" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="418" y="201" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text-dim)">Host OS</text>
+
+      <rect x="296" y="228" width="244" height="30" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="418" y="247" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text-dim)">Hardware</text>
+
+      <text x="418" y="273" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">one kernel, shared by every container</text>
+    </svg>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">Both stacks share hardware and a host OS. A container replaces the hypervisor and per-instance guest OS with a single runtime and kernel-level isolation.</figcaption>
+  </figure>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="what-is-a-container">What a Container Actually Is</h2>
+  <p class="lede">Many people who work with Kubernetes daily have never actually asked what happens the moment a container starts.</p>
+
+  <p>A container image and a running container are two different things. An <strong>image</strong> is a static, versioned bundle of application code, a language runtime, system libraries, and configuration, packed into a set of read-only layers. A container is what happens when that image is unpacked and started as an isolated, running process on a host. The distinction matters because an image can sit in a registry indefinitely without doing anything, while a container is a live process with a lifecycle: starting, running, and eventually stopping.</p>
+
+  <p>Both the image format and how a container actually runs are defined by open standards from the Open Container Initiative (OCI), rather than by Docker itself. The OCI image specification defines how layers, metadata, and configuration are packaged. The OCI runtime specification defines what a compliant runtime must do to start a container from that bundle: create the right namespaces, apply resource limits, and execute the process. Because these are open standards, several independent implementations exist, and Docker Engine is only one of them.</p>
+
+  <div class="callout info">
+    <div class="callout-title">Docker popularized containers. It didn't monopolize them.</div>
+    <p>Docker is still the tool most developers reach for locally, but Kubernetes dropped built-in support for running Docker Engine directly as of version 1.24, when it removed the dockershim compatibility layer. Production clusters run containerd or CRI-O as the container runtime instead. Those runtimes manage images and container lifecycles while delegating the low-level process creation to an OCI-compliant runtime such as runc. Kubernetes talks to them through the Container Runtime Interface (CRI), rather than depending on Docker specifically.</p>
+  </div>
+
+  <p>Underneath any of these runtimes, the actual isolation comes from two Linux kernel features that predate containers by years. <strong>Namespaces</strong> give a process its own view of resources it would otherwise share with everything else on the host: its own process IDs, its own network interfaces, its own mounted filesystem. A process inside a container cannot see or affect processes outside it, even though nothing has actually been virtualized. <strong>Control groups</strong> (cgroups) limit and account for the resources a process is allowed to use, such as CPU time and memory. That's what stops one container from starving every other process on the same host. A container is, in the end, an ordinary Linux process that the kernel has been told to see a smaller world and use a smaller share of resources. The kernel is shared; the isolation is a set of restrictions layered on top of a normal process.</p>
+
+  <p>Namespaces and cgroups are Linux kernel features, which makes containers fundamentally a Linux technology. Windows containers exist, and Kubernetes can schedule them onto Windows nodes, but the tooling, ecosystem, and community support around them are all considerably thinner than on Linux, which is why nearly everything else in this article assumes a Linux workload.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="images">Images as a Supply Chain Artifact</h2>
+  <p class="lede">An image is not just a deployment artifact. It's also the point where security, versioning, and reproducibility either get handled once or get handled nowhere.</p>
+
+  <p>Every instruction in a Dockerfile, the file that defines how an image is built, produces a new read-only layer stacked on top of the previous one. Layers are cached and shared: if two images both start from the same base layer, that layer is stored and downloaded only once. Ordering instructions from least to most frequently changing keeps that cache useful, since a build tool invalidates a layer, and every layer after it, the moment anything in that layer changes.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">Dockerfile</span>
+      <span class="code-lang">Dockerfile</span>
+    </div>
+    <pre><code><span class="cm"># Stage 1: build, with the full toolchain</span>
+<span class="kw">FROM</span> <span class="s">node:20-alpine</span> <span class="kw">AS</span> <span class="cn">build</span>
+<span class="kw">WORKDIR</span> <span class="s">/app</span>
+<span class="kw">COPY</span> <span class="s">package*.json ./</span>
+<span class="kw">RUN</span> npm ci
+<span class="kw">COPY</span> <span class="s">. .</span>
+<span class="kw">RUN</span> npm run build
+
+<span class="cm"># Stage 2: runtime, nothing but the build output</span>
+<span class="kw">FROM</span> <span class="s">node:20-alpine</span>
+<span class="kw">WORKDIR</span> <span class="s">/app</span>
+<span class="kw">COPY</span> <span class="s">--from=</span><span class="cn">build</span> <span class="s">/app/dist ./dist</span>
+<span class="kw">COPY</span> <span class="s">--from=</span><span class="cn">build</span> <span class="s">/app/node_modules ./node_modules</span>
+<span class="kw">CMD</span> <span class="s">["node", "dist/server.js"]</span></code></pre>
+  </div>
+
+  <p>This is a multi-stage build: the first stage has everything needed to compile the application, and the second copies only the finished output into a clean base image. The compilers, source files, and build-time dependencies from stage one never reach the image that actually gets deployed, which keeps the final image smaller and reduces the amount of software an attacker could exploit if a vulnerability turned up in a build tool.</p>
+
+  <p>In practice, images are usually built automatically by a continuous integration and deployment (CI/CD) pipeline, rather than on a developer's machine. That pipeline becomes the point where an image is compiled, tested, scanned, signed, and published to a registry, turning the image into the trusted artifact that moves through every deployment environment unchanged.</p>
+
+  <p>Beyond build mechanics, an image is where several architectural concerns for a deployment actually get enforced:</p>
+
+  <ul>
+    <li><strong>Reproducibility.</strong> The same image runs identically on a laptop, in staging, and in production, because it's the same bytes rather than a re-run of an install script that might resolve different dependency versions each time.</li>
+    <li><strong>Immutability.</strong> Once built and tagged, an image doesn't change. Fixing a bug means building a new image, not patching the running one.</li>
+    <li><strong>Versioning.</strong> Image tags, or better, content-addressable digests, give every deployment a precise, auditable answer to what code is actually running right now.</li>
+    <li><strong>Promotion through environments.</strong> The same image that passed testing in staging is the one deployed to production, rather than being rebuilt at each stage, which removes an entire class of failure caused by a rebuild silently picking up a different dependency version.</li>
+    <li><strong>Vulnerability scanning.</strong> Because an image is a fixed, inspectable artifact, it can be scanned for known-vulnerable packages before it's ever deployed, and a pipeline can block a release outright if a scan fails.</li>
+    <li><strong>Supply-chain integrity.</strong> Image signing and a software bill of materials (SBOM) let a deployment pipeline verify that an image was built by a trusted process and hasn't been tampered with since, rather than trusting the registry blindly.</li>
+  </ul>
+
+  <p>None of this requires Kubernetes specifically. It's true of any container-based deployment. But Kubernetes pulls images from a registry as its basic unit of deployment, so every one of these properties carries straight through into how a cluster behaves. What it schedules, what it can roll back to, and what a security team can audit afterward all trace back to the image itself.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="why-orchestration">Why Orchestration Exists</h2>
+  <p class="lede">Running one container on one host is easy. The moment there's more than a handful of either, something has to decide what runs where.</p>
+
+  <p>A single host running a handful of containers can be managed by hand: start this one, stop that one, restart whichever crashed. That stops being realistic once an application is split across dozens of services, each running several replicas for redundancy, spread across enough hosts that no single machine could hold all of them. Someone, or something, has to decide which host runs which container, notice when a container or an entire host disappears, and route traffic to whatever is currently healthy.</p>
+
+  <p>An <strong>orchestrator</strong> is software that makes those decisions continuously instead of a person making them once at deploy time. An operator describes the desired state of the system (for example, that three replicas of an application should always be running), and the orchestrator continuously works to make reality match that description. It schedules containers onto hosts based on available capacity, and it restarts or replaces containers that fail their health checks. If an entire host disappears, it reschedules that host's workloads elsewhere. It also keeps its internal record of where everything is running up to date, so other components, like a load balancer, always know where to send traffic.</p>
+
+  <p>Docker Swarm, HashiCorp Nomad, and Kubernetes all do this job. Kubernetes has become the default choice for most new infrastructure, which is why the rest of this article focuses on it specifically.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="architecture">Control Plane and Worker Nodes</h2>
+  <p class="lede">Every decision Kubernetes makes about where a container runs starts in one part of the cluster and ends in another.</p>
+
+  <p>A Kubernetes cluster is divided into two kinds of machines with entirely different jobs. The <strong>control plane</strong> makes decisions: it holds the cluster's entire desired state, decides what should be running where, and reacts when reality drifts from that state. <strong>Worker nodes</strong> do the actual work, each one running the containers themselves on whatever physical or virtual machine that node happens to be.</p>
+
+  <p>Inside the control plane, several components split up the decision-making. The API server is the single entry point: every other component, including a human running a command-line tool, talks to the cluster only through it. Behind that, etcd stores the cluster's entire state, the scheduler decides which node a new container should run on based on available resources, and a set of controllers continuously compare what's actually running against what was requested, correcting any difference they find. This comparison of desired state against actual state, run continuously rather than once, is called <strong>declarative reconciliation</strong>, and it's the design principle underneath everything else in this article: describe the outcome that should exist, not the steps to get there. None of these components run the application itself. That's the worker node's job.</p>
+
+  <p>Each worker node runs three things. A kubelet is the agent that receives instructions from the API server and makes sure the containers assigned to that node are actually running. A kube-proxy handles network routing to and from containers on that node. And the container runtime itself, whichever OCI-compliant one the cluster is configured to use, is what actually starts and stops the containers.</p>
+
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 560 332" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Kubernetes cluster topology: a control plane containing the API server, scheduler, controller manager, and etcd, connected down to two worker nodes, each running a kubelet, kube-proxy, and container runtime, hosting several Pods">
+      <defs>
+        <marker id="co-r1" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="var(--text-faint)"/></marker>
+      </defs>
+
+      <rect x="40" y="8" width="480" height="88" rx="6" fill="color-mix(in srgb, var(--accent) 4%, transparent)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="56" y="26" font-family="Inter,system-ui,sans-serif" font-size="10.5" font-weight="700" fill="var(--accent)" letter-spacing="0.05em">CONTROL PLANE</text>
+
+      <rect x="56" y="40" width="103" height="32" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="107.5" y="60" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text)">API Server</text>
+
+      <rect x="171" y="40" width="103" height="32" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="222.5" y="60" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text)">Scheduler</text>
+
+      <rect x="286" y="40" width="103" height="32" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="337.5" y="60" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text)">Controller Manager</text>
+
+      <rect x="401" y="40" width="103" height="32" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="452.5" y="60" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text)">etcd</text>
+
+      <line x1="280" y1="96" x2="280" y2="118" stroke="var(--text-faint)" stroke-width="1.5"/>
+      <line x1="150" y1="118" x2="420" y2="118" stroke="var(--text-faint)" stroke-width="1.5"/>
+      <line x1="150" y1="118" x2="150" y2="139" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#co-r1)"/>
+      <line x1="420" y1="118" x2="420" y2="139" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#co-r1)"/>
+
+      <rect x="30" y="140" width="240" height="180" rx="6" fill="color-mix(in srgb, var(--teal) 4%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <text x="150" y="158" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="700" fill="var(--teal)" letter-spacing="0.05em">WORKER NODE A</text>
+
+      <rect x="42" y="170" width="216" height="28" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="150" y="188" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="var(--text-dim)">kubelet · kube-proxy · runtime</text>
+
+      <rect x="42" y="214" width="100" height="60" rx="4" fill="var(--surface-2)" stroke="var(--accent2)" stroke-width="1.5"/>
+      <text x="92" y="238" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="var(--accent2)">Pod</text>
+      <text x="92" y="253" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8" fill="var(--text-faint)">own IP,</text>
+      <text x="92" y="264" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8" fill="var(--text-faint)">shared storage</text>
+
+      <rect x="158" y="214" width="100" height="60" rx="4" fill="var(--surface-2)" stroke="var(--accent2)" stroke-width="1.5"/>
+      <text x="208" y="238" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="var(--accent2)">Pod</text>
+      <text x="208" y="253" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8" fill="var(--text-faint)">own IP,</text>
+      <text x="208" y="264" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8" fill="var(--text-faint)">shared storage</text>
+
+      <text x="150" y="306" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">replicas continue across the node</text>
+
+      <rect x="300" y="140" width="240" height="180" rx="6" fill="color-mix(in srgb, var(--teal) 4%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <text x="420" y="158" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="700" fill="var(--teal)" letter-spacing="0.05em">WORKER NODE B</text>
+
+      <rect x="312" y="170" width="216" height="28" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="420" y="188" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="var(--text-dim)">kubelet · kube-proxy · runtime</text>
+
+      <rect x="312" y="214" width="100" height="60" rx="4" fill="var(--surface-2)" stroke="var(--accent2)" stroke-width="1.5"/>
+      <text x="362" y="238" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="var(--accent2)">Pod</text>
+      <text x="362" y="253" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8" fill="var(--text-faint)">own IP,</text>
+      <text x="362" y="264" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8" fill="var(--text-faint)">shared storage</text>
+
+      <rect x="428" y="214" width="100" height="60" rx="4" fill="var(--surface-2)" stroke="var(--accent2)" stroke-width="1.5"/>
+      <text x="478" y="238" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="var(--accent2)">Pod</text>
+      <text x="478" y="253" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8" fill="var(--text-faint)">own IP,</text>
+      <text x="478" y="264" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8" fill="var(--text-faint)">shared storage</text>
+
+      <text x="420" y="306" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">replicas continue across the node</text>
+    </svg>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">The control plane decides. Worker nodes carry the decision out, each running its own kubelet, kube-proxy, and container runtime.</figcaption>
+  </figure>
+
+  <p>A request to deploy a new version of an application goes through the API server, gets recorded in etcd, is assigned to a node by the scheduler, and is finally carried out by that node's kubelet talking to its local container runtime. Every layer covered in the rest of this article, objects, scheduling, networking, sits on top of this split between deciding and doing.</p>
+
+  <div class="callout info aside">
+    <div class="callout-title">Most clusters don't run this by hand</div>
+    <p>Managed services like Amazon EKS, Google GKE, and Azure AKS operate and patch the control plane above on the cluster owner's behalf, which is the default deployment model for most organizations adopting Kubernetes today rather than something added on later. The full comparison against other platforms is covered in the decision framework that closes this article.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="core-objects">Core Objects</h2>
+  <p class="lede">Kubernetes objects are usually taught as a vocabulary list. They make more sense taught as answers to specific problems.</p>
+
+  <p>Running an application on Kubernetes means describing what should exist and letting the control plane continuously work to match reality to that description. Five objects cover most of what a deployment decision actually needs to reason about.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Problem</th><th>Object</th><th>What it does</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Run a container</td><td><strong>Pod</strong></td><td>The smallest deployable unit: one or more containers that always run together on the same node, sharing a network address and storage.</td></tr>
+        <tr><td>Keep it running, roll out changes safely</td><td><strong>Deployment</strong></td><td>Manages a set of identical Pod replicas, replacing failed ones automatically and controlling how new versions are rolled out.</td></tr>
+        <tr><td>Give it a stable network identity</td><td><strong>Service</strong></td><td>A stable virtual IP and DNS name in front of a group of Pods, so Pods can be replaced without anything else needing to track their individual, short-lived addresses.</td></tr>
+        <tr><td>Let traffic in from outside the cluster</td><td><strong>Ingress</strong></td><td>Routes external HTTP(S) traffic to the right Service based on hostname or path, similar to a reverse proxy at the cluster's edge.</td></tr>
+        <tr><td>Separate workloads sharing a cluster</td><td><strong>Namespace</strong></td><td>A logical partition used for access control and resource limits, so different teams or environments can share infrastructure without colliding.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>A Pod is almost never created directly in practice. It's the Deployment that creates and manages Pods on the operator's behalf, which is why the manifest below defines a Deployment and a Service together rather than a bare Pod.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">deployment.yaml</span>
+      <span class="code-lang">YAML</span>
+    </div>
+    <pre><code><span class="cn">apiVersion</span>: apps/v1
+<span class="cn">kind</span>: <span class="s">Deployment</span>
+<span class="cn">metadata</span>:
+  <span class="cn">name</span>: <span class="s">web</span>
+<span class="cn">spec</span>:
+  <span class="cn">replicas</span>: <span class="m">3</span>
+  <span class="cn">selector</span>:
+    <span class="cn">matchLabels</span>:
+      <span class="cn">app</span>: <span class="s">web</span>
+  <span class="cn">template</span>:
+    <span class="cn">metadata</span>:
+      <span class="cn">labels</span>:
+        <span class="cn">app</span>: <span class="s">web</span>
+    <span class="cn">spec</span>:
+      <span class="cn">containers</span>:
+        - <span class="cn">name</span>: <span class="s">web</span>
+          <span class="cn">image</span>: <span class="s">registry.example.com/web:1.4.2</span>
+          <span class="cn">resources</span>:
+            <span class="cn">requests</span>:
+              <span class="cn">cpu</span>: <span class="s">"250m"</span>
+              <span class="cn">memory</span>: <span class="s">"256Mi"</span>
+            <span class="cn">limits</span>:
+              <span class="cn">cpu</span>: <span class="s">"500m"</span>
+              <span class="cn">memory</span>: <span class="s">"512Mi"</span>
+<span class="cm">---</span>
+<span class="cn">apiVersion</span>: v1
+<span class="cn">kind</span>: <span class="s">Service</span>
+<span class="cn">metadata</span>:
+  <span class="cn">name</span>: <span class="s">web</span>
+<span class="cn">spec</span>:
+  <span class="cn">selector</span>:
+    <span class="cn">app</span>: <span class="s">web</span>
+  <span class="cn">ports</span>:
+    - <span class="cn">port</span>: <span class="m">80</span>
+      <span class="cn">targetPort</span>: <span class="m">8080</span></code></pre>
+  </div>
+
+  <p>The <code>resources</code> block under the container is worth noting here, since it's the same value the scheduler reads to decide which node has room for this Pod, covered next. The <code>selector</code> in the Service is how it finds its Pods: by label, not by any fixed list of addresses.</p>
+
+  <p>Deployment is the workhorse for long-running services, but it isn't the only workload type worth knowing. A <strong>Job</strong> runs a container to completion for a one-off or batch task, rather than keeping it running indefinitely. A <strong>CronJob</strong> schedules a Job on a recurring basis. A <strong>DaemonSet</strong> ensures exactly one Pod runs on every node, the pattern used for node-level agents such as log collectors.</p>
+
+  <p>Configuration follows a similar split to the Secret object covered later in this article. A <strong>ConfigMap</strong> holds non-sensitive configuration the same way a Secret holds sensitive values, and a Pod consumes either as environment variables or mounted files, rather than having them baked into the image.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="scheduling">Scheduling and Resource Management</h2>
+  <p class="lede">The scheduler's job sounds simple: pick a node. What makes it non-trivial is fitting many differently sized workloads onto a fixed pool of machines without wasting capacity.</p>
+
+  <p>Every container in a Pod can declare two numbers: a <strong>request</strong>, the amount of CPU and memory it needs to run acceptably, and a <strong>limit</strong>, the maximum it's allowed to consume before Kubernetes intervenes. The scheduler only looks at requests when deciding where a Pod fits. It will only place a Pod on a node that has enough unreserved capacity to cover the request, treating that capacity as spoken for even if the container ends up using less. Limits are enforced afterward by the same cgroups mechanism covered earlier: a container that exceeds its memory limit is killed and restarted, and one that exceeds its CPU limit is throttled rather than killed.</p>
+
+  <p>Fitting many Pods with different requests onto a fixed set of nodes is a bin-packing problem, solved fresh by the scheduler for every new Pod rather than once at cluster setup. Two clusters with identical total capacity can end up needing very different numbers of nodes, depending on how well individual Pod sizes happen to pack together. Beyond plain capacity, an operator can constrain scheduling further. Taints keep certain Pods off certain nodes unless explicitly tolerated. Affinity rules pull related Pods toward or away from each other, useful for spreading replicas across failure domains or keeping latency-sensitive Pods on the same node. These are worth knowing exist rather than needing right away. Most deployment decisions are made correctly with just requests and limits set sensibly.</p>
+
+  <p>Resource limits aren't the only thing that can get a container restarted or pulled out of rotation. A <strong>liveness probe</strong> checks whether a container is still working, and a failure gets it killed and restarted, the same outcome as exceeding a memory limit but triggered by application health instead of resource usage. A <strong>readiness probe</strong> checks whether a container is ready to accept traffic, and a failure removes it from behind its Service without restarting it, useful for a container that's alive but still warming up a cache or waiting on a dependency. A <strong>startup probe</strong> covers slow-starting containers, giving them longer than the liveness probe would otherwise allow before health checks start counting against them.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="networking">Networking</h2>
+  <p class="lede">Kubernetes networking is easier to hold in your head as three separate questions than as one topic.</p>
+
+  <p>How do Pods talk to each other? Every Pod in a cluster gets its own IP address from a flat, cluster-wide network, and any Pod can reach any other Pod's IP directly, regardless of which node either one happens to be running on. This is a deliberate simplification: application code never needs to know about NAT or port mapping between containers on the same node versus different ones, because from the network's perspective there's no difference. Kubernetes doesn't implement this network itself. A plugin conforming to the Container Network Interface (CNI), Calico and Cilium are common choices, is what actually wires up Pod IPs and the routes between nodes. Kubernetes just assumes that flat network exists and builds everything else on top of it.</p>
+
+  <p>How do clients find a Pod that could be replaced at any moment? Pod IPs are not something anything else should depend on directly, since a Pod is disposable and gets a new IP every time it's recreated. A Service solves this by giving a group of Pods, selected by a label rather than a fixed list, one stable virtual IP and DNS name that stays constant no matter how many times the Pods behind it come and go. Each node's kube-proxy maintains the routing rules that translate a request to the Service's stable address into a request to one of the currently healthy Pods behind it, the same load-balancing job a load balancer performs outside the cluster. Some clusters skip kube-proxy entirely: certain CNI plugins, Cilium's eBPF-based dataplane being the most common example, implement that same routing directly in the kernel instead. The pattern is directly analogous to the reverse proxies and load balancers covered in <a href="web-networking.html#load-balancing">Web Application Networking</a>: a stable address in front of a changing pool of backends, just implemented inside the cluster instead of in front of it.</p>
+
+  <p>How does traffic get into the cluster at all? A Service's virtual IP is only reachable from inside the cluster by default. An Ingress sits at the cluster's edge and routes external HTTP and HTTPS traffic to the right internal Service based on hostname or URL path, the same job a <a href="web-networking.html#reverse-proxy">reverse proxy</a> does in a traditional deployment. Most clusters run an Ingress controller, commonly NGINX or a cloud provider's own implementation, that reads Ingress objects and configures itself accordingly, rather than Kubernetes implementing routing logic itself. A newer API, the Gateway API, is gradually complementing Ingress with a more expressive and portable way to configure the same routing, though Ingress remains the more common starting point for most clusters today.</p>
+
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 560 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Traffic path from an external client through an Ingress to a Service and out to three Pods, with a separate direct connection shown between two Pods over the flat pod network">
+      <defs>
+        <marker id="co-r2" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="var(--text-faint)"/></marker>
+        <marker id="co-t2s" markerWidth="7" markerHeight="5" refX="1" refY="2.5" orient="auto"><polygon points="7 0,0 2.5,7 5" fill="var(--teal)"/></marker>
+        <marker id="co-t2e" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="var(--teal)"/></marker>
+      </defs>
+
+      <rect x="230" y="8" width="100" height="28" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="280" y="26" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" font-weight="600" fill="var(--text)">External Client</text>
+      <line x1="280" y1="36" x2="280" y2="54" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#co-r2)"/>
+
+      <rect x="190" y="56" width="180" height="40" rx="4" fill="var(--surface-2)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="280" y="74" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--accent)">Ingress</text>
+      <text x="280" y="88" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">routes by host / path</text>
+      <line x1="280" y1="96" x2="280" y2="114" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#co-r2)"/>
+
+      <rect x="190" y="116" width="180" height="40" rx="4" fill="var(--surface-2)" stroke="var(--accent2)" stroke-width="1.5"/>
+      <text x="280" y="134" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--accent2)">Service</text>
+      <text x="280" y="148" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">stable virtual IP + DNS</text>
+
+      <line x1="280" y1="156" x2="280" y2="168" stroke="var(--text-faint)" stroke-width="1.5"/>
+      <line x1="90" y1="168" x2="470" y2="168" stroke="var(--text-faint)" stroke-width="1.5"/>
+      <line x1="90" y1="168" x2="90" y2="180" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#co-r2)"/>
+      <line x1="280" y1="168" x2="280" y2="180" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#co-r2)"/>
+      <line x1="470" y1="168" x2="470" y2="180" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#co-r2)"/>
+
+      <rect x="30" y="182" width="120" height="50" rx="4" fill="var(--surface-2)" stroke="var(--green)" stroke-width="1.5"/>
+      <text x="90" y="204" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" font-weight="600" fill="var(--green)">Pod</text>
+      <text x="90" y="219" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">own IP</text>
+
+      <rect x="220" y="182" width="120" height="50" rx="4" fill="var(--surface-2)" stroke="var(--green)" stroke-width="1.5"/>
+      <text x="280" y="204" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" font-weight="600" fill="var(--green)">Pod</text>
+      <text x="280" y="219" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">own IP</text>
+
+      <rect x="410" y="182" width="120" height="50" rx="4" fill="var(--surface-2)" stroke="var(--green)" stroke-width="1.5"/>
+      <text x="470" y="204" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" font-weight="600" fill="var(--green)">Pod</text>
+      <text x="470" y="219" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">own IP</text>
+
+      <line x1="150" y1="245" x2="220" y2="245" stroke="var(--teal)" stroke-dasharray="3,2" stroke-width="1.5" marker-start="url(#co-t2s)" marker-end="url(#co-t2e)"/>
+      <text x="185" y="260" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--teal)">pod-to-pod, direct</text>
+
+      <text x="280" y="286" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">Every Pod gets a routable IP on a flat cluster network.</text>
+    </svg>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">Ingress handles traffic entering the cluster, a Service gives it a stable target, and Pods can also reach each other directly without going through either.</figcaption>
+  </figure>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="state">State and Storage</h2>
+  <p class="lede">Kubernetes was designed around Pods that can be destroyed and recreated without anyone caring which specific instance survives. A database doesn't work that way, and that mismatch is the most consequential state decision in any Kubernetes deployment.</p>
+
+  <p>A stateless web server replica can be killed and replaced at any moment with no consequence, because it holds nothing that isn't reconstructible from a request or an external store. Kubernetes assumes this by default: a Deployment's Pods are interchangeable, and losing one is a non-event. A database, a message queue, or anything else that holds data on local disk breaks that assumption immediately, because replacing the Pod without preserving what was on its disk means losing data.</p>
+
+  <p>Two Kubernetes objects address this without abandoning the Pod model entirely. A <strong>PersistentVolume</strong> represents actual storage, provisioned from a cloud disk, a network filesystem, or similar, through a plugin conforming to the Container Storage Interface (CSI) that each cloud provider or storage vendor implements. A <strong>PersistentVolumeClaim</strong> is how a Pod requests a volume without needing to know exactly what kind of storage, or which CSI driver, backs it. A <strong>StatefulSet</strong>, unlike a Deployment, gives each of its Pods a stable, unique identity and its own PersistentVolume that follows it across restarts, which is what a clustered database or anything else that cares which specific instance it is actually needs.</p>
+
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:20px 0;">
+    <div class="card teal">
+      <div class="card-label">In-Cluster</div>
+      <div class="card-title">Run stateful workloads on Kubernetes</div>
+      <p>Keeps everything on one platform and one deployment model. Requires the team to operate storage, backups, failover, and upgrades themselves, work a managed database service does automatically. Makes sense when the team already has that operational expertise, or when data locality inside the cluster genuinely matters.</p>
+    </div>
+    <div class="card gold">
+      <div class="card-label">Externalized</div>
+      <div class="card-title">Use a managed database service</div>
+      <p>A managed relational or NoSQL service, for example Amazon RDS, Cloud SQL, or a managed Kafka offering, already solves clustering, failover, and backups. The cluster's stateless workloads simply connect to it over the network. This is the more common choice, since most teams would rather not re-solve a problem a cloud provider already solved well.</p>
+    </div>
+  </div>
+
+  <p>Kubernetes is very good at running stateless workloads, and that's not a limitation so much as where its design assumptions actually hold. Storage orchestration inside a cluster is genuinely difficult to get right, which is why most production Kubernetes deployments run application Pods in-cluster and lean on an external, managed service for anything that has to remember something between restarts.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="deployment-strategies">Deployment and Rollout Strategies</h2>
+  <p class="lede">Which rollout strategy fits is a question about acceptable risk and acceptable downtime, not a technical preference.</p>
+
+  <p>A Deployment's default behavior is a <strong>rolling update</strong>: new Pods running the updated version are started gradually while old ones are terminated, so a fixed number of Pods stay available throughout and users never see downtime. That default doesn't fit every requirement, though, particularly when a rollback needs to be instant rather than another gradual rollout in reverse, or when a change is risky enough that it should reach a small fraction of traffic before reaching everyone.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Requirement</th><th>Strategy</th><th>How it works</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>No downtime during a routine release</td><td>Rolling update</td><td>Kubernetes' default. New replicas start and pass health checks before old ones are terminated, a few at a time.</td></tr>
+        <tr><td>Rollback needs to be instant</td><td>Blue-green</td><td>Two full environments run side by side. Traffic is switched from the old one to the new one all at once, and switched back just as fast if something's wrong.</td></tr>
+        <tr><td>Reduce the blast radius of a risky change</td><td>Canary</td><td>The new version receives a small slice of real traffic first, and is only rolled out further once it's confirmed healthy.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Kubernetes' built-in rolling update covers the first case natively. Blue-green and canary both need something extra. Blue-green needs two environments running simultaneously and a way to redirect traffic between them. A fine-grained canary, ten percent of traffic rather than ten percent of replicas, usually needs a service mesh or an Ingress controller capable of weighted routing, since a plain Deployment can only approximate canary behavior by scaling replica counts.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="scaling">Scaling</h2>
+
+  <p>Scaling a Kubernetes workload happens on two independent axes, and both usually run automatically once configured. A <strong>HorizontalPodAutoscaler</strong> watches a metric, most often CPU or memory usage, and adjusts the number of Pod replicas in a Deployment up or down to keep that metric near a target. It solves demand at the application layer: more traffic means more replicas.</p>
+
+  <p>That only helps if the cluster's nodes have room for the extra replicas. A <strong>cluster autoscaler</strong> solves the layer underneath: it adds new nodes when Pods are waiting to be scheduled because nothing has capacity, and removes nodes when they sit underused. The two work independently, and both are normally left running unattended rather than adjusted by hand.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="limits">What Kubernetes Doesn't Solve</h2>
+  <p class="lede">Kubernetes is one layer of a platform. Teams that treat it as the whole platform usually find out the hard way what it was never designed to provide.</p>
+
+  <p>None of what Kubernetes does out of the box tells an operator what's actually happening inside a running application, or why a specific request failed. That's the job of an observability stack, logs, metrics, and traces collected and correlated across every Pod, which Kubernetes doesn't provide natively even though nearly every production cluster ends up needing one layered on top.</p>
+
+  <p>The same is true of a handful of other concerns a new Kubernetes user often assumes are already handled. Secrets still need a real secrets manager, rather than the base64-encoded values Kubernetes' own Secret object stores by default. Getting code into the cluster in the first place still needs a separate CI/CD pipeline. Enforcing organizational policy, blocking a Pod that requests root privileges, or requiring every image to come from an approved registry, is also nothing Kubernetes does on its own. It needs an admission controller or a policy engine, such as OPA Gatekeeper or Kyverno, sitting in front of the API server. Scanning images for vulnerabilities, backing up data, and planning for disaster recovery are all still the team's responsibility on top of that. Kubernetes schedules and runs containers extremely well. Everything around that job, security, delivery, governance, and visibility, is a set of decisions the platform leaves to whoever operates it.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="choosing-platform">Choosing the Right Platform</h2>
+  <p class="lede">Most of the real decisions in this space are made before a single YAML file gets written: whether to use an orchestrator at all, and if so, which one.</p>
+
+  <p>Kubernetes solves real problems, but it also carries real operational weight. Someone has to run the control plane, keep it patched and upgraded, and understand enough of its internals to debug it when something goes wrong. That cost is worth paying at a certain scale and not worth paying below it. The comparison that matters isn't a feature checklist. It's how much operational complexity a team is signing up for, weighed against how much of Kubernetes' capability actually gets used.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Situation</th><th>Fits well</th><th>Why</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>One application, one host, low traffic</td><td>Docker Compose</td><td>Runs multiple containers from one config file and no cluster to operate. No scheduling, no self-healing, nothing to patch beyond the host itself.</td></tr>
+        <tr><td>A small, fixed set of services across a few hosts</td><td>Nomad or Docker Swarm</td><td>A lighter orchestrator than Kubernetes, with a smaller feature set and a much smaller operational footprint. Swarm in particular has seen little new development in recent years and mainly suits existing Docker-based shops.</td></tr>
+        <tr><td>Many services, multiple teams, need to scale independently</td><td>Kubernetes</td><td>Where scheduling, self-healing, and the surrounding ecosystem of tooling actually pay for the operational cost of running it.</td></tr>
+        <tr><td>Workloads that spike unpredictably or run only occasionally</td><td>Serverless containers (Fargate, Cloud Run)</td><td>Runs a container without managing any cluster or nodes at all, billed by actual usage rather than reserved capacity. A middle ground between plain containers and a full orchestrator.</td></tr>
+        <tr><td>Mostly using managed cloud services already</td><td>No orchestrator</td><td>If most of an architecture is already managed services, a managed database, a managed queue, a serverless function platform, there may be little left that benefits from an orchestrator at all.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout info">
+    <div class="callout-title">Managed Kubernetes</div>
+    <p>Managed offerings like Amazon EKS, Google GKE, and Azure AKS run and patch the control plane on the team's behalf, which is why most organizations that do choose Kubernetes never operate a control plane themselves. The remaining decision is almost always about the worker nodes and everything layered on top, not whether to run etcd by hand.</p>
+  </div>
+
+  <p>None of these are permanent choices. A team can start with Docker Compose and move to Kubernetes once services and traffic actually justify it, and plenty of successful products never make that move at all. The mistake isn't picking the "wrong" one on day one. It's adopting Kubernetes' operational weight before anything in the architecture actually needs what it provides.</p>
+
+</main>
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+
+</body>
+</html>
