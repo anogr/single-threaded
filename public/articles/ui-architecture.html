@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UI Architecture Patterns — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+<style>
+  /*
+   * Article-specific styles only.
+   */
+</style>
+</head>
+
+<body>
+
+<!-- Mobile header -->
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Docs</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+
+  <div class="sidebar-section">Overview</div>
+  <a href="#overview">One triad, repeated</a>
+
+  <div class="sidebar-section">History</div>
+  <a href="#history">Where These Patterns Came From</a>
+
+  <div class="sidebar-section">The Patterns</div>
+  <a href="#mvc">MVC: The Original Triad</a>
+  <a href="#mvp">MVP: Everything Through the Presenter</a>
+  <a href="#mvvm">MVVM: Declarative Binding Arrives</a>
+  <a href="#layered">Layered Architecture: Tiers, Not Views</a>
+
+  <div class="sidebar-section">Frameworks</div>
+  <a href="#frameworks">Where React, Vue, and Angular Land</a>
+
+  <div class="sidebar-section">Putting It Together</div>
+  <a href="#comparison">Comparing the Patterns</a>
+  <a href="#choosing">Choosing an Architecture</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">Architecture · UI Patterns</div>
+  <h1>UI Architecture Patterns</h1>
+  <p class="subtitle">How MVC, MVVM, and Layered Architecture shaped React, Vue, and Angular.</p>
+  <div class="byline">
+    <strong>Deep dive</strong>
+    <div class="dot"></div>
+    <span>~23 min read</span>
+    <div class="dot"></div>
+    <span>Architectural patterns</span>
+    <div class="dot"></div>
+    <span>July 2026</span>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       OVERVIEW
+  ════════════════════════════════════════════════════ -->
+  <section id="overview">
+    <p>A user interface always has to answer the same three questions, no matter which decade or platform built it. What is the data? What does the screen show? And what sits between those two, deciding how a change on one side reaches the other? Every pattern in this article answers that third question differently, by deciding where the mediating piece lives, how much it's allowed to do, and how tightly it lets the other two talk to each other directly.</p>
+
+    <p>This is an old problem. Graphical interfaces have needed an answer since the 1970s, decades before there was a web browser to build "frontend architecture" for, and the patterns a team reaches for today are largely new implementations of ideas older than most of the people using them.</p>
+
+    <p>This article traces that lineage forward. It opens with three related patterns that all share the same three-letter shape, namely Model-View-Controller, Model-View-Presenter, and Model-View-ViewModel, each one built to fix a limitation the pattern before it left open. It then turns to layered architecture, a separate idea about how a whole application splits into tiers rather than how one screen organizes itself. It closes by looking at where React, Vue, and Angular actually land against all of it in 2026, and where each has moved past comparisons to these older patterns entirely.</p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════
+       HISTORY
+  ════════════════════════════════════════════════════ -->
+  <h2 id="history">Where These Patterns Came From</h2>
+  <p class="lede">Each pattern below exists because the one before it hit a wall its platform couldn't get past on its own.</p>
+
+  <p>The story starts in 1979, at Xerox PARC, where a Norwegian computer scientist named Trygve Reenskaug was visiting the Learning Research Group, the team working toward Alan Kay's Dynabook concept, an early vision of a personal computer built for learning rather than just computing. Reenskaug was trying to solve a specific problem: how to let a user work with several views onto one complex dataset and keep all of them in sync as the underlying data changed. His first note on the idea, written that May, called it Thing-Model-View-Editor. After talking it through with Adele Goldberg, he settled on a different name that December: Model-View-Controller.</p>
+
+  <p>MVC never landed on one settled definition, and the reason traces back to its own first implementation. By the time Jim Althoff and others built MVC into the Smalltalk-80 class library, Reenskaug had already left PARC and wasn't involved in the work. Althoff's version used the word Controller for something Reenskaug's original note had called the Editor, the part handling device input for a specific view. Two names for overlapping ideas, baked into the pattern's reference implementation before it had even left the building it was invented in.</p>
+
+  <p>What MVC left unresolved was how strictly View and Model had to stay apart. In the original conception, a View could read the Model directly, which is convenient right up until an application has enough views and enough shared data that nobody can say for certain what happens when one of them changes. That gap is what the next pattern closed.</p>
+
+  <p>Model-View-Presenter came out of Taligent, a joint venture between Apple, IBM, and Hewlett-Packard, in the early 1990s, documented in a paper by Taligent's CTO, Mike Potel. Taligent folded in 1998, but the pattern didn't die with it. Andy Bower and Blair McGlashan carried it into Dolphin Smalltalk's UI framework, and Microsoft picked it up in the 2000s for Windows Forms, Silverlight, and ASP.NET. It also became a defining pattern in early Android development, where a Presenter mediating between an Activity and its data was, for years, close to the standard way to structure a screen. MVP's actual contribution was closing MVC's gap directly. The Presenter now mediates everything, and the View never touches the Model on its own. That enabled a screen's logic to be unit-tested without instantiating a real View, since the Presenter held every decision a test needed to exercise.</p>
+
+  <p>MVP still left one job to the developer: writing the code that kept a Presenter's state and a View's display in sync, by hand, every time either side changed. That's the piece Microsoft closed next, and this time the fix came from a change in what the platform itself could do.</p>
+
+  <p>Model-View-ViewModel was built inside Microsoft by architects Ken Cooper and Ted Peters, and announced publicly in 2005 by Windows Presentation Foundation (WPF) and Silverlight architect John Gossman on his blog. It's explicitly a variation of an earlier idea, Martin Fowler's Presentation Model pattern, adapted for a platform that could finally do something MVP's platforms couldn't: bind a View's display to a ViewModel's state declaratively, in both directions, without a developer writing the propagation code themselves. A ViewModel exposes state and commands. The binding engine keeps the View synchronized with it. What used to be a Presenter's job by hand became the platform's job automatically.</p>
+
+  <p>Read end to end, each pattern answers a limitation in the one before it. MVC arbitrated multiple views onto one shared dataset. MVP closed the direct View-to-Model read MVC left open, and made screen logic testable as a side effect. MVVM automated the synchronization work MVP still did by hand, once a platform could offer declarative binding to automate it with.</p>
+
+  <p>Layered architecture, often called N-tier, has a different and mostly unrelated history. Three-tier architecture, presentation, business logic, and data, grew out of mainframe and early client-server computing, where the three tiers were frequently three physically separate machines talking over a network. MVC and its descendants arbitrate a GUI widget's live state between a Model and the Views watching it. Layered architecture decides where code physically or logically runs, and which tier is allowed to call which.</p>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 700 320" role="img" aria-label="Three patterns compared. MVC, MVP, and MVVM drawn as the same Model/Mediator/View triangle with different connections. MVC keeps a direct dashed link between Model and View, the Model notifying the View of changes and the View reading the Model directly. MVP and MVVM remove that link and route everything through the Presenter or ViewModel, MVVM's link to the View marked as automatic binding." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="tri-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--text-faint)"/>
+        </marker>
+      </defs>
+
+      <!-- Column 1: MVC -->
+      <text x="150" y="20" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="13" font-weight="700" fill="var(--accent)">MVC</text>
+      <rect x="85" y="40" width="130" height="34" rx="5" fill="color-mix(in srgb, var(--accent) 18%, transparent)" stroke="color-mix(in srgb, var(--accent) 45%, transparent)"/>
+      <text x="150" y="62" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" fill="var(--text)">Controller</text>
+      <rect x="85" y="172" width="60" height="34" rx="5" fill="color-mix(in srgb, var(--accent) 12%, transparent)" stroke="color-mix(in srgb, var(--accent) 35%, transparent)"/>
+      <text x="115" y="194" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">Model</text>
+      <rect x="155" y="172" width="60" height="34" rx="5" fill="color-mix(in srgb, var(--accent) 12%, transparent)" stroke="color-mix(in srgb, var(--accent) 35%, transparent)"/>
+      <text x="185" y="194" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">View</text>
+      <line x1="115" y1="74" x2="115" y2="168" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#tri-arrow)"/>
+      <line x1="185" y1="168" x2="185" y2="78" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#tri-arrow)"/>
+      <line x1="145" y1="184" x2="155" y2="184" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="3 3" marker-end="url(#tri-arrow)""/>
+      <line x1="145" y1="194" x2="155" y2="194" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="3 3" marker-start="url(#tri-arrow)"/>
+      <text x="150" y="235" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">Model notifies View,</text>
+      <text x="150" y="248" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">View reads Model directly</text>
+      <text x="150" y="264" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--accent)">MVC's weak point</text>
+
+      <!-- Column 2: MVP -->
+      <text x="350" y="20" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="13" font-weight="700" fill="var(--teal)">MVP</text>
+      <rect x="285" y="40" width="130" height="34" rx="5" fill="color-mix(in srgb, var(--teal) 18%, transparent)" stroke="color-mix(in srgb, var(--teal) 45%, transparent)"/>
+      <text x="350" y="62" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" fill="var(--text)">Presenter</text>
+      <rect x="285" y="172" width="60" height="34" rx="5" fill="color-mix(in srgb, var(--teal) 12%, transparent)" stroke="color-mix(in srgb, var(--teal) 35%, transparent)"/>
+      <text x="315" y="194" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">Model</text>
+      <rect x="355" y="172" width="60" height="34" rx="5" fill="color-mix(in srgb, var(--teal) 12%, transparent)" stroke="color-mix(in srgb, var(--teal) 35%, transparent)"/>
+      <text x="385" y="194" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">View</text>
+      <line x1="315" y1="78" x2="315" y2="168" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#tri-arrow)" marker-start="url(#tri-arrow)"/>
+      <line x1="385" y1="78" x2="385" y2="168" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#tri-arrow)" marker-start="url(#tri-arrow)"/>
+      <text x="350" y="235" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">No direct Model-View link,</text>
+      <text x="350" y="248" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">Presenter writes the sync</text>
+      <text x="350" y="264" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--teal)">by hand, both ways</text>
+
+      <!-- Column 3: MVVM -->
+      <text x="550" y="20" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="13" font-weight="700" fill="var(--gold)">MVVM</text>
+      <rect x="485" y="40" width="130" height="34" rx="5" fill="color-mix(in srgb, var(--gold) 18%, transparent)" stroke="color-mix(in srgb, var(--gold) 45%, transparent)"/>
+      <text x="550" y="62" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" fill="var(--text)">ViewModel</text>
+      <rect x="485" y="172" width="60" height="34" rx="5" fill="color-mix(in srgb, var(--gold) 12%, transparent)" stroke="color-mix(in srgb, var(--gold) 35%, transparent)"/>
+      <text x="515" y="194" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">Model</text>
+      <rect x="555" y="172" width="60" height="34" rx="5" fill="color-mix(in srgb, var(--gold) 12%, transparent)" stroke="color-mix(in srgb, var(--gold) 35%, transparent)"/>
+      <text x="585" y="194" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">View</text>
+      <line x1="515" y1="78" x2="515" y2="168" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#tri-arrow)" marker-start="url(#tri-arrow)"/>
+      <line x1="585" y1="78" x2="585" y2="168" stroke="var(--gold)" stroke-width="2" marker-end="url(#tri-arrow)" marker-start="url(#tri-arrow)"/>
+      <text x="550" y="235" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">No direct Model-View link,</text>
+      <text x="550" y="248" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">binding engine syncs the View</text>
+      <text x="550" y="264" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--gold)">automatically, both ways</text>
+
+    </svg>
+    <figcaption>MVC, MVP, and MVVM share the same Model/Mediator/View triangle and differ only in what's allowed to connect directly.</figcaption>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       MVC
+  ════════════════════════════════════════════════════ -->
+  <h2 id="mvc">MVC: The Original Triad</h2>
+  <p class="lede">Model, View, and Controller, close to exactly as Reenskaug described them, minus the definitional argument about where the boundary sits.</p>
+
+  <p>The three roles are close to what Reenskaug actually described. The Model holds the application's data and the rules for changing it correctly, and it knows nothing about how that data gets displayed. The View renders that data for a user to see, and it reads the Model directly to do it, querying whatever fields it needs each time it draws. The Controller handles input, whether that's a keystroke, a click, or a device event, and translates it into operations on the Model.</p>
+
+  <p>What keeps multiple Views of the same Model in sync is the <strong>Observer pattern</strong>. The Model keeps a list of every View watching it, and instead of a View polling to check for changes, the Model notifies its dependents that something has changed. The notification typically carries little or no application data, so each View rereads the Model and redraws itself as needed. That's what let Reenskaug's original design support several Views on one dataset without any of them polling or duplicating state on their own.</p>
+
+  <p>That same direct View→Model relationship became one of the pressure points that later patterns such as MVP sought to address. Nothing in the original design stops a View from reading Model state that has nothing to do with the notification it just received, and nothing stops two Views from interpreting the same notification differently. That was a reasonable tradeoff in a Smalltalk environment in 1979, where a handful of tightly coupled Views watched one Model. That approach becomes increasingly difficult to manage as applications grow and many Views observe large shared Models.</p>
+
+  <p>One clarification worth making explicit, since it causes real confusion: the "MVC" most developers meet first, in Rails, Django, Laravel, or a dozen other server-side web frameworks, is the multi-page, server-rendered world introduced above wearing Reenskaug's three names, not the same pattern in a new coat of paint. The Observer relationship described above needs a Model instance that stays alive in memory long enough for a View to watch it, and HTTP doesn't offer that. Each request is stateless. A Controller action runs, a View renders once from whatever data the Controller handed it, and by the time a user is looking at the result, the objects that produced it are already gone. There's nothing left to notify, so the Controller ends up doing a different job. It translates an incoming HTTP request into a response, closer to a request router than to the input-arbitration role Reenskaug had in mind for a live GUI widget.</p>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 700 320" role="img" aria-label="Two MVC variants compared side by side. Left, Reenskaug's original MVC: a User sends input to a Controller, the Controller updates the Model, the Model notifies the View of changes, and the View reads the Model directly to redraw. Right, modern server-side MVC: a Browser sends an HTTP request to a Controller, the Controller reads and updates the Model, the Controller selects a View and passes it data, and the Controller returns an HTTP response containing the rendered View back to the Browser. Unlike the original, the View never touches the Model directly in the server-side version." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="mvc-cmp-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--text-faint)"/>
+        </marker>
+      </defs>
+
+      <line x1="350" y1="30" x2="350" y2="295" stroke="color-mix(in srgb, var(--text-faint) 30%, transparent)" stroke-width="1" stroke-dasharray="4 4"/>
+
+      <!-- ═══ LEFT: Original MVC (Reenskaug) ═══ -->
+      <text x="175" y="22" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="13" font-weight="700" fill="var(--accent)">Original MVC (Reenskaug)</text>
+
+      <rect x="135" y="42" width="80" height="32" rx="5" fill="color-mix(in srgb, var(--text) 10%, transparent)" stroke="color-mix(in srgb, var(--text-faint) 55%, transparent)"/>
+      <text x="175" y="63" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">User</text>
+
+      <line x1="175" y1="74" x2="175" y2="116" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#mvc-cmp-arrow)"/>
+      <text x="184" y="99" text-anchor="start" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">input</text>
+
+      <rect x="135" y="120" width="80" height="32" rx="5" fill="color-mix(in srgb, var(--accent) 18%, transparent)" stroke="color-mix(in srgb, var(--accent) 45%, transparent)"/>
+      <text x="175" y="141" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">Controller</text>
+
+      <line x1="152" y1="152" x2="91" y2="226" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#mvc-cmp-arrow)"/>
+      <text x="132" y="188" text-anchor="start" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">updates</text>
+
+      <rect x="40" y="230" width="90" height="32" rx="5" fill="color-mix(in srgb, var(--accent) 12%, transparent)" stroke="color-mix(in srgb, var(--accent) 35%, transparent)"/>
+      <text x="85" y="251" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">Model</text>
+
+      <rect x="220" y="230" width="90" height="32" rx="5" fill="color-mix(in srgb, var(--accent) 12%, transparent)" stroke="color-mix(in srgb, var(--accent) 35%, transparent)"/>
+      <text x="265" y="251" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">View</text>
+
+      <line x1="130" y1="238" x2="216" y2="238" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#mvc-cmp-arrow)"/>
+      <text x="175" y="228" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">notifies</text>
+
+      <line x1="220" y1="256" x2="134" y2="256" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#mvc-cmp-arrow)"/>
+      <text x="175" y="272" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">reads</text>
+
+      <!-- ═══ RIGHT: Modern Server-Side MVC ═══ -->
+      <text x="525" y="22" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="13" font-weight="700" fill="var(--teal)">Server-Side MVC</text>
+
+      <rect x="365" y="42" width="80" height="32" rx="5" fill="color-mix(in srgb, var(--text) 10%, transparent)" stroke="color-mix(in srgb, var(--text-faint) 55%, transparent)"/>
+      <text x="405" y="63" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">User</text>
+
+      <line x1="445" y1="58" x2="485" y2="58" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#mvc-cmp-arrow)"/>
+      <text x="454" y="48" text-anchor="start" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">input</text>
+
+      <rect x="485" y="42" width="80" height="32" rx="5" fill="color-mix(in srgb, var(--text) 10%, transparent)" stroke="color-mix(in srgb, var(--text-faint) 55%, transparent)"/>
+      <text x="525" y="63" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">Browser</text>
+
+      <line x1="513" y1="74" x2="513" y2="116" stroke="var(--teal)" stroke-width="1.5" marker-end="url(#mvc-cmp-arrow)"/>
+      <text x="505" y="96" text-anchor="end" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">HTTP Request</text>
+
+      <line x1="537" y1="120" x2="537" y2="78" stroke="var(--teal)" stroke-width="1.5" marker-end="url(#mvc-cmp-arrow)"/>
+      <text x="545" y="98" text-anchor="start" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">HTTP Response</text>
+      <text x="545" y="110" text-anchor="start" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">(rendered View)</text>
+
+      <rect x="485" y="120" width="80" height="32" rx="5" fill="color-mix(in srgb, var(--teal) 18%, transparent)" stroke="color-mix(in srgb, var(--teal) 45%, transparent)"/>
+      <text x="525" y="141" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">Controller</text>
+
+      <line x1="502" y1="152" x2="441" y2="226" stroke="var(--teal)" stroke-width="1.5" marker-end="url(#mvc-cmp-arrow)"/>
+      <text x="466" y="208" text-anchor="start" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">reads / updates</text>
+
+      <line x1="548" y1="152" x2="609" y2="226" stroke="var(--teal)" stroke-width="1.5" marker-end="url(#mvc-cmp-arrow)"/>
+      <text x="590" y="182" text-anchor="start" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">selects &amp;</text>
+      <text x="590" y="194" text-anchor="start" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">passes data</text>
+
+      <rect x="390" y="230" width="90" height="32" rx="5" fill="color-mix(in srgb, var(--teal) 12%, transparent)" stroke="color-mix(in srgb, var(--teal) 35%, transparent)"/>
+      <text x="435" y="251" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">Model</text>
+
+      <rect x="570" y="230" width="90" height="32" rx="5" fill="color-mix(in srgb, var(--teal) 12%, transparent)" stroke="color-mix(in srgb, var(--teal) 35%, transparent)"/>
+      <text x="615" y="251" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">View</text>
+
+      <text x="525" y="282" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">View never touches Model directly</text>
+    </svg>
+    <figcaption>Reenskaug's original design routes every change through the Model itself, which notifies each View directly and lets each View read it back. The server-side version replaces that Observer relationship with a single hub. Server-side MVC's Controller does two jobs, reading and updating the Model, and separately selecting a View and handing it data to render. That second job is the Presenter's job description, not Reenskaug's Controller's. Structurally, a framework like ASP.NET MVC sits closer to MVP than to the original MVC it's named after.</figcaption>
+  </div>
+
+  <div class="callout info aside">
+    <div class="callout-title">Not impossible, just not HTTP</div>
+    <p>The missing Observer relationship above is a property of HTTP specifically, not a limit of the web as a whole. A persistent connection, WebSockets, Server-Sent Events, SignalR, keeps the same kind of live channel open that a desktop GUI's event loop does. A server-side Model can push a change out over it the moment something changes, the way real-time dashboards and collaborative editors already do. What a Controller-per-request model can't do, a different transport underneath the same server can.</p>
+  </div>
+
+  <p>MVP and MVVM never went through the same borrowing. Neither name attached itself to a server-side web framework, because both were solving a problem specific to a live, in-memory GUI, one the server-rendered web didn't have until client-side JavaScript made a browser tab capable of behaving like one.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       MVP
+  ════════════════════════════════════════════════════ -->
+  <h2 id="mvp">MVP: Everything Through the Presenter</h2>
+  <p class="lede">The Presenter mediates everything. The View never reads the Model, and nothing propagates automatically.</p>
+
+  <p>Model-View-Presenter keeps the original MVC's three roles but redraws the boundary between them. The Model still holds data and the rules for changing it correctly. The View still renders, but it's deliberately kept passive. It exposes methods and events for the Presenter to call, and does nothing on its own beyond displaying whatever it's told to display. The Presenter sits in the middle, reading the Model, deciding what the View should show, and pushing that decision to the View by calling it directly. Nothing skips the Presenter in either direction.</p>
+
+  <p>That's the gap MVC left open, closed by construction rather than by discipline. A View built the MVP way can't reach into the Model even if a developer is tempted to let it, because the View was never handed a reference to the Model in the first place. The tradeoff is that every bit of synchronization a binding engine might otherwise handle has to be written by hand, inside the Presenter, every time the Model changes in a way the View needs to reflect.</p>
+
+  <p>That constraint had a side effect worth naming on its own. A Presenter depends on a View interface rather than a concrete View, so its logic can be unit-tested by handing it a fake View and asserting what it called. Testing a screen's logic without a real View, or something standing in for one, wasn't really an option under MVC. It's also why MVP outlived Taligent by decades. Android development leaned on it for years, and Windows Forms and Silverlight teams kept reaching for it long after Taligent itself had folded.</p>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 700 260" role="img" aria-label="Model-View-Presenter shown as a single triangle. The Presenter reads and updates the Model, pushes display decisions to the View by calling it directly, and receives user input forwarded from the View. There is no connection between Model and View, unlike the original MVC's direct link." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="mvp-fig-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--teal)"/>
+        </marker>
+      </defs>
+
+      <text x="350" y="22" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="13" font-weight="700" fill="var(--teal)">Model-View-Presenter</text>
+
+      <rect x="310" y="50" width="80" height="32" rx="5" fill="color-mix(in srgb, var(--teal) 18%, transparent)" stroke="color-mix(in srgb, var(--teal) 45%, transparent)"/>
+      <text x="350" y="71" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">Presenter</text>
+
+      <line x1="327" y1="82" x2="258" y2="166" stroke="var(--teal)" stroke-width="1.5" marker-end="url(#mvp-fig-arrow)"/>
+      <text x="216" y="128" text-anchor="start" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">reads / updates</text>
+
+      <line x1="373" y1="82" x2="445" y2="166" stroke="var(--teal)" stroke-width="1.5" marker-end="url(#mvp-fig-arrow)"/>
+      <text x="340" y="128" text-anchor="start" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">sets views state</text>
+
+      <line x1="460" y1="170" x2="390" y2="86" stroke="var(--teal)" stroke-width="1.5" marker-end="url(#mvp-fig-arrow)"/>
+      <text x="432" y="128" text-anchor="start" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">user input</text>
+
+      <rect x="215" y="170" width="90" height="32" rx="5" fill="color-mix(in srgb, var(--teal) 12%, transparent)" stroke="color-mix(in srgb, var(--teal) 35%, transparent)"/>
+      <text x="260" y="191" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">Model</text>
+
+      <rect x="395" y="170" width="90" height="32" rx="5" fill="color-mix(in srgb, var(--teal) 12%, transparent)" stroke="color-mix(in srgb, var(--teal) 35%, transparent)"/>
+      <text x="440" y="191" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">View</text>
+
+      <text x="350" y="222" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">no direct link, by construction</text>
+    </svg>
+    <figcaption>Every path between Model and View runs through the Presenter. The View never reads the Model on its own, and the Model never notifies the View directly.</figcaption>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       MVVM
+  ════════════════════════════════════════════════════ -->
+  <h2 id="mvvm">MVVM: Declarative Binding Arrives</h2>
+  <p class="lede">A ViewModel exposes state and commands. The View binds to them. The binding engine, not a developer, keeps both sides in sync.</p>
+
+  <p>Model-View-ViewModel keeps the same three-part shape as the patterns before it, with the middle role renamed and its job changed. The Model still holds data and the rules for changing it. The View still renders. The ViewModel sits between them, but instead of handling input directly the way a Controller or Presenter would, it exposes state and commands that the View binds to, and lets a binding engine handle the actual propagation in both directions.</p>
+
+  <p>That word declarative is doing real work in the sentence above, and it's worth being precise about what changes. A View built the MVP way states, in code a developer wrote, exactly how to push a Presenter's state onto a label or a button's enabled flag, and exactly when to do it. A View built the MVVM way states what it wants bound, a label's text to a property, a button's click to a command, and leaves the decision of when and how to propagate that change to the binding engine underneath it. The developer describes the relationship. The platform executes it.</p>
+
+  <p>This is also where the general idea of reactivity, tracking a value and automatically updating whatever depends on it, first shows up as a first-class platform feature rather than something a developer implements by hand inside a Presenter. The mechanics of how modern reactivity systems actually track dependencies, and where signals fit into that story, are covered in more depth in <a href="client-state.html#signals">Client State</a>. What matters here is narrower: MVVM is the pattern that made declarative, automatic synchronization the norm, and it did that specifically because its originating platform, WPF, shipped a binding engine capable of it.</p>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 700 260" role="img" aria-label="Model-View-ViewModel shown as a single triangle. The ViewModel reads and updates the Model like an ordinary object. Between the ViewModel and the View, a bold two-way line shows the same relationship handled automatically by a declarative binding engine instead of by hand. There is no connection between Model and View." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="mvvm-fig-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--gold)"/>
+        </marker>
+      </defs>
+
+      <text x="350" y="22" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="13" font-weight="700" fill="var(--gold)">Model-View-ViewModel</text>
+
+      <rect x="310" y="50" width="80" height="32" rx="5" fill="color-mix(in srgb, var(--gold) 18%, transparent)" stroke="color-mix(in srgb, var(--gold) 45%, transparent)"/>
+      <text x="350" y="71" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">ViewModel</text>
+
+      <line x1="327" y1="86" x2="258" y2="166" stroke="var(--gold)" stroke-width="1.5" marker-end="url(#mvvm-fig-arrow)"/>
+      <text x="216" y="128" text-anchor="start" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">reads / updates</text>
+
+      <line x1="373" y1="86" x2="445" y2="166" stroke="var(--gold)" stroke-width="2.5" marker-end="url(#mvvm-fig-arrow)" marker-start="url(#mvvm-fig-arrow)"/>
+      <text x="424" y="118" text-anchor="start" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">binds, both ways</text>
+      <text x="424" y="130" text-anchor="start" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">(automatic)</text>
+
+      <rect x="215" y="170" width="90" height="32" rx="5" fill="color-mix(in srgb, var(--gold) 12%, transparent)" stroke="color-mix(in srgb, var(--gold) 35%, transparent)"/>
+      <text x="260" y="191" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">Model</text>
+
+      <rect x="395" y="170" width="90" height="32" rx="5" fill="color-mix(in srgb, var(--gold) 12%, transparent)" stroke="color-mix(in srgb, var(--gold) 35%, transparent)"/>
+      <text x="440" y="191" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">View</text>
+
+      <text x="350" y="222" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">no direct link, by construction</text>
+    </svg>
+    <figcaption>The ViewModel talks to the Model through ordinary code, the same reads and writes a Presenter would make. The bold line to the View is different. A binding engine keeps both sides in sync automatically, which is the one arrow MVP always had to write by hand.</figcaption>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       LAYERED
+  ════════════════════════════════════════════════════ -->
+  <h2 id="layered">Layered Architecture: Tiers, Not Views</h2>
+  <p class="lede">Three layers, one rule: a layer may only call the layer directly beneath it.</p>
+
+  <p>Layered architecture, also called N-tier, splits an application into horizontal layers, most commonly presentation, business logic, and data access, and enforces one rule across all of them: a layer is only allowed to call the layer directly beneath it. The presentation layer can call business logic. Business logic can call data access. Presentation is never supposed to reach past business logic straight into data access, no matter how tempting that shortcut looks on a Friday afternoon.</p>
+
+  <p>The actual payoff is durability under change. A team can swap the database, rewrite the entire user interface, or replace how business rules are implemented, and provided the layer boundaries actually held, the layers on either side of the one being replaced don't need to know or care. That's a meaningfully different kind of protection than anything MVC, MVP, or MVVM offer, because none of those three say anything about where code runs or which tier owns which responsibility. They're answering a different question, the one this section exists to keep separate from the last one.</p>
+
+  <div class="callout warn aside">
+    <div class="callout-title">The layering that only exists in a diagram</div>
+    <p>A presentation component that imports a database client directly, just this once, is the layering violation in practice. It compiles. It works today. It's also the reason a data migration six months later means auditing the UI layer instead of one query, because the boundary that was supposed to prevent exactly that stopped being real the day it was first skipped.</p>
+  </div>
+
+  <p>This is also why a typical modern product still separates "the frontend," "an API layer," and "a database," even when a single framework nominally owns all three ends of that chain. The tiers are a decision about where responsibilities live, not about which repository or team happens to own the code that implements them.</p>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 700 340" role="img" aria-label="Three stacked layers: Presentation, Business Logic, and Data Access, with arrows only pointing downward between adjacent layers. A dashed red line marks a violation skipping directly from Presentation to Data Access, with a red X where it crosses the Business Logic layer." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="layer-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--text-faint)"/>
+        </marker>
+        <marker id="violation-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--red)"/>
+        </marker>
+      </defs>
+
+      <rect x="150" y="25" width="300" height="70" rx="6" fill="color-mix(in srgb, var(--accent) 14%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
+      <text x="300" y="65" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="13" font-weight="600" fill="var(--text)">Presentation</text>
+
+      <line x1="300" y1="98" x2="300" y2="140" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#layer-arrow)"/>
+      <text x="310" y="120" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">calls</text>
+
+      <rect x="150" y="143" width="300" height="70" rx="6" fill="color-mix(in srgb, var(--accent) 14%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
+      <text x="300" y="183" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="13" font-weight="600" fill="var(--text)">Business Logic</text>
+
+      <line x1="300" y1="216" x2="300" y2="258" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#layer-arrow)"/>
+      <text x="310" y="238" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">calls</text>
+
+      <rect x="150" y="261" width="300" height="70" rx="6" fill="color-mix(in srgb, var(--accent) 14%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
+      <text x="300" y="301" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="13" font-weight="600" fill="var(--text)">Data Access</text>
+
+      <path d="M 455 55 C 560 90, 560 260, 455 296" fill="none" stroke="var(--red)" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#violation-arrow)"/>
+      <text x="534" y="180" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="32" font-weight="700" fill="var(--red)">&#215;</text>
+      <text x="590" y="171" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--red)">not allowed</text>
+      <text x="590" y="185" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">skips Business Logic</text>
+    </svg>
+    <figcaption>Each layer may only call the layer directly beneath it. The dashed line marks the shortcut, presentation reaching straight into data access, that quietly breaks the rule the pattern exists to enforce.</figcaption>
+  </div>
+
+  <p>The three tiers above describe what a layer's responsibility is, not how the code implementing it gets grouped into folders. A codebase organized by layer puts every component in one folder, every service in another, and every repository class in a third, so a single feature such as checkout has its code scattered across all three. The alternative, usually called feature-based or vertical-slice organization, groups code by domain instead. A <code>checkout/</code> folder holds its own thin slice through presentation, business logic, and data access, sitting next to a similarly self-contained <code>cart/</code> folder. Both are still layered architecture in the sense that matters here, the call-direction rule from presentation to business logic to data access still holds inside each slice. Feature-based organization answers a different, folder-level question: whether related code lives near other code that changes for the same reason, or near other code that merely looks the same technically. Most frontend codebases lean feature-based today for exactly that reason, since a change to checkout should touch one folder, not three scattered across the whole tree.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       FRAMEWORKS
+  ════════════════════════════════════════════════════ -->
+  <h2 id="frameworks">Where React, Vue, and Angular Land</h2>
+  <p class="lede">Three frameworks, three different relationships to these patterns, and one claim worth arguing with directly rather than repeating.</p>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 700 300" role="img" aria-label="Three frameworks compared. Vue shown as a two-way bound ViewModel with reactive state, binding both ways. Angular shown as a dependency-injected service bound to a component through signals, updating only the components whose signals actually changed rather than checking the whole tree. React shown as its own one-way loop, state renders a diffed view, the view patches the DOM, and an event handler or an effect start the cycle again by updating state." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="fw-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--text-faint)"/>
+        </marker>
+      </defs>
+
+      <!-- Vue -->
+      <text x="115" y="22" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="13" font-weight="700" fill="var(--teal)">Vue</text>
+      <rect x="55" y="38" width="120" height="34" rx="5" fill="color-mix(in srgb, var(--teal) 12%, transparent)" stroke="color-mix(in srgb, var(--teal) 35%, transparent)"/>
+      <text x="115" y="60" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">Model (reactive state)</text>
+      <line x1="115" y1="76" x2="115" y2="108" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#fw-arrow)" marker-start="url(#fw-arrow)"/>
+      <rect x="55" y="112" width="120" height="34" rx="5" fill="color-mix(in srgb, var(--teal) 18%, transparent)" stroke="color-mix(in srgb, var(--teal) 45%, transparent)"/>
+      <text x="115" y="134" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">ViewModel</text>
+      <line x1="115" y1="150" x2="115" y2="182" stroke="var(--teal)" stroke-width="2" marker-end="url(#fw-arrow)" marker-start="url(#fw-arrow)"/>
+      <rect x="55" y="186" width="120" height="34" rx="5" fill="color-mix(in srgb, var(--teal) 12%, transparent)" stroke="color-mix(in srgb, var(--teal) 35%, transparent)"/>
+      <text x="115" y="208" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">View (template)</text>
+      <text x="115" y="242" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">Reactive state,</text>
+      <text x="115" y="255" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">binding both ways</text>
+
+      <!-- Angular -->
+      <text x="350" y="22" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="13" font-weight="700" fill="var(--gold)">Angular</text>
+      <rect x="290" y="38" width="120" height="34" rx="5" fill="color-mix(in srgb, var(--gold) 12%, transparent)" stroke="color-mix(in srgb, var(--gold) 35%, transparent)"/>
+      <text x="350" y="60" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">Service (DI, injected)</text>
+      <line x1="350" y1="76" x2="350" y2="108" stroke="var(--gold)" stroke-width="2" marker-end="url(#fw-arrow)" marker-start="url(#fw-arrow)"/>
+      <text x="358" y="94" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--gold)">signals</text>
+      <rect x="290" y="112" width="120" height="34" rx="5" fill="color-mix(in srgb, var(--gold) 18%, transparent)" stroke="color-mix(in srgb, var(--gold) 45%, transparent)"/>
+      <text x="350" y="134" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">Component</text>
+      <line x1="350" y1="150" x2="350" y2="182" stroke="var(--gold)" stroke-width="2" marker-end="url(#fw-arrow)" marker-start="url(#fw-arrow)"/>
+      <rect x="290" y="186" width="120" height="34" rx="5" fill="color-mix(in srgb, var(--gold) 12%, transparent)" stroke="color-mix(in srgb, var(--gold) 35%, transparent)"/>
+      <text x="350" y="208" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">View (template)</text>
+      <text x="350" y="242" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">Signal-driven updates,</text>
+      <text x="350" y="255" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">no whole-tree walk</text>
+
+      <!-- React -->
+      <text x="585" y="22" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="13" font-weight="700" fill="var(--accent2)">React</text>
+      <rect x="525" y="38" width="120" height="34" rx="5" fill="color-mix(in srgb, var(--accent2) 12%, transparent)" stroke="color-mix(in srgb, var(--accent2) 35%, transparent)"/>
+      <text x="585" y="60" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">State (useState, etc.)</text>
+      <line x1="585" y1="76" x2="585" y2="108" stroke="var(--accent2)" stroke-width="1.5" marker-end="url(#fw-arrow)"/>
+      <text x="592" y="94" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--accent2)">renders</text>
+      <rect x="525" y="112" width="120" height="34" rx="5" fill="color-mix(in srgb, var(--accent2) 18%, transparent)" stroke="color-mix(in srgb, var(--accent2) 45%, transparent)"/>
+      <text x="585" y="134" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">Virtual DOM</text>
+      <line x1="585" y1="150" x2="585" y2="182" stroke="var(--accent2)" stroke-width="1.5" marker-end="url(#fw-arrow)"/>
+      <text x="592" y="168" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--accent2)">patches</text>
+      <rect x="525" y="186" width="120" height="34" rx="5" fill="color-mix(in srgb, var(--accent2) 12%, transparent)" stroke="color-mix(in srgb, var(--accent2) 35%, transparent)"/>
+      <text x="585" y="208" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">DOM</text>
+      <path d="M 525 203 C 450 190, 450 60, 525 55" fill="none" stroke="var(--accent2)" stroke-width="1.5" marker-end="url(#fw-arrow)"/>
+      <text x="480" y="122" text-anchor="start" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--accent2)">event</text>
+      <text x="480" y="133" text-anchor="start" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--accent2)">handler</text>
+      <text x="585" y="242" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">One-way rendering cycle.</text>
+      <text x="585" y="255" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">State changes only through explicit code,</text>
+      <text x="585" y="268" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">never through binding.</text>
+      <text x="585" y="285" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--accent2)">schedules, doesn't bind</text>
+    </svg>
+    <figcaption>Vue's ViewModel exposes reactive state directly to the View. Angular achieves a similar result through components, dependency injection, and signals. React's rendering model remains strictly one-way.</figcaption>
+  </div>
+
+  <h3 id="vue">Vue: MVVM by Design</h3>
+
+  <p>Vue is a component-based framework built around declarative rendering, reactive state, and a lightweight programming model. Vue has consistently described itself in terms of MVVM, and the pattern maps naturally onto how modern Vue applications are structured.</p>
+
+  <p>The fundamental architectural unit is the component, which encapsulates a template together with the state and behavior that drive it. The template declaratively binds to that state and responds to user events. Components can maintain their own local state or consume shared state from composables or application-wide stores. Business logic, data access, and other cross-cutting concerns are typically factored into composables or dedicated state management libraries rather than embedded directly in components.</p>
+
+  <p>Vue closely follows the MVVM pattern. The template acts as the View, while the component exposes the reactive state and methods consumed by that template, serving as the ViewModel. Composables and state stores are not equivalent to the Model in the classical MVC sense. They provide reusable application logic, shared state, or both.</p>
+
+  <p>Vue's reactivity system is central to this model. Reactive objects, refs, and computed values automatically track dependencies as they are read. Components and templates that read reactive values automatically become dependent on them, allowing Vue to update only the parts of the UI affected by a state change instead of broadly re-rendering across the component tree.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">counter.ts</span>
+      <span class="code-lang">TypeScript</span>
+    </div>
+    <pre><code><span class="kw">import</span> { <span class="fn">ref</span>, <span class="fn">computed</span> } <span class="kw">from</span> <span class="s">'vue'</span>;
+
+<span class="kw">export</span> <span class="kw">function</span> <span class="fn">useCounter</span>() {
+  <span class="kw">const</span> <span class="n">count</span> = <span class="fn">ref</span>(<span class="m">0</span>);
+  <span class="kw">const</span> <span class="n">doubled</span> = <span class="fn">computed</span>(() =&gt; <span class="n">count</span>.<span class="n">value</span> * <span class="m">2</span>);
+
+  <span class="kw">function</span> <span class="fn">increment</span>(): <span class="kw">void</span> {
+    <span class="n">count</span>.<span class="n">value</span>++;
+  }
+
+  <span class="kw">return</span> {
+    <span class="n">count</span>,
+    <span class="n">doubled</span>,
+    <span class="n">increment</span>
+  };
+}</code></pre>
+  </div>
+
+  <p>In this example, the composable encapsulates reusable reactive state and behavior. A component calls <code>useCounter()</code> and binds directly to the returned <code>count</code> and <code>doubled</code> values in its template. Because these are reactive values, Vue automatically tracks those dependencies and updates only the UI that consumes them when their values change.</p>
+
+  <h3 id="angular">Angular: An Explicit Hybrid</h3>
+
+  <p>Angular is a component-based framework built around dependency injection, declarative templates, and reactive state. Angular has historically been discussed in terms of MVC and MVVM. While neither pattern maps cleanly onto modern Angular applications, MVVM provides the closer architectural analogy.</p>
+
+  <p>The fundamental architectural unit is the component, which encapsulates a template together with the presentation logic that drives it. Components obtain their dependencies through Angular's dependency injection system rather than constructing or locating them directly. Business logic, data access, shared application state, and other cross-cutting concerns are commonly encapsulated in injectable services, while templates declaratively bind to component properties and react to user events.</p>
+
+  <p>From a UI architecture perspective, Angular most closely resembles MVVM. The template acts as the View, while the component exposes the state and behavior consumed by that template, effectively acting as the ViewModel. Injectable services are not the Model in the classical MVC sense. Instead, they provide whatever application services the component depends on, such as domain models, repositories, API clients, or state stores. How responsibilities are divided between components and services is largely an application design decision rather than something prescribed by Angular.</p>
+
+  <p>Modern Angular further reinforces this reactive model through signals. A signal represents a reactive value, while computed signals derive values automatically from other signals. Components and templates that read a signal automatically become its dependents, allowing Angular to target change detection only at the affected components instead of broadly traversing the component tree.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">counter.component.ts</span>
+      <span class="code-lang">TypeScript</span>
+    </div>
+    <pre><code><span class="kw">@Injectable</span>({ <span class="n">providedIn</span>: <span class="s">'root'</span> })
+<span class="kw">export</span> <span class="kw">class</span> <span class="t">CounterStore</span> {
+  <span class="kw">readonly</span> <span class="n">count</span> = <span class="fn">signal</span>(<span class="m">0</span>);
+  <span class="kw">readonly</span> <span class="n">doubled</span> = <span class="fn">computed</span>(() =&gt; <span class="kw">this</span>.<span class="n">count</span>() * <span class="m">2</span>);
+
+  <span class="n">increment</span>(): <span class="kw">void</span> {
+    <span class="kw">this</span>.<span class="n">count</span>.<span class="fn">update</span>(<span class="n">n</span> =&gt; <span class="n">n</span> + <span class="m">1</span>);
+  }
+}</code></pre>
+  </div>
+
+  <p>In this example, the service encapsulates reactive state and behavior that exposes signals. The component injects the store, and its template binds directly to the store's <code>count</code> and <code>doubled</code> signals. Because these are signals, Angular automatically tracks the dependency and refreshes only the UI that consumes them when their values change.</p>
+
+  <h3 id="react">React: A Library, Not a Pattern</h3>
+
+  <p>React is a component-based library built around declarative rendering, unidirectional data flow, and composable components. Unlike Angular and Vue, React does not describe itself in terms of MVC or MVVM. Instead, it focuses on rendering a UI from state while leaving the overall application architecture largely to the developer.</p>
+
+  <p>The fundamental architectural unit is the component, implemented as a function that returns a description of the UI. Components manage local state through hooks such as <code>useState</code>, derive values during rendering, and respond to user events by updating state. Shared state, business logic, data access, and other cross-cutting concerns are typically factored into custom hooks, context providers, or third-party libraries. React intentionally provides few architectural conventions beyond the component model itself.</p>
+
+  <p>React is often described as the View in MVC, although that characterization is incomplete. A React component combines rendering, state, and behavior, giving it responsibilities traditionally associated with both the View and the ViewModel. Unlike Angular or Vue, however, React does not prescribe where application logic or state should live. Whether an application adopts an MVC, MVVM, or another architectural style depends almost entirely on the surrounding ecosystem rather than on React itself.</p>
+
+  <p>React's rendering model is driven by state changes. When a component's state or props change, React re-executes that component to produce a new description of the UI. React then reconciles that result with the previous render and applies only the necessary changes to the DOM instead of replacing it wholesale.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">useCounter.ts</span>
+      <span class="code-lang">TypeScript</span>
+    </div>
+    <pre><code><span class="kw">import</span> { <span class="fn">useState</span> } <span class="kw">from</span> <span class="s">'react'</span>;
+
+<span class="kw">export</span> <span class="kw">function</span> <span class="fn">useCounter</span>() {
+  <span class="kw">const</span> [<span class="n">count</span>, <span class="n">setCount</span>] = <span class="fn">useState</span>(<span class="m">0</span>);
+  <span class="kw">const</span> <span class="n">doubled</span> = <span class="n">count</span> * <span class="m">2</span>;
+
+  <span class="kw">function</span> <span class="fn">increment</span>(): <span class="kw">void</span> {
+    <span class="fn">setCount</span>(<span class="n">n</span> =&gt; <span class="n">n</span> + <span class="m">1</span>);
+  }
+
+  <span class="kw">return</span> {
+    <span class="n">count</span>,
+    <span class="n">doubled</span>,
+    <span class="n">increment</span>
+  };
+}</code></pre>
+  </div>
+
+  <p>In this example, the custom hook encapsulates reusable state and behavior. A component calls <code>useCounter()</code> and renders the returned <code>count</code> and <code>doubled</code> values, wiring its <code>increment</code> function to a click handler. Because <code>count</code> is state, calling <code>setCount</code> inside <code>increment</code> triggers React to re-render the component and patch only the parts of the DOM that actually changed.</p>
+
+  <p>Unlike Angular and Vue, React intentionally stops at the component model and rendering engine, leaving higher-level architectural patterns to the surrounding ecosystem.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       COMPARISON
+  ════════════════════════════════════════════════════ -->
+  <h2 id="comparison">Comparing the Patterns</h2>
+  <p class="lede">The interesting question was never which pattern is best. It's which problem each one actually solves, and whether a given application still has that problem.</p>
+
+  <p>MVC's directness is also its weakness. A View that's allowed to read the Model straight away is fast to build and just as fast to lose control of, once an application has grown past a handful of screens and enough of them are watching the same shared data. That's exactly the gap MVP closed by forcing everything through a Presenter, at the cost of writing that Presenter by hand. MVC, in its GUI-arbitration form, earns its keep on small, self-contained screens, a form or two built around one dataset, not an application where several views need to update each other independently.</p>
+
+  <p>MVVM's binding layer removes glue code, but it doesn't remove complexity. It moves that complexity into the framework's own reactive system, where it's harder to see. Debugging a binding failure means reasoning about a system whose propagation logic a developer never wrote, whereas a hand-written Presenter's data flow, however tedious to produce, is at least fully readable in a developer's own code. Refusing two-way binding in the first place trades the convenience MVVM offers for a data flow that stays fully traceable through a single, predictable cycle, no matter how large the application gets.</p>
+
+  <p>Layered architecture buys long-term maintainability and clean team boundaries. A frontend team, an API team, and a data team can each change their own layer without reading the others' code first. The cost is upfront ceremony that's simply wasted effort on an application one or two people maintain end to end. Its best fit is exactly the enterprise, multi-team scenario the pattern grew up solving in the first place, not a weekend project.</p>
+
+  <p>None of this is mutually exclusive in a real codebase. A layered backend routinely sits behind an MVVM-flavored frontend without any contradiction, because the two patterns answer different questions entirely. MVC, MVP, and MVVM describe how UI responsibilities are organized, while layered architecture describes how the overall system is divided. Most production systems mix more of these patterns than a single-pattern framing ever really suggests, whether that framing calls itself an MVC app or an MVVM app.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       CHOOSING
+  ════════════════════════════════════════════════════ -->
+  <h2 id="choosing">Choosing an Architecture</h2>
+  <p class="lede">For a new team, the honest answer usually isn't "pick a pattern." It's "pick your framework's own idiom, and stop importing a foreign one wholesale."</p>
+
+  <p>Vue's idiom is ViewModel-shaped, and fighting that by forcing a Presenter-style manual sync layer on top of it mostly adds work Vue's reactivity system was built to do automatically. Angular's idiom is an explicit, evolving hybrid, and a modern Angular app leans on signals and dependency-injected services rather than picking a side of the MVC-versus-MVVM debate its own documentation has never fully settled. React resists being forced into MVVM's binding mental model, because its own render cycle is already one-way before any state-management library gets added.</p>
+
+  <div class="callout ok aside">
+    <div class="callout-title">Layered architecture is the one exception</div>
+    <p>Where should presentation, business logic, and data access responsibilities live, and who's allowed to call whom, is largely independent of which frontend framework a team picked. That's worth deciding deliberately regardless of whether the UI layer sitting on top leans MVC, MVVM, or something else entirely.</p>
+  </div>
+
+  <p>None of the three frameworks discussed here got MVC, MVP, or MVVM handed to them unchanged from an old academic whiteboard. Each inherited a problem those older patterns first named, such as arbitrating shared state across multiple views, keeping a screen testable, or synchronizing a display without writing glue code by hand. Each then built its own answer, shaped by what its underlying platform could actually do.</p>
+
+  <p>Modern frontend architecture has moved beyond MVC/MVVM comparisons into reactive state management, server/client boundaries, and unidirectional data flow. React Server Components render on the server and never become client-side state at all. Vue's server-rendering setup and Angular's SSR-with-hydration story do the same job through different mechanisms. A modern web application can mix both execution models rather than sitting entirely in one. Knowing whether a given piece of UI runs as server-rendered markup or as hydrated client state matters more in ordinary development work than picking a single architecture label for the whole app.</p>
+
+</main>
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+
+</body>
+</html>
