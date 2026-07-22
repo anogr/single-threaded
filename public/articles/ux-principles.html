@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UX Principles — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+<style>
+  /* Article-specific only. Shared patterns (cards, callouts, code blocks,
+     sidebar, tables) come from articles.css. */
+  .figure-wrap {
+    margin: 28px 0 8px;
+  }
+  .figure-wrap svg {
+    max-width: 100%;
+    display: block;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .figure-wrap figcaption {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-top: 10px;
+    line-height: 1.55;
+    max-width: var(--content-w);
+  }
+</style>
+</head>
+
+<body>
+
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Docs</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+  <a class="sidebar-logo" href="index.html">Article<br><span>UX Principles</span></a>
+
+  <div class="sidebar-section">Why It Matters</div>
+  <a href="#intro">UX Is Not UI</a>
+
+  <div class="sidebar-section">Foundations</div>
+  <a href="#heuristics">Usability Heuristics</a>
+  <a href="#ia">Information Architecture</a>
+
+  <div class="sidebar-section">Perception &amp; Systems</div>
+  <a href="#hierarchy">Visual Hierarchy and Perception</a>
+  <a href="#tokens">Type, Spacing, and Color as Tokens</a>
+
+  <div class="sidebar-section">Implementation</div>
+  <a href="#states">Interaction States and Feedback</a>
+
+  <div class="sidebar-section">Context &amp; Practice</div>
+  <a href="#research">Why UX Decisions Look the Way They Do</a>
+  <a href="#practice">Applying UX Principles During Implementation</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">Design &amp; UX · Principles</div>
+  <h1>UX Principles</h1>
+  <p class="subtitle">The usability, structure, and visual-design fundamentals behind interface decisions, and how they carry through into the code that implements them.</p>
+  <div class="byline">
+    <strong>Deep dive</strong>
+    <div class="dot"></div>
+    <span>~18 min read</span>
+    <div class="dot"></div>
+    <span>Usability and design fundamentals</span>
+    <div class="dot"></div>
+    <span>July 2026</span>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       INTRO
+  ════════════════════════════════════════════════════ -->
+  <section id="intro">
+    <p class="lede">A design file describes an intended experience. What ships is whatever the implementation actually produces, and the gap between the two is where most of a product's usability is won or lost.</p>
+
+    <p><strong>User experience</strong> (UX) covers how a product feels to use. It's whether someone can complete a task, whether they understand what just happened, and whether they trust the result. <strong>User interface</strong> (UI) is the visual and interactive surface that either delivers that experience or gets in its way. The two overlap heavily, but a screen can be visually polished and still fail as UX if the flow underneath doesn't match how someone actually thinks about the task.</p>
+
+    <p>Most of what decides whether an interface works gets decided twice. It happens once in a design file, and again in the code that renders it. A design can specify a hover state, an error message, and a loading indicator. Whether the hover state fires correctly on a touch device gets settled during implementation. So does whether the error message text survives three re-renders, and whether the loading indicator distinguishes a slow network from a broken one, frequently without anyone checking back against the original design.</p>
+
+    <p>This article covers usability heuristics, information architecture, visual hierarchy, and the interaction patterns that turn a static design into a working interface. The focus throughout is reading and implementing those decisions well, not originating them from scratch. Building a UX practice from the ground up, personas, journey mapping, formal usability-testing protocols, is a different, process-heavy subject, and gets only a brief mention later in the section on where these decisions come from.</p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════
+       HEURISTICS
+  ════════════════════════════════════════════════════ -->
+  <h2 id="heuristics">Usability Heuristics</h2>
+  <p class="lede">A set of ten heuristics from 1994 still shows up, often unnamed, in modern design systems and platform guidelines, because the failures they describe haven't changed.</p>
+
+  <p>Jakob Nielsen's usability heuristics are broad rules of thumb for evaluating an interface, developed by observing where real interfaces kept failing in the same handful of ways. They predate the web and still turn up, uncredited, in the human interface guidelines published by every major platform vendor today. That staying power is worth noting up front, since the heuristics get introduced here as a durable foundation rather than as the newest thinking in the field.</p>
+
+  <p>Five of the ten cover most of what shows up during implementation:</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Heuristic</th><th>Interface pattern</th><th>What breaks without it</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Visibility of system status</td><td>Loading indicators, progress bars, save confirmations</td><td>Users repeat an action because they can't tell whether the first attempt worked</td></tr>
+        <tr><td>User control and freedom</td><td>Undo, cancel, and back navigation that actually goes back</td><td>A mistake becomes permanent the instant it's made</td></tr>
+        <tr><td>Consistency and standards</td><td>The same icon or action means the same thing everywhere in a product</td><td>Every screen becomes a decision someone has to work out again</td></tr>
+        <tr><td>Error prevention and recovery</td><td>Confirmation before a destructive action, a clear path back afterward</td><td>A destructive action executes with no way to reverse it</td></tr>
+        <tr><td>Recognition over recall</td><td>Options shown directly instead of ones a user has to remember exist</td><td>A task gets abandoned because the option needed was never visible</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>These hold up just as well for a feature built around a language model as for anything else. Showing generation progress instead of a blank pause satisfies visibility of system status the same way a file-upload progress bar does. An AI-drafted email still needs a confirmation step before it sends, the same as any other destructive action would. A generated response also needs to communicate its own uncertainty. A confident-looking paragraph and a verified fact are not the same thing, and a UI that presents both identically is asking for more trust than the system has actually earned.</p>
+
+  <p>Consistency also has a behavioral half that a style guide alone won't catch. A shortcut, a confirmation step, or a piece of terminology should mean the same thing everywhere it appears, not just look the same. People notice a "Save" that behaves differently on two screens faster than they notice a button that's a few pixels out of alignment.</p>
+
+  <div class="callout info">
+    <div class="callout-title">Heuristics guide judgment, they don't replace it</div>
+    <p>None of these are binary pass-or-fail rules. A confirmation dialog is the right call before deleting an account. It's the wrong call before adding an item to a cart, where undo is cheaper than a prompt most users will click through without reading anyway.</p>
+  </div>
+
+  <p><strong>Progressive disclosure</strong> is a closely related pattern that predates Nielsen's list by name but fits the same logic. It shows the common options by default and hides advanced ones behind a deliberate action, such as an "Advanced" toggle or a settings drawer, instead of presenting every option at once. It reduces what a person has to process to complete the common case. It also pairs naturally with sensible defaults, values pre-filled well enough that most people never need to open the advanced view at all.</p>
+
+  <p>Several of these heuristics double as accessibility requirements once translated into code. A red border alone satisfies error prevention for a sighted user but tells a screen reader user nothing. An accessible error state needs the problem announced as text, not just implied by color.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       INFORMATION ARCHITECTURE
+  ════════════════════════════════════════════════════ -->
+  <h2 id="ia">Information Architecture</h2>
+  <p class="lede">How content and functionality get organized decides whether people can find what they need, and that's a structural decision as much as a visual one.</p>
+
+  <p><strong>Information architecture</strong> (IA) is the structure that organizes content and functionality so people can find what they're looking for. It covers how items get grouped, labeled, and connected to each other. Good IA follows how someone actually thinks about a task rather than how a database happens to be organized. A retailer's warehouse groups stock by pallet size and storage temperature. A shopper thinks in terms of what they're buying, such as an occasion, a room in their house, or a gift for someone else. A navigation structure copied from the warehouse instead of the shopper's own mental model fights the person using it from the first click.</p>
+
+  <p>Every IA decision made in a design file becomes a routing decision in code. A navigation hierarchy that groups products by category turns into a URL structure that reflects the same grouping. A flat list of unrelated top-level links, on the other hand, turns into a flat set of routes with no shared parent. <strong>Deep linking</strong> lets a URL point directly at a specific state inside an app, such as a particular product page, a filtered list, or an open modal. Without it, sharing a link or refreshing the page drops a user back at the app's root instead of wherever they actually were.</p>
+
+  <p>URL stability matters just as much once a route exists. Changing a URL's structure after people have bookmarked or shared it breaks every link pointing at the old address. That's why routing decisions deserve the same care given to any other public interface a product exposes.</p>
+
+  <p>Search and navigation solve the same problem, findability, from different directions, and a product with enough content needs both rather than treating one as a replacement for the other. Navigation works when someone already knows roughly where something lives in the structure. Search works when they don't, or when the structure has more items than a menu can reasonably expose.</p>
+
+  <p>None of this holds up if the underlying state management doesn't cooperate. A back button that returns to a list but has forgotten its scroll position and filters, because that state only ever lived in memory, breaks the same navigation model the URL was supposed to guarantee. How that state gets kept in sync with the URL instead of drifting apart from it is covered in <a href="client-state.html">Client State</a>.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       VISUAL HIERARCHY
+  ════════════════════════════════════════════════════ -->
+  <h2 id="hierarchy">Visual Hierarchy and Perception</h2>
+  <p class="lede">A layout communicates structure before anyone reads a single word on it, through nothing more than how its elements are spaced and grouped.</p>
+
+  <p><strong>Gestalt principles</strong> describe how people perceive grouped visual elements as a single unit rather than as a collection of separate parts. They come from a set of observations in early twentieth-century psychology that still holds up as a practical design tool today. Proximity is the strongest of them in practice. Elements placed close together read as related, and elements separated by space read as unrelated, regardless of what a label or heading claims. Similarity works the same way through shape and color instead of distance. Two buttons styled identically read as offering the same kind of action, even when their labels say otherwise.</p>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 700 250" role="img" aria-label="Two versions of the same four-field form shown side by side. On the left, the fields First name, Last name, Email, and Phone are spaced evenly and read as one undifferentiated list. On the right, the same four fields are grouped with a Contact label over the first two and a Shipping label over the last two, using a larger gap between the groups than within them, so the same fields now read as two distinct sections without any added borders or dividers." xmlns="http://www.w3.org/2000/svg">
+      <text x="20" y="24" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--text-dim)">The same four fields, regrouped by spacing alone</text>
+
+      <text x="180" y="52" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text-faint)">Same spacing throughout</text>
+      <rect x="90" y="64" width="180" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="180" y="81" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">First name</text>
+      <rect x="90" y="98" width="180" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="180" y="115" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Last name</text>
+      <rect x="90" y="132" width="180" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="180" y="149" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Email</text>
+      <rect x="90" y="166" width="180" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="180" y="183" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Phone</text>
+
+      <text x="520" y="52" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text-faint)">Grouped by spacing</text>
+      <text x="430" y="62" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="var(--accent)">CONTACT</text>
+      <rect x="430" y="68" width="180" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="520" y="85" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">First name</text>
+      <rect x="430" y="102" width="180" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="520" y="119" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Last name</text>
+      <text x="430" y="150" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="var(--accent)">SHIPPING</text>
+      <rect x="430" y="156" width="180" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="520" y="173" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Email</text>
+      <rect x="430" y="190" width="180" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="520" y="207" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Phone</text>
+
+      <text x="20" y="228" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Same four fields, same labels, same visual style on both sides.</text>
+      <text x="20" y="243" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Only the spacing between rows changed.</text>
+    </svg>
+    <figcaption>Proximity does the work here on its own. No divider, border, or heading style changed between the two versions, only the gap between one pair of fields and the next.</figcaption>
+  </div>
+
+  <p>Eye-tracking studies are often summarized into simple shapes, most famously the "F-pattern," and the shape then gets treated as a rule rather than what it actually was. It was an average across a specific set of text-heavy pages, not a law of how people look at every screen. A strong visual anchor or a clear call to action breaks a reader out of any assumed scanning pattern just as easily. What generalizes is the underlying behavior. People scan a screen rather than reading it start to finish, which is why the first thing visible in a hierarchy tends to carry more weight than anything below it.</p>
+
+  <p>Alignment does similar work at a larger scale. Elements sharing an edge read as part of the same system, even across otherwise unrelated components, and that's the actual mechanism behind why a consistent grid makes an interface feel organized rather than merely tidy.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       TOKENS
+  ════════════════════════════════════════════════════ -->
+  <h2 id="tokens">Type, Spacing, and Color as Tokens</h2>
+  <p class="lede">A type scale and a spacing scale are Gestalt principles turned into fixed values, which is exactly what makes them portable into code.</p>
+
+  <p>A <strong>type scale</strong> is a constrained set of font sizes, usually related by a consistent ratio, used instead of picking a size freely for every new piece of text. It's what lets a heading signal the same level of importance on every screen in a product instead of depending on whoever happened to build that screen making a consistent judgment call. A spacing scale does the same job for whitespace. A fixed set of gap values, rather than an arbitrary pixel value chosen fresh each time, keeps proximity meaning the same thing everywhere it's used.</p>
+
+  <p>Color earns its place in an interface by carrying meaning, not by adding variety. A red error state, a green success state, and a neutral default state let someone recognize status at a glance, without needing to read the text next to it. Reserving color for meaning also keeps everything else legible. A product that spends five accent colors on decoration has nothing distinctive left to spend on marking what actually needs attention.</p>
+
+  <p>Contrast used for emphasis has to clear a legibility floor, not just a stylistic one. A muted gray-on-gray label might read as intentionally understated to whoever designed it and be genuinely unreadable to someone with low vision. That's why a contrast ratio belongs in the same token system as the type scale, checked once at the source, rather than left to individual judgment on each screen.</p>
+
+  <p><strong>Design tokens</strong> are these values, such as a spacing scale, a type scale, and a color palette, expressed as named variables instead of hardcoded numbers. The same decision then propagates everywhere it's used instead of drifting apart screen by screen.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">tokens.ts</span>
+      <span class="code-lang">TS</span>
+    </div>
+    <pre><code><span class="cm">// A fixed scale, not a value picked freely per component.</span>
+<span class="kw">const</span> <span class="cn">spacing</span> = {
+  <span class="n">xs</span>: <span class="s">'4px'</span>,
+  <span class="n">sm</span>: <span class="s">'8px'</span>,
+  <span class="n">md</span>: <span class="s">'16px'</span>,
+  <span class="n">lg</span>: <span class="s">'24px'</span>,
+  <span class="n">xl</span>: <span class="s">'32px'</span>,
+} <span class="kw">as</span> <span class="kw">const</span>;
+
+<span class="kw">type</span> <span class="t">SpacingToken</span> = <span class="kw">keyof</span> <span class="kw">typeof</span> <span class="cn">spacing</span>;</code></pre>
+  </div>
+
+  <p>Shadows and elevation follow the same logic on a smaller scale. A handful of fixed shadow values signal depth and layering consistently, the same way a fixed type scale signals text importance consistently. How these tokens actually get organized and scaled across a real codebase, including tiers of variables, theming, and the tooling that enforces them, is covered in <a href="css-architectures.html">CSS at Scale</a>.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       STATES
+  ════════════════════════════════════════════════════ -->
+  <h2 id="states">Interaction States and Feedback</h2>
+  <p class="lede">A static design file only ever shows a screen in one state, leaving every other state a screen can be in to get built without ever being drawn first.</p>
+
+  <p>A single interactive component can pass through more states than a design file typically shows, such as default, hover, focus, active, disabled, loading, and error. Each one is a separate decision, not a variation the browser fills in automatically. Reaching for a native control instead of a custom one is often the fastest way to get several of these states for free. A native element usually arrives with keyboard support, accessible semantics, and expected behavior already built in, all things a custom widget has to recreate by hand and keep correct as the component evolves.</p>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 700 200" role="img" aria-label="A single Save button shown across six states: default, hover, focus, active, disabled, and loading. The default state is a plain outlined button. Hover adds an accent-colored border. Focus adds a visible outer ring around the button. Active fills the button with the accent color. Disabled shows the same button at reduced opacity with muted text. Loading replaces the button's text with a small spinner icon." xmlns="http://www.w3.org/2000/svg">
+      <text x="20" y="24" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--text-dim)">One button, six states a static mock rarely shows</text>
+
+      <rect x="40" y="60" width="90" height="34" rx="6" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="85" y="81" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">Save</text>
+      <text x="85" y="118" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Default</text>
+
+      <rect x="146" y="60" width="90" height="34" rx="6" fill="var(--accent-wash)" stroke="var(--accent)"/>
+      <text x="191" y="81" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">Save</text>
+      <text x="191" y="118" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Hover</text>
+
+      <rect x="248" y="56" width="98" height="42" rx="8" fill="none" stroke="var(--accent)" stroke-width="2"/>
+      <rect x="252" y="60" width="90" height="34" rx="6" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="297" y="81" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">Save</text>
+      <text x="297" y="118" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Focus</text>
+
+      <rect x="358" y="60" width="90" height="34" rx="6" fill="var(--accent)" stroke="var(--accent)"/>
+      <text x="403" y="81" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--bg)">Save</text>
+      <text x="403" y="118" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Active</text>
+
+      <rect x="464" y="60" width="90" height="34" rx="6" fill="var(--surface)" stroke="var(--border)" opacity="0.6"/>
+      <text x="509" y="81" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text-faint)" opacity="0.8">Save</text>
+      <text x="509" y="118" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Disabled</text>
+
+      <rect x="570" y="60" width="90" height="34" rx="6" fill="var(--surface-2)" stroke="var(--border)"/>
+      <circle cx="615" cy="77" r="8" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="28 22"/>
+      <text x="615" y="118" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Loading</text>
+
+      <text x="20" y="150" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">A design handoff that shows only the leftmost state leaves the other five as</text>
+      <text x="20" y="166" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">implicit decisions, made ad hoc during implementation instead of on purpose.</text>
+    </svg>
+    <figcaption>Six states, one component. A design file that only shows the default state is more common than one that shows all six, which means most of this matrix gets decided by whoever builds the component, not whoever designed it.</figcaption>
+  </div>
+
+  <div class="callout warn">
+    <div class="callout-title">Not every state earns a bespoke treatment</div>
+    <p>A disabled state that just lowers opacity by 40% is often the right amount of effort. Reserve custom illustration and copywriting for the states people actually spend time in, like empty and error, instead of spending the same budget on all six uniformly.</p>
+  </div>
+
+  <p>Performance is itself a usability feature, not a separate concern from the states covered here. An interface that responds immediately is often perceived as simpler than an identical interface that pauses before every interaction. That perception, more than raw polish, is the real reason optimistic updates and skeletons matter.</p>
+
+  <p><strong>Optimistic updates</strong> apply a change to the interface immediately, before the server has confirmed it, then reconcile if the request actually fails. A like button that fills in the instant it's tapped, rather than after a round trip completes, is doing this. It trades a small risk of visibly reverting an action for an interface that feels instant, usually the right trade for low-stakes actions and the wrong one for anything destructive or expensive to undo.</p>
+
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:20px 0;">
+    <div class="card teal">
+      <div class="card-label">Feedback pattern</div>
+      <div class="card-title">Optimistic update</div>
+      <p>Apply the change immediately and roll back only if the request fails. Right for low-stakes, easily reversible actions like a like button or a reorderable list.</p>
+    </div>
+    <div class="card orange">
+      <div class="card-label">Feedback pattern</div>
+      <div class="card-title">Pessimistic update</div>
+      <p>Wait for confirmation before showing the change. Right for anything destructive, expensive to undo, or dependent on a server-side decision like payment or inventory.</p>
+    </div>
+  </div>
+
+  <p>Loading feedback splits into two common shapes. A spinner communicates that something is happening without saying how much longer it will take. A <strong>skeleton</strong>, a gray placeholder shaped like the content that's about to load, communicates the coming layout in addition to the fact that something is loading. That extra signal reduces the layout shift that happens when content actually arrives.</p>
+
+  <p>Form validation splits the same way. Submit-time validation waits until a person tries to move on before reporting a problem, simpler to implement but delivering the news as late as possible. Inline validation reports a problem as soon as a field loses focus or a pattern becomes checkable, catching a mistake while the context that caused it is still in view.</p>
+
+  <p>Where an error is reported matters less than what it actually says. A useful error message explains what happened, why, and what to do next, without exposing internal system details a user can't act on. "Error 500" tells someone nothing they can use. "We couldn't save your changes. Check your connection and try again" tells them what failed and what to try, without describing whatever crashed on the server to cause it.</p>
+
+  <p>An empty state deserves the same deliberate thought, and shows up far more often than a design file usually accounts for. A first login, an inbox with nothing in it yet, and a search that returned no matches are all empty states a real product spends real time in. A blank screen with no explanation leaves someone wondering whether a feature is broken or simply unused so far. The more useful version explains why the screen is empty and, where possible, gives the person a next action instead of leaving them to guess one.</p>
+
+  <p>Feedback also has to account for a request that never completes at all. A skeleton or spinner that spins forever when a network drops is worse than no feedback, since it actively signals that something is about to happen when nothing is. A timeout that falls back to an explicit error state, with a retry action, is the minimum bar for anything that depends on a network request. The same caution applies to anything else a screen depends on to function, such as a script finishing execution or a browser API being available. A feature that simply fails to render when one of those assumptions breaks is a worse outcome than a plainer version that still works.</p>
+
+  <p>None of these states behave identically on every input method. Hover doesn't exist on a touch screen. Any interaction that depends on it to reveal information, such as a tooltip, a preview, or a secondary action, needs an alternate path on a device with no cursor to hover with. The same interface also has to hold up across a genuinely wide range of screen sizes. That's less about scaling a layout down proportionally and more about deciding what gets hidden, collapsed into a menu, or reordered entirely as space shrinks.</p>
+
+  <p>Motion is a feedback channel in its own right, not decoration layered on top of a finished interface. A transition that slides a new screen in from the direction a user just navigated preserves their sense of place in a way an instant cut doesn't. The same principle argues against motion with no informational job to do. An animation that exists only to look polished adds latency to every interaction without telling anyone anything.</p>
+
+  <p>Focus deserves particular attention among these states. A visible focus indicator is how someone navigating by keyboard knows where they currently are on a page. Removing it, a common side effect of resetting a browser's default styles, leaves keyboard users with no way to track their own position. The mechanics behind that indicator, and the accessibility tree these states plug into, are covered in <a href="accessibility-foundations.html">Accessibility as an Architecture Decision</a>.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       RESEARCH
+  ════════════════════════════════════════════════════ -->
+  <h2 id="research">Why UX Decisions Look the Way They Do</h2>
+  <p class="lede">Every constraint embedded in a design came from somewhere, even when the reasoning never made it into the file itself.</p>
+
+  <p><strong>Usability testing</strong> is watching a real person attempt a task with a design and observing where they hesitate, misread something, or fail outright, rather than asking them to describe the design in the abstract. It exists because the people who build an interface are too familiar with it to see it the way a first-time user does.</p>
+
+  <p>Analytics data does something usability testing structurally can't. It shows what's happening at scale, across a real population, after a design has already shipped. A drop-off at a specific step in a checkout flow, a button that gets far fewer clicks than expected, and a support ticket pattern that keeps naming the same screen are all signals like this. Any one of them can turn into a redesign brief months after the original decision was made.</p>
+
+  <p><strong>Personas</strong>, composite profiles built from research and given a name and a set of goals, are best understood as a communication tool rather than a specification. Their job is keeping a distributed team thinking about the same imagined person instead of a dozen different assumptions about who's using the product. Many organizations place less emphasis on them today than a decade ago, leaning more heavily on the kind of analytics and ongoing usage data described above. Earlier design practice sometimes treated a persona as an authoritative input rather than a shorthand for team alignment, and a decision justified only by a persona's stated preference is worth double-checking against real usage data.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       PRACTICE
+  ════════════════════════════════════════════════════ -->
+  <h2 id="practice">Applying UX Principles During Implementation</h2>
+  <p class="lede">The heuristics, structure, and states covered so far compress into a short list worth running against any interface before calling it finished.</p>
+
+  <p>The same short list works in two different situations. It's a fast pass during code review on a screen someone else designed, checking that the implementation actually delivered what the design intended. It's also the working list for a team building an interface with no dedicated designer to consult, since every item on it maps to a concrete, checkable decision rather than a matter of taste.</p>
+
+  <p>A short review pass:</p>
+  <ul>
+    <li>Can someone tell what just happened, or is there a silent state change with no feedback?</li>
+    <li>Can a mistake be recovered from, or does the wrong click already have permanent consequences?</li>
+    <li>Does navigating to the same kind of content always work the same way?</li>
+    <li>Are related items grouped by spacing, not just by a shared label?</li>
+    <li>Are hover, focus, disabled, loading, and error states all actually implemented, not just the default?</li>
+    <li>Does spacing, type, and color come from the token system, or was a one-off value used instead?</li>
+    <li>Is the thing someone came here to do visible, or does it require already knowing it exists?</li>
+  </ul>
+
+  <p>None of these questions require design training to answer. What they require is treating an interface's unfinished states, such as hover, error, and empty, as seriously as the one state a design file happened to show.</p>
+
+</main>
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+
+</body>
+</html>
