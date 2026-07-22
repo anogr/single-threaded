@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Testing Strategy — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+<style>
+  /* Article-specific only. Shared patterns (cards, callouts, code blocks,
+     sidebar, tables) come from articles.css. */
+</style>
+</head>
+
+<body>
+
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Articles</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+
+  <div class="sidebar-section">The Pyramid</div>
+  <a href="#pyramid">The Testing Pyramid</a>
+  <a href="#unit-tests">Unit Tests</a>
+  <a href="#integration-tests">Integration &amp; Contract Tests</a>
+  <a href="#e2e-tests">End-to-End Tests</a>
+
+  <div class="sidebar-section">Writing Testable Code</div>
+  <a href="#writing-tests">Writing a Good Test</a>
+  <a href="#testability">Testability</a>
+  <a href="#mocking">Mocking</a>
+
+  <div class="sidebar-section">Tools &amp; Practice</div>
+  <a href="#unit-tools">Unit &amp; Component Tools</a>
+  <a href="#e2e-tools">End-to-End Tools</a>
+  <a href="#automation">What's Worth Automating</a>
+  <a href="#pipeline">Local Dev &amp; CI</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">Architecture · Testing</div>
+  <h1>Testing Strategy</h1>
+  <p class="subtitle">The testing pyramid, what's worth automating, and when manual testing still earns its place.</p>
+  <div class="byline">
+    <strong>Deep dive</strong>
+    <div class="dot"></div><span>~19 min read</span>
+    <div class="dot"></div><span>Automated &amp; manual testing</span>
+    <div class="dot"></div><span>July 2026</span>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       INTRO
+  ════════════════════════════════════════════════════ -->
+  <section id="intro">
+    <p>A <strong>testing strategy</strong> is a deliberate plan for where testing effort goes, based on the risk a piece of code carries, the cost of testing it, and how quickly a test gives feedback. It is not a rule that says write more tests. A team can have excellent coverage on the wrong layer and still ship regressions weekly, because the tests that exist run slowly, cover the wrong paths, or duplicate each other at three different levels.</p>
+    <p>This article covers the shapes tests come in, what separates code that's easy to test from code that fights back, and where mocking and manual testing fit around the automated core.</p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════
+       PYRAMID
+  ════════════════════════════════════════════════════ -->
+  <h2 id="pyramid">The Testing Pyramid</h2>
+  <p class="lede">Three layers, each trading speed for realism.</p>
+
+  <p>The <strong>testing pyramid</strong> groups automated tests into three layers by how much of the system they exercise. <strong>Unit tests</strong> sit at the base, checking one function or module in isolation. <strong>Integration tests</strong> sit in the middle, checking that several pieces work together. <strong>End-to-end tests</strong> sit at the top, driving the whole system the way a real user would. The pyramid shape is the point: many cheap, fast tests at the bottom, fewer slow, expensive ones at the top.</p>
+
+  <figure style="margin:28px 0 8px;">
+    <svg viewBox="0 0 620 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Testing pyramid diagram. Three stacked trapezoid layers. Top, narrowest layer: End-to-end, few tests, slow, high confidence in real user flows. Middle layer: Integration, including contract tests at service boundaries. Bottom, widest layer: Unit, most tests, fast, cheap. A left-side label reads slower and costlier moving up. A right-side label reads faster and cheaper moving down.">
+      <polygon points="270,20 350,20 410,100 210,100" fill="var(--orange-wash)" stroke="var(--orange)" stroke-width="1.5"/>
+      <text x="310" y="55" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="700" fill="var(--orange)">End-to-end</text>
+      <text x="310" y="72" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">critical paths only</text>
+
+      <polygon points="210,100 410,100 480,200 140,200" fill="var(--teal-wash)" stroke="var(--teal)" stroke-width="1.5"/>
+      <text x="310" y="140" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="700" fill="var(--teal)">Integration</text>
+      <text x="310" y="157" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">incl. contract tests</text>
+      <text x="310" y="174" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">at service boundaries</text>
+
+      <polygon points="140,200 480,200 550,300 70,300" fill="var(--green-wash)" stroke="var(--green)" stroke-width="1.5"/>
+      <text x="310" y="245" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="700" fill="var(--green)">Unit</text>
+      <text x="310" y="262" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">most of the suite</text>
+
+      <line x1="30" y1="285" x2="30" y2="30" stroke="var(--text-faint)" stroke-width="1.2" marker-end="url(#pyr-arrow)"/>
+      <defs>
+        <marker id="pyr-arrow" markerWidth="7" markerHeight="6" refX="3.5" refY="5" orient="auto"><polygon points="0 6,3.5 0,7 6" fill="var(--text-faint)"/></marker>
+      </defs>
+      <text x="16" y="290" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)" text-anchor="middle" transform="rotate(-90 16 290)">faster · cheaper</text>
+      <text x="16" y="55" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)" text-anchor="middle" transform="rotate(-90 16 55)">slower · costlier</text>
+    </svg>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">Size represents test count, not importance. A thin top layer still catches what the other two can't.</figcaption>
+  </figure>
+
+  <p>A common way teams misread the pyramid is treating it as a ratio to hit, aiming for roughly even counts across the three layers, or a fixed percentage split. The shape isn't a target to engineer toward. It's a description of where confidence is cheapest to buy. The right question for any given piece of code is which layer catches its most likely failure for the least cost, not which layer is under-represented in this week's coverage report.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       UNIT
+  ════════════════════════════════════════════════════ -->
+  <h3 id="unit-tests">Unit Tests</h3>
+  <p>A unit test calls one function or one small module directly and checks its output against an expected value, without starting a server, hitting a network, or touching a real database. That isolation is what makes unit tests fast enough to run in the hundreds on every save and cheap enough to write in bulk. Their blind spot is exactly what they exclude. A unit test can pass on every function in a request-handling path and still miss a bug that only shows up once those functions are wired together in the wrong order.</p>
+
+  <p>For UI code specifically, the unit under test is often a single component rendered in isolation with mocked props and dependencies. It's checked with a tool like Testing Library rather than by calling a plain function directly, but it's still the same layer: no real server, no real network, no real backing store.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       INTEGRATION + CONTRACT
+  ════════════════════════════════════════════════════ -->
+  <h3 id="integration-tests">Integration Tests</h3>
+  <p>An integration test exercises more than one piece at once, such as a function together with a real database, or two internal modules calling each other without any mocks between them. It answers a question a unit test can't: not just whether each piece works alone, but whether they still work once they're connected. Integration tests run slower than unit tests because they touch more real infrastructure, so a team typically writes fewer of them and reserves them for the seams between components rather than every internal detail.</p>
+
+  <p>A <strong>contract test</strong> checks that one side's requests and the other side's responses still agree on shape. The boundary it checks sits between two services owned by different teams, or between a frontend and a backend built on separate schedules. It's commonly grouped with integration testing, since it targets the same kind of boundary. Many practitioners still treat it as its own technique, because a contract test usually runs without both sides live at the same time, checking each one independently against a shared, agreed-upon schema instead. This is the same territory covered by OpenAPI's mock and contract tooling in <a href="restful-api-design.html#openapi">RESTful API Design</a>. A published schema lets each side generate a mock of the other and test against it independently, catching a breaking change before it reaches a shared environment.</p>
+
+  <p>Consumer-driven contract testing tools such as Pact take a related but distinct approach. Instead of validating against a shared schema, the consumer records the exact requests it expects to make. That recording is replayed later against the real provider, independently of the consumer, to verify the provider still honors it.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       E2E
+  ════════════════════════════════════════════════════ -->
+  <h3 id="e2e-tests">End-to-End Tests</h3>
+  <p>An <strong>end-to-end test</strong> drives the full system through a real interface, typically a browser automated with a tool like Playwright, clicking through the same flow a person would. It's the closest an automated test gets to proving a feature actually works. It's also the slowest and most fragile layer, because it depends on UI timing, network latency, and whatever state the environment happens to be in when the test runs. A layout change, a slow API response, or a leftover row from a previous test run can all fail an end-to-end test without the underlying feature being broken at all.</p>
+
+  <p>That fragility is usually called a <strong>flaky test</strong>: one that fails intermittently for reasons unrelated to the code under test. The fix is rarely to write more end-to-end tests and hope. Seeding deterministic test data instead of relying on whatever the environment already contains removes one common source. Retrying a failed run once before marking it broken absorbs transient network or timing noise. And a test that keeps failing without a clear cause is better quarantined into a separate, tracked bucket than left in the main suite, where it trains a team to ignore red builds.</p>
+
+  <p>Because each end-to-end test is expensive to write and run, it's worth reserving for critical paths: flows such as sign-up, checkout, or anything that risks corrupting a user's data if it silently breaks. A secondary settings page that's easy to click through and easy to spot when broken is a weaker candidate for this layer than a payment flow nobody looks at until it fails in production.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       WRITING A GOOD TEST
+  ════════════════════════════════════════════════════ -->
+  <h2 id="writing-tests">Writing a Good Test</h2>
+  <p class="lede">The pyramid says which layer to test at. These three habits apply no matter which layer you're writing for.</p>
+
+  <p>Most tests, at any layer, follow the same three-part shape known as <strong>AAA</strong>: Arrange, Act, Assert. <strong>Arrange</strong> sets up whatever the test needs, the inputs, the initial state, any fakes standing in for a dependency. <strong>Act</strong> runs the one thing under test. <strong>Assert</strong> checks that the result is what it should be. Structuring a test this way, even with comments marking the three parts, makes it easy to scan later and easy to tell which part broke when it fails.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">discount.test.ts</span>
+      <span class="code-lang">TS</span>
+    </div>
+    <pre><code><span class="fn">test</span>(<span class="s">"applies the holiday discount"</span>, () =&gt; {
+  <span class="cm">// Arrange</span>
+  <span class="kw">const</span> <span class="n">total</span> = <span class="m">100</span>;
+  <span class="kw">const</span> <span class="n">isHoliday</span> = <span class="kw">true</span>;
+
+  <span class="cm">// Act</span>
+  <span class="kw">const</span> <span class="n">result</span> = <span class="fn">calculateDiscountedTotal</span>(<span class="n">total</span>, <span class="n">isHoliday</span>);
+
+  <span class="cm">// Assert</span>
+  <span class="fn">expect</span>(<span class="n">result</span>).<span class="fn">toBe</span>(<span class="m">80</span>);
+});</code></pre>
+  </div>
+
+  <p>A second habit is <strong>independence</strong>: a test should pass or fail the same way no matter which other tests ran before it, or in what order. A test that relies on a row another test happens to have left in a shared database, or on a module-level variable a previous test set, is not independent. It works until someone reorders the suite or runs a single test in isolation. At that point it fails for reasons that have nothing to do with the code being tested. Each test should set up the state it needs itself and leave nothing behind for the next one to trip over.</p>
+
+  <p>The third habit is writing from the right <strong>perspective</strong>. A unit test should exercise a function the way its caller actually uses it, through the same arguments and return value the rest of the codebase relies on. It shouldn't reach into private internals the function is free to change tomorrow without breaking that contract. An end-to-end test should go further and take a human's perspective specifically. It should click, type, and read the screen the way a person actually would. What it shouldn't do is reach into implementation details like a CSS class name or an internal component name, since a person testing the app by hand would never see either one. That distinction is also the design philosophy behind Testing Library, covered next.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       TESTABILITY
+  ════════════════════════════════════════════════════ -->
+  <h2 id="testability">Testability: What Makes Code Hard or Easy to Test</h2>
+  <p class="lede">The pyramid describes the shapes tests come in. This is about why some code accepts any of those shapes easily, and some resists all of them.</p>
+
+  <p>A <strong>pure function</strong> always returns the same output for the same input and has no effect on anything outside itself. That makes it trivial to test: call it, check the return value, done. Nothing needs to be set up first and nothing needs to be cleaned up afterward. React relies on this property directly, since a component's rendered output is meant to depend only on its props and state, which is also what makes it <a href="react-patterns-component-design.html#pillars">testable and predictable</a> in the first place.</p>
+
+  <p>A <strong>side effect</strong> is anything a function does beyond computing and returning a value. Writing to a database, calling <code>fetch</code>, reading or writing <code>localStorage</code>, and triggering a React state update as a byproduct of running are all side effects. None of these are mistakes on their own; software needs to read files and talk to networks to be useful. The problem shows up when a side effect is buried inside a function that looks like it should be a simple calculation. A test of that function then has to somehow deal with a network call or a browser API it didn't ask for.</p>
+
+  <p>A concrete version of this shows up often in React. A component that reads directly from <code>localStorage</code> inside its render logic is hard to test, since a test would have to seed that storage first just to render the component at all. Passing the stored value in as a prop moves that same side effect to the edge instead of burying it in render. A context provider a test can substitute a fake value into works the same way.</p>
+
+  <p>The other common failure is a unit with too many dependencies, or dependencies it never admits to. A function that reaches into a module-level singleton, calls a static method on some shared class, or imports three levels deep into another feature's internals is fine to call in production. All of that machinery is already wired up there. In a test, every one of those reached-for pieces has to exist too, even though the test only cares about the one calculation the function is actually responsible for.</p>
+
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:20px 0;">
+    <div class="card green">
+      <div class="card-label">Easy to test</div>
+      <div class="card-title">Explicit, self-contained</div>
+      <p>Pure functions, dependencies passed in as parameters, no reach into globals, singletons, or the DOM.</p>
+    </div>
+    <div class="card red">
+      <div class="card-label">Hard to test</div>
+      <div class="card-title">Buried, far-reaching</div>
+      <p>Side effects mixed into calculations, module-level singletons, static methods, or deep imports into unrelated modules.</p>
+    </div>
+  </div>
+
+  <p>The usual fix for both problems is the same: separate deciding what to do from doing it, and hand a function its dependencies instead of letting it go find them. The code below shows the difference. The first version computes a discount and also reaches for the database, the system clock, and an email service, all inside one function. The second version only computes, and takes exactly the values it needs as arguments.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">discount.ts</span>
+      <span class="code-lang">TS</span>
+    </div>
+    <pre><code><span class="cm">// Hard to test: hidden dependencies and a side effect, all in one function.</span>
+<span class="kw">async</span> <span class="kw">function</span> <span class="fn">applyDiscount</span>(<span class="n">orderId</span>: <span class="t">string</span>): <span class="t">Promise</span>&lt;<span class="t">number</span>&gt; {
+  <span class="kw">const</span> <span class="n">order</span> = <span class="kw">await</span> <span class="n">db</span>.<span class="n">orders</span>.<span class="fn">find</span>(<span class="n">orderId</span>);   <span class="cm">// hidden dependency: a real database</span>
+  <span class="kw">const</span> <span class="n">discounted</span> = <span class="n">order</span>.<span class="n">total</span> * (<span class="fn">isHoliday</span>(<span class="kw">new</span> <span class="fn">Date</span>()) ? <span class="m">0.8</span> : <span class="m">1</span>);
+  <span class="kw">await</span> <span class="n">emailService</span>.<span class="fn">send</span>(<span class="n">order</span>.<span class="n">customerEmail</span>, <span class="s">`New total: ${discounted}`</span>); <span class="cm">// side effect</span>
+  <span class="kw">return</span> <span class="n">discounted</span>;
+}
+
+<span class="cm">// Easy to test: a pure function, every dependency passed in explicitly.</span>
+<span class="kw">function</span> <span class="fn">calculateDiscountedTotal</span>(<span class="n">total</span>: <span class="t">number</span>, <span class="n">isHoliday</span>: <span class="t">boolean</span>): <span class="t">number</span> {
+  <span class="kw">return</span> <span class="n">total</span> * (<span class="n">isHoliday</span> ? <span class="m">0.8</span> : <span class="m">1</span>);
+}</code></pre>
+  </div>
+
+  <p>Neither the database call nor the email send disappeared. They moved to the edges of the code instead. That move is <a href="design-principles.html#di">dependency injection</a>: a function receives its dependencies as parameters instead of constructing or reaching for them internally. It's what makes it possible to swap in a fake version for a test without touching the calculation itself. A <a href="react-antipatterns.html#god-components">component that reaches for the whole tree</a> to answer one narrow question suffers from the same root issue at a different scale.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       MOCKING
+  ════════════════════════════════════════════════════ -->
+  <h2 id="mocking">Mocking</h2>
+  <p class="lede">Once a dependency is passed in rather than reached for, a test can hand it something fake.</p>
+
+  <p><strong>Mocking</strong> replaces a real dependency with a fake stand-in that a test controls completely. A mock database returns exactly the row a test asks it to, instantly, without a network round trip or any data left behind for the next test to trip over. Continuing the discount example, once <code>emailService</code> is a parameter instead of a reached-for import, a test can substitute a fake one and check that it was called correctly, without ever sending a real email.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">discount.test.ts</span>
+      <span class="code-lang">TS</span>
+    </div>
+    <pre><code><span class="kw">interface</span> <span class="t">EmailService</span> {
+  <span class="fn">send</span>(<span class="n">to</span>: <span class="t">string</span>, <span class="n">body</span>: <span class="t">string</span>): <span class="t">Promise</span>&lt;<span class="t">void</span>&gt;;
+}
+
+<span class="kw">const</span> <span class="n">fakeEmailService</span>: <span class="t">EmailService</span> = { <span class="n">send</span>: <span class="fn">vi</span>.<span class="fn">fn</span>().<span class="fn">mockResolvedValue</span>(<span class="kw">undefined</span>) };
+
+<span class="fn">test</span>(<span class="s">"notifies the customer with the new total"</span>, <span class="kw">async</span> () =&gt; {
+  <span class="kw">await</span> <span class="fn">notifyCustomer</span>(<span class="n">order</span>, <span class="n">fakeEmailService</span>);
+  <span class="fn">expect</span>(<span class="n">fakeEmailService</span>.<span class="n">send</span>).<span class="fn">toHaveBeenCalledWith</span>(
+    <span class="n">order</span>.<span class="n">customerEmail</span>,
+    <span class="fn">expect</span>.<span class="fn">stringContaining</span>(<span class="s">"New total"</span>)
+  );
+});</code></pre>
+  </div>
+
+  <p>Mocking makes otherwise untestable code testable, but it has a failure mode of its own. A test suite that mocks aggressively can end up checking that a function called a fake in the expected way. That's a slightly different claim from checking that the function behaves correctly against something real. If the real email service changes its interface and the mock isn't updated to match, every test built on that mock keeps passing while the actual integration is broken.</p>
+
+  <div class="callout warn">
+    <div class="callout-title">Keeping mocks honest</div>
+    <p>A few habits keep over-mocking in check. Prefer a real dependency over a mock inside integration tests, saving mocks for the unit-test layer where isolation is the point. Reserve mocking for dependencies genuinely external to the code under test, such as a third-party API or a payment provider, rather than mocking internal collaborators out of convenience. Revisit a long-lived mock's shape periodically against the real dependency's current interface, so the fake doesn't quietly drift out of sync with the thing it's standing in for. And in frontend code specifically, prefer intercepting at the network level with a tool like Mock Service Worker over hand-mocking <code>fetch</code> directly. A network-level mock stays honest against the same request and response shapes the real backend actually uses.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       TOOLS: UNIT & COMPONENT
+  ════════════════════════════════════════════════════ -->
+  <h2 id="unit-tools">Unit and Component Tools</h2>
+  <p class="lede">A test runner, a query philosophy, and one technique worth using carefully.</p>
+
+  <p><strong>Jest</strong> and <strong>Vitest</strong> are the two dominant test runners for JavaScript and TypeScript, and both bundle a test runner, an assertion library, and mocking support into one tool rather than requiring three separate packages. Jest, built at Facebook for React, has the longer track record and the larger ecosystem of plugins and prior art to search when something goes wrong. Vitest is built on top of Vite, reuses a project's existing Vite configuration instead of needing a separate transform pipeline, and runs faster in a Vite-based project as a result. Vitest's API is close enough to Jest's that most teams can read one having only used the other.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th></th><th>Jest</th><th>Vitest</th></tr></thead>
+      <tbody>
+        <tr><td>Config</td><td>Its own config file</td><td>Reuses the project's Vite config</td></tr>
+        <tr><td>Module system</td><td>Transforms to CommonJS internally</td><td>Native ESM, matching how Vite already builds</td></tr>
+        <tr><td>Ecosystem</td><td>Larger, older, more prior art</td><td>Smaller, newer, growing quickly</td></tr>
+        <tr><td>Best fit</td><td>Non-Vite projects, existing Jest suites</td><td>Vite-based projects, where it avoids a second toolchain</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p><strong>Testing Library</strong> (React Testing Library, Vue Testing Library, and similar bindings for other frameworks) is not a test runner. It's a set of query functions layered on top of one, built specifically around the user-perspective habit described earlier. Instead of selecting an element by a CSS class or a component's internal name, a test asks for the button a user would see. It can query by accessible role, by visible label, or by other text and attributes an actual user would perceive on screen. That constraint is deliberate. If a query is hard to write because the markup has no discernible role or label, that's usually a sign the markup itself is missing something. A real user, including one relying on a screen reader, would be missing that same thing.</p>
+
+  <p>Both Jest and Vitest support <strong>snapshot testing</strong>: rendering a component or serializing a data structure to a file once, then failing any future run whose output no longer matches what's saved. It's a cheap way to catch an unintended change to something tedious to assert on by hand, such as a large rendered tree. The habit that undermines it is approving a failed snapshot without reading the diff first. Reviewing a change on faith replaces the saved snapshot with whatever the code now produces, even if that's the bug, and the test goes back to passing having caught nothing. Snapshot testing earns its keep only on output small enough that a person will actually read the diff before approving it.</p>
+
+  <p>Playwright and Cypress also support <strong>component testing</strong>, mounting a single component in isolation the way Testing Library does, but inside a real browser rather than a simulated DOM like jsdom. That trades some raw speed for catching real rendering and layout behavior a simulated DOM doesn't reproduce.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       TOOLS: END-TO-END
+  ════════════════════════════════════════════════════ -->
+  <h2 id="e2e-tools">End-to-End Tools</h2>
+  <p class="lede">Three tools, three different ways of getting a browser to do what the test says.</p>
+
+  <p><strong>Selenium</strong> is the oldest of the three and, since version 4, drives a real browser through the W3C WebDriver protocol, a standard implemented natively by every major browser vendor. That standardization is its strength: Selenium supports the widest range of browsers and has bindings for the most programming languages, which is why large cross-browser compatibility matrices and long-lived enterprise suites still lean on it. The tradeoff is more setup and more code per test than the two newer tools below.</p>
+
+  <p><strong>Cypress</strong> runs its test code inside the browser, alongside the application under test, rather than remote-controlling the browser from the outside. That architecture is what gives Cypress its well-regarded developer experience, including a time-travel debugger that lets a developer step back through a failed test's commands. It also historically limited Cypress to a single origin per test, a constraint later worked around with an explicit <code>cy.origin()</code> command for the cases that need to cross into a second origin. The underlying difference is still visible next to a tool that drives the browser from entirely outside it.</p>
+
+  <p><strong>Playwright</strong> automates Chromium, Firefox, and WebKit through each browser's own remote-debugging protocol, out-of-process, behind one shared API. It waits automatically until an element is actionable, meaning visible, stable, and able to receive input, before interacting with it. That removes a common source of flaky end-to-end tests: a click that fires before the button has actually finished appearing and settling into place. That combination has made Playwright the common default for new end-to-end suites, without erasing Selenium's advantage in raw browser and language coverage or Cypress's advantage in in-browser debugging feel.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Tool</th><th>How it drives the browser</th><th>Where it fits best</th></tr></thead>
+      <tbody>
+        <tr><td>Selenium</td><td>WebDriver protocol, vendor-implemented</td><td>Widest browser/language matrix, long-lived enterprise suites</td></tr>
+        <tr><td>Cypress</td><td>Runs inside the browser, alongside the app</td><td>Fast local feedback, in-browser debugging</td></tr>
+        <tr><td>Playwright</td><td>Each browser's own protocol, out-of-process</td><td>New suites; multi-browser coverage with less flake from timing</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       AUTOMATION
+  ════════════════════════════════════════════════════ -->
+  <h2 id="automation">What's Worth Automating</h2>
+  <p class="lede">The pyramid already answers most of this, layer by layer.</p>
+
+  <p>Unit and integration tests are worth automating almost without exception. They're cheap enough to run on every commit, and any regression they'd catch is worth catching before a person ever has to notice it manually. End-to-end automation is worth it selectively, aimed at the critical paths described earlier, and not stretched to cover every screen just because the tooling makes it possible.</p>
+
+  <p><strong>Manual testing</strong> still earns its place in what's left over. A person can explore a new feature and deliberately try to break it in ways no one thought to script in advance. Visual review of a redesign is another case, since "does this look right" doesn't reduce to an assertion. Tools like Percy or Chromatic can automatically flag a pixel-level difference, but a person still has to judge whether the new appearance is actually correct or just different. Usability judgment is a third case: whether a flow that technically works is actually pleasant to use. None of that is a gap in the automation strategy. It's work that doesn't automate well, because the thing being checked isn't a fixed expected output but a judgment call a person is better positioned to make.</p>
+
+  <p>Coverage tooling reports what percentage of lines or branches a test suite executed, and it's tempting to treat that number as the goal itself. It isn't. A line can run during a test without the test ever checking what that line produced, which is enough to count as covered while catching nothing. Full coverage is achievable and still not the same thing as a correct program. An untested edge case, such as an empty input, a boundary value, or an error path, can sit right next to a hundred well-covered lines that never exercise it. Coverage is worth watching as a rough map of what's untested at all, not as a percentage to chase for its own sake.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       PIPELINE
+  ════════════════════════════════════════════════════ -->
+  <h2 id="pipeline">Local Dev and CI</h2>
+  <p class="lede">The same tests run in two different places, for two different reasons.</p>
+
+  <p>On a developer's own machine, a test runner's <strong>watch mode</strong> re-runs automatically on every save, often re-running only the tests affected by whatever file just changed rather than the entire suite. That narrower, near-instant loop is what makes writing a test alongside the code it covers practical instead of a chore saved for the end. Some teams add a <strong>pre-commit hook</strong>, commonly wired up with a tool like Husky, that runs the fastest subset of checks, lint plus the affected unit tests, before a commit is even created. It catches an obvious mistake a few seconds after it's made, well before it reaches a shared branch.</p>
+
+  <p>Once a change is pushed, the full suite runs again, this time in a continuous integration pipeline, where automated tests act as a gate a change can't pass without, covered in <a href="ci-cd-devops.html#pipeline-anatomy">CI/CD and DevOps</a>. This second run matters even though the developer's machine already passed the same tests, since it removes any doubt about whether the change also works outside that one machine's particular setup. The most expensive end-to-end suites are sometimes pulled out of that per-change gate entirely. They run instead on a schedule, overnight or a few times a day, when their cost would otherwise slow down every push. This article is about which tests earn a place in that gate and why. The CI/CD article is about what happens once they do.</p>
+
+</main>
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+
+</body>
+</html>
