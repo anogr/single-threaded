@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Azure Architecture — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+<style>
+  /* Article-specific only. Shared patterns (cards, callouts, code blocks,
+     sidebar, tables) come from articles.css. */
+</style>
+</head>
+
+<body>
+
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Articles</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+
+  <div class="sidebar-section">Foundations</div>
+  <a href="#resource-model">Resource Model</a>
+
+  <div class="sidebar-section">Building Blocks</div>
+  <a href="#compute">Compute</a>
+  <a href="#storage">Storage</a>
+  <a href="#networking-data">Networking &amp; Managed Data</a>
+  <a href="#messaging-identity">Messaging &amp; Identity</a>
+
+  <div class="sidebar-section">Reliability &amp; Delivery</div>
+  <a href="#regions-azs">Regions &amp; Paired Regions</a>
+  <a href="#iac">Infrastructure as Code</a>
+
+  <div class="sidebar-section">Provider Comparison</div>
+  <a href="#mapping">Mapping to AWS &amp; GCP</a>
+  <a href="#choosing-azure">When Azure Fits</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">Architecture · Cloud Platforms</div>
+  <h1>Azure Architecture</h1>
+  <p class="subtitle">Azure's resource model, core building blocks, and how its services map onto the equivalents in AWS and GCP.</p>
+  <div class="byline">
+    <strong>Deep dive</strong>
+    <div class="dot"></div><span>~17 min read</span>
+    <div class="dot"></div><span>Azure infrastructure &amp; services</span>
+    <div class="dot"></div><span>July 2026</span>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <section id="intro">
+  <p><a href="cloud-computing-fundamentals.html">Cloud Computing Fundamentals</a> covers the categories every major cloud provider shares: compute, storage, networking, managed data, messaging, and identity, along with the service-model spectrum and the regional reliability model underneath all of them. That article closes its <a href="cloud-computing-fundamentals.html#comparing-providers">provider comparison</a> with a promise to come back to Azure specifically. This is that companion piece.</p>
+
+  <p>Where the fundamentals article stays deliberately provider-agnostic, this one names names. It starts with Azure's resource model, the hierarchy of subscriptions and resource groups that has no clean equivalent anywhere else on this site. From there it works back through compute, storage, networking, managed data, messaging, and identity, this time as concrete Azure services rather than abstract categories. It covers Azure's regional reliability model and its infrastructure-as-code tooling, and closes with a direct lookup table mapping Azure's service names onto their closest AWS and GCP equivalents, for a reader arriving from either.</p>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="resource-model">Azure's Resource Model</h2>
+  <p class="lede">Every Azure resource lives inside a hierarchy with no real equivalent elsewhere on this site, and it's worth understanding first since almost everything later in this article gets organized by it.</p>
+
+  <p><strong>Azure Resource Manager</strong> (ARM) is Azure's management layer, sitting underneath every way of interacting with the platform. Every resource gets created, updated, tagged, secured, and organized through ARM, whether the request comes from the Azure portal, the command-line interface, PowerShell, or a deployment tool like Bicep or Terraform. The rest of this section, and the deployment tooling covered later in this article, are really describing what gets managed through ARM and how.</p>
+
+  <p>A <strong>subscription</strong> is Azure's billing and access-control boundary, the container everything else in an Azure environment ultimately belongs to. A <strong>resource group</strong> is a grouping within a subscription for resources that are typically managed together as part of the same application or environment. That's not a hard guarantee that everything inside it shares one lifecycle, just the common case. A production web application's resource group might hold its App Service instance, its database, and its virtual network, created and usually torn down as one unit. A shared resource like a network referenced by several applications often lives in a resource group of its own instead, with a longer life than any one application using it.</p>
+
+  <p><strong>Management groups</strong> sit above subscriptions. They let an organization apply a rule once, at the top of a hierarchy, and have it cascade down to every subscription and resource group underneath. <strong>Azure Policy</strong> is Azure's governance service for that first kind of rule, enforcing constraints like which resource types or regions are allowed. An RBAC role assignment does the same for permissions. AWS handles the same inheritance idea through organization-level service control policies applied above individual accounts, and GCP through folders sitting above projects. The mechanism differs, but the goal is the same across all three: govern many teams' worth of resources from a single point instead of configuring each one by hand.</p>
+
+  <p>Tags close out the resource model: key-value metadata attached to a resource, independent of where it sits in the subscription and resource group structure. A tag doesn't affect how a resource behaves. It's how a team answers a question like which department a resource's cost should be billed to, months after whoever created it has moved on.</p>
+
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 620 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A four-level Azure resource hierarchy. A management group at the top contains a subscription. The subscription branches into two resource groups, one for a production application and one for shared networking resources. The application resource group holds an App Service and an Azure SQL database. The shared networking resource group holds a virtual network and a Key Vault. A dashed line down the left side shows policy and role-based access control inheriting downward through all four levels.">
+      <rect x="210" y="16" width="200" height="46" rx="6" fill="color-mix(in srgb, var(--accent) 16%, transparent)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="310" y="36" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" font-weight="700" fill="var(--text)">MANAGEMENT GROUP</text>
+      <text x="310" y="51" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">org-wide policy &amp; RBAC</text>
+
+      <line x1="310" y1="62" x2="310" y2="90" stroke="var(--text-faint)" stroke-width="1.5"/>
+
+      <rect x="210" y="90" width="200" height="46" rx="6" fill="color-mix(in srgb, var(--teal) 14%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <text x="310" y="110" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" font-weight="700" fill="var(--text)">SUBSCRIPTION</text>
+      <text x="310" y="125" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">billing &amp; access boundary</text>
+
+      <line x1="310" y1="136" x2="310" y2="152" stroke="var(--text-faint)" stroke-width="1.5"/>
+      <line x1="150" y1="152" x2="470" y2="152" stroke="var(--text-faint)" stroke-width="1.5"/>
+      <line x1="150" y1="152" x2="150" y2="166" stroke="var(--text-faint)" stroke-width="1.5"/>
+      <line x1="470" y1="152" x2="470" y2="166" stroke="var(--text-faint)" stroke-width="1.5"/>
+
+      <rect x="60" y="166" width="180" height="40" rx="6" fill="color-mix(in srgb, var(--gold) 14%, transparent)" stroke="var(--gold)" stroke-width="1.5"/>
+      <text x="150" y="186" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="700" fill="var(--text)">RESOURCE GROUP</text>
+      <text x="150" y="200" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">app-prod</text>
+
+      <rect x="380" y="166" width="180" height="40" rx="6" fill="color-mix(in srgb, var(--gold) 14%, transparent)" stroke="var(--gold)" stroke-width="1.5"/>
+      <text x="470" y="186" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="700" fill="var(--text)">RESOURCE GROUP</text>
+      <text x="470" y="200" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">app-shared-network</text>
+
+      <line x1="150" y1="206" x2="150" y2="220" stroke="var(--text-faint)" stroke-width="1.5"/>
+      <rect x="65" y="220" width="80" height="28" rx="4" fill="color-mix(in srgb, var(--accent2) 16%, transparent)" stroke="var(--accent2)" stroke-width="1.5"/>
+      <text x="105" y="238" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-dim)">App Service</text>
+      <rect x="155" y="220" width="80" height="28" rx="4" fill="color-mix(in srgb, var(--accent2) 16%, transparent)" stroke="var(--accent2)" stroke-width="1.5"/>
+      <text x="195" y="238" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-dim)">Azure SQL</text>
+
+      <line x1="470" y1="206" x2="470" y2="220" stroke="var(--text-faint)" stroke-width="1.5"/>
+      <rect x="385" y="220" width="80" height="28" rx="4" fill="color-mix(in srgb, var(--accent2) 16%, transparent)" stroke="var(--accent2)" stroke-width="1.5"/>
+      <text x="425" y="238" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-dim)">VNet</text>
+      <rect x="475" y="220" width="80" height="28" rx="4" fill="color-mix(in srgb, var(--accent2) 16%, transparent)" stroke="var(--accent2)" stroke-width="1.5"/>
+      <text x="515" y="238" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-dim)">Key Vault</text>
+
+      <line x1="15" y1="20" x2="15" y2="248" stroke="var(--accent)" stroke-width="2" stroke-dasharray="5,3"/>
+      <text x="15" y="140" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--accent)" transform="rotate(-90 15 140)">POLICY &amp; RBAC INHERITANCE</text>
+    </svg>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">Everything below a management group inherits its Azure Policy and role assignments. A subscription is the billing and access boundary. A resource group is the unit an application's resources are usually organized and deployed by, though a shared resource can just as easily live in a resource group of its own.</figcaption>
+  </figure>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="compute">Compute: VMs, App Service, Containers, and Functions</h2>
+  <p class="lede">The same IaaS-to-serverless spectrum from the fundamentals article, in five concrete Azure products, ordered from the least abstracted to the most.</p>
+
+  <p><strong>Azure Virtual Machines</strong> fill the IaaS end of the spectrum. There's nothing distinctive to add to the mapping here. It's the same virtual machine covered generically in the fundamentals article's <a href="cloud-computing-fundamentals.html#compute">compute section</a>, an emulated computer with its own operating system that the customer configures and patches.</p>
+
+  <p><strong>Azure App Service</strong> is Azure's flagship platform-as-a-service compute product, a concrete answer to the fundamentals article's abstract example of a managed application platform. Point it at application code or a container image, and it handles provisioning, scaling, and patching the host underneath, without the customer configuring a server directly.</p>
+
+  <p>Two managed-container options sit in the middle of the spectrum, narrower to broader. <strong>Azure Container Apps</strong> runs containers with built-in autoscaling, including scaling all the way down to zero instances when there's no traffic, without the customer managing a cluster directly. <strong>Azure Kubernetes Service</strong> (AKS) is Azure's managed Kubernetes offering, worth reaching for once a workload actually needs Kubernetes's full feature set rather than Container Apps's narrower one. What a container actually is, and how an orchestrator like Kubernetes schedules and scales one, is covered in full in <a href="containers-orchestration.html">Containers and Orchestration</a>. This article only needs where AKS sits relative to Azure's other compute options.</p>
+
+  <p><strong>Azure Functions</strong> closes out the spectrum at its serverless end, the same far end the fundamentals article described: no server management at all, in exchange for constraints like execution time limits and cold starts. One detail is distinctive enough to call out here. <strong>Bindings</strong> are declarative configuration that connect a function to a trigger or an output, such as a queue message, a blob upload, or an HTTP request, without hand-written code to wire the connection up. Azure Functions leans on bindings more than the other major providers lean on their own equivalents, though calling the underlying Azure SDK directly instead of using a binding is just as fully supported.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="storage">Storage: Blob, Disks, and Files</h2>
+  <p class="lede">The same three access patterns from the fundamentals article, filled in with Azure's product names and one tiering detail specific to Azure.</p>
+
+  <p><strong>Azure Blob Storage</strong> fills the object storage category. One detail is worth adding to the general tiering picture from the fundamentals article. Blob Storage splits pricing across four tiers rather than two: hot, cool, cold, and archive, each a step down in storage cost and a step up in retrieval latency from the one before it. The cold tier sits between cool and archive specifically for data accessed less often than hot but still needed faster than an archive retrieval allows.</p>
+
+  <p><strong>Azure Data Lake Storage Gen2</strong> is worth naming as a variant of Blob Storage, not a separate product. It adds a hierarchical namespace and filesystem semantics on top of the same underlying object storage, the layer most Azure analytics workloads are actually built on, including the data-warehouse services covered in the next section.</p>
+
+  <p><strong>Azure managed disks</strong> fill block storage, attached to a single virtual machine the same way the fundamentals article described generically. <strong>Azure Files</strong> fills file storage, a shared filesystem mountable over SMB or NFS from more than one machine at once.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="networking-data">Networking and Managed Data</h2>
+  <p class="lede">The boundary Azure resources sit inside, how traffic reaches it, and the shapes managed data comes in once it's there.</p>
+
+  <p><strong>Azure Virtual Network</strong> (VNet) fills the virtual-network category from the fundamentals article, divided into subnets the same way most providers divide theirs. A <strong>network security group</strong> (NSG) is the traffic-filtering mechanism attached to a subnet or a network interface, Azure's equivalent of a security group on another provider.</p>
+
+  <p>Traffic leaving a subnet can be steered by a handful of additional building blocks, worth naming here without detailing each one. A user-defined route overrides Azure's default routing to send traffic through a specific next hop instead. Azure Firewall is a managed network firewall for traffic leaving a VNet. A VPN Gateway or ExpressRoute connects a VNet back to on-premises infrastructure, over the public internet for a VPN Gateway or a private, dedicated circuit for ExpressRoute. Which of the two an organization reaches for usually comes down to how much bandwidth and latency guarantee the connection needs, not just whether a connection back to on-premises exists at all.</p>
+
+  <p>Azure Front Door and Application Gateway are Azure's edge and layer-seven load-balancing products. What each actually does once traffic arrives, a CDN, a web application firewall, a load balancer, is covered in full in <a href="web-networking.html#edge">Web Application Networking</a>. This article only needs their Azure names. A <strong>private endpoint</strong> is one more piece worth naming here. It lets traffic reach a managed PaaS service like a database over the VNet instead of the public internet, relevant to the compliance and data-residency considerations the fundamentals article raised. Enough production Azure deployments turn off public access entirely and expose a managed service only through a private endpoint that it's worth calling this the common case rather than the exception. Resolving that connection correctly usually depends on Azure DNS private zones, linked to the VNet the same way a public DNS zone backs an internet-facing service.</p>
+
+  <p>On the data side, <strong>Azure SQL Database</strong> fills the managed relational-database category. <strong>Azure SQL Managed Instance</strong> is a sibling product worth naming separately, offering near-full SQL Server engine compatibility for a lift-and-shift migration of an existing SQL Server workload. Azure SQL Database has a lighter, more PaaS-native footprint instead, better suited to something built for the cloud from the start. A team on an open-source engine has its own managed option too, Azure Database for PostgreSQL or MySQL, the portability angle the fundamentals article raised under lock-in.</p>
+
+  <p><strong>Azure Cosmos DB</strong> fills managed NoSQL. One detail goes beyond the mapping. Multiple tunable consistency levels, and multi-region writes that stay active in more than one region at once, are both available as configuration choices, rather than something the customer has to build themselves.</p>
+
+  <div class="callout warn">
+    <div class="callout-title">Synapse and Fabric</div>
+    <p><strong>Azure Synapse Analytics</strong> fills the managed data-warehouse category, Azure's established answer to the analytical, scan-heavy access pattern the fundamentals article distinguished from an operational database. It remains a supported, current product, not a deprecated one. But Microsoft now positions <strong>Microsoft Fabric</strong> as its primary platform for new, unified analytics work, describing it as the next generation built on what Synapse established. A reader evaluating analytics on Azure today should have both names in hand, not just the older one.</p>
+  </div>
+
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 620 270" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A layered Azure application architecture. At the top, users connect through Azure Front Door and then Application Gateway. Traffic flows down into a compute tier of three parallel options, App Service, AKS, and Functions. The compute tier flows down into a data tier of three parallel options, Azure SQL, Cosmos DB, and Blob Storage.">
+      <rect x="85" y="20" width="70" height="36" rx="6" fill="color-mix(in srgb, var(--teal) 12%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <text x="120" y="42" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">Users</text>
+
+      <text x="170" y="42" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="12" fill="var(--text-faint)">&#8594;</text>
+
+      <rect x="185" y="20" width="150" height="36" rx="6" fill="color-mix(in srgb, var(--teal) 12%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <text x="260" y="42" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">Azure Front Door</text>
+
+      <text x="350" y="42" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="12" fill="var(--text-faint)">&#8594;</text>
+
+      <rect x="365" y="20" width="170" height="36" rx="6" fill="color-mix(in srgb, var(--teal) 12%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <text x="450" y="42" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">Application Gateway</text>
+
+      <line x1="310" y1="56" x2="310" y2="88" stroke="var(--text-faint)" stroke-width="1.5"/>
+      <text x="310" y="82" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" font-weight="700" letter-spacing="0.05em" fill="var(--text-faint)">COMPUTE TIER</text>
+
+      <rect x="20" y="96" width="180" height="42" rx="6" fill="color-mix(in srgb, var(--accent2) 14%, transparent)" stroke="var(--accent2)" stroke-width="1.5"/>
+      <text x="110" y="121" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">App Service</text>
+
+      <rect x="220" y="96" width="180" height="42" rx="6" fill="color-mix(in srgb, var(--accent2) 14%, transparent)" stroke="var(--accent2)" stroke-width="1.5"/>
+      <text x="310" y="121" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">AKS</text>
+
+      <rect x="420" y="96" width="180" height="42" rx="6" fill="color-mix(in srgb, var(--accent2) 14%, transparent)" stroke="var(--accent2)" stroke-width="1.5"/>
+      <text x="510" y="121" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">Functions</text>
+
+      <line x1="310" y1="138" x2="310" y2="170" stroke="var(--text-faint)" stroke-width="1.5"/>
+      <text x="310" y="164" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" font-weight="700" letter-spacing="0.05em" fill="var(--text-faint)">DATA TIER</text>
+
+      <rect x="20" y="178" width="180" height="42" rx="6" fill="color-mix(in srgb, var(--gold) 14%, transparent)" stroke="var(--gold)" stroke-width="1.5"/>
+      <text x="110" y="203" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">Azure SQL</text>
+
+      <rect x="220" y="178" width="180" height="42" rx="6" fill="color-mix(in srgb, var(--gold) 14%, transparent)" stroke="var(--gold)" stroke-width="1.5"/>
+      <text x="310" y="203" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">Cosmos DB</text>
+
+      <rect x="420" y="178" width="180" height="42" rx="6" fill="color-mix(in srgb, var(--gold) 14%, transparent)" stroke="var(--gold)" stroke-width="1.5"/>
+      <text x="510" y="203" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">Blob Storage</text>
+    </svg>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">One way to place the services named across this article into a single request path. Any one compute option can talk to any one data option; they aren't fixed pairs.</figcaption>
+  </figure>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="messaging-identity">Messaging and Identity</h2>
+  <p class="lede">Who talks to whom, who's allowed to do what, and where a credential actually lives.</p>
+
+  <p><strong>Azure Service Bus</strong> fills the <a href="cloud-computing-fundamentals.html#messaging-identity">queue category</a> from the fundamentals article: a queue for point-to-point delivery to exactly one consumer, or a topic within Service Bus for one-to-many delivery to multiple subscriptions at once. <strong>Azure Event Grid</strong> fills the broader publish/subscribe category, routing events from a source to any number of handlers for reactive, event-driven architectures. <strong>Azure Event Hubs</strong> gets a shorter mention. It's a high-throughput streaming-ingestion service for continuous event data, and its deeper mechanics belong to the event-driven architecture entry still to come in this site's backlog.</p>
+
+  <p><strong>Azure Key Vault</strong> stores secrets, certificates, and encryption keys centrally, instead of scattered across application configuration files. <strong>Managed identities</strong> are what make that centralization actually secure in practice. A managed identity is assigned directly to a resource, such as a virtual machine, an App Service instance, or a function. It lets that resource authenticate to Key Vault and other Azure services with no credential embedded in its code or configuration at all. That's Azure's concrete implementation of the workload-identity pattern the fundamentals article named generically under least privilege.</p>
+
+  <p><strong>Microsoft Entra ID</strong>, formerly Azure Active Directory, is Azure's identity and access-management system, worth one level more concrete than the fundamentals article's general definition. Entra ID is also an organization's directory service. That's the reason Azure integrates directly with an existing on-premises Active Directory, through a bridge called Entra Connect, or with an existing Microsoft 365 tenant. It's the specific mechanism behind the Microsoft-ecosystem integration strength the fundamentals article's provider comparison named without explaining how it actually works. <strong>Role-based access control</strong> (RBAC) is the permission model layered on top of the resource hierarchy from earlier in this article. Roles get assigned to an identity at the management group, subscription, or resource group level, inherited downward the same way policy is.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="regions-azs">Regions, Availability Zones, and Paired Regions</h2>
+  <p class="lede">The same physical reliability model from the fundamentals article, plus one reliability layer that's genuinely Azure's own.</p>
+
+  <p>Azure's regions and availability zones follow the same physical model the fundamentals article's figure already covers. A region is a geographic location with its own cluster of data centers, and an availability zone is an isolated failure domain within it. That figure doesn't need redrawing here. What's worth adding is the layer Azure builds on top of it.</p>
+
+  <p>Azure pairs each region with a specific partner region in the same geography, a relationship called a <strong>paired region</strong>. Azure sequences platform updates across a pair rather than rolling them out to both halves simultaneously, so an update-related issue in one region's rollout doesn't hit its pair at the same time. Some services also replicate data to the paired region automatically, for disaster recovery beyond what a single region's availability zones already provide.</p>
+
+  <p>Paired regions sit on top of availability zones, not in place of them. A workload still spreads across zones within a region for its baseline resilience. Pairing is the additional layer for the scenario where an entire region, not just one zone inside it, becomes unavailable.</p>
+
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 620 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Two Azure regions connected by a paired-region link. Region A, on the left, is active and contains three availability zones plus its primary compute and data. Region B, on the right, is labeled as the paired disaster-recovery target, holding geo-replicated data and standby capacity. A dashed line between the two regions represents the paired-region relationship, across which Azure sequences platform updates rather than rolling them out to both regions at once.">
+      <rect x="30" y="30" width="260" height="190" rx="8" fill="color-mix(in srgb, var(--teal) 5%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <text x="160" y="52" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" font-weight="700" fill="var(--teal)">REGION A · ACTIVE</text>
+
+      <rect x="43" y="66" width="70" height="34" rx="4" fill="color-mix(in srgb, var(--teal) 14%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <text x="78" y="87" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-dim)">AZ 1</text>
+      <rect x="125" y="66" width="70" height="34" rx="4" fill="color-mix(in srgb, var(--teal) 14%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <text x="160" y="87" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-dim)">AZ 2</text>
+      <rect x="207" y="66" width="70" height="34" rx="4" fill="color-mix(in srgb, var(--teal) 14%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <text x="242" y="87" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-dim)">AZ 3</text>
+
+      <rect x="43" y="150" width="234" height="50" rx="4" fill="color-mix(in srgb, var(--accent2) 12%, transparent)" stroke="var(--accent2)" stroke-width="1.5"/>
+      <text x="160" y="172" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-dim)">Primary compute</text>
+      <text x="160" y="186" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-dim)">&amp; data</text>
+
+      <rect x="330" y="30" width="260" height="190" rx="8" fill="color-mix(in srgb, var(--text-faint) 5%, transparent)" stroke="var(--text-faint)" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <text x="460" y="52" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" font-weight="700" fill="var(--text-faint)">REGION B · PAIRED (DR)</text>
+
+      <rect x="343" y="76" width="234" height="50" rx="4" fill="color-mix(in srgb, var(--text-faint) 10%, transparent)" stroke="var(--text-faint)" stroke-width="1.5"/>
+      <text x="460" y="98" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-dim)">Geo-replicated data</text>
+      <text x="460" y="112" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-dim)">(where supported)</text>
+
+      <rect x="343" y="140" width="234" height="50" rx="4" fill="color-mix(in srgb, var(--text-faint) 10%, transparent)" stroke="var(--text-faint)" stroke-width="1.5"/>
+      <text x="460" y="162" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-dim)">Standby capacity,</text>
+      <text x="460" y="176" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-dim)">sequenced updates</text>
+
+      <line x1="290" y1="125" x2="330" y2="125" stroke="var(--accent)" stroke-width="2" stroke-dasharray="5,3"/>
+      <text x="310" y="115" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--accent)">paired</text>
+    </svg>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">Azure sequences platform updates across a paired region rather than rolling them out to both halves at once, and some services replicate data to the pair automatically. It's an additional reliability layer on top of availability zones, not a replacement for them.</figcaption>
+  </figure>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="iac">Infrastructure as Code: ARM Templates, Bicep, and Terraform</h2>
+  <p class="lede">Three ways to describe an Azure deployment declaratively, instead of clicking through the portal by hand.</p>
+
+  <p>This article's resource-model section already introduced Azure Resource Manager as the layer every deployment method ultimately goes through, so this section only needs to cover the formats used to describe a deployment to it. <strong>ARM templates</strong> are Azure's native declarative format: JSON documents describing the resources in a deployment, submitted to Resource Manager the same way a manual portal action ultimately is.</p>
+
+  <p><strong>Bicep</strong> is a newer domain-specific language that compiles down to ARM JSON before it's submitted. It reads far more cleanly than a hand-written ARM template, and it doesn't require a separate state file the way Terraform does, since Resource Manager itself already tracks what a deployment created. A minimal Bicep resource declaration is compact enough to read at a glance:</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">main.bicep</span>
+      <span class="code-lang">Bicep</span>
+    </div>
+    <pre><code><span class="kw">resource</span> <span class="cn">storage</span> <span class="s">'Microsoft.Storage/storageAccounts@2023-01-01'</span> = {
+  name: <span class="s">'mystorageaccount'</span>
+  location: resourceGroup().location
+  sku: {
+    name: <span class="s">'Standard_LRS'</span>
+  }
+  kind: <span class="s">'StorageV2'</span>
+}</code></pre>
+  </div>
+
+  <p><strong>Terraform</strong>, already introduced generically in <a href="ci-cd-devops.html#iac">CI/CD and DevOps</a>, gets a shorter mention here for the same reason: it works across Azure, AWS, and GCP with the same tool and the same syntax. That's why a team already standardized on Terraform for a multi-cloud footprint might reach for it over Bicep even on a project that only touches Azure. The choice comes down to what a team is already organized around. Bicep suits a team fully committed to Azure that wants the platform-native tool. Terraform suits a team that values one tool across providers, or already has Terraform expertise in house.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="mapping">Mapping Azure to AWS and GCP</h2>
+  <p class="lede">The lookup table a reader arriving from another provider actually wants.</p>
+
+  <p>Every section above named an Azure service without dwelling on what the equivalent looks like on another provider. This table closes that gap in one place, plus one category not named earlier: observability. <strong>Azure Monitor</strong> is Azure's umbrella product for logs, metrics, and traces, the same three pillars a future observability article on this site will cover in full. It's included here for orientation, not explained in a dedicated section of its own. Row labels use the generic category rather than the Azure product name, "managed Kubernetes" as the row instead of "AKS." That keeps the table a comparison of equivalent categories, rather than implying the row is itself an Azure concept the other two columns are measured against.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Category</th><th>Azure</th><th>AWS</th><th>GCP</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Virtual machines (IaaS)</td><td>Virtual Machines</td><td>EC2</td><td>Compute Engine</td></tr>
+        <tr><td>Managed application platform (PaaS)</td><td>App Service</td><td>Elastic Beanstalk</td><td>App Engine</td></tr>
+        <tr><td>Managed containers, scale-to-zero</td><td>Container Apps</td><td>Fargate (via ECS)</td><td>Cloud Run</td></tr>
+        <tr><td>Managed Kubernetes</td><td>AKS</td><td>EKS</td><td>GKE</td></tr>
+        <tr><td>Functions (FaaS)</td><td>Azure Functions</td><td>Lambda</td><td>Cloud Run functions</td></tr>
+        <tr><td>Object storage</td><td>Blob Storage</td><td>S3</td><td>Cloud Storage</td></tr>
+        <tr><td>Block storage</td><td>Managed Disks</td><td>EBS</td><td>Persistent Disk</td></tr>
+        <tr><td>File storage</td><td>Azure Files</td><td>EFS</td><td>Filestore</td></tr>
+        <tr><td>Relational database</td><td>Azure SQL Database</td><td>RDS</td><td>Cloud SQL</td></tr>
+        <tr><td>NoSQL database</td><td>Cosmos DB</td><td>DynamoDB</td><td>Firestore</td></tr>
+        <tr><td>Data warehouse</td><td>Synapse Analytics / Fabric</td><td>Redshift</td><td>BigQuery</td></tr>
+        <tr><td>Queue</td><td>Service Bus</td><td>SQS</td><td>Pub/Sub</td></tr>
+        <tr><td>Publish/subscribe &amp; event routing</td><td>Event Grid</td><td>EventBridge</td><td>Pub/Sub</td></tr>
+        <tr><td>Identity &amp; access management</td><td>Entra ID</td><td>IAM</td><td>Cloud IAM</td></tr>
+        <tr><td>Secrets management</td><td>Key Vault</td><td>Secrets Manager</td><td>Secret Manager</td></tr>
+        <tr><td>Observability</td><td>Azure Monitor</td><td>CloudWatch</td><td>Cloud Monitoring</td></tr>
+        <tr><td>Resource hierarchy</td><td>Mgmt group → subscription → resource group</td><td>Organization → account</td><td>Organization → folder → project</td></tr>
+        <tr><td>Infrastructure as code, platform-native</td><td>Bicep / ARM templates</td><td>CloudFormation</td><td>Terraform (Infrastructure Manager)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Two of Azure Monitor's own sub-components are worth naming while it's already on the page. Log Analytics is specifically its log-query component, and Application Insights is specifically its application-performance-monitoring component. Both, like Azure Monitor itself, are named here for orientation only, ahead of the fuller treatment the observability article in this site's backlog will eventually give them, CloudWatch and Cloud Monitoring included.</p>
+
+  <p>Treat this table as a starting orientation, not a claim that each row is functionally identical across providers. Consistency models, pricing structure, and operational limits differ underneath a matching label even when the row implies a clean swap. The queue and publish/subscribe rows are a clear example. GCP's Pub/Sub genuinely fills both roles with the same product. A subscription behaves like a queue when only one consumer reads it, and like a broadcast when several do, while Azure and AWS keep the two patterns in separate services. The infrastructure-as-code row is another. Infrastructure Manager isn't GCP's own competing template language the way Bicep and CloudFormation are to each other. It's a managed way to run the same multi-cloud Terraform covered earlier in this article, GCP leaning on that shared tool rather than maintaining a proprietary one of its own. The table's job is to get a reader oriented quickly, not to substitute for reading a service's own documentation before building on it.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="choosing-azure">When Azure Is the Right Fit</h2>
+  <p class="lede">Earned from what this article actually covered, not a generic strengths list.</p>
+
+  <p>The fundamentals article's <a href="cloud-computing-fundamentals.html#comparing-providers">provider comparison</a> named Azure's strength as Microsoft-ecosystem integration and enterprise AI adoption. Everything covered since then makes that claim more concrete. The resource hierarchy from earlier in this article scales governance cleanly for a large enterprise running many teams across many subscriptions. Entra ID simplifies hybrid identity specifically for an organization with an existing on-premises Active Directory or Microsoft 365 tenant, not just organizations in the abstract. App Service and Azure Functions reduce operational overhead for a team that doesn't want to run its own cluster, while AKS and Terraform support a team already organized around cloud-native, multi-provider tooling instead. Existing Microsoft licensing, or an existing .NET or Windows Server investment, reduces migration friction in a way that's easier to point to now than the fundamentals article's general phrase for it.</p>
+
+  <p>Azure's AI services fit the same pattern rather than sitting apart from it. <strong>Microsoft Foundry</strong>, renamed from Azure AI Foundry in late 2025, is Microsoft's unified AI platform. It builds on the same resource model, identity system, and networking covered throughout this article, instead of forming a separate platform bolted on alongside everything else.</p>
+
+  <p>One caution is worth stating plainly. Existing Microsoft licensing is a reason to evaluate Azure seriously. It isn't a substitute for checking whether Azure's specific managed services actually fit the workload, the same caution the fundamentals article's own <a href="cloud-computing-fundamentals.html#choosing-provider">closing section</a> raised about cloud providers generally. The provider-agnostic factors that article closed on, existing skills, and which managed services actually matter for the workload at hand, still apply on top of everything Azure-specific covered here.</p>
+
+</main>
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+
+</body>
+</html>
