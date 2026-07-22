@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CI/CD and DevOps — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+<style>
+  /* Article-specific only. Shared patterns (cards, callouts, code blocks,
+     sidebar, tables) come from articles.css. */
+</style>
+</head>
+
+<body>
+
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Articles</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+
+  <div class="sidebar-section">Foundations</div>
+  <a href="#devops-vs-cicd">DevOps vs. CI/CD</a>
+  <a href="#continuous-integration">Continuous Integration</a>
+  <a href="#delivery-vs-deployment">Delivery vs. Deployment</a>
+
+  <div class="sidebar-section">The Pipeline</div>
+  <a href="#pipeline-anatomy">Anatomy of a Pipeline</a>
+  <a href="#environments">Environments &amp; Promotion</a>
+  <a href="#deployment-strategies">Deployment Strategies</a>
+
+  <div class="sidebar-section">Operating It</div>
+  <a href="#gitops">GitOps</a>
+  <a href="#iac">Infrastructure as Code</a>
+  <a href="#rollbacks">Rollbacks &amp; Pipeline Health</a>
+
+  <div class="sidebar-section">Decision Guide</div>
+  <a href="#maturity">Pipeline Maturity</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">Architecture · Delivery</div>
+  <h1>CI/CD and DevOps</h1>
+  <p class="subtitle">How commits become releases, why continuous delivery and continuous deployment aren't the same thing, and the deployment strategies that limit the blast radius of a bad one.</p>
+  <div class="byline">
+    <strong>Deep dive</strong>
+    <div class="dot"></div><span>~14 min read</span>
+    <div class="dot"></div><span>Delivery pipelines &amp; deployment</span>
+    <div class="dot"></div><span>July 2026</span>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <section id="intro">
+  <p>"DevOps," "CI/CD," and "the pipeline" get used almost interchangeably in most conversations, which makes it easy to lose track of which one is actually being discussed. They aren't the same thing. One is an organizational practice. The other two are the technical machinery that makes that practice possible at any scale beyond a handful of manual deploys.</p>
+
+  <p>This article works through that distinction first, then builds up the mechanics on top of it: what continuous integration actually automates, why continuous delivery and continuous deployment get conflated despite meaning different things, what a pipeline's stages do in the order they run, and how a change actually reaches production once it clears them. It closes with the deployment models, GitOps included, that determine what happens after a pipeline decides a change is ready to go out.</p>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="devops-vs-cicd">DevOps vs. CI/CD</h2>
+  <p class="lede">One is a cultural shift. The other is the machinery that makes the shift practical.</p>
+
+  <p><strong>DevOps</strong> is a set of organizational practices built around shared ownership between the people who write software and the people who run it, rather than a wall where one side throws a finished build over to the other. The term emerged in the mid-to-late 2000s as a reaction to a specific, recurring failure mode: development teams were optimizing for shipping change quickly, operations teams were optimizing for keeping production stable, and those two goals pulled against each other constantly. Whenever a release broke something, the two sides had a ready-made argument already loaded: "it works on my machine" from one side, "it broke in production" from the other. Neither statement was false, and that was exactly the problem. DevOps closes that gap by making both sides accountable for the same outcome, a change that actually works once it's live, instead of accountable for two different, competing outcomes.</p>
+
+  <p><strong>CI/CD</strong> is what makes that shared accountability practical rather than aspirational. Continuous integration and continuous delivery, or continuous deployment, are the specific technical practices: automated builds, automated tests, automated deploys. Together they let a team move quickly and keep things stable at the same time, instead of treating those as a tradeoff. DevOps is the reason a team wants a pipeline. The pipeline is the reason DevOps is more than a value statement on a wiki page. The rest of this article is entirely about the pipeline, since the cultural side is well covered by that one distinction.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="continuous-integration">Continuous Integration</h2>
+  <p class="lede">The practice is simple to state and easy to underestimate: merge often, and let automation catch what a human would only notice days later.</p>
+
+  <p><strong>Continuous integration</strong> (CI) means developers merge small changes into a shared branch frequently, often multiple times a day, and every merge triggers an automated build and test run. The point isn't the automation for its own sake. It's timing. Two developers editing overlapping code will eventually conflict, and that conflict is cheap to resolve within hours of a small change and expensive to resolve after weeks of divergent work on separate branches, when neither side remembers exactly what the other one touched. CI forces that reckoning to happen early and often, in change sizes small enough that a failure is quick to diagnose.</p>
+
+  <p>The practice originated within Extreme Programming, Kent Beck's methodology from the late 1990s, and was popularized more broadly by Martin Fowler's writing in the early 2000s. What's worth carrying forward from that history isn't the specific practice as it existed then. It's the underlying bet: that frequent, small, automatically verified integrations beat infrequent, large, manually verified ones, at basically any team size.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="delivery-vs-deployment">Continuous Delivery vs. Continuous Deployment</h2>
+  <p class="lede">The distinction most often gotten wrong, and the one worth getting right before anything else in this article.</p>
+
+  <p><strong>Continuous delivery</strong> means every change that passes the pipeline is release-ready, but a person still decides when it actually ships. <strong>Continuous deployment</strong> removes that decision entirely: anything that passes the pipeline automatically reaches production, with no one clicking a button in between. Both terms get shortened to "CD" in casual conversation, which is exactly how the distinction gets lost. They describe two different amounts of trust a team is willing to place in its own automation.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th></th><th>Continuous integration</th><th>Continuous delivery</th><th>Continuous deployment</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>What's automated</td><td>Build and test, on every merge</td><td>Build, test, and promoting the artifact through pre-production</td><td>Everything, including the release itself</td></tr>
+        <tr><td>What needs a human</td><td>Fixing a failing build</td><td>Deciding when to release, and pressing go</td><td>Nothing, by design</td></tr>
+        <tr><td>Production after a passing build</td><td>Unchanged; CI doesn't deploy anything</td><td>Unchanged until someone approves the release</td><td>Updated automatically, usually within minutes</td></tr>
+        <tr><td>Risk profile</td><td>Low; nothing reaches users yet</td><td>Lower per release; a human gate catches what the pipeline didn't, at the cost of slower releases waiting on that person</td><td>Higher per release with no human gate, traded for the fastest possible feedback from real production traffic</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Neither column on the right is the "more mature" choice by default. Continuous deployment demands enough confidence in the pipeline's test coverage and monitoring that a bad change is caught by automation before it does real damage, which is a genuinely hard bar to clear. Continuous delivery keeps a human in the loop deliberately, which costs release velocity but adds a check that automation alone doesn't yet earn. Plenty of well-run engineering organizations stay at continuous delivery indefinitely, and that isn't a sign anything is missing.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="pipeline-anatomy">Anatomy of a Pipeline</h2>
+  <p class="lede">A pipeline is a sequence, and the order of its stages is not arbitrary: each one is a gate the next stage shouldn't run without.</p>
+
+  <p>A commit or a merge into the shared branch triggers the sequence. <strong>Build</strong> compiles or packages the change into a single deployable artifact, a compiled binary, a bundled application, or a container image built and tagged from a Dockerfile, the specifics covered in <a href="containers-orchestration.html#images">Containers and Orchestration</a> when that artifact is a container image. <strong>Automated tests</strong> run next, acting as a gate the change can't pass without: unit tests check individual pieces in isolation, integration tests check that pieces work together, and end-to-end tests check the whole system the way a user would encounter it. Exactly how much of each type a team should write, and where the balance shifts for a given architecture, belongs to a dedicated testing strategy article; what matters here is only that these tests are what the pipeline checks before letting a change go any further.</p>
+
+  <p>After tests pass, <strong>static analysis and linting</strong> catch style and correctness issues that a test wouldn't, and a <strong>security scan</strong> checks the artifact and its dependencies for known vulnerabilities, the kind of supply-chain check covered in more depth in <a href="web-security-principles.html#supply-chain">Web Security Principles</a>. Once an artifact clears every gate, it's <strong>published</strong> to a registry, a container registry or a package repository, where it becomes the fixed, versioned thing every later stage refers to by tag or digest rather than rebuilding from source again.</p>
+
+  <p>Then comes <strong>deploy</strong>, and this is the stage most often misread as a single destination. It isn't. For a continuous-delivery pipeline, deploy usually means deploying to staging, or another pre-production environment, and stopping there until a person approves the release. For continuous deployment, that same stage carries on straight to production with no pause in between. The stages before deploy look identical either way; what differs is only what's waiting on the other side of that gate.</p>
+
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 620 366" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pipeline diagram. A continuous integration bracket contains Commit, Build, and Test stages. Below it, a continuous delivery and deployment bracket contains Scan, Publish, and Deploy to Staging, followed by a gate, followed by Deploy to Production. The gate is labeled manual for delivery, automatic for deployment.">
+      <defs>
+        <marker id="cd-r1" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="var(--text-faint)"/></marker>
+      </defs>
+
+      <!-- CI bracket -->
+      <rect x="20" y="8" width="580" height="92" rx="6" fill="color-mix(in srgb, var(--accent) 4%, transparent)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="310" y="26" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" font-weight="700" fill="var(--accent)" letter-spacing="0.05em">CONTINUOUS INTEGRATION</text>
+
+      <rect x="36" y="40" width="170" height="44" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="121" y="66" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" font-weight="600" fill="var(--text)">Commit</text>
+
+      <rect x="224" y="40" width="170" height="44" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="309" y="66" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" font-weight="600" fill="var(--text)">Build</text>
+
+      <rect x="412" y="40" width="170" height="44" rx="4" fill="var(--surface-2)" stroke="var(--green)" stroke-width="1.5"/>
+      <text x="497" y="66" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" font-weight="600" fill="var(--green)">Test</text>
+
+      <line x1="121" y1="84" x2="224" y2="84" stroke="transparent"/>
+      <line x1="206" y1="62" x2="224" y2="62" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#cd-r1)"/>
+      <line x1="394" y1="62" x2="412" y2="62" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#cd-r1)"/>
+
+      <!-- connector down to CD bracket -->
+      <line x1="497" y1="84" x2="497" y2="100" stroke="var(--text-faint)" stroke-width="1.5"/>
+      <line x1="91" y1="100" x2="497" y2="100" stroke="var(--text-faint)" stroke-width="1.5"/>
+      <line x1="91" y1="100" x2="91" y2="150" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#cd-r1)"/>
+
+      <!-- CD bracket -->
+      <rect x="20" y="118" width="580" height="228" rx="6" fill="color-mix(in srgb, var(--teal) 4%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <text x="310" y="136" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="700" fill="var(--teal)" letter-spacing="0.04em">CONTINUOUS DELIVERY / DEPLOYMENT</text>
+
+      <rect x="36" y="150" width="110" height="40" rx="4" fill="var(--surface-2)" stroke="var(--orange)" stroke-width="1.5"/>
+      <text x="91" y="174" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="var(--orange)">Scan</text>
+
+      <rect x="164" y="150" width="110" height="40" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="219" y="174" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="var(--text)">Publish</text>
+
+      <rect x="292" y="150" width="180" height="40" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="382" y="174" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="var(--text)">Deploy → Staging</text>
+
+      <line x1="146" y1="170" x2="164" y2="170" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#cd-r1)"/>
+      <line x1="274" y1="170" x2="292" y2="170" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#cd-r1)"/>
+
+      <line x1="382" y1="190" x2="382" y2="207" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#cd-r1)"/>
+
+      <polygon points="382,207 447,235 382,263 317,235" fill="var(--surface-2)" stroke="var(--orange)" stroke-width="1.5"/>
+      <text x="382" y="239" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="700" fill="var(--orange)">Gate</text>
+
+      <text x="460" y="228" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">manual → delivery</text>
+      <text x="460" y="240" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">automatic → deployment</text>
+
+      <line x1="382" y1="263" x2="382" y2="296" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#cd-r1)"/>
+
+      <rect x="297" y="296" width="170" height="40" rx="4" fill="var(--surface-2)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="382" y="320" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="var(--accent)">Deploy → Production</text>
+    </svg>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">CI covers commit through test. Everything after belongs to delivery or deployment, depending only on whether the gate needs a person.</figcaption>
+  </figure>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="environments">Environments and Promotion</h2>
+  <p class="lede">The same artifact should move through every environment unchanged. Rebuilding it at each stage reopens a door the pipeline just closed.</p>
+
+  <p>Most teams run at least three environments: development, staging, and production, each a closer approximation of the real thing than the last. The artifact built once, back at the build stage, should be the exact same one promoted through all three, rather than rebuilt fresh at each stage from the same source. Rebuilding reopens a specific, avoidable failure mode: a build tool resolving a dependency to a slightly different version than it did an hour earlier, even from identical source code, which is exactly the kind of surprise "it worked in staging" is supposed to rule out. Promoting one immutable artifact removes that risk by construction, since there's no second build to diverge from the first.</p>
+
+  <p>What's allowed to differ between environments is configuration, not code: environment variables, connection strings, feature flag defaults, supplied to the artifact at deploy time rather than baked into it at build time. That separation is what makes the same artifact valid in three different environments at once.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="deployment-strategies">Deployment Strategies</h2>
+  <p class="lede">Which strategy fits is a question about acceptable risk and acceptable downtime, not a technical preference.</p>
+
+  <p>A <strong>rolling update</strong> replaces old instances with new ones gradually, a few at a time, so a fixed number stay available throughout and users never see downtime. A <strong>blue-green</strong> deployment runs two full environments side by side, the old one and the new one, and switches traffic from one to the other all at once, which makes a rollback just as instant as the cutover was. A <strong>canary</strong> deployment sends the new version a small slice of real traffic first, and only rolls it out further once that slice looks healthy, which limits how much of the user base a bad change can reach before anyone notices.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Requirement</th><th>Strategy</th><th>Tradeoff</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>No downtime during a routine release</td><td>Rolling update</td><td>Simplest to run, but a rollback is just another gradual rollout in reverse, not instant.</td></tr>
+        <tr><td>Rollback needs to be instant</td><td>Blue-green</td><td>Needs two full environments running at once, which costs double the capacity during the switch.</td></tr>
+        <tr><td>Reduce the blast radius of a risky change</td><td>Canary</td><td>Needs traffic-splitting infrastructure capable of sending an exact percentage to the new version.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>These aren't mutually exclusive. A common combination runs a canary slice inside a blue-green pair: the new (green) environment first receives a small percentage of real traffic to verify it's healthy, and only once that canary check passes does the full cutover from blue to green happen. Kubernetes specifically implements all three patterns through its own building blocks, covered in <a href="containers-orchestration.html#deployment-strategies">Containers and Orchestration</a>; this section covers the strategies as concepts that apply regardless of what's actually running the workload.</p>
+
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 620 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Three deployment strategies side by side. Rolling update shows four instances being replaced one at a time. Blue-green shows two full environments with traffic switching instantly between them. Canary shows most traffic going to a stable version and a small slice going to a new version.">
+      <!-- Rolling -->
+      <text x="101" y="20" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" font-weight="700" fill="var(--teal)" letter-spacing="0.03em">ROLLING UPDATE</text>
+      <rect x="46" y="36" width="110" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="101" y="53" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-dim)">Traffic</text>
+      <line x1="101" y1="62" x2="101" y2="76" stroke="var(--text-faint)" stroke-width="1.5"/>
+
+      <rect x="16" y="78" width="38" height="34" rx="4" fill="color-mix(in srgb, var(--teal) 12%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <text x="35" y="99" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" font-weight="600" fill="var(--teal)">v2</text>
+      <rect x="60" y="78" width="38" height="34" rx="4" fill="color-mix(in srgb, var(--teal) 12%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <text x="79" y="99" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" font-weight="600" fill="var(--teal)">v2</text>
+      <rect x="104" y="78" width="38" height="34" rx="4" fill="var(--surface-2)" stroke="var(--text-faint)"/>
+      <text x="123" y="99" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">v1</text>
+      <rect x="148" y="78" width="38" height="34" rx="4" fill="var(--surface-2)" stroke="var(--text-faint)"/>
+      <text x="167" y="99" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">v1</text>
+
+      <text x="101" y="130" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">replaced a few at a time,</text>
+      <text x="101" y="141" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">capacity never drops</text>
+
+      <line x1="200" y1="16" x2="200" y2="244" stroke="var(--border)"/>
+
+      <!-- Blue-green -->
+      <text x="310" y="20" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" font-weight="700" fill="var(--accent2)" letter-spacing="0.03em">BLUE-GREEN</text>
+      <rect x="222" y="34" width="176" height="34" rx="4" fill="var(--surface-2)" stroke="var(--text-faint)" stroke-width="1.5"/>
+      <text x="310" y="55" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">Blue — live (v1)</text>
+
+      <rect x="222" y="82" width="176" height="34" rx="4" fill="color-mix(in srgb, var(--accent2) 12%, transparent)" stroke="var(--accent2)" stroke-width="1.5"/>
+      <text x="310" y="103" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="var(--accent2)">Green — idle (v2)</text>
+
+      <path d="M 400 51 C 415 51, 415 99, 400 99" fill="none" stroke="var(--accent2)" stroke-width="1.5" stroke-dasharray="3,2" marker-end="url(#cd-r1)"/>
+      <text x="310" y="134" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">traffic switches all at once,</text>
+      <text x="310" y="145" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">rollback is just as instant</text>
+
+      <line x1="420" y1="16" x2="420" y2="244" stroke="var(--border)"/>
+
+      <!-- Canary -->
+      <text x="520" y="20" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" font-weight="700" fill="var(--gold)" letter-spacing="0.03em">CANARY</text>
+      <rect x="440" y="34" width="88" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="484" y="51" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-dim)">Traffic</text>
+
+      <line x1="470" y1="60" x2="470" y2="76" stroke="var(--text-faint)" stroke-width="3"/>
+      <line x1="500" y1="60" x2="500" y2="76" stroke="var(--gold)" stroke-width="1.5"/>
+
+      <rect x="440" y="78" width="176" height="40" rx="4" fill="var(--surface-2)" stroke="var(--text-faint)" stroke-width="1.5"/>
+      <text x="528" y="102" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">Stable (v1) — 90%</text>
+
+      <rect x="440" y="126" width="176" height="30" rx="4" fill="color-mix(in srgb, var(--gold) 12%, transparent)" stroke="var(--gold)" stroke-width="1.5"/>
+      <text x="528" y="146" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" font-weight="600" fill="var(--gold)">Canary (v2) — 10%</text>
+
+      <text x="528" y="176" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">small slice verified healthy</text>
+      <text x="528" y="187" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">before rolling out further</text>
+    </svg>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">Three answers to the same question: how much of the change reaches users, and how fast, before anyone can react.</figcaption>
+  </figure>
+
+  <p>A related but separate technique is the <strong>feature flag</strong>: a runtime switch that decouples deploying code (it's running in production) from releasing it (users can actually see or reach it). A flag is useful precisely where the three strategies above aren't a great fit on their own, such as rolling a user-facing change out to a specific segment first, or running an A/B test. It grants control over who sees a change independent of where the code has already been deployed.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="gitops">GitOps: The Pull-Based Model</h2>
+  <p class="lede">Most pipelines push change outward. GitOps flips that around, and the flip changes what a compromised credential can actually reach.</p>
+
+  <p>A traditional pipeline works by pushing: the CI system authenticates outward to the target infrastructure and applies the change itself, whether that's calling a cloud provider's API or running a deployment command directly against a cluster. <strong>GitOps</strong> inverts that direction. The desired state of a deployment, which version should be running, how many replicas, what configuration, lives as declarative configuration committed to a Git repository. An agent running inside the target environment continuously watches that repository and reconciles the environment's actual state to match it, rather than waiting for anything to be pushed to it. Argo CD and Flux are the two tools most commonly used to run that agent inside a Kubernetes cluster.</p>
+
+  <p>The security implication is worth calling out on its own, separate from the mechanics. Because the agent inside the cluster pulls from Git rather than the CI system pushing outward, the CI system never needs write access to production at all. It only needs write access to a Git repository. If CI credentials are ever compromised, the blast radius stops at "an attacker can commit to a repo," which still has code review and audit history around it, rather than "an attacker has a direct line to production infrastructure."</p>
+
+  <p>GitOps works best where the target's state is already expressible as declarative configuration, which is where Kubernetes manifests fit naturally and a fleet of servers driven by imperative scripts, run this command, then that one, doesn't. That gap can be narrowed by wrapping an imperative script inside a declarative layer, but doing so is extra tooling in itself. Below a certain amount of that effort, a push-based pipeline remains the simpler fit for infrastructure that isn't already described declaratively.</p>
+
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 620 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Comparison of push-based and pull-based deployment. In the push model, a CI/CD system pushes changes directly to production infrastructure using write credentials. In the pull model (GitOps), CI commits a new manifest to a Git repository, and an agent running inside the cluster pulls from that repository and reconciles the cluster's actual state to match it.">
+      <defs>
+        <marker id="cd-r2" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="var(--text-faint)"/></marker>
+        <marker id="cd-o2" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="var(--orange)"/></marker>
+      </defs>
+
+      <rect x="8" y="8" width="290" height="290" rx="6" fill="color-mix(in srgb, var(--teal) 4%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <text x="153" y="28" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="700" fill="var(--teal)" letter-spacing="0.04em">PUSH-BASED PIPELINE</text>
+
+      <rect x="48" y="50" width="210" height="44" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="153" y="76" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" font-weight="600" fill="var(--text)">CI/CD System</text>
+
+      <line x1="153" y1="94" x2="153" y2="138" stroke="var(--orange)" stroke-width="1.5" marker-end="url(#cd-o2)"/>
+      <text x="165" y="112" font-family="Inter,system-ui,sans-serif" font-size="8" fill="var(--orange)">pushes with prod</text>
+      <text x="165" y="123" font-family="Inter,system-ui,sans-serif" font-size="8" fill="var(--orange)">write credentials</text>
+
+      <rect x="48" y="140" width="210" height="44" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="153" y="166" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="var(--text)">Production Infrastructure</text>
+
+      <text x="153" y="270" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--orange)">a compromised CI credential</text>
+      <text x="153" y="282" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--orange)">reaches production directly</text>
+
+      <rect x="322" y="8" width="290" height="290" rx="6" fill="color-mix(in srgb, var(--accent) 4%, transparent)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="467" y="28" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="700" fill="var(--accent)" letter-spacing="0.04em">PULL-BASED (GITOPS)</text>
+
+      <rect x="362" y="50" width="210" height="40" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="467" y="74" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="var(--text)">Git Repo — desired state</text>
+
+      <rect x="362" y="130" width="210" height="40" rx="4" fill="var(--surface-2)" stroke="var(--accent2)" stroke-width="1.5"/>
+      <text x="467" y="154" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="var(--accent2)">Agent — inside cluster</text>
+
+      <rect x="362" y="210" width="210" height="40" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="467" y="234" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="var(--text)">Cluster — actual state</text>
+
+      <line x1="420" y1="130" x2="420" y2="90" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#cd-r2)"/>
+      <text x="380" y="112" font-family="Inter,system-ui,sans-serif" font-size="8" fill="var(--text-faint)">pulls &amp;</text>
+      <text x="380" y="122" font-family="Inter,system-ui,sans-serif" font-size="8" fill="var(--text-faint)">compares</text>
+
+      <line x1="514" y1="170" x2="514" y2="210" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#cd-r2)"/>
+      <text x="500" y="192" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8" fill="var(--text-faint)">reconciles</text>
+
+      <line x1="258" y1="72" x2="362" y2="70" stroke="var(--text-faint)" stroke-width="1.5" stroke-dasharray="3,2" marker-end="url(#cd-r2)"/>
+      <text x="310" y="45" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8" fill="var(--text-faint)">commits new manifest</text>
+
+      <text x="467" y="270" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--green)">CI never holds credentials</text>
+      <text x="467" y="282" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--green)">to the cluster itself</text>
+    </svg>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">Push gives CI a direct line to production. Pull keeps CI's write access limited to a Git repository, and lets an in-cluster agent do the rest.</figcaption>
+  </figure>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="iac">Infrastructure as Code</h2>
+  <p class="lede">The same declarative instinct behind GitOps, applied one layer down, to the infrastructure a deployment actually runs on.</p>
+
+  <p><strong>Infrastructure as code</strong> (IaC) means declaring infrastructure, servers, networks, managed databases, as versioned configuration, rather than changing it by hand through a cloud provider's console. Terraform is the most widely used representative tool. The point isn't just automation for its own sake; it's that infrastructure changes become reviewable, repeatable, and auditable the same way code changes already are, instead of living only in whoever happened to click through a console last.</p>
+
+  <p>IaC and GitOps solve adjacent but distinct problems, worth keeping separate rather than treating as one topic. IaC provisions infrastructure that changes infrequently: the cluster itself, the network it sits on, the managed database it connects to. GitOps reconciles the application deployment running on top of that already-provisioned infrastructure, which changes far more often. Both apply the same underlying principle, describe the desired state and let a tool reach it, to two different layers of the stack.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="rollbacks">Rollbacks and Pipeline Health</h2>
+  <p class="lede">The deployment strategy that matters most is the one nobody plans for in advance: getting back to the last version that worked.</p>
+
+  <p>Whatever deployment strategy is in use, a fast rollback is the real safety net underneath it. Redeploying the last known-good artifact, something every promotion model in this article already assumes exists in a registry, is almost always faster and safer than trying to debug forward under production pressure while users are actively affected. This is one more reason the same artifact should be promoted rather than rebuilt at each environment, covered earlier: a rollback is only as fast as finding the exact previous artifact, and a rebuild-per-environment approach means that artifact might not even exist anymore in the form that was actually running.</p>
+
+  <p>The pipeline itself is also worth watching, not just what it deploys. Build duration creeping upward and a rising flaky-test rate are both signals that a pipeline is starting to slow a team down or, worse, starting to get ignored when it fails. Diagnosing what's actually happening once something is live, correlating a symptom back to a specific deployment, belongs to a dedicated observability article covering logs, metrics, and traces together; this is only the part specific to keeping the delivery mechanism itself healthy.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="maturity">Pipeline Maturity: Choosing How Much to Build</h2>
+  <p class="lede">Everything in this article is available to any team. Not all of it is worth building on day one.</p>
+
+  <p>The mature end of this article, multi-environment promotion, progressive delivery, optionally GitOps-managed reconciliation, is a cost, not a default goal. It's worth its complexity once deploy frequency, team size, or the blast radius of a bad release actually justify it, and premature until then.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Tier</th><th>What it looks like</th><th>Fits</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Minimal</td><td>Manual build and deploy, no automated gate</td><td>A single small team shipping rarely, where the coordination cost of a full pipeline outweighs what it would catch.</td></tr>
+        <tr><td>Standard</td><td>Automated build, test, and deploy to one production environment</td><td>Where most teams land, and a reasonable default rather than a compromise.</td></tr>
+        <tr><td>Mature</td><td>Multi-environment promotion, progressive delivery via canary or blue-green, optionally GitOps-managed reconciliation</td><td>Frequent deploys, multiple teams sharing infrastructure, or changes with enough blast radius that a gradual rollout earns its keep.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>A repository with hundreds of packages and dozens of contributors also runs into a version of this maturity question from a different angle: CI execution time itself starts scaling with the size of the entire codebase rather than the size of what actually changed. That's a distinct problem from anything covered here, and it's the one <a href="monorepos.html">Monorepos</a> addresses directly, through incremental builds and shared caching. The mistake in either case isn't landing on the wrong tier. It's adopting the mature tier's complexity before anything in the team or the architecture actually needs what it provides.</p>
+
+</main>
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+
+</body>
+</html>
