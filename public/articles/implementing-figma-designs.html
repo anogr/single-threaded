@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Implementing Figma Designs — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+<style>
+  /* Article-specific only. Shared patterns (cards, callouts, code blocks,
+     sidebar, tables) come from articles.css. */
+  .figure-wrap {
+    margin: 28px 0 8px;
+  }
+  .figure-wrap svg {
+    max-width: 100%;
+    display: block;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .figure-wrap figcaption {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-top: 10px;
+    line-height: 1.55;
+    max-width: var(--content-w);
+  }
+</style>
+</head>
+
+<body>
+
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Docs</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+  <a class="sidebar-logo" href="index.html">Article<br><span>Figma Designs</span></a>
+
+  <div class="sidebar-section">Why It Matters</div>
+  <a href="#intro">Examples, Not Specs</a>
+
+  <div class="sidebar-section">Structure</div>
+  <a href="#anatomy">Frames, Auto Layout, and Components</a>
+  <a href="#variants">Variants and Component Props</a>
+
+  <div class="sidebar-section">Extracting Values</div>
+  <a href="#devmode">Dev Mode and the Inspect Panel</a>
+  <a href="#tokens">Figma Variables as Design Tokens</a>
+
+  <div class="sidebar-section">Where It Breaks Down</div>
+  <a href="#responsive">What Auto-Layout Doesn't Capture</a>
+  <a href="#states">States a Static Frame Can't Show</a>
+
+  <div class="sidebar-section">Practice</div>
+  <a href="#handoff">The Handoff Conversation</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">Design &amp; UX · Handoff</div>
+  <h1>Implementing Figma Designs</h1>
+  <p class="subtitle">How a Figma file's frames, variants, and inspector values map onto the DOM, and where a static design stops being enough to build from.</p>
+  <div class="byline">
+    <strong>Practical guide</strong>
+    <div class="dot"></div>
+    <span>~13 min read</span>
+    <div class="dot"></div>
+    <span>Design handoff</span>
+    <div class="dot"></div>
+    <span>July 2026</span>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       INTRO
+  ════════════════════════════════════════════════════ -->
+  <section id="intro">
+    <p class="lede">A Figma frame captures one instance of an interface. Turning it into working software means deciding which parts of that instance are meant to hold as a rule, and which parts just happened to be true of the single example on screen.</p>
+
+    <p>A button drawn at 140 pixels wide isn't a specification for a 140-pixel button. It's an example of a button, sized to fit whatever label the designer typed into it that day. A navigation frame showing five menu items isn't declaring that the product will always have exactly five. Both are snapshots of a system that has to keep working once a label runs longer, a list comes back shorter, or an account carries more permissions than the one used to build the mock. Reading a Figma file well means noticing which numbers on screen are load-bearing and which ones are incidental.</p>
+
+    <p>Figma itself is mostly out of scope here. Comments, branching, shared libraries, version history, and prototyping are all real parts of working in the tool, and none of them are covered in what follows. What matters for implementation is the artifact a file produces once a design is ready to build: frames, components, variants, and the values an inspector panel reports for each one.</p>
+
+    <p><a href="ux-principles.html">UX Principles</a> covers the heuristics, structure, and interaction states that explain why a design looks the way it does. This article assumes that reasoning already happened and picks up where the file lands on a developer's desk, covering how its structure maps onto a DOM, where that mapping runs out, and what to ask when it does.</p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════
+       ANATOMY
+  ════════════════════════════════════════════════════ -->
+  <h2 id="anatomy">Frames, Auto Layout, and Components</h2>
+  <p class="lede">Five vocabulary terms account for nearly everything worth reading in a design file. A sixth, pages, is mostly filing.</p>
+
+  <p>A <strong>frame</strong> is Figma's container element, the rough equivalent of a <code>&lt;div&gt;</code> with a fixed or flexible size. Frames nest inside each other the way DOM elements do, and a full screen is usually one large frame holding many smaller ones. Pages, the tabs along the top of a Figma file, just group frames for the designer's own organization. They rarely carry any meaning that needs to survive into code.</p>
+
+  <p><strong>Auto Layout</strong> maps most naturally onto flexbox: a frame with Auto Layout enabled arranges its children in a row or column, with a defined gap and padding, and each child can be set to hug its content, fill the available space, or stay a fixed size. That mapping is close enough to be genuinely useful during implementation, not just a teaching analogy, but it isn't automatic. The layout model that belongs in code follows the component's actual behavior, not whichever tool produced the mock. A wrapping grid of cards still belongs in CSS grid, even when the frame specifying it only used Auto Layout to approximate the effect. A frame with Auto Layout, a 16-pixel gap, and three children set to hug their content is describing <code>display: flex</code>, <code>gap: 16px</code>, and no <code>flex-grow</code> on any child, almost directly.</p>
+
+  <p>A <strong>component</strong> is a reusable definition, the Figma equivalent of a component definition in code. An <strong>instance</strong> is a placed copy of that component, configurable only within the constraints the main component allows, the same relationship a rendered <code>&lt;Button /&gt;</code> has to its source file. A <strong>variant</strong> is one of several predefined states of a component, grouped into a variant set with one or more named properties, such as size or intent, that a designer switches between using a dropdown instead of manually restyling each instance.</p>
+
+  <p>None of this structure is meant to be copied one to one into the DOM. Figma's layer tree exists to help a designer position and organize things, and it routinely contains frames, groups, and empty rectangles that have no reason to exist as elements once the design becomes code. A rectangle sitting between two fields to hold a gap open is a spacer layer, and it becomes a gap value in a flex or grid container, not an empty <code>&lt;div&gt;</code>. A frame that exists only to let a designer nudge two elements together doesn't need a wrapper element in the DOM unless that grouping is also a real, reusable unit. The question worth asking of every layer is whether it represents a genuine structural or semantic boundary, or whether it's an artifact of how the design tool happens to model positioning. The target is markup that reflects the interface's meaning and component boundaries, not one shaped like the layer tree, which is also why element choice matters as much as structure. A component instance that behaves like a button belongs in a <code>&lt;button&gt;</code> element, not a styled <code>&lt;div&gt;</code> with a click handler, even though nothing in Figma's layer panel distinguishes between the two.</p>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 700 320" role="img" aria-label="A Figma layer panel next to the component tree it becomes. On the left, nested layers read Card, containing Header with Title and Subtitle text layers, a Spacer rectangle, and a Button instance. On the right, the equivalent JSX shows a Card component containing a CardHeader with a Heading and a Text element, and a Button, with no element corresponding to the spacer layer." xmlns="http://www.w3.org/2000/svg">
+      <text x="20" y="24" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--text-dim)">A layer panel and the component tree it becomes</text>
+
+      <text x="180" y="48" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text-faint)">Figma layer panel</text>
+      <rect x="40" y="56" width="280" height="230" rx="8" fill="var(--surface)" stroke="var(--border)"/>
+      <text x="60" y="80" font-family="IBM Plex Mono,monospace" font-size="10.5" fill="var(--text)">&#9662; Card</text>
+      <text x="80" y="104" font-family="IBM Plex Mono,monospace" font-size="10.5" fill="var(--text)">&#9662; Header</text>
+      <text x="100" y="128" font-family="IBM Plex Mono,monospace" font-size="10.5" fill="var(--text-dim)">T  Title</text>
+      <text x="100" y="152" font-family="IBM Plex Mono,monospace" font-size="10.5" fill="var(--text-dim)">T  Subtitle</text>
+      <text x="80" y="180" font-family="IBM Plex Mono,monospace" font-size="10.5" fill="var(--red)" text-decoration="line-through">&#9645; Spacer</text>
+      <text x="240" y="180" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">no DOM equiv.</text>
+      <text x="80" y="204" font-family="IBM Plex Mono,monospace" font-size="10.5" fill="var(--text)">&#9670; Button</text>
+
+      <text x="520" y="48" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text-faint)">Component tree</text>
+      <rect x="380" y="56" width="280" height="230" rx="8" fill="var(--surface)" stroke="var(--border)"/>
+      <text x="400" y="80" font-family="IBM Plex Mono,monospace" font-size="10.5" fill="var(--text)">&lt;Card&gt;</text>
+      <text x="420" y="104" font-family="IBM Plex Mono,monospace" font-size="10.5" fill="var(--text)">&lt;CardHeader&gt;</text>
+      <text x="440" y="128" font-family="IBM Plex Mono,monospace" font-size="10.5" fill="var(--text-dim)">&lt;Heading /&gt;</text>
+      <text x="440" y="152" font-family="IBM Plex Mono,monospace" font-size="10.5" fill="var(--text-dim)">&lt;Text /&gt;</text>
+      <text x="420" y="176" font-family="IBM Plex Mono,monospace" font-size="10.5" fill="var(--text)">&lt;/CardHeader&gt;</text>
+      <text x="420" y="200" font-family="IBM Plex Mono,monospace" font-size="10.5" fill="var(--text)">&lt;Button /&gt;</text>
+      <text x="400" y="224" font-family="IBM Plex Mono,monospace" font-size="10.5" fill="var(--text)">&lt;/Card&gt;</text>
+
+      <defs>
+        <marker id="fig1-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)"/>
+        </marker>
+      </defs>
+      <path d="M 320 170 L 375 170" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#fig1-arrow)"/>
+
+      <text x="20" y="304" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">The spacer layer positioned two elements in the design tool. It becomes a gap value, not an element.</text>
+    </svg>
+    <figcaption>Header survives as CardHeader because it's a real, reusable grouping. The spacer layer doesn't survive at all, because its only job was holding space open inside one specific frame.</figcaption>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       VARIANTS
+  ════════════════════════════════════════════════════ -->
+  <h2 id="variants">Variants and Component Props</h2>
+  <p class="lede">A variant set looks like it wants to become a prop. Whether it should become one prop or several is a judgment call the file itself doesn't make.</p>
+
+  <p>The direct move is to turn a Figma variant property into a matching prop, and for something like size, small, medium, large, that's usually correct: a component only ever needs one of those at a time, so a string union models it exactly. The mistake is applying the same move to every variant property a design file happens to define, including ones that aren't mutually exclusive at all.</p>
+
+  <p>A button component in Figma often carries separate variants for its default appearance, its hover state, its disabled state, and a loading state, because a designer needs to see and edit each one individually. Translated literally, that becomes a prop like <code>variant="primary-loading"</code> alongside <code>variant="primary-disabled"</code>, <code>variant="secondary-loading"</code>, and so on, a union that grows by multiplication every time either dimension gains a new value. Hover in particular shouldn't become a prop at all: a browser already provides that state for free through <code>:hover</code>, and nothing needs to pass it down.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">button.tsx</span>
+      <span class="code-lang">TSX</span>
+    </div>
+    <pre><code><span class="cm">// One identity axis, two independent conditions layered on top.</span>
+<span class="kw">type</span> <span class="t">ButtonProps</span> = {
+  <span class="n">variant</span>: <span class="s">'primary'</span> | <span class="s">'secondary'</span>;
+  <span class="n">disabled</span>?: <span class="t">boolean</span>;
+  <span class="n">loading</span>?: <span class="t">boolean</span>;
+};</code></pre>
+  </div>
+
+  <p><code>loading</code> and <code>disabled</code> aren't variations of what the button is, they're temporary conditions layered on top of it, and a design file usually shows them as separate variants only because that's the easiest way to let a designer preview each one. Splitting a variant set into an identity axis, usually intent or size, and a set of independent boolean conditions keeps the resulting prop type from growing combinatorially. The same judgment call, deciding what belongs on a component's identity versus what's just its current state, comes up throughout <a href="react-patterns-component-design.html">React Patterns &amp; Component Design</a>.</p>
+
+  <div class="callout ok">
+    <div class="callout-title">Name Variants by Intent, Not Appearance</div>
+    <p>A variant named <code>Primary</code> and <code>Secondary</code> survives a rebrand that changes which color counts as primary. One named <code>Blue</code> and <code>Gray</code> doesn't, and neither does a prop copied from that naming. Matching a variant's name to what a component means, not what it currently looks like, is the same consistency heuristic covered in <a href="ux-principles.html#heuristics">UX Principles</a>, applied one level down into the component's own API.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       DEV MODE
+  ════════════════════════════════════════════════════ -->
+  <h2 id="devmode">Dev Mode and the Inspect Panel</h2>
+  <p class="lede">The values an inspector reports are measurements of one specific frame, not necessarily the values a component should ship with.</p>
+
+  <p><strong>Dev Mode</strong> is Figma's inspection surface for a selected layer: spacing, color, typography, and border values on the right-hand panel, along with a generated code snippet in CSS, iOS, or Android that approximates the same layer. It's the fastest way to get an exact number out of a design file, and also the easiest way to end up with a codebase full of numbers nobody chose on purpose.</p>
+
+  <p>The question worth asking of every value Dev Mode reports is whether it's intentional or incidental: does this specific gap, color, or size mean something the same way everywhere it appears, or is it just what the tool calculated for this one layer? A gap of 24 pixels between two elements is often really <code>spacing.lg</code> from an existing scale, present in this particular frame because that's what Auto Layout happened to compute once the surrounding content was in place. A fill of <code>#1976D2</code> is often really <code>color.primary</code>, the same accent used everywhere else in the file, picked from a shared swatch rather than mixed fresh for this one button. Copying the literal number in either case works today and quietly reintroduces the drift a token system exists to prevent.</p>
+
+  <p>The same distinction applies to size, not just spacing and color. A layer reporting a width of 200 pixels might be genuinely fixed, meant to stay that size regardless of context. It might also be a child set to fill its container, currently measuring 200 pixels only because that's how wide the container happens to be in this particular frame. Auto Layout's hug, fill, and fixed settings, visible in the same inspector panel as the raw number, say which one is true. The number by itself doesn't.</p>
+
+  <p>A selection that reports <code>Mixed</code> instead of a value is the same problem in a different shape. It shows up when a multi-layer selection, or a shape with a different corner radius on each corner, doesn't share one consistent value for whatever property is being inspected. That's a statement about the current selection, not a value to carry into code: the fix is selecting more narrowly until each layer reports one real number, not writing something in its place to paper over the ambiguity.</p>
+
+  <div class="callout info">
+    <div class="callout-title">Dev Mode's Export Isn't a Drop-In</div>
+    <p>A generated CSS snippet is scoped to the one instance selected, at the one width the frame happens to be. It won't reference the project's actual token names, won't include the states that aren't currently selected, and won't say anything about what happens outside that width. Treat it as a fast way to confirm a value, not as code to paste directly into a component.</p>
+  </div>
+
+  <p>The same caution applies to anything Dev Mode exports as a snippet, not just raw values. Pasting an entire generated CSS block copies whatever structural choices produced the file's current layer tree, including the spacer layers and wrapper frames covered above, straight into the codebase.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       TOKENS
+  ════════════════════════════════════════════════════ -->
+  <h2 id="tokens">Figma Variables as Design Tokens</h2>
+  <p class="lede">A Figma variable, a design token, and a CSS custom property describe the same value at three different points in its life, and the mapping between them isn't guaranteed to be 1:1.</p>
+
+  <p>A <strong>Figma variable</strong> is a named value, color, number, string, or boolean, that can be swapped per mode, such as a light and dark theme or a set of regional brands, without touching every layer that references it. Functionally, it's the same idea a design token is built around: define a value once, reference it everywhere, change it in one place. The token itself is the semantic layer worth keeping stable. A CSS custom property is one common way to expose that token in code, not the only one, and a token system built on a plain object or a theming library follows the same pipeline without a CSS variable ever entering the picture.</p>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 700 260" role="img" aria-label="Three connected boxes showing a Figma variable named color slash primary slash 500 becoming a design token named color dot primary, which becomes a CSS custom property named dash dash color dash primary. Below, a dashed box shows two mismatches: a Figma-only variable used for internal grid debugging that never becomes a token, and a code-only token, a z-index scale value, that never had a matching Figma variable." xmlns="http://www.w3.org/2000/svg">
+      <text x="20" y="24" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--text-dim)">Three stages, not always the same list</text>
+
+      <rect x="30" y="46" width="190" height="80" rx="8" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="125" y="66" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="var(--accent)">FIGMA VARIABLE</text>
+      <text x="125" y="88" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10.5" fill="var(--text)">color/primary/500</text>
+      <text x="125" y="108" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">#1976D2 · mode: Light</text>
+
+      <rect x="255" y="46" width="190" height="80" rx="8" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="350" y="66" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="var(--accent)">DESIGN TOKEN</text>
+      <text x="350" y="88" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10.5" fill="var(--text)">color.primary</text>
+      <text x="350" y="108" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">defined once in tokens.ts</text>
+
+      <rect x="480" y="46" width="190" height="80" rx="8" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="575" y="66" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="var(--accent)">IMPLEMENTATION</text>
+      <text x="575" y="88" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10.5" fill="var(--text)">--color-primary</text>
+      <text x="575" y="108" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">color: var(--color-primary)</text>
+
+      <defs>
+        <marker id="fig2-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)"/>
+        </marker>
+      </defs>
+      <path d="M 220 86 L 250 86" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#fig2-arrow)"/>
+      <path d="M 445 86 L 475 86" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#fig2-arrow)"/>
+
+      <text x="20" y="156" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-faint)">Not every value makes the trip in both directions</text>
+      <rect x="20" y="166" width="650" height="80" rx="8" fill="none" stroke="var(--border)" stroke-dasharray="4 4"/>
+
+      <text x="40" y="192" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="var(--text-dim)">FIGMA-ONLY</text>
+      <text x="40" y="212" font-family="IBM Plex Mono,monospace" font-size="10" fill="var(--text-dim)">grid/debug/12-col</text>
+      <text x="40" y="232" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">Never promoted to a token — nothing in code needs it.</text>
+
+      <line x1="360" y1="180" x2="360" y2="234" stroke="var(--border)"/>
+
+      <text x="380" y="192" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="var(--text-dim)">CODE-ONLY</text>
+      <text x="380" y="212" font-family="IBM Plex Mono,monospace" font-size="10" fill="var(--text-dim)">--z-index-modal</text>
+      <text x="380" y="232" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">No variable ever needed one — a purely code-level concern.</text>
+    </svg>
+    <figcaption>The pipeline runs left to right for values a designer and a developer both need to agree on. Plenty of values only ever need to exist on one side of it.</figcaption>
+  </div>
+
+  <p>The three stages don't map onto each other one to one in practice. A designer might define a Figma variable purely to make a file easier to maintain, a spacing value used in exactly one layout, that never needs to exist as a token because no other component references it. In the other direction, a codebase often has tokens with no Figma equivalent at all, a z-index scale or an animation-duration set, because they solve a purely implementation-level problem a static design file was never going to specify. Expecting every variable to become a token, or every token to trace back to a variable, is the same mistake as expecting a Figma frame's layer tree to become the DOM directly.</p>
+
+  <p>How these tokens actually get organized once they exist in code, tiers of variables, theming, and the tooling that keeps a token's name and its type in sync, is covered in <a href="css-architectures.html">CSS at Scale</a>. What matters on the Figma side is naming a variable to match the token it's meant to become before implementation starts, so the mapping is a lookup instead of a negotiation.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       RESPONSIVE
+  ════════════════════════════════════════════════════ -->
+  <h2 id="responsive">What Auto-Layout Doesn't Capture</h2>
+  <p class="lede">Auto Layout describes how elements relate to each other at one width. It doesn't say what happens at any other width, because it was never asked to.</p>
+
+  <p>A 16-pixel gap that Auto Layout maintains between two elements is a real, useful fact about the relationship between them. It says nothing about whether that gap should shrink at 375 pixels wide, whether the two elements should stack instead of sitting side by side, or whether one of them should disappear entirely. Auto Layout keeps recalculating the same relationship at whatever width the frame is resized to, which can look like responsive design inside the editor without actually specifying any of the decisions responsive design requires.</p>
+
+  <p>Most Figma files show two or three representative widths for a given screen, not a continuous range. Whatever happens between those points, and past the narrowest or widest one shown, is a decision that gets made during implementation whether or not anyone consciously makes it. Treating the widths that were drawn as the full set of breakpoints a product needs is a common enough shortcut that it's worth naming directly: a design file's breakpoints are examples of where the layout was checked, not a specification of every width it needs to hold up at.</p>
+
+  <div class="callout warn">
+    <div class="callout-title">One Frame's Measurements Aren't a Responsive Spec</div>
+    <p>A component that looks correct at the one width its frame was drawn at can still be missing every decision that matters at the widths nobody checked. Confirming behavior at the extremes, not just the one width in the file, is implementation work a design file can't do on its own.</p>
+  </div>
+
+  <p>The same limitation applies to content, not just width. A frame showing a name field filled with a short example name says nothing about what happens at forty characters. A list shown with five items says nothing about what a product does with fifty, or with none. Localization multiplies this problem rather than introducing a new one: a string that fits comfortably in English routinely runs thirty percent longer in German, and a layout that only holds up around the one example string it was built with was never actually specifying a layout, just describing what that particular string looked like.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       STATES
+  ════════════════════════════════════════════════════ -->
+  <h2 id="states">States a Static Frame Can't Show</h2>
+  <p class="lede">A frame renders one state. The others still have to exist somewhere before code can be written against them.</p>
+
+  <p>A single interactive component can pass through default, hover, focus, active, disabled, loading, and error states, and the six-state matrix that matters for implementation, along with the case for reaching for a native control to get several of them for free, is covered in full in <a href="ux-principles.html#states">Interaction States and Feedback</a>. What's worth adding here is where those states live, or fail to live, inside the file itself. A well-maintained design system ships each state as its own labeled variant, so the states exist as artifacts before a single line of code gets written. A file built under deadline pressure more often shows only the default, and the rest get inferred from a component library's existing patterns, or requested from the designer directly once the gap is noticed.</p>
+
+  <p>Focus is the state most likely to be missing entirely, rather than just unshown. Hover is usually visible somewhere in an existing design system. Focus often isn't, in part because a mouse-driven design tool has no native way to trigger it. A frame with no visible focus treatment isn't a decision that focus should look like hover, it's usually a state nobody got around to designing at all. The visible indicator itself, and the accessibility tree it plugs into, is covered in <a href="accessibility-foundations.html">Accessibility as an Architecture Decision</a>.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       HANDOFF
+  ════════════════════════════════════════════════════ -->
+  <h2 id="handoff">The Handoff Conversation</h2>
+  <p class="lede">Most of what a static file can't answer gets resolved fastest by asking, not by guessing and hoping the guess survives review.</p>
+
+  <p>Not every gap needs a new frame. A reasonable default, extrapolated from how the rest of the design system already handles the same situation, resolves most of these faster than waiting on a design change. What's worth protecting is the habit of noticing the gap in the first place, since an unnoticed gap doesn't get a default, it gets whatever the implementation happened to produce.</p>
+
+  <ul>
+    <li><strong>Behavior —</strong> What does this look like while it's loading, and what happens on screen if the action fails outright?</li>
+    <li><strong>Behavior —</strong> Is this update optimistic, applied immediately and rolled back on failure, or does it wait for confirmation first?</li>
+    <li><strong>Layout —</strong> What happens at the widths this file doesn't show, particularly the narrowest one a real user might actually have?</li>
+    <li><strong>Layout —</strong> What does this look like with no content in it at all?</li>
+    <li><strong>Content —</strong> What's the longest realistic value this label or field needs to hold, not just the one used in the mock?</li>
+    <li><strong>Content —</strong> Does this string still fit once it's translated, and does the layout assume a length that won't hold in every locale?</li>
+    <li><strong>Interaction —</strong> Does this work end to end from a keyboard alone, with a visible focus indicator at every step?</li>
+    <li><strong>Interaction —</strong> What replaces this on a touch device, if the design depends on hover to reveal it?</li>
+  </ul>
+
+  <p>None of these questions require design training to ask, and most of them take less time to raise than to implement a guess and unwind it later. What they require is treating the file in front of a developer as one instance of the interface, worth reading carefully, and not the whole specification of it.</p>
+
+</main>
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+
+</body>
+</html>
