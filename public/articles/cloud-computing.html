@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cloud Computing — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+<style>
+  /* Article-specific only. Shared patterns (cards, callouts, code blocks,
+     sidebar, tables) come from articles.css. */
+</style>
+</head>
+
+<body>
+
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Articles</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+
+  <div class="sidebar-section">Foundations</div>
+  <a href="#what-cloud-means">What Cloud Means</a>
+  <a href="#cloud-vs-onprem">Cloud vs. On-Premises</a>
+  <a href="#service-models">Service Models</a>
+
+  <div class="sidebar-section">Building Blocks</div>
+  <a href="#compute">Compute</a>
+  <a href="#storage">Storage</a>
+  <a href="#networking-data">Networking &amp; Managed Data</a>
+  <a href="#messaging-identity">Messaging &amp; Identity</a>
+
+  <div class="sidebar-section">Reliability &amp; Providers</div>
+  <a href="#regions-azs">Regions &amp; Availability Zones</a>
+  <a href="#comparing-providers">Comparing Providers</a>
+
+  <div class="sidebar-section">Decision Guide</div>
+  <a href="#portability">Portability &amp; Lock-In</a>
+  <a href="#choosing-provider">Choosing a Provider</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">Architecture · Cloud Platforms</div>
+  <h1>Cloud Computing</h1>
+  <p class="subtitle">What cloud computing actually trades against an internal data center, the service categories every provider shares, and where AWS, Azure, and GCP differ.</p>
+  <div class="byline">
+    <strong>Deep dive</strong>
+    <div class="dot"></div><span>~17 min read</span>
+    <div class="dot"></div><span>Cloud infrastructure &amp; providers</span>
+    <div class="dot"></div><span>July 2026</span>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <section id="intro">
+  <p>Two teams can both say they run "in the cloud" while doing almost nothing alike. One provisions virtual machines and patches them the same way it always has, just on someone else's hardware. The other has never configured a server directly, calling managed services through an API and letting a provider handle everything underneath. Both are accurate uses of the term, which is exactly why the term alone explains so little.</p>
+
+  <p>This article starts with that spectrum and works outward. It starts with what actually changes between running infrastructure yourself and renting it, including where cloud costs more rather than less. From there it covers the building blocks that exist across every major provider: compute, storage, networking, managed data, messaging, and identity. It closes with the differences between AWS, Azure, and GCP that actually change an architecture decision, and the portability tradeoffs a provider choice carries with it.</p>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="what-cloud-means">What "Cloud" Actually Means</h2>
+  <p class="lede">The term spans a range of how much infrastructure responsibility a team keeps. It isn't one technology.</p>
+
+  <p><strong>Cloud computing</strong> is on-demand, self-service access to computing resources, provisioned in seconds or minutes and able to scale automatically, delivered over the internet. Those resources are provisioned and controlled through APIs rather than by hand, the property that makes automation, infrastructure as code, and continuous delivery pipelines possible in the first place. Billing is typically usage-based, renting the underlying hardware instead of owning it, though many services also support reserved or committed capacity at a lower price once usage is predictable. This article contrasts cloud against that alternative throughout: <strong>on-premises</strong> infrastructure, a company buying, racking, and operating its own servers in its own data center.</p>
+
+  <p>Cloud doesn't only mean a public provider like the ones this article focuses on for most of its length. Private cloud runs the same self-service, on-demand model on infrastructure dedicated to a single organization. Hybrid cloud deliberately combines the two rather than treating the choice as all-or-nothing, a pattern the next section returns to.</p>
+
+  <p>One more idea is worth introducing before anything else: the <strong>shared responsibility model</strong>. A provider operates and secures the underlying infrastructure below a boundary line, and the customer is responsible for everything above it: their own identity and access policies, network configuration, encryption choices, secrets, and application code. Exactly where that line sits shifts by service model, the subject of the section right after the on-premises comparison below.</p>
+
+  <p>Virtualization made this technically possible, letting one physical machine run many isolated environments at once, and Amazon Web Services' 2006 launch popularized paying for compute by the hour instead of buying a server outright. The specific unit has changed since: per second, per request, per gigabyte. The same idea, paying for what's used instead of what's owned, is still underneath almost every cloud billing model today.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="cloud-vs-onprem">Cloud vs. On-Premises</h2>
+  <p class="lede">Elasticity is the headline benefit. It isn't the only line in the ledger.</p>
+
+  <p>The clearest advantage cloud infrastructure has over on-premises hardware is elasticity: capacity that expands and contracts with actual demand instead of sitting fixed at whatever was purchased. An on-premises deployment has to be sized for a projected peak: end-of-quarter processing, a product launch, a seasonal traffic spike. It then carries that full capacity as a fixed cost every day demand sits well below it. A cloud deployment can provision for the peak only while the peak is happening, and scale back down once it passes.</p>
+
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 620 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Line chart comparing capacity over time. On-premises capacity is a flat line fixed near the top, set well above an actual demand curve that fluctuates below it. Cloud capacity is a second curve that closely tracks the demand curve instead. The large gap between the flat on-premises line and demand is shaded to show idle, paid-for capacity. The much smaller gap between the cloud curve and demand is shaded separately to show cloud's minimal idle capacity.">
+      <line x1="70" y1="20" x2="70" y2="230" stroke="var(--border)" stroke-width="1.5"/>
+      <line x1="70" y1="230" x2="590" y2="230" stroke="var(--border)" stroke-width="1.5"/>
+      <text x="24" y="18" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text-faint)">Capacity</text>
+      <text x="560" y="248" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text-faint)">Time</text>
+
+      <polygon points="70,60 590,60 590,200 503,140 417,175 330,95 243,205 157,150 70,190" fill="color-mix(in srgb, var(--orange) 14%, transparent)"/>
+      <polygon points="70,175 157,135 243,190 330,80 417,160 503,125 590,185 590,200 503,140 417,175 330,95 243,205 157,150 70,190" fill="color-mix(in srgb, var(--green) 16%, transparent)"/>
+
+      <line x1="70" y1="60" x2="590" y2="60" stroke="var(--teal)" stroke-width="2"/>
+      <polyline points="70,190 157,150 243,205 330,95 417,175 503,140 590,200" fill="none" stroke="var(--text-faint)" stroke-width="1.5"/>
+      <polyline points="70,175 157,135 243,190 330,80 417,160 503,125 590,185" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+
+      <text x="200" y="100" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--orange)">idle, paid-for capacity</text>
+      <text x="417" y="146" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--accent)">tracks demand closely</text>
+
+      <rect x="76" y="240" width="190" height="66" rx="6" fill="var(--surface-2)" stroke="var(--border)"/>
+      <line x1="86" y1="256" x2="110" y2="256" stroke="var(--teal)" stroke-width="3"/>
+      <text x="118" y="259" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">On-premises (fixed)</text>
+      <line x1="86" y1="274" x2="110" y2="274" stroke="var(--text-faint)" stroke-width="1.5"/>
+      <text x="118" y="277" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">Actual demand</text>
+      <line x1="86" y1="292" x2="110" y2="292" stroke="var(--accent)" stroke-width="3"/>
+      <text x="118" y="295" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">Cloud (elastic)</text>
+    </svg>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">On-premises capacity is fixed at whatever was purchased for a projected peak, leaving the large shaded gap idle most of the time. Cloud capacity tracks actual demand closely instead.</figcaption>
+  </figure>
+
+  <p>The rest of the comparison is more mixed, and worth laying out directly rather than assuming cloud wins on every dimension.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Dimension</th><th>Cloud</th><th>On-premises</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Upfront cost</td><td>None; pay for what's actually used</td><td>Large capital purchase before anything runs</td></tr>
+        <tr><td>Elasticity</td><td>Scales within minutes to match demand</td><td>Fixed by whatever was purchased, sized for peak</td></tr>
+        <tr><td>Provisioning speed</td><td>New resources in minutes, via API</td><td>Weeks to months for procurement and installation</td></tr>
+        <tr><td>Operational burden</td><td>Provider patches and maintains the hardware and much of the stack above it</td><td>The team owns everything, hardware failures included</td></tr>
+        <tr><td>Control &amp; customization</td><td>Limited to what the provider exposes</td><td>Full control down to the physical hardware</td></tr>
+        <tr><td>Data residency &amp; compliance</td><td>Constrained to the provider's regions, though workable for most compliance regimes</td><td>Physical location and access fully known and controlled</td></tr>
+        <tr><td>Cost at steady, high utilization</td><td>Ongoing usage-based cost can exceed owned hardware over several years</td><td>Often cheaper once utilization is high and constant, and hardware fully depreciates</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>That last row is the one most easily overlooked in a conversation that otherwise favors cloud by default. At steady, predictable, high utilization, the ongoing cost of rented capacity can exceed the cost of owned hardware over a multi-year horizon. That's why <strong>cloud repatriation</strong> is worth naming: a company moving a specific, steady workload back on-premises or to colocation after initially defaulting to the cloud. It has become common enough that many organizations evaluate individual workloads for it, rather than treating the direction as fixed. It's evidence the decision runs in both directions, not a case against cloud generally. The workloads that get repatriated are usually the steady, predictable ones that never needed elasticity in the first place. Anything with variable demand tends to stay.</p>
+
+  <p>Many organizations land on a resolution rather than picking a side: hybrid cloud. It means keeping a specific workload on-premises for a reason like compliance or an existing capital investment, while running everything else on a public provider. Treated this way, the choice isn't binary at all. It's a workload-by-workload decision informed by the table above, applied separately to each system rather than to an organization as a whole.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="service-models">The Service Model Spectrum</h2>
+  <p class="lede">IaaS, PaaS, and SaaS are usually taught as three separate boxes. They read more clearly as one spectrum with a boundary that moves.</p>
+
+  <p><strong>Infrastructure as a service</strong> (IaaS) rents the lowest-level building blocks, virtual machines, storage, and networking, leaving the operating system, runtime, and application entirely to the customer. <strong>Platform as a service</strong> (PaaS) moves the boundary up a layer: the provider also manages the operating system and runtime. The customer deploys application code onto a managed platform without configuring a server underneath it. <strong>Software as a service</strong> (SaaS) moves the boundary up again: the customer uses finished software, an email service or a CRM product, and manages none of the infrastructure or code behind it.</p>
+
+  <p><strong>Serverless</strong> describes an operational model rather than a single product category: the provider manages the underlying servers entirely, and the customer never provisions capacity directly. <strong>Function as a service</strong> (FaaS) is the best-known example: code that runs only in response to an event and is billed per invocation. The same model shows up wherever a provider removes capacity planning from the customer's side. Serverless databases, serverless containers, and serverless messaging all apply the same idea to a different primitive.</p>
+
+  <p>The shared responsibility model introduced earlier becomes concrete once it's laid out layer by layer.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Layer</th><th>On-premises</th><th>IaaS</th><th>PaaS</th><th>SaaS</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Application</td><td>Customer</td><td>Customer</td><td>Customer</td><td>Provider</td></tr>
+        <tr><td>OS &amp; runtime</td><td>Customer</td><td>Customer</td><td>Provider</td><td>Provider</td></tr>
+        <tr><td>Storage</td><td>Customer</td><td>Provider</td><td>Provider</td><td>Provider</td></tr>
+        <tr><td>Compute</td><td>Customer</td><td>Provider</td><td>Provider</td><td>Provider</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Networking doesn't appear as a fifth row on purpose. It isn't one point in the stack the way application or storage are. It's configured at every level from IaaS upward, rather than living at a single layer, which is why the next major section covers it on its own.</p>
+
+  <p>Two qualifications keep the table honest otherwise. A provider-managed layer narrows the operational work, patching, uptime, scaling, but rarely removes the customer's responsibility for configuring access to it correctly. A misconfigured permission on a fully managed database is still the customer's problem, even though the database itself is entirely the provider's. Exactly where a specific product draws its own line can also vary. The table shows the general pattern, not a guarantee for any one service.</p>
+
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 650 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Four stacked layers, application, operating system and runtime, storage, and compute, repeated across four columns: on-premises, IaaS, PaaS, and SaaS. Each layer is colored customer-managed or provider-managed. On-premises has all four layers customer-managed. IaaS has application and OS customer-managed, storage and compute provider-managed. PaaS has only application customer-managed. SaaS has all four layers provider-managed. A dashed stepped line traces the shifting boundary between customer-managed and provider-managed layers across the four columns.">
+      <text x="160" y="90" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="700" fill="var(--text)">On-Premises</text>
+      <text x="292" y="90" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="700" fill="var(--text)">IaaS</text>
+      <text x="424" y="90" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="700" fill="var(--text)">PaaS</text>
+      <text x="556" y="90" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="700" fill="var(--text)">SaaS</text>
+
+      <text x="92" y="131" text-anchor="end" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Application</text>
+      <text x="92" y="179" text-anchor="end" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">OS / Runtime</text>
+      <text x="92" y="227" text-anchor="end" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Storage</text>
+      <text x="92" y="275" text-anchor="end" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Compute</text>
+
+      <!-- On-Premises: all customer -->
+      <rect x="100" y="106" width="120" height="42" rx="4" fill="color-mix(in srgb, var(--accent) 16%, transparent)" stroke="var(--accent)" stroke-width="1.5"/>
+      <rect x="100" y="154" width="120" height="42" rx="4" fill="color-mix(in srgb, var(--accent) 16%, transparent)" stroke="var(--accent)" stroke-width="1.5"/>
+      <rect x="100" y="202" width="120" height="42" rx="4" fill="color-mix(in srgb, var(--accent) 16%, transparent)" stroke="var(--accent)" stroke-width="1.5"/>
+      <rect x="100" y="250" width="120" height="42" rx="4" fill="color-mix(in srgb, var(--accent) 16%, transparent)" stroke="var(--accent)" stroke-width="1.5"/>
+
+      <!-- IaaS: app + os customer, storage + compute provider -->
+      <rect x="232" y="106" width="120" height="42" rx="4" fill="color-mix(in srgb, var(--accent) 16%, transparent)" stroke="var(--accent)" stroke-width="1.5"/>
+      <rect x="232" y="154" width="120" height="42" rx="4" fill="color-mix(in srgb, var(--accent) 16%, transparent)" stroke="var(--accent)" stroke-width="1.5"/>
+      <rect x="232" y="202" width="120" height="42" rx="4" fill="color-mix(in srgb, var(--teal) 14%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <rect x="232" y="250" width="120" height="42" rx="4" fill="color-mix(in srgb, var(--teal) 14%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+
+      <!-- PaaS: only app customer -->
+      <rect x="364" y="106" width="120" height="42" rx="4" fill="color-mix(in srgb, var(--accent) 16%, transparent)" stroke="var(--accent)" stroke-width="1.5"/>
+      <rect x="364" y="154" width="120" height="42" rx="4" fill="color-mix(in srgb, var(--teal) 14%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <rect x="364" y="202" width="120" height="42" rx="4" fill="color-mix(in srgb, var(--teal) 14%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <rect x="364" y="250" width="120" height="42" rx="4" fill="color-mix(in srgb, var(--teal) 14%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+
+      <!-- SaaS: all provider -->
+      <rect x="496" y="106" width="120" height="42" rx="4" fill="color-mix(in srgb, var(--teal) 14%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <rect x="496" y="154" width="120" height="42" rx="4" fill="color-mix(in srgb, var(--teal) 14%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <rect x="496" y="202" width="120" height="42" rx="4" fill="color-mix(in srgb, var(--teal) 14%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <rect x="496" y="250" width="120" height="42" rx="4" fill="color-mix(in srgb, var(--teal) 14%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+
+      <path d="M100,292 L226,292 L226,199 L358,199 L358,151 L490,151 L490,100 L616,100" fill="none" stroke="var(--gold)" stroke-width="2" stroke-dasharray="5,3"/>
+
+      <rect x="470" y="8" width="160" height="50" rx="6" fill="var(--surface-2)" stroke="var(--border)"/>
+      <rect x="480" y="16" width="12" height="12" rx="2" fill="color-mix(in srgb, var(--accent) 20%, transparent)" stroke="var(--accent)"/>
+      <text x="498" y="26" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-dim)">Customer-managed</text>
+      <rect x="480" y="34" width="12" height="12" rx="2" fill="color-mix(in srgb, var(--teal) 18%, transparent)" stroke="var(--teal)"/>
+      <text x="498" y="44" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-dim)">Provider-managed</text>
+    </svg>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">The dashed line marks the shared-responsibility boundary. IaaS moves it down one layer at a time; SaaS moves it below the entire stack.</figcaption>
+  </figure>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="compute">Compute: VMs, Containers, and Functions</h2>
+  <p class="lede">Four common ways to run a workload, each suited to a different shape of problem.</p>
+
+  <p>A <strong>virtual machine</strong> is the IaaS-level compute primitive: an emulated computer with its own operating system that the customer configures, patches, and scales. It suits a workload that runs continuously, needs direct control over the operating system, or depends on legacy software built to assume dedicated hardware. It's the traditional default, and still a reasonable one for plenty of workloads.</p>
+
+  <p>Managed container platforms sit in the middle, ranging from a simple service that runs a single container up to a fully managed Kubernetes offering. The provider operates the underlying cluster infrastructure. The customer supplies containerized applications and describes how they should run. What a container actually is, and how an orchestrator like Kubernetes schedules and scales one, is covered in full in <a href="containers-orchestration.html">Containers and Orchestration</a>. This article only needs where managed container platforms sit relative to the other compute options.</p>
+
+  <p>Serverless functions sit at the far end of the spectrum defined in the previous section: no server management at all. In exchange, they carry constraints like execution time limits and <strong>cold starts</strong>, the delay when a function spins up from zero after sitting idle. They suit short, event-triggered work, resizing an uploaded image or reacting to a queue message, rather than a service that needs to respond instantly at all times.</p>
+
+  <p>A fourth category has become common enough to name on its own: managed machine learning platforms, infrastructure for training and serving models without provisioning GPU or TPU hardware directly. It's the compute-level primitive underneath the AI-specific strengths covered later in the provider comparison, not a separate concern from the compute choices above it.</p>
+
+  <div class="callout info">
+    <div class="callout-title">Cloud-native, defined</div>
+    <p>Put together, these options define what <strong>cloud-native</strong> architecture actually means: designing around managed services, automation, and elastic, loosely coupled components. It's a different starting point than treating the cloud as a stand-in for a physical server room running the same architecture as before.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="storage">Storage: Object, Block, and File</h2>
+  <p class="lede">Three storage types, distinguished by access pattern rather than by vendor product name.</p>
+
+  <p><strong>Object storage</strong> holds unstructured data retrieved by key through an API, rather than opened and modified in place like a file on a local disk. That access pattern suits things like images, backups, and static assets well. It suits a database's working files poorly, since a database needs to modify small pieces of data in place far faster than an API round-trip allows.</p>
+
+  <p><strong>Block storage</strong> behaves like a raw disk, typically attached to a single virtual machine, though some platforms support attaching one volume to several instances for specialized clustered workloads. It's exactly what a database's working files need: fast, in-place modification of small regions of data.</p>
+
+  <p><strong>File storage</strong> provides a shared filesystem that multiple machines can mount and read or write at once. It suits a workload built around shared files, rather than an API or a single attached disk.</p>
+
+  <p>Within object storage specifically, providers typically price a standard tier for data read often against a cheaper archival tier for data kept for backups or compliance and rarely retrieved. That tradeoff, slower retrieval in exchange for lower storage cost, is a real, common decision rather than a footnote, and one of the more direct ways a storage choice affects a cloud bill.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="networking-data">Networking and Managed Data</h2>
+  <p class="lede">The boundary a customer's resources sit inside, and the two shapes managed data comes in.</p>
+
+  <p>A <strong>virtual network</strong> is an isolated private network layer a customer defines within the provider's infrastructure, the boundary within which the customer's own resources talk to each other. What happens once traffic actually arrives at that boundary, a CDN, a load balancer, an API gateway, is covered in full in <a href="web-networking.html#edge">Web Application Networking</a>. This article stops at the boundary itself.</p>
+
+  <p>A <strong>managed database</strong> hands patching, backups, and failover for a relational or NoSQL database to the provider. The alternative is self-hosting the same database engine on a virtual machine and owning that operational work directly.</p>
+
+  <p>A <strong>managed data warehouse</strong> serves a different use case entirely: analytical queries scanning large volumes of historical data for reporting. It's optimized for scanning many rows at once, rather than looking up or updating a single record the way an operational database does. Reaching for one over the other is a question of access pattern, not of which is the more advanced option.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="messaging-identity">Messaging and Identity</h2>
+  <p class="lede">Who talks to whom, and who's allowed to do what.</p>
+
+  <p>Managed messaging splits into two patterns worth distinguishing by use case. A <strong>queue</strong> delivers each message to exactly one consumer, suited to distributing work across a pool of workers. A <strong>publish/subscribe</strong> service delivers a copy of each message to every subscriber, suited to broadcasting a single event to several independent systems at once.</p>
+
+  <p><strong>Identity and access management</strong> (IAM) attaches permissions to identities, users, applications, or roles, rather than to network location. The principle of least privilege, granting only the access a given identity actually needs, applies here the same way it applies everywhere else. The fewer permissions a compromised credential carries, the less damage it can do. Modern cloud architectures increasingly authenticate a workload using an identity assigned to it directly, rather than a long-lived API key embedded in its configuration, so a leaked secret has less it can be used for.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="regions-azs">Regions, Availability Zones, and Designing for Failure</h2>
+  <p class="lede">Infrastructure fails. The physical layout of a cloud provider's data centers is built around that fact, not around the hope it doesn't happen.</p>
+
+  <p>A <strong>region</strong> is a geographic location with its own cluster of data centers. An <strong>availability zone</strong> is an isolated failure domain within a region, with its own power and networking, so a failure in one zone doesn't take down another. Resilience isn't the only reason a region gets picked. Proximity to users keeps latency down, and some workloads have to stay within a specific region for data residency or regulatory reasons, the compliance row from the on-premises comparison earlier in this article.</p>
+
+  <p>Because a zone, or even a region, can fail independently, systems are designed around that reality rather than an assumption of permanent uptime. A few habits follow directly from what a zone actually is. Instances run redundantly across zones. Services stay stateless, so any instance can handle any request. No single component's failure should be able to take down the whole system. None of this is unique to any one provider. It's a consequence of the physical layout every major provider uses.</p>
+
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 620 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A region containing three availability zones, A, B, and C, each with its own compute, storage, and network resources. Zones A and C are shown healthy. Zone B is shown in a failed state, colored red, while A and C remain unaffected.">
+      <rect x="20" y="30" width="580" height="230" rx="10" fill="none" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <text x="40" y="52" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="700" letter-spacing="0.05em" fill="var(--text-faint)">REGION</text>
+
+      <!-- Zone A -->
+      <rect x="40" y="80" width="165" height="160" rx="6" fill="color-mix(in srgb, var(--teal) 5%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <text x="122" y="100" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="700" fill="var(--teal)">Availability Zone A</text>
+      <rect x="55" y="112" width="135" height="30" rx="4" fill="color-mix(in srgb, var(--teal) 14%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <text x="122" y="131" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">Compute</text>
+      <rect x="55" y="150" width="135" height="30" rx="4" fill="color-mix(in srgb, var(--teal) 14%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <text x="122" y="169" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">Storage</text>
+      <rect x="55" y="188" width="135" height="30" rx="4" fill="color-mix(in srgb, var(--teal) 14%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <text x="122" y="207" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">Network</text>
+
+      <!-- Zone B: failed -->
+      <rect x="220" y="80" width="165" height="160" rx="6" fill="color-mix(in srgb, var(--red) 6%, transparent)" stroke="var(--red)" stroke-width="1.5"/>
+      <text x="302" y="100" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="700" fill="var(--red)">Availability Zone B</text>
+      <rect x="235" y="112" width="135" height="30" rx="4" fill="color-mix(in srgb, var(--red) 10%, transparent)" stroke="var(--red)" stroke-width="1.5" stroke-dasharray="3,2"/>
+      <text x="302" y="131" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">Compute</text>
+      <rect x="235" y="150" width="135" height="30" rx="4" fill="color-mix(in srgb, var(--red) 10%, transparent)" stroke="var(--red)" stroke-width="1.5" stroke-dasharray="3,2"/>
+      <text x="302" y="169" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">Storage</text>
+      <rect x="235" y="188" width="135" height="30" rx="4" fill="color-mix(in srgb, var(--red) 10%, transparent)" stroke="var(--red)" stroke-width="1.5" stroke-dasharray="3,2"/>
+      <text x="302" y="207" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">Network</text>
+      <text x="302" y="253" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--red)">zone failure</text>
+
+      <!-- Zone C -->
+      <rect x="400" y="80" width="165" height="160" rx="6" fill="color-mix(in srgb, var(--teal) 5%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <text x="482" y="100" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="700" fill="var(--teal)">Availability Zone C</text>
+      <rect x="415" y="112" width="135" height="30" rx="4" fill="color-mix(in srgb, var(--teal) 14%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <text x="482" y="131" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">Compute</text>
+      <rect x="415" y="150" width="135" height="30" rx="4" fill="color-mix(in srgb, var(--teal) 14%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <text x="482" y="169" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">Storage</text>
+      <rect x="415" y="188" width="135" height="30" rx="4" fill="color-mix(in srgb, var(--teal) 14%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
+      <text x="482" y="207" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">Network</text>
+    </svg>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">Each zone has independent power, networking, and resources. Losing Zone B doesn't touch A or C, which is exactly why workloads spread across zones by default.</figcaption>
+  </figure>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="comparing-providers">Comparing AWS, Azure, and GCP</h2>
+  <p class="lede">The only section where a vendor's product name actually matters.</p>
+
+  <p>AWS has the broadest service catalog and the largest global footprint of any provider, plus the largest ecosystem of third-party tooling and the largest hiring pool to draw from. That breadth makes it the common default for a greenfield team with no existing platform commitments. The reason is less that any single AWS service is unmatched, and more that whatever a team eventually needs, AWS almost certainly already offers some version of it.</p>
+
+  <p>Azure is strongest where an organization already runs Microsoft infrastructure, Active Directory (now Entra ID), .NET, Windows Server, or Microsoft 365, since identity and licensing integrate directly rather than needing a separate bridge. It has also become a leading option for enterprise AI adoption through Azure AI Foundry, Microsoft's unified AI platform. A company can reach models from OpenAI and other providers through it, inside Azure's own compliance and security boundary, instead of sending data to a separate vendor.</p>
+
+  <p>GCP's strengths concentrate in large-scale data analytics, BigQuery, one of the most influential serverless cloud data warehouse platforms, and machine learning infrastructure that includes its own custom processors built for that workload. It's a common entry point for data-focused teams even at companies whose core workloads run elsewhere. Its Kubernetes heritage, Google originated the project, is worth a passing mention but isn't the headline differentiator it once was, and its general enterprise penetration still lags AWS and Azure.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Provider</th><th>Primary strength</th><th>Typical fit</th><th>Flagship example</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>AWS</td><td>Breadth of services and global footprint</td><td>Greenfield teams with no existing platform commitment</td><td>Amazon S3, whose API has become a de facto standard other providers also implement</td></tr>
+        <tr><td>Azure</td><td>Microsoft-ecosystem integration and enterprise AI</td><td>Organizations already running Active Directory, .NET, or Microsoft 365</td><td>Azure AI Foundry</td></tr>
+        <tr><td>GCP</td><td>Data analytics and machine learning infrastructure</td><td>Data-focused teams and AI/ML-centric workloads</td><td>BigQuery</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>This stays at the comparison level on purpose. Azure's own building blocks, its resource model, and how its services map onto the concepts covered earlier in this article are the subject of a dedicated companion article.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="portability">Portability and Lock-In</h2>
+  <p class="lede">Compute travels between providers reasonably well. Almost nothing else does.</p>
+
+  <p>A virtual machine or a container image runs similarly on any provider, which makes compute the most portable layer of a cloud architecture. The deeper lock-in usually comes from a combination of places whose APIs and behavior don't carry over to another provider. Common examples include IAM policy structure, network configuration, observability tooling, event and messaging systems, managed databases, and increasingly provider-specific AI services. Managed databases remain the single deepest source on their own, but rarely the only one anymore. The data itself is a further, separate source once it's large enough. Moving a large dataset out of a provider costs real time and money, an effect sometimes called <strong>data gravity</strong>, independent of which specific services touch that data.</p>
+
+  <p>Two abstraction layers offer a partial answer. Infrastructure as code, covered in <a href="ci-cd-devops.html#iac">CI/CD and DevOps</a>, and container orchestration, covered in <a href="containers-orchestration.html">Containers and Orchestration</a>, both describe infrastructure in ways that move between providers more easily than hand-configured resources do. Neither makes a migration free. Both narrow how much of it is manual. Favoring components built on open, non-proprietary interfaces helps too: a managed database that still speaks standard PostgreSQL, or a service that exports telemetry through OpenTelemetry. The interface stays portable even when the infrastructure behind it doesn't.</p>
+
+  <p><strong>Multi-cloud</strong> means deliberately running workloads across more than one provider, to use each for a specific strength from the comparison above. That trades the lock-in risk from the previous paragraph for real operational complexity: separate expertise, separate tooling, and separate failure modes to reason about in each environment. It's worth that cost for reasons like regulatory requirements or negotiating leverage. It isn't a default goal for a smaller team without one of those reasons already in hand.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="choosing-provider">Choosing a Provider</h2>
+  <p class="lede">The right answer depends on specifics this article can't see: what a team already runs, and where its skills already sit.</p>
+
+  <p>The right provider depends on what a team already operates, where the relevant skills already sit, and which managed services actually matter for the workload, more than on any single feature comparison. The provider strengths covered above are a starting point to validate against those specifics, not a conclusion to import wholesale.</p>
+
+  <p>It's also worth revisiting the comparison from earlier in this article before assuming the answer is a public cloud provider at all. A steady, predictable, high-utilization workload is exactly the case where that assumption is worth questioning. The right answer for one system inside an architecture doesn't have to be the right answer for every system next to it.</p>
+
+  <p>None of this starts with a provider name, in the end. It starts with the same question the opening section raised: how much infrastructure responsibility a given system should hand off, and to whom. The service models, the building blocks, and the provider comparison in between are all ways of answering that one question more precisely.</p>
+
+</main>
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+
+</body>
+</html>
