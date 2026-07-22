@@ -75,7 +75,7 @@
 
 <main>
 
-  <div class="eyebrow">Frontend · Build Tooling</div>
+  <div class="eyebrow">Frontend Architecture · Build Tooling</div>
   <h1>Build Tooling</h1>
   <p class="subtitle">How tree-shaking and code-splitting actually work, and which tool fits which job in 2026: Vite, esbuild, Rollup, webpack, and Turbopack.</p>
   <div class="byline">
@@ -291,7 +291,7 @@
     <figcaption>A single bundle ships every route's code on first visit whether or not it's ever used. A route-based split keeps the shell and the landing route's chunk eager, since those are needed immediately, and fetches Dashboard or Settings only once a visitor actually navigates there.</figcaption>
   </div>
 
-  <p>Splitting also creates a genuine coordination problem worth naming: shared dependencies. If <code>Dashboard</code> and <code>Settings</code> both import a large date-formatting library, a naive splitter would duplicate that library into both chunks. Modern bundlers instead compute a separate shared, or vendor, chunk for dependencies used across multiple entry points, so it's fetched once and cached rather than shipped twice. Getting this right is a genuine optimization problem. Split too aggressively and a page waits on a dozen small round trips instead of one larger file. Split too coarsely and visitors download code for routes they'll never open. That tradeoff is why frameworks increasingly make this decision automatically rather than asking developers to hand-tune chunk boundaries themselves.</p>
+  <p>Splitting also creates a genuine coordination problem: shared dependencies. If <code>Dashboard</code> and <code>Settings</code> both import a large date-formatting library, a naive splitter would duplicate that library into both chunks. Modern bundlers instead compute a separate shared, or vendor, chunk for dependencies used across multiple entry points, so it's fetched once and cached rather than shipped twice. Getting this right is a genuine optimization problem. Split too aggressively and a page waits on a dozen small round trips instead of one larger file. Split too coarsely and visitors download code for routes they'll never open. That tradeoff is why frameworks increasingly make this decision automatically rather than asking developers to hand-tune chunk boundaries themselves.</p>
 
   <p>One detail ties code-splitting to caching directly: bundlers name each output chunk with a content hash, <code>settings.a1b2c3.js</code> rather than <code>settings.js</code>, so the filename itself changes whenever the content does. That lets every chunk safely carry a <code>max-age</code> far in the future, the kind of long-lived <a href="http.html#caching">HTTP caching</a> covered in the HTTP article, since a stale cached copy can never match a new deployment's filenames. It's a small mechanical detail, but it's the reason aggressive splitting doesn't come at the cost of aggressive re-downloading on every visit.</p>
 

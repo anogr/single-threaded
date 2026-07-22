@@ -48,7 +48,7 @@
 
 <main>
 
-  <div class="eyebrow">Architecture · Delivery</div>
+  <div class="eyebrow">Delivery · CI/CD</div>
   <h1>CI/CD and DevOps</h1>
   <p class="subtitle">How commits become releases, why continuous delivery and continuous deployment aren't the same thing, and the deployment strategies that limit the blast radius of a bad one.</p>
   <div class="byline">
@@ -107,7 +107,7 @@
   <h2 id="pipeline-anatomy">Anatomy of a Pipeline</h2>
   <p class="lede">A pipeline is a sequence, and the order of its stages is not arbitrary: each one is a gate the next stage shouldn't run without.</p>
 
-  <p>A commit or a merge into the shared branch triggers the sequence. <strong>Build</strong> compiles or packages the change into a single deployable artifact, a compiled binary, a bundled application, or a container image built and tagged from a Dockerfile, the specifics covered in <a href="containers-orchestration.html#images">Containers and Orchestration</a> when that artifact is a container image. <strong>Automated tests</strong> run next, acting as a gate the change can't pass without: unit tests check individual pieces in isolation, integration tests check that pieces work together, and end-to-end tests check the whole system the way a user would encounter it. Exactly how much of each type a team should write, and where the balance shifts for a given architecture, belongs to a dedicated testing strategy article; what matters here is only that these tests are what the pipeline checks before letting a change go any further.</p>
+  <p>A commit or a merge into the shared branch triggers the sequence. <strong>Build</strong> compiles or packages the change into a single deployable artifact, a compiled binary, a bundled application, or a container image built and tagged from a Dockerfile, the specifics covered in <a href="containers-orchestration.html#images">Containers and Orchestration</a> when that artifact is a container image. <strong>Automated tests</strong> run next, acting as a gate the change can't pass without: unit tests check individual pieces in isolation, integration tests check that pieces work together, and end-to-end tests check the whole system the way a user would encounter it. Exactly how much of each type a team should write, and where the balance shifts for a given architecture, is discussed in <a href="testing-strategy.html">Testing Strategy</a>. What matters here is only that these tests are what the pipeline checks before letting a change go any further.</p>
 
   <p>After tests pass, <strong>static analysis and linting</strong> catch style and correctness issues that a test wouldn't, and a <strong>security scan</strong> checks the artifact and its dependencies for known vulnerabilities, the kind of supply-chain check covered in more depth in <a href="web-security-principles.html#supply-chain">Web Security Principles</a>. Once an artifact clears every gate, it's <strong>published</strong> to a registry, a container registry or a package repository, where it becomes the fixed, versioned thing every later stage refers to by tag or digest rather than rebuilding from source again.</p>
 
@@ -325,7 +325,7 @@
   <h2 id="iac">Infrastructure as Code</h2>
   <p class="lede">The same declarative instinct behind GitOps, applied one layer down, to the infrastructure a deployment actually runs on.</p>
 
-  <p><strong>Infrastructure as code</strong> (IaC) means declaring infrastructure, servers, networks, managed databases, as versioned configuration, rather than changing it by hand through a cloud provider's console. Terraform is the most widely used representative tool. The point isn't just automation for its own sake; it's that infrastructure changes become reviewable, repeatable, and auditable the same way code changes already are, instead of living only in whoever happened to click through a console last.</p>
+  <p><strong>Infrastructure as code</strong> (IaC) means declaring infrastructure, servers, networks, managed databases, the building blocks covered in <a href="cloud-computing-fundamentals.html">Cloud Computing Fundamentals</a>, as versioned configuration, rather than changing it by hand through a cloud provider's console. Terraform is the most widely used representative tool. The point isn't just automation for its own sake; it's that infrastructure changes become reviewable, repeatable, and auditable the same way code changes already are, instead of living only in whoever happened to click through a console last.</p>
 
   <p>IaC and GitOps solve adjacent but distinct problems, worth keeping separate rather than treating as one topic. IaC provisions infrastructure that changes infrequently: the cluster itself, the network it sits on, the managed database it connects to. GitOps reconciles the application deployment running on top of that already-provisioned infrastructure, which changes far more often. Both apply the same underlying principle, describe the desired state and let a tool reach it, to two different layers of the stack.</p>
 
