@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design System Governance — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+<style>
+  /* Article-specific only. Shared patterns (cards, callouts, code blocks,
+     sidebar, tables) come from articles.css. */
+  .figure-wrap {
+    margin: 28px 0 8px;
+  }
+  .figure-wrap svg {
+    max-width: 100%;
+    display: block;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .figure-wrap figcaption {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-top: 10px;
+    line-height: 1.55;
+    max-width: var(--content-w);
+  }
+</style>
+</head>
+
+<body>
+
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Docs</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+  <a class="sidebar-logo" href="index.html">Article<br><span>Design System Governance</span></a>
+
+  <div class="sidebar-section">Foundations</div>
+  <a href="#intro">A Library Isn't a System</a>
+
+  <div class="sidebar-section">Shared Infrastructure</div>
+  <a href="#tokens">Tokens as a Distribution Problem</a>
+  <a href="#versioning">Versioning a Shared Library</a>
+
+  <div class="sidebar-section">Process</div>
+  <a href="#contribution">Contribution and Ownership</a>
+  <a href="#drift">Drift and Adoption</a>
+
+  <div class="sidebar-section">Delivery &amp; Scope</div>
+  <a href="#distribution">Distribution Across Frameworks</a>
+  <a href="#overkill">When It's Overkill</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">Design &amp; UX · Governance</div>
+  <h1>Design System Governance</h1>
+  <p class="subtitle">How a shared component library stays consistent once tokens, releases, and contribution rules have to hold across many teams instead of one.</p>
+  <div class="byline">
+    <strong>Field guide</strong>
+    <div class="dot"></div>
+    <span>~11 min read</span>
+    <div class="dot"></div>
+    <span>Component library governance</span>
+    <div class="dot"></div>
+    <span>July 2026</span>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       INTRO
+  ════════════════════════════════════════════════════ -->
+  <section id="intro">
+    <p class="lede">A component library is code sitting in a repository. A design system is that code plus the rules deciding how it changes, who approves the change, and how the other teams consuming it find out before something breaks.</p>
+
+    <p>A design system isn't defined by the components it contains. Two products can share an identical <code>&lt;Button&gt;</code> implementation and still run completely different design systems, because what actually separates them is how a change to that button gets proposed, reviewed, released, and adopted across every team using it. That process is what most of this article covers.</p>
+
+    <p>The payoff of getting it right is consistency that holds at scale, and not only the visual kind. A design system that's working keeps a button looking the same everywhere, behaving the same everywhere, exposing the same props for the same idea everywhere, meeting the same accessibility bar everywhere, and shipping changes on a schedule teams can plan around. Visual, behavioral, API, accessibility, and release consistency are five separate threads, and all five keep resurfacing through the rest of this article.</p>
+
+    <p>Four other articles on this site cover pieces adjacent to this one without overlapping it. <a href="ux-principles.html">UX Principles</a> covers the design thinking behind an interface. <a href="implementing-figma-designs.html">Implementing Figma Designs</a> covers turning one design file into code. <a href="css-architectures.html">CSS at Scale</a> covers the mechanics of scaling stylesheets, and <a href="react-patterns-component-design.html">React Patterns &amp; Component Design</a> covers structuring a single component well. This article sits above all four: it assumes the components and tokens already exist, and asks how they stay consistent once many teams depend on them instead of one.</p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════
+       TOKENS
+  ════════════════════════════════════════════════════ -->
+  <h2 id="tokens">Tokens as a Distribution Problem</h2>
+  <p class="lede">A token is a small, named value. Getting that same value out to every consumer, on every platform, without anyone hand-copying a hex code, is the actual engineering problem.</p>
+
+  <p>What a design token is and how it comes out of a design file is covered in <a href="ux-principles.html#tokens">UX Principles</a> and <a href="implementing-figma-designs.html#tokens">Implementing Figma Designs</a>. What matters for governance is what happens after the token exists: it only earns its name once it's defined in exactly one place, with every consumer reading that name instead of the literal value underneath it.</p>
+
+  <p>Many token systems settle into three tiers. A <strong>global token</strong> holds a raw value, one step of a color scale or spacing scale, with no opinion about where it gets used. An <strong>alias token</strong> gives a subset of those values a purpose, such as <code>color.primary</code> pointing at whichever global color the brand currently treats as primary. A <strong>component token</strong> goes one level narrower still, such as <code>button.background.primary</code> pointing at the alias above it. A rebrand that changes the primary color only edits the one global value at the root of that chain. Every alias and component token downstream updates on its own, instead of a maintainer hunting down every place that color was ever referenced directly.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">tokens.json</span>
+      <span class="code-lang">JSON</span>
+    </div>
+    <pre><code>{
+  <span class="json-key">"color"</span>: {
+    <span class="json-key">"blue"</span>: { <span class="json-key">"500"</span>: { <span class="json-key">"value"</span>: <span class="json-str">"#3b6ea5"</span> } }
+  },
+  <span class="json-key">"alias"</span>: {
+    <span class="json-key">"color"</span>: {
+      <span class="json-key">"primary"</span>: { <span class="json-key">"value"</span>: <span class="json-str">"{color.blue.500}"</span> }
+    }
+  }
+}</code></pre>
+  </div>
+
+  <p>A build step, most commonly Style Dictionary today, reads that one source file and generates a CSS custom property for the browser, a typed object for code that wants autocomplete, and native formats for iOS and Android where those platforms are in play. Every platform reads from the same source, so a contrast fix or a rebrand happens once instead of once per platform.</p>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 700 360" role="img" aria-label="A single alias token named color dot primary on the left, with arrows fanning out to four boxes on the right: a CSS custom property named dash dash color dash primary, a TypeScript object property tokens dot color dot primary, an iOS asset catalog entry named ColorPrimary, and an Android resource named at color slash color underscore primary." xmlns="http://www.w3.org/2000/svg">
+      <text x="20" y="24" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--text-dim)">One token, one definition, four outputs</text>
+
+      <rect x="30" y="140" width="220" height="100" rx="8" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="140" y="168" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="var(--accent)">ALIAS TOKEN</text>
+      <text x="140" y="194" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="12" fill="var(--text)">color.primary</text>
+      <text x="140" y="216" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">defined once, in tokens.json</text>
+
+      <rect x="430" y="50" width="240" height="60" rx="8" fill="var(--surface)" stroke="var(--border)"/>
+      <text x="550" y="70" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" font-weight="600" fill="var(--teal)">CSS CUSTOM PROPERTY</text>
+      <text x="550" y="90" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10.5" fill="var(--text)">--color-primary</text>
+
+      <rect x="430" y="124" width="240" height="60" rx="8" fill="var(--surface)" stroke="var(--border)"/>
+      <text x="550" y="144" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" font-weight="600" fill="var(--teal)">TYPESCRIPT OBJECT</text>
+      <text x="550" y="164" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10.5" fill="var(--text)">tokens.color.primary</text>
+
+      <rect x="430" y="198" width="240" height="60" rx="8" fill="var(--surface)" stroke="var(--border)"/>
+      <text x="550" y="218" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" font-weight="600" fill="var(--teal)">iOS ASSET CATALOG</text>
+      <text x="550" y="238" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10.5" fill="var(--text)">ColorPrimary</text>
+
+      <rect x="430" y="272" width="240" height="60" rx="8" fill="var(--surface)" stroke="var(--border)"/>
+      <text x="550" y="292" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" font-weight="600" fill="var(--teal)">ANDROID RESOURCE</text>
+      <text x="550" y="312" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10.5" fill="var(--text)">@color/color_primary</text>
+
+      <defs>
+        <marker id="tok-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)"/>
+        </marker>
+      </defs>
+      <path d="M 250 178 L 300 80 L 425 80" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#tok-arrow)"/>
+      <path d="M 250 185 L 320 154 L 425 154" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#tok-arrow)"/>
+      <path d="M 250 195 L 320 228 L 425 228" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#tok-arrow)"/>
+      <path d="M 250 202 L 300 302 L 425 302" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#tok-arrow)"/>
+
+      <text x="20" y="344" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">A build step transforms the one source into whatever format each platform's consumers actually read.</text>
+    </svg>
+    <figcaption>Renaming <code>color.primary</code> invalidates all four outputs at once. That's what makes a token name effectively public API, not an internal implementation detail.</figcaption>
+  </div>
+
+  <p>That last point is worth stating plainly. A token's name is public API even though it looks like an internal detail. <code>color.primary</code> gets referenced directly by dozens of components across teams that never open the token source file. Renaming it breaks every one of them at once, not just the one file it was edited in. That's what turns token management into a versioning problem rather than a naming exercise.</p>
+
+  <div class="callout warn">
+    <div class="callout-title">A Token Rename Is a Breaking Change</div>
+    <p>Treat a token rename on the same release cadence as a breaking API change, with a deprecation period and a migration path, never as a silent patch. The people who'll notice aren't reading the changelog for a components package; they're reading it for whichever token file they imported.</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       VERSIONING
+  ════════════════════════════════════════════════════ -->
+  <h2 id="versioning">Versioning a Shared Library</h2>
+  <p class="lede">A component's exported types can stay identical release over release while the component itself quietly breaks every application that renders it.</p>
+
+  <p>Semantic versioning gives a shared library a vocabulary for change: a patch for a fix that alters nothing about behavior, a minor version for an addition that doesn't break existing usage, and a major version for anything that does. That vocabulary works well when a library's surface is made of function signatures and prop types. A design system's real surface is wider than that, and a change can break a consumer without touching a single type.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Change</th><th>Touches the API?</th><th>Still breaks a consumer?</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Internal padding token increases</td><td><span class="badge badge-muted">No</span></td><td><span class="badge badge-red">Yes</span></td></tr>
+        <tr><td>Default font weight changes</td><td><span class="badge badge-muted">No</span></td><td><span class="badge badge-red">Yes</span></td></tr>
+        <tr><td>Focus ring grows a few pixels wider</td><td><span class="badge badge-muted">No</span></td><td><span class="badge badge-red">Yes</span></td></tr>
+        <tr><td>Overflow behavior changes from truncate to wrap</td><td><span class="badge badge-muted">No</span></td><td><span class="badge badge-red">Yes</span></td></tr>
+        <tr><td>A prop is removed</td><td><span class="badge badge-orange">Yes</span></td><td><span class="badge badge-red">Yes</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>The first four rows are the ones worth sitting with. A padding token moving a few pixels doesn't touch a button's TypeScript props, but it makes the button taller, and a consumer that sized a container to fit the old height now clips it. A focus ring one pixel wider can start overlapping an adjacent element that was never designed with that width in mind. None of these show up in a diff of the component's public API, which is exactly why a review focused only on types misses them.</p>
+
+  <p>The practical response is to size a release by its blast radius, not by whether a type signature changed. Different organizations draw that line differently, and both are defensible: some treat any layout-affecting change as a major release on principle, while others reserve that classification for changes wide enough to break more than a handful of consumers. Which convention a team picks matters less than writing it down, so a release doesn't get classified by whoever happens to be merging that week. A changelog tool such as Changesets, common in library monorepos, forces every contributor to record what changed and how severe it is before merging, rather than trusting a git log to explain itself later. Before removing an old prop or renaming a token, give consumers a deprecation window and a codemod, a script that mechanically rewrites the old usage to the new one across every consuming repository. Asking forty teams to hand-edit an import is a reliable way to stall a migration for a year.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       CONTRIBUTION
+  ════════════════════════════════════════════════════ -->
+  <h2 id="contribution">Contribution and Ownership</h2>
+  <p class="lede">Two different failure modes end most design systems: nobody contributes to it, or everybody contributes and nobody is responsible for what gets merged.</p>
+
+  <p>Three models cover most of how teams organize who's allowed to change a shared library.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Model</th><th>Strength</th><th>Weakness</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Centralized</td>
+          <td>One team reviews every change, so consistency is easy to enforce</td>
+          <td>Becomes a bottleneck as the number of dependent teams grows</td>
+        </tr>
+        <tr>
+          <td>Federated</td>
+          <td>Scales with however many teams want to contribute</td>
+          <td>Consistency drifts without a shared review bar</td>
+        </tr>
+        <tr>
+          <td>Hybrid</td>
+          <td>Core team owns primitives, product teams contribute domain components</td>
+          <td>Only works if the review process below is actually followed</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Hybrid is where most systems that survive contact with more than a few teams end up settling, because centralized ownership stops scaling around the same point federated ownership starts drifting. Making it work means a real proposal process instead of an open pull request queue: a short written proposal describing the problem, the proposed API, and the alternatives considered, sometimes called an RFC, short for request for comments. A core team or a rotating review group evaluates it against a short, consistent list of criteria: does the API match existing naming and prop conventions, does it clear the accessibility bar the rest of the library holds, and is it genuinely reusable rather than one team's specific need wearing a shared component's name. A brief written decision record, sometimes called an architecture decision record, saves the next contributor from re-litigating a choice nobody remembers making.</p>
+
+  <p>Contribution answers how a change gets in. Ownership answers who's responsible once it ships: whoever fixes the next accessibility regression, patches a security issue in a dependency, keeps the documentation matching the current API, and answers a consuming team's question about it. A system where many teams contribute components but no single owner exists for any of them accumulates components that are still published, still consumed, and slowly falling further behind the rest of the library. Assigning an owner at merge time is the cheap time to decide it; deciding it after something breaks is not.</p>
+
+  <p>Documentation is where that ownership becomes visible to everyone outside the library itself. A prop, token, or migration path that isn't written down is effectively invisible to a team that wasn't in the review, no matter how carefully it was designed. Treating documentation as part of what ships with a change, rather than a follow-up task that happens whenever someone gets to it, is what keeps the published record matching what the library actually does.</p>
+
+  <div class="callout danger">
+    <div class="callout-title">Contribution Without Ownership</div>
+    <p>A component with no assigned owner doesn't fail immediately. It fails slowly, as the rest of the library moves past it and nobody notices it was left behind until a consuming team hits the gap directly.</p>
+  </div>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 700 260" role="img" aria-label="Four boxes in a row labeled Proposal, Review, Merge and release, and Adoption, connected by arrows left to right. A dashed branch drops from Proposal down to a box labeled Skipped process, leading to local fork or copy-paste, foreshadowing the drift discussed later in the article." xmlns="http://www.w3.org/2000/svg">
+      <text x="20" y="24" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--text-dim)">Where a change enters the system, and where it goes if it skips the process</text>
+
+      <rect x="20" y="50" width="140" height="70" rx="8" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="90" y="78" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="var(--accent)">PROPOSAL</text>
+      <text x="90" y="98" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-dim)">RFC: problem + API sketch</text>
+
+      <rect x="180" y="50" width="140" height="70" rx="8" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="250" y="78" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="var(--accent)">REVIEW</text>
+      <text x="250" y="98" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-dim)">core team or rotating group</text>
+
+      <rect x="340" y="50" width="140" height="70" rx="8" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="410" y="78" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="var(--accent)">MERGE &amp; RELEASE</text>
+      <text x="410" y="98" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-dim)">versioned, changelog attached</text>
+
+      <rect x="500" y="50" width="140" height="70" rx="8" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="570" y="78" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="var(--accent)">ADOPTION</text>
+      <text x="570" y="98" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-dim)">consuming teams upgrade</text>
+
+      <defs>
+        <marker id="rfc-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)"/>
+        </marker>
+        <marker id="rfc-arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--red)"/>
+        </marker>
+      </defs>
+      <path d="M 160 85 L 178 85" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#rfc-arrow)"/>
+      <path d="M 320 85 L 338 85" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#rfc-arrow)"/>
+      <path d="M 480 85 L 498 85" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#rfc-arrow)"/>
+
+      <path d="M 90 120 L 90 176" stroke="var(--red)" stroke-width="1.5" stroke-dasharray="4 4" fill="none" marker-end="url(#rfc-arrow-red)"/>
+      <rect x="20" y="178" width="140" height="60" rx="8" fill="none" stroke="var(--red)" stroke-dasharray="4 4"/>
+      <text x="90" y="200" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="var(--red)">SKIPPED PROCESS</text>
+      <text x="90" y="220" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="var(--text-dim)">local fork / copy-paste</text>
+
+      <text x="20" y="252" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-faint)">What that branch turns into is covered next, under Drift and Adoption.</text>
+    </svg>
+    <figcaption>A proposal that never gets filed doesn't disappear. It usually shows up later as one of the drift patterns in the next section.</figcaption>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       DRIFT
+  ════════════════════════════════════════════════════ -->
+  <h2 id="drift">Drift and Adoption</h2>
+  <p class="lede">A dependency graph can say a library is adopted everywhere. Whether it's actually consistent is a different question, usually answered by looking at what teams built instead of using it.</p>
+
+  <p>A literal fork, copying a component's source into a local repository, is the most visible form of <strong>drift</strong> and also the rarest, since it's easy to catch in a code search. Most drift is quieter: a wrapper component that reimplements half the original's behavior to work around one missing prop, a block of markup copy-pasted because importing the real component felt slower that day, a local CSS override reaching past whatever style API the component actually exposes, a token value overridden locally instead of proposing a new alias, or a feature flag meant to run for two weeks that's still splitting the codebase in two a year later. The same pattern shows up before any code gets written, too: a designer duplicating a component locally instead of pulling from the shared <a href="implementing-figma-designs.html">Figma library</a> drifts for the same reason a copy-pasted component does.</p>
+
+  <p>Each of these is worth reading as feedback before it's read as a violation. A team that forked a button because the shared version couldn't handle an icon-only variant is describing a real gap in the library, not simply breaking a rule. Treating every instance as something to police rather than something to ask about tends to push the next gap further underground instead of surfacing it as a proposal.</p>
+
+  <p>The signals worth tracking stay simple: what fraction of a team's components actually import from the shared library rather than a local equivalent, how many duplicate or forked components turn up in a periodic audit, and how long a new team takes to become productive with the library instead of quietly building their own version of it. None of those numbers matter as a target to hit. They matter as an early warning that the process in the previous section isn't fitting the teams it's meant to serve.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       DISTRIBUTION
+  ════════════════════════════════════════════════════ -->
+  <h2 id="distribution">Distribution Across Frameworks</h2>
+  <p class="lede">Shipping one component to three frameworks is an implementation decision. Which approach a team picks changes how many places every governance rule in this article has to be enforced.</p>
+
+  <p>Once a design system spans a React product, a Vue product, and a legacy jQuery admin panel, there's a genuine choice about how many times each component gets built. One option is implementing the shared library as Web Components, covered in depth in <a href="web-components.html">Web Components</a>, consumable from any of them through the same underlying custom element. The alternative is maintaining a separate implementation per framework, trading three codebases for an API that feels native to each one.</p>
+
+  <p>The governance cost of that choice is direct. A single Web Component implementation means one place to version, one place to review a proposal, and one fix that reaches every consumer at once. Three parallel implementations mean three release schedules, three review processes, and a real chance that a bug gets fixed in the React version months before anyone notices the Vue version has the same one. Some organizations accept that cost deliberately, usually because a framework-native API matters enough to the teams using it to be worth maintaining separately. It's a tradeoff worth naming rather than assuming: the technical mechanics belong to the Web Components article, but which one a team picks is a governance decision, not just an architecture one.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       OVERKILL
+  ════════════════════════════════════════════════════ -->
+  <h2 id="overkill">When It's Overkill</h2>
+  <p class="lede">Governance has a real cost, and it's worth paying only once enough independent teams are pulling on the same library to justify it.</p>
+
+  <p>None of the process described above, proposals, formal token tiers, a dedicated review group, is free. A single product team of fifty engineers shipping on one roadmap can usually get by with a shared components folder, a chat channel, and the habit of asking before changing something widely used. Layering a full governance process onto a team that size adds meetings without adding much consistency, because there was rarely much drift to solve in the first place.</p>
+
+  <p>The variable that matters is the number of independent teams, not the total headcount. Five ten-person teams that each ship on their own schedule need real governance sooner than one fifty-person team following a single roadmap, because independence is what produces the divergent decisions this article exists to catch. The signal that it's time is usually concrete: the same component gets rebuilt more than once across teams, a rebrand touches dozens of files instead of one token, or a bug gets fixed in one place and reported again a month later from a team quietly running a forked copy.</p>
+
+</main>
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+
+</body>
+</html>
