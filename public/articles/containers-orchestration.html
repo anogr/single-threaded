@@ -56,7 +56,7 @@
   <p class="subtitle">Docker and Kubernetes at the level a deployment decision requires, from what a container actually is to when Kubernetes is the wrong choice.</p>
   <div class="byline">
     <strong>Deep dive</strong>
-    <div class="dot"></div><span>~26 min read</span>
+    <div class="dot"></div><span>~29 min read</span>
     <div class="dot"></div><span>Containers &amp; Kubernetes</span>
     <div class="dot"></div><span>July 2026</span>
   </div>
@@ -190,7 +190,7 @@
   <p>Beyond build mechanics, an image is where several architectural concerns for a deployment actually get enforced:</p>
 
   <ul>
-    <li><strong>Reproducibility.</strong> The same image runs identically on a laptop, in staging, and in production, because it's the same bytes rather than a re-run of an install script that might resolve different dependency versions each time.</li>
+    <li><strong>Reproducibility.</strong> The same image runs consistently on a laptop and in production, assuming compatible CPU architectures and OS versions, because it's the same bytes rather than a re-run of an install script that might resolve different dependency versions each time.</li>
     <li><strong>Immutability.</strong> Once built and tagged, an image doesn't change. Fixing a bug means building a new image, not patching the running one.</li>
     <li><strong>Versioning.</strong> Image tags, or better, content-addressable digests, give every deployment a precise, auditable answer to what code is actually running right now.</li>
     <li><strong>Promotion through environments.</strong> The same image that passed testing in staging is the one deployed to production, rather than being rebuilt at each stage, which removes an entire class of failure caused by a rebuild silently picking up a different dependency version.</li>
@@ -296,7 +296,7 @@
   <h2 id="core-objects">Core Objects</h2>
   <p class="lede">Kubernetes objects are usually taught as a vocabulary list. They make more sense taught as answers to specific problems.</p>
 
-  <p>Running an application on Kubernetes means describing what should exist and letting the control plane continuously work to match reality to that description. Five objects cover most of what a deployment decision actually needs to reason about.</p>
+  <p>Running an application on Kubernetes means describing what should exist and letting the control plane continuously work to match reality to that description. Six objects cover most of what a deployment decision actually needs to reason about.</p>
 
   <div class="table-wrap">
     <table>
@@ -309,9 +309,12 @@
         <tr><td>Give it a stable network identity</td><td><strong>Service</strong></td><td>A stable virtual IP and DNS name in front of a group of Pods, so Pods can be replaced without anything else needing to track their individual, short-lived addresses.</td></tr>
         <tr><td>Let traffic in from outside the cluster</td><td><strong>Ingress</strong></td><td>Routes external HTTP(S) traffic to the right Service based on hostname or path, similar to a reverse proxy at the cluster's edge.</td></tr>
         <tr><td>Separate workloads sharing a cluster</td><td><strong>Namespace</strong></td><td>A logical partition used for access control and resource limits, so different teams or environments can share infrastructure without colliding.</td></tr>
+        <tr><td>Provide configuration to workloads</td><td><strong>ConfigMap</strong></td><td>Stores non-sensitive configuration separately from the container image, allowing the same image to be deployed with different settings. Sensitive values belong in a Secret instead.</td></tr>
       </tbody>
     </table>
   </div>
+
+  <p>The Pod row also hints at something easy to miss: a Pod can hold more than one container on purpose. The most common reason is the <strong>sidecar pattern</strong>, where a second container extends the main one without modifying it. A logging agent that ships a container's logs to a collector, or a proxy that terminates TLS on its behalf, is a typical example. The two containers still share the Pod's single network address and storage, so from outside the Pod they behave as one unit.</p>
 
   <p>A Pod is almost never created directly in practice. It's the Deployment that creates and manages Pods on the operator's behalf, which is why the manifest below defines a Deployment and a Service together rather than a bare Pod.</p>
 
@@ -362,7 +365,7 @@
 
   <p>Deployment is the workhorse for long-running services, but it isn't the only workload type worth knowing. A <strong>Job</strong> runs a container to completion for a one-off or batch task, rather than keeping it running indefinitely. A <strong>CronJob</strong> schedules a Job on a recurring basis. A <strong>DaemonSet</strong> ensures exactly one Pod runs on every node, the pattern used for node-level agents such as log collectors.</p>
 
-  <p>Configuration follows a similar split to the Secret object covered later in this article. A <strong>ConfigMap</strong> holds non-sensitive configuration the same way a Secret holds sensitive values, and a Pod consumes either as environment variables or mounted files, rather than having them baked into the image.</p>
+  <p>Namespace on its own only draws a boundary. It doesn't enforce anything by default. A <strong>ResourceQuota</strong> caps the total CPU, memory, and object count a namespace's workloads can consume combined, which is what actually stops one team from exhausting a shared cluster's resources. <strong>Pod Security Standards</strong>, enforced by the Pod Security Admission controller at the namespace level, replaced the deprecated PodSecurityPolicy mechanism. They restrict what a Pod is allowed to do, such as running as root or mounting the host's filesystem.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="scheduling">Scheduling and Resource Management</h2>
@@ -370,7 +373,7 @@
 
   <p>Every container in a Pod can declare two numbers: a <strong>request</strong>, the amount of CPU and memory it needs to run acceptably, and a <strong>limit</strong>, the maximum it's allowed to consume before Kubernetes intervenes. The scheduler only looks at requests when deciding where a Pod fits. It will only place a Pod on a node that has enough unreserved capacity to cover the request, treating that capacity as spoken for even if the container ends up using less. Limits are enforced afterward by the same cgroups mechanism covered earlier: a container that exceeds its memory limit is killed and restarted, and one that exceeds its CPU limit is throttled rather than killed.</p>
 
-  <p>Fitting many Pods with different requests onto a fixed set of nodes is a bin-packing problem, solved fresh by the scheduler for every new Pod rather than once at cluster setup. Two clusters with identical total capacity can end up needing very different numbers of nodes, depending on how well individual Pod sizes happen to pack together. Beyond plain capacity, an operator can constrain scheduling further. Taints keep certain Pods off certain nodes unless explicitly tolerated. Affinity rules pull related Pods toward or away from each other, useful for spreading replicas across failure domains or keeping latency-sensitive Pods on the same node. These are worth knowing exist rather than needing right away. Most deployment decisions are made correctly with just requests and limits set sensibly.</p>
+  <p>Fitting many Pods with different requests onto a fixed set of nodes is a bin-packing problem, solved fresh by the scheduler for every new Pod rather than once at cluster setup. Two clusters with identical total capacity can end up needing very different numbers of nodes, depending on how well individual Pod sizes happen to pack together. Beyond plain capacity, an operator can constrain scheduling further. Taints keep certain Pods off certain nodes unless explicitly tolerated. Affinity rules pull related Pods toward or away from each other, useful for spreading replicas across failure domains or keeping latency-sensitive Pods on the same node. These are worth knowing exist rather than needing right away. Most deployment decisions are made correctly with just requests, limits, and probes configured sensibly.</p>
 
   <p>Resource limits aren't the only thing that can get a container restarted or pulled out of rotation. A <strong>liveness probe</strong> checks whether a container is still working, and a failure gets it killed and restarted, the same outcome as exceeding a memory limit but triggered by application health instead of resource usage. A <strong>readiness probe</strong> checks whether a container is ready to accept traffic, and a failure removes it from behind its Service without restarting it, useful for a container that's alive but still warming up a cache or waiting on a dependency. A <strong>startup probe</strong> covers slow-starting containers, giving them longer than the liveness probe would otherwise allow before health checks start counting against them.</p>
 
@@ -378,7 +381,9 @@
   <h2 id="networking">Networking</h2>
   <p class="lede">Kubernetes networking is easier to hold in your head as three separate questions than as one topic.</p>
 
-  <p>How do Pods talk to each other? Every Pod in a cluster gets its own IP address from a flat, cluster-wide network, and any Pod can reach any other Pod's IP directly, regardless of which node either one happens to be running on. This is a deliberate simplification: application code never needs to know about NAT or port mapping between containers on the same node versus different ones, because from the network's perspective there's no difference. Kubernetes doesn't implement this network itself. A plugin conforming to the Container Network Interface (CNI), Calico and Cilium are common choices, is what actually wires up Pod IPs and the routes between nodes. Kubernetes just assumes that flat network exists and builds everything else on top of it.</p>
+  <p>How do Pods talk to each other? Kubernetes assumes every Pod has its own IP address on a flat, cluster-wide network. It doesn't implement that network itself. Instead, a plugin conforming to the Container Network Interface (CNI), with Calico and Cilium being common choices, is responsible for assigning Pod IPs and wiring up the routes between nodes. With that network in place, any Pod can reach any other Pod's IP directly, regardless of which node either one happens to be running on. This is a deliberate simplification: application code never needs to know about NAT or port mapping between containers on the same node versus different ones, because from the network's perspective there's no difference.</p>
+
+  <p>That openness is the default, not a guarantee. A <strong>NetworkPolicy</strong> restricts which Pods can talk to which others, selected by label rather than IP, acting as a firewall rule scoped to the cluster's internal traffic. Most single-team clusters never need one. Multi-tenant clusters, where workloads from different teams or trust boundaries share the same network, usually add them as one of the first security controls.</p>
 
   <p>How do clients find a Pod that could be replaced at any moment? Pod IPs are not something anything else should depend on directly, since a Pod is disposable and gets a new IP every time it's recreated. A Service solves this by giving a group of Pods, selected by a label rather than a fixed list, one stable virtual IP and DNS name that stays constant no matter how many times the Pods behind it come and go. Each node's kube-proxy maintains the routing rules that translate a request to the Service's stable address into a request to one of the currently healthy Pods behind it, the same load-balancing job a load balancer performs outside the cluster. Some clusters skip kube-proxy entirely: certain CNI plugins, Cilium's eBPF-based dataplane being the most common example, implement that same routing directly in the kernel instead. The pattern is directly analogous to the reverse proxies and load balancers covered in <a href="web-networking.html#load-balancing">Web Application Networking</a>: a stable address in front of a changing pool of backends, just implemented inside the cluster instead of in front of it.</p>
 
@@ -437,7 +442,9 @@
 
   <p>A stateless web server replica can be killed and replaced at any moment with no consequence, because it holds nothing that isn't reconstructible from a request or an external store. Kubernetes assumes this by default: a Deployment's Pods are interchangeable, and losing one is a non-event. A database, a message queue, or anything else that holds data on local disk breaks that assumption immediately, because replacing the Pod without preserving what was on its disk means losing data.</p>
 
-  <p>Two Kubernetes objects address this without abandoning the Pod model entirely. A <strong>PersistentVolume</strong> represents actual storage, provisioned from a cloud disk, a network filesystem, or similar, through a plugin conforming to the Container Storage Interface (CSI) that each cloud provider or storage vendor implements. A <strong>PersistentVolumeClaim</strong> is how a Pod requests a volume without needing to know exactly what kind of storage, or which CSI driver, backs it. A <strong>StatefulSet</strong>, unlike a Deployment, gives each of its Pods a stable, unique identity and its own PersistentVolume that follows it across restarts, which is what a clustered database or anything else that cares which specific instance it is actually needs.</p>
+  <p>Kubernetes separates the problem of storage from the problem of identity. A <strong>PersistentVolume</strong> represents actual storage, provisioned from a cloud disk, a network filesystem, or similar, through a plugin conforming to the Container Storage Interface (CSI) that each cloud provider or storage vendor implements. A <strong>PersistentVolumeClaim</strong> is how a Pod requests storage without needing to know exactly what kind of volume, or which CSI driver, backs it. A <strong>StatefulSet</strong> then provides the other half of the solution: unlike a Deployment, it gives each Pod a stable, unique identity and its own PersistentVolumeClaim, so the same Pod is reattached to the same storage across restarts. That's what clustered databases and other stateful systems actually need.</p>
+
+  <p>In practice, a PersistentVolume is rarely created by hand ahead of time. A <strong>StorageClass</strong> tells Kubernetes how to provision one automatically, using whichever CSI driver and disk type the class specifies, the moment a PersistentVolumeClaim asks for storage that doesn't exist yet.</p>
 
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:20px 0;">
     <div class="card teal">
@@ -460,6 +467,8 @@
 
   <p>A Deployment's default behavior is a <strong>rolling update</strong>: new Pods running the updated version are started gradually while old ones are terminated, so a fixed number of Pods stay available throughout and users never see downtime. That default doesn't fit every requirement, though, particularly when a rollback needs to be instant rather than another gradual rollout in reverse, or when a change is risky enough that it should reach a small fraction of traffic before reaching everyone.</p>
 
+  <p>These are deployment patterns rather than Kubernetes objects. Kubernetes provides the building blocks, while the rollout strategy determines how traffic moves from one version to the next.</p>
+
   <div class="table-wrap">
     <table>
       <thead>
@@ -475,26 +484,39 @@
 
   <p>Kubernetes' built-in rolling update covers the first case natively. Blue-green and canary both need something extra. Blue-green needs two environments running simultaneously and a way to redirect traffic between them. A fine-grained canary, ten percent of traffic rather than ten percent of replicas, usually needs a service mesh or an Ingress controller capable of weighted routing, since a plain Deployment can only approximate canary behavior by scaling replica counts.</p>
 
+  <p>Every strategy above assumes the application itself is what's changing. A cluster's infrastructure changes too. Nodes get drained for maintenance or upgraded on a rotation, and each drain can evict every Pod running on that node at once. A <strong>PodDisruptionBudget</strong> tells Kubernetes the minimum number of replicas that must stay available during this kind of voluntary disruption. A node drain then waits and proceeds gradually, rather than taking out an entire replica set in one move.</p>
+
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="scaling">Scaling</h2>
+  <p class="lede">More instances or bigger ones: the two ways to scale, and Kubernetes clearly prefers one of them.</p>
 
-  <p>Scaling a Kubernetes workload happens on two independent axes, and both usually run automatically once configured. A <strong>HorizontalPodAutoscaler</strong> watches a metric, most often CPU or memory usage, and adjusts the number of Pod replicas in a Deployment up or down to keep that metric near a target. It solves demand at the application layer: more traffic means more replicas.</p>
+  <p>There are two fundamentally different ways to scale an application. Vertical scaling gives an existing instance more CPU or memory. Horizontal scaling adds more instances and spreads work across them. Kubernetes is designed primarily around horizontal scaling, since replacing and replicating Pods is one of its core assumptions.</p>
+
+  <p>A <strong>HorizontalPodAutoscaler</strong> watches a metric, most often CPU or memory usage, though it can also scale on custom application metrics. It adjusts the number of Pod replicas in a Deployment up or down to keep that metric near a target. It solves demand at the application layer: more traffic means more replicas.</p>
 
   <p>That only helps if the cluster's nodes have room for the extra replicas. A <strong>cluster autoscaler</strong> solves the layer underneath: it adds new nodes when Pods are waiting to be scheduled because nothing has capacity, and removes nodes when they sit underused. The two work independently, and both are normally left running unattended rather than adjusted by hand.</p>
+
+  <p>Kubernetes can also scale vertically. A <strong>Vertical Pod Autoscaler</strong> (VPA) recommends or adjusts the CPU and memory requests assigned to Pods instead of changing the number of replicas. It's useful for right-sizing workloads, but horizontal scaling remains the more common approach for highly available services because it increases both capacity and redundancy.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="limits">What Kubernetes Doesn't Solve</h2>
   <p class="lede">Kubernetes is one layer of a platform. Teams that treat it as the whole platform usually find out the hard way what it was never designed to provide.</p>
 
-  <p>None of what Kubernetes does out of the box tells an operator what's actually happening inside a running application, or why a specific request failed. That's the job of an observability stack, logs, metrics, and traces collected and correlated across every Pod, which Kubernetes doesn't provide natively even though nearly every production cluster ends up needing one layered on top.</p>
+  <p>None of what Kubernetes does out of the box tells an operator what's actually happening inside a running application, or why a specific request failed. That's the job of an observability stack, collecting and correlating logs, metrics, and traces across every Pod. Kubernetes doesn't provide this natively, even though nearly every production cluster ends up needing one layered on top.</p>
 
-  <p>The same is true of a handful of other concerns a new Kubernetes user often assumes are already handled. Secrets still need a real secrets manager, rather than the base64-encoded values Kubernetes' own Secret object stores by default. Getting code into the cluster in the first place still needs a separate CI/CD pipeline. Enforcing organizational policy, blocking a Pod that requests root privileges, or requiring every image to come from an approved registry, is also nothing Kubernetes does on its own. It needs an admission controller or a policy engine, such as OPA Gatekeeper or Kyverno, sitting in front of the API server. Scanning images for vulnerabilities, backing up data, and planning for disaster recovery are all still the team's responsibility on top of that. Kubernetes schedules and runs containers extremely well. Everything around that job, security, delivery, governance, and visibility, is a set of decisions the platform leaves to whoever operates it.</p>
+  <p>Some areas do have Kubernetes primitives, but those primitives are only part of the solution. A Secret object can store sensitive values, but base64 encoding isn't encryption. Vanilla Kubernetes stores that base64 value in etcd as-is unless an operator explicitly configures encryption at rest, though most managed cloud offerings now enable some form of it by default. Even encrypted at rest, a Secret still isn't the same as a dedicated secrets-management system, with rotation, fine-grained access policies, and an audit trail. Pod Security Standards cover baseline restrictions like blocking root privileges, but enforcing anything more specific to an organization, such as requiring every image to come from an approved registry, is also nothing Kubernetes does on its own. It needs an admission controller or a policy engine, such as OPA Gatekeeper or Kyverno, sitting in front of the API server.</p>
+
+  <p>Other capabilities sit entirely outside Kubernetes. Getting code into the cluster still needs a separate CI/CD pipeline. Scanning images for vulnerabilities, backing up data, and planning for disaster recovery are all still the team's responsibility.</p>
+
+  <p>Kubernetes schedules and runs containers extremely well, but everything around that job is a set of decisions the platform leaves to whoever operates it: security, delivery, governance, and visibility.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="choosing-platform">Choosing the Right Platform</h2>
   <p class="lede">Most of the real decisions in this space are made before a single YAML file gets written: whether to use an orchestrator at all, and if so, which one.</p>
 
   <p>Kubernetes solves real problems, but it also carries real operational weight. Someone has to run the control plane, keep it patched and upgraded, and understand enough of its internals to debug it when something goes wrong. That cost is worth paying at a certain scale and not worth paying below it. The comparison that matters isn't a feature checklist. It's how much operational complexity a team is signing up for, weighed against how much of Kubernetes' capability actually gets used.</p>
+
+  <p>None of this is only a production decision, though. Docker Desktop can also run a single-node Kubernetes cluster locally, purely for development, which is often how a developer first encounters the objects covered earlier in this article.</p>
 
   <div class="table-wrap">
     <table>
@@ -503,7 +525,7 @@
       </thead>
       <tbody>
         <tr><td>One application, one host, low traffic</td><td>Docker Compose</td><td>Runs multiple containers from one config file and no cluster to operate. No scheduling, no self-healing, nothing to patch beyond the host itself.</td></tr>
-        <tr><td>A small, fixed set of services across a few hosts</td><td>Nomad or Docker Swarm</td><td>A lighter orchestrator than Kubernetes, with a smaller feature set and a much smaller operational footprint. Swarm in particular has seen little new development in recent years and mainly suits existing Docker-based shops.</td></tr>
+        <tr><td>A small, fixed set of services across a few hosts</td><td>Nomad or Docker Swarm</td><td>A lighter orchestrator than Kubernetes, with a smaller feature set and a much smaller operational footprint. Mirantis continues to maintain Swarm and has committed to supporting it into the next decade. Its own investment and the wider ecosystem's innovation are concentrated on Kubernetes, though, so Swarm mainly suits existing Docker-based shops rather than new projects.</td></tr>
         <tr><td>Many services, multiple teams, need to scale independently</td><td>Kubernetes</td><td>Where scheduling, self-healing, and the surrounding ecosystem of tooling actually pay for the operational cost of running it.</td></tr>
         <tr><td>Workloads that spike unpredictably or run only occasionally</td><td>Serverless containers (Fargate, Cloud Run)</td><td>Runs a container without managing any cluster or nodes at all, billed by actual usage rather than reserved capacity. A middle ground between plain containers and a full orchestrator.</td></tr>
         <tr><td>Mostly using managed cloud services already</td><td>No orchestrator</td><td>If most of an architecture is already managed services, a managed database, a managed queue, a serverless function platform, there may be little left that benefits from an orchestrator at all.</td></tr>
