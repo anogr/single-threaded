@@ -53,7 +53,7 @@
 
   <div class="eyebrow">Frontend Architecture · UI Patterns</div>
   <h1>UI Architecture Patterns</h1>
-  <p class="subtitle">How MVC, MVVM, and Layered Architecture shaped React, Vue, and Angular.</p>
+  <p class="subtitle">How MVC, MVP, MVVM, and Layered Architecture shaped React, Vue, and Angular.</p>
   <div class="byline">
     <strong>Deep dive</strong>
     <div class="dot"></div>
@@ -72,7 +72,7 @@
 
     <p>This is an old problem. Graphical interfaces have needed an answer since the 1970s, decades before there was a web browser to build "frontend architecture" for, and the patterns a team reaches for today are largely new implementations of ideas older than most of the people using them.</p>
 
-    <p>This article traces that lineage forward. It opens with three related patterns that all share the same three-letter shape, namely Model-View-Controller, Model-View-Presenter, and Model-View-ViewModel, each one built to fix a limitation the pattern before it left open. It then turns to layered architecture, a separate idea about how a whole application splits into tiers rather than how one screen organizes itself. It closes by looking at where React, Vue, and Angular actually land against all of it in 2026, and where each has moved past comparisons to these older patterns entirely.</p>
+    <p>This article traces that lineage forward. It opens with three related patterns that all share the same three-letter shape, namely Model-View-Controller, Model-View-Presenter, and Model-View-ViewModel, each one built to fix a limitation the pattern before it left open. It then turns to layered architecture, a separate idea about how a whole application splits into tiers rather than how one screen organizes itself. It closes by looking at where React, Vue, and Angular land against all of it in 2026, and where each has moved past comparisons to these older patterns entirely.</p>
   </section>
 
   <!-- ═══════════════════════════════════════════════════
@@ -115,7 +115,7 @@
       <text x="185" y="194" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">View</text>
       <line x1="115" y1="74" x2="115" y2="168" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#tri-arrow)"/>
       <line x1="185" y1="168" x2="185" y2="78" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#tri-arrow)"/>
-      <line x1="145" y1="184" x2="155" y2="184" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="3 3" marker-end="url(#tri-arrow)""/>
+      <line x1="145" y1="184" x2="155" y2="184" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="3 3" marker-end="url(#tri-arrow)"/>
       <line x1="145" y1="194" x2="155" y2="194" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="3 3" marker-start="url(#tri-arrow)"/>
       <text x="150" y="235" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">Model notifies View,</text>
       <text x="150" y="248" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">View reads Model directly</text>
@@ -159,13 +159,13 @@
   <h2 id="mvc">MVC: The Original Triad</h2>
   <p class="lede">Model, View, and Controller, close to exactly as Reenskaug described them, minus the definitional argument about where the boundary sits.</p>
 
-  <p>The three roles are close to what Reenskaug actually described. The Model holds the application's data and the rules for changing it correctly, and it knows nothing about how that data gets displayed. The View renders that data for a user to see, and it reads the Model directly to do it, querying whatever fields it needs each time it draws. The Controller handles input, whether that's a keystroke, a click, or a device event, and translates it into operations on the Model.</p>
+  <p>The three roles are close to what Reenskaug described. The Model holds the application's data and the rules for changing it correctly, and it knows nothing about how that data gets displayed. The View renders that data for a user to see, and it reads the Model directly to do it, querying whatever fields it needs each time it draws. The Controller handles input, whether that's a keystroke, a click, or a device event, and translates it into operations on the Model.</p>
 
   <p>What keeps multiple Views of the same Model in sync is the <strong>Observer pattern</strong>. The Model keeps a list of every View watching it, and instead of a View polling to check for changes, the Model notifies its dependents that something has changed. The notification typically carries little or no application data, so each View rereads the Model and redraws itself as needed. That's what let Reenskaug's original design support several Views on one dataset without any of them polling or duplicating state on their own.</p>
 
   <p>That same direct View→Model relationship became one of the pressure points that later patterns such as MVP sought to address. Nothing in the original design stops a View from reading Model state that has nothing to do with the notification it just received, and nothing stops two Views from interpreting the same notification differently. That was a reasonable tradeoff in a Smalltalk environment in 1979, where a handful of tightly coupled Views watched one Model. That approach becomes increasingly difficult to manage as applications grow and many Views observe large shared Models.</p>
 
-  <p>One clarification worth making explicit, since it causes real confusion: the "MVC" most developers meet first, in Rails, Django, Laravel, or a dozen other server-side web frameworks, is the multi-page, server-rendered world introduced above wearing Reenskaug's three names, not the same pattern in a new coat of paint. The Observer relationship described above needs a Model instance that stays alive in memory long enough for a View to watch it, and HTTP doesn't offer that. Each request is stateless. A Controller action runs, a View renders once from whatever data the Controller handed it, and by the time a user is looking at the result, the objects that produced it are already gone. There's nothing left to notify, so the Controller ends up doing a different job. It translates an incoming HTTP request into a response, closer to a request router than to the input-arbitration role Reenskaug had in mind for a live GUI widget.</p>
+  <p>One clarification matters here, since it causes real confusion: the "MVC" most developers meet first, in Rails, Django, Laravel, or a dozen other server-side web frameworks, is the multi-page, server-rendered world introduced above wearing Reenskaug's three names, not the same pattern in a new coat of paint. The Observer relationship described above needs a Model instance that stays alive in memory long enough for a View to watch it, and HTTP doesn't offer that. Each request is stateless. A Controller action runs, a View renders once from whatever data the Controller handed it, and by the time a user is looking at the result, the objects that produced it are already gone. There's nothing left to notify, so the Controller ends up doing a different job. It translates an incoming HTTP request into a response, closer to a request router than to the input-arbitration role Reenskaug had in mind for a live GUI widget.</p>
 
   <div class="figure-wrap">
     <svg viewBox="0 0 700 320" role="img" aria-label="Two MVC variants compared side by side. Left, Reenskaug's original MVC: a User sends input to a Controller, the Controller updates the Model, the Model notifies the View of changes, and the View reads the Model directly to redraw. Right, modern server-side MVC: a Browser sends an HTTP request to a Controller, the Controller reads and updates the Model, the Controller selects a View and passes it data, and the Controller returns an HTTP response containing the rendered View back to the Browser. Unlike the original, the View never touches the Model directly in the server-side version." xmlns="http://www.w3.org/2000/svg">
@@ -347,7 +347,7 @@
 
   <p>Layered architecture, also called N-tier, splits an application into horizontal layers, most commonly presentation, business logic, and data access, and enforces one rule across all of them: a layer is only allowed to call the layer directly beneath it. The presentation layer can call business logic. Business logic can call data access. Presentation is never supposed to reach past business logic straight into data access, no matter how tempting that shortcut looks on a Friday afternoon.</p>
 
-  <p>The actual payoff is durability under change. A team can swap the database, rewrite the entire user interface, or replace how business rules are implemented, and provided the layer boundaries actually held, the layers on either side of the one being replaced don't need to know or care. That's a meaningfully different kind of protection than anything MVC, MVP, or MVVM offer, because none of those three say anything about where code runs or which tier owns which responsibility. They're answering a different question, the one this section exists to keep separate from the last one.</p>
+  <p>The payoff is durability under change. A team can swap the database, rewrite the entire user interface, or replace how business rules are implemented, and provided the layer boundaries held, the layers on either side of the one being replaced don't need to know or care. That's a meaningfully different kind of protection than anything MVC, MVP, or MVVM offer, because none of those three say anything about where code runs or which tier owns which responsibility. They're answering a different question, the one this section exists to keep separate from the last one.</p>
 
   <div class="callout warn aside">
     <div class="callout-title">The layering that only exists in a diagram</div>
@@ -563,7 +563,7 @@
        COMPARISON
   ════════════════════════════════════════════════════ -->
   <h2 id="comparison">Comparing the Patterns</h2>
-  <p class="lede">The interesting question was never which pattern is best. It's which problem each one actually solves, and whether a given application still has that problem.</p>
+  <p class="lede">The interesting question was never which pattern is best. It's which problem each one solves, and whether a given application still has that problem.</p>
 
   <p>MVC's directness is also its weakness. A View that's allowed to read the Model straight away is fast to build and just as fast to lose control of, once an application has grown past a handful of screens and enough of them are watching the same shared data. That's exactly the gap MVP closed by forcing everything through a Presenter, at the cost of writing that Presenter by hand. MVC, in its GUI-arbitration form, earns its keep on small, self-contained screens, a form or two built around one dataset, not an application where several views need to update each other independently.</p>
 
@@ -586,7 +586,7 @@
     <p>Where should presentation, business logic, and data access responsibilities live, and who's allowed to call whom, is largely independent of which frontend framework a team picked. That's worth deciding deliberately regardless of whether the UI layer sitting on top leans MVC, MVVM, or something else entirely.</p>
   </div>
 
-  <p>None of the three frameworks discussed here got MVC, MVP, or MVVM handed to them unchanged from an old academic whiteboard. Each inherited a problem those older patterns first named, such as arbitrating shared state across multiple views, keeping a screen testable, or synchronizing a display without writing glue code by hand. Each then built its own answer, shaped by what its underlying platform could actually do.</p>
+  <p>None of the three frameworks discussed here got MVC, MVP, or MVVM handed to them unchanged from an old academic whiteboard. Each inherited a problem those older patterns first named, such as arbitrating shared state across multiple views, keeping a screen testable, or synchronizing a display without writing glue code by hand. Each then built its own answer, shaped by what its underlying platform could do.</p>
 
   <p>Modern frontend architecture has moved beyond MVC/MVVM comparisons into reactive state management, server/client boundaries, and unidirectional data flow. React Server Components render on the server and never become client-side state at all. Vue's server-rendering setup and Angular's SSR-with-hydration story do the same job through different mechanisms. A modern web application can mix both execution models rather than sitting entirely in one. Knowing whether a given piece of UI runs as server-rendered markup or as hydrated client state matters more in ordinary development work than picking a single architecture label for the whole app.</p>
 

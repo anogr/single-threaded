@@ -105,7 +105,7 @@
 
     <p>That gap between fixing something once and having it actually take effect everywhere is the clearest case for a monorepo. It isn't free. The moment several teams' code sits in one repository, a change to a shared package can reach every consumer atomically. So can everything else, such as one team's broken build, one team's slow test suite, or one team's decision to bump a dependency nobody else wanted yet. The real question an architect is answering isn't whether to use a monorepo. It's whether this organization's shared code, atomic changes, and unified tooling are worth more than the team autonomy, isolated permissions, and independent release schedules that come more easily when repositories stay separate.</p>
 
-    <p>Neither side of that tradeoff is free, and the rest of this article works through what actually makes the shared-repository side viable once an organization grows past a handful of packages. That starts by separating what a monorepo actually is from the tools people reach for to make one work at scale.</p>
+    <p>Neither side of that tradeoff is free, and the rest of this article works through what actually makes the shared-repository side viable once an organization grows past a handful of packages. That starts by separating what a monorepo is from the tools people reach for to make one work at scale.</p>
   </section>
 
   <!-- ═══════════════════════════════════════════════════
@@ -137,12 +137,12 @@
   <!-- ═══════════════════════════════════════════════════
        WHAT SCALE ACTUALLY MEANS
   ════════════════════════════════════════════════════ -->
-  <h2 id="scale">What "Scale" Actually Means</h2>
+  <h2 id="scale">What "Scale" Means</h2>
   <p class="lede">The bottleneck in a large repository is almost never Git itself.</p>
 
   <p>The instinctive worry about combining many projects into one repository is that Git will buckle under the weight. Cloning years of history for ten thousand packages sounds like it should take an hour, with every command crawling after that. In practice, modern Git handles repositories of that size reasonably well. <strong>Partial clone</strong> and <strong>sparse checkout</strong> let a developer fetch only the history and files they actually need instead of the entire tree. Both features exist because a handful of very large organizations hit this problem years ago and pushed fixes upstream. Git's scaling story isn't perfect at the extreme end, but for most organizations considering a monorepo, raw repository size isn't where the pain actually shows up.</p>
 
-  <p>The real constraints sit one layer up, in how much work has to happen on every change. A dependency graph with thousands of packages takes real computation just to reason about. The build graph derived from it gets more expensive to compute as that graph grows. CI time climbs if every push rebuilds and retests the whole repository rather than the part a change actually touches. The same problem shows up again in how long the test suite itself takes to run. The slowest-feeling consequence of all of this lands on a developer directly: how long they wait between saving a change and finding out whether it worked. Solving that chain of problems, not Git performance, is what the rest of this article is actually about.</p>
+  <p>The real constraints sit one layer up, in how much work has to happen on every change. A dependency graph with thousands of packages takes real computation just to reason about. The build graph derived from it gets more expensive to compute as that graph grows. CI time climbs if every push rebuilds and retests the whole repository rather than the part a change actually touches. The same problem shows up again in how long the test suite itself takes to run. The slowest-feeling consequence of all of this lands on a developer directly: how long they wait between saving a change and finding out whether it worked. Solving that chain of problems, not Git performance, is what the rest of this article is about.</p>
 
   <!-- ═══════════════════════════════════════════════════
        WHERE THIS CAME FROM
@@ -189,7 +189,7 @@
 
   <p>Once packages can depend on each other locally, an orchestrator can read every package's manifest and construct a <strong>dependency graph</strong>. <code>app-web</code> depends on <code>ui</code> and <code>api-client</code>, both of which depend on a shared <code>core</code> package, and so on across however many packages the repository holds. That graph describes relationships. It says nothing yet about building anything.</p>
 
-  <p>The <strong>build graph</strong> is what an orchestrator derives from that dependency graph in order to actually run a build. Because <code>core</code> has no dependencies of its own, it can build first. Because <code>ui</code> and <code>api-client</code> both depend on <code>core</code> but not on each other, they can build in parallel once <code>core</code> finishes. Because <code>app-web</code> and <code>app-mobile</code> depend on both <code>ui</code> and <code>api-client</code>, they wait for both before they can start. The dependency graph says what depends on what. The build graph turns that into a schedule. It determines which stage runs first, which packages run in parallel within a stage, and which packages have to wait.</p>
+  <p>The <strong>build graph</strong> is what an orchestrator derives from that dependency graph in order to run a build. Because <code>core</code> has no dependencies of its own, it can build first. Because <code>ui</code> and <code>api-client</code> both depend on <code>core</code> but not on each other, they can build in parallel once <code>core</code> finishes. Because <code>app-web</code> and <code>app-mobile</code> depend on both <code>ui</code> and <code>api-client</code>, they wait for both before they can start. The dependency graph says what depends on what. The build graph turns that into a schedule. It determines which stage runs first, which packages run in parallel within a stage, and which packages have to wait.</p>
 
   <div class="figure-wrap">
     <svg viewBox="0 0 700 380" role="img" aria-label="Two-panel diagram. Left panel, dependency graph, shows five package boxes, app-web and app-mobile at the top, ui and api-client in the middle, core at the bottom, with arrows drawn from each dependent package down to the package it depends on, showing that both apps depend on both ui and api-client, and both of those depend on core. Right panel, build graph, shows the same five packages reorganized into three execution stages, core in stage one at the top, ui and api-client in stage two, app-web and app-mobile in stage three at the bottom, with arrows now representing execution order flowing downward from core through to the two apps." xmlns="http://www.w3.org/2000/svg">
@@ -358,7 +358,7 @@
     </table>
   </div>
 
-  <p>A newer entrant worth knowing about is <strong>moonrepo</strong>, a Rust-built task runner that applies the same hashing and caching ideas language-agnostically rather than tying itself to the JavaScript ecosystem specifically. It's less established than the three above, but it's increasingly mentioned alongside them in repositories that mix a JavaScript frontend with services written in other languages.</p>
+  <p>A newer entrant is <strong>moonrepo</strong>, a Rust-built task runner that applies the same hashing and caching ideas language-agnostically rather than tying itself to the JavaScript ecosystem specifically. It's less established than the three above, but it's often mentioned alongside them in repositories that mix a JavaScript frontend with services written in other languages.</p>
 
   <!-- ═══════════════════════════════════════════════════
        VERSIONING

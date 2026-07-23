@@ -58,7 +58,7 @@
 
   <p>Every assistant covered so far eventually needs to do something beyond editing files in a repository: look up a customer record, query a production database, open a ticket, call an internal API. Before the Model Context Protocol (MCP), wiring that up meant a bespoke integration for every pairing of AI tool and data source, the classic N&times;M problem. Every AI application needing its own connector for every system it talks to, multiplied across every vendor's product, adds up fast. MCP standardizes that connection so it gets built once per system, not once per pairing.</p>
 
-  <p>This article covers what that standardization actually looks like: the three roles MCP defines, what a server can offer beyond a simple function call, the authorization model enterprises have converged on for granting agents access at scale, the gateway pattern that sits in front of it, and the specific security risks that come from letting a model read text it didn't ask for and can't fully trust.</p>
+  <p>This article covers what that standardization looks like: the three roles MCP defines, what a server can offer beyond a simple function call, the authorization model enterprises have converged on for granting agents access at scale, the gateway pattern that sits in front of it, and the specific security risks that come from letting a model read text it didn't ask for and can't fully trust.</p>
 
   <div class="callout info">
     <div class="callout-title">Same governance as AGENTS.md</div>
@@ -69,19 +69,19 @@
   <h2 id="problem">The Problem Before MCP</h2>
   <p class="lede">Before a shared protocol existed, every pairing of AI tool and data source needed its own bespoke connector.</p>
 
-  <p>Picture an AI coding assistant that needs to look up a ticket in an issue tracker. Someone has to write the integration: authenticate to the tracker's API, translate its data model into something the assistant can use, and expose that as an action the model can invoke. That's manageable once. The trouble starts when a second AI tool wants the same capability and has to write its own version of the same integration, and a third does the same, while the issue tracker itself would rather expose one well-defined interface than field custom requests from every AI vendor that shows up.</p>
+  <p>Picture an AI coding assistant that needs to look up a ticket in an issue tracker. Someone has to write the integration: authenticate to the tracker's API, translate its data model into something the assistant can use, and expose that as an action the model can invoke. That's manageable once. The trouble starts when a second AI tool wants the same capability and has to write its own version of the same integration, and a third does the same. Meanwhile the issue tracker would rather expose one well-defined interface than field custom requests from every AI vendor that shows up.</p>
 
-  <p>That's an N&times;M problem: the number of integrations needed grows with the number of AI tools multiplied by the number of systems they need to reach, rather than with either number alone. MCP collapses it to N+M. A system exposes one MCP server, once. Any MCP-aware AI application can talk to it without anyone writing tool-specific glue code, the same way any browser can render any website once both sides agree on HTTP. The approach has moved well past the experimental stage: tens of thousands of public MCP servers are running today, spanning everything from small developer tools to deployments inside large enterprises, though the exact count is the kind of number worth treating as a snapshot rather than a fact to memorize.</p>
+  <p>That's an N&times;M problem: the number of integrations needed grows with the number of AI tools multiplied by the number of systems they need to reach, rather than with either number alone. MCP collapses it to N+M. A system exposes one MCP server, once. Any MCP-aware AI application can talk to it without anyone writing tool-specific glue code, the same way any browser can render any website once both sides agree on HTTP. The approach has moved well past the experimental stage. Tens of thousands of public MCP servers are running today, spanning everything from small developer tools to deployments inside large enterprises. Any exact count shifts constantly, so treat a figure as a snapshot rather than something to memorize.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="architecture">Host, Client, and Server</h2>
   <p class="lede">Three roles, and almost everything about how MCP behaves follows from keeping them straight.</p>
 
-  <p>The <strong>host</strong> is the user-facing AI application: Claude Desktop, an IDE extension, a chat product, whatever the person actually opens and talks to. The host is the thing making decisions about what to show the user and when to involve a model at all.</p>
+  <p>The <strong>host</strong> is the user-facing AI application: Claude Desktop, an IDE extension, a chat product, whatever the person opens and talks to. The host is the thing making decisions about what to show the user and when to involve a model at all.</p>
 
-  <p>The <strong>client</strong> is the protocol component living inside the host that actually speaks MCP. A host typically runs one client per connected server, and each client holds its own private, stateful session. A client talking to a ticket tracker doesn't know anything about a second client talking to a database, even though both live inside the same host. This isolation is deliberate. A compromised or misbehaving server can't reach into a session it isn't part of.</p>
+  <p>The <strong>client</strong> is the protocol component inside the host that speaks MCP. A host typically runs one client per connected server, and each client holds its own private, stateful session. A client talking to a ticket tracker doesn't know anything about a second client talking to a database, even though both live inside the same host. This isolation is deliberate. A compromised or misbehaving server can't reach into a session it isn't part of.</p>
 
-  <p>The <strong>server</strong> is a separate process, often maintained by someone else entirely, that exposes a defined set of capabilities over the protocol. It might run locally as a subprocess on the same machine (the common case for a developer tool using <code>stdio</code> as its transport) or as a hosted service reached over a network using Streamable HTTP, the transport MCP settled on for remote servers after an earlier, more complicated approach based on HTTP plus server-sent events. Streamable HTTP is the shape almost every enterprise deployment takes, since the servers involved are usually running as shared infrastructure rather than on each user's own machine.</p>
+  <p>The <strong>server</strong> is a separate process, often maintained by someone else entirely, that exposes a defined set of capabilities over the protocol. It might run locally as a subprocess on the same machine, the common case for a developer tool using <code>stdio</code> as its transport. Or it runs as a hosted service reached over a network using Streamable HTTP, the transport MCP settled on for remote servers after an earlier, more complicated approach based on HTTP plus server-sent events. Streamable HTTP is the shape almost every enterprise deployment takes, since the servers involved are usually running as shared infrastructure rather than on each user's own machine.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="primitives">Tools, Resources, and Prompts</h2>
@@ -121,7 +121,7 @@
 
   <div class="callout new">
     <div class="callout-title">Adoption is underway, not universal</div>
-    <p>EMA went stable in mid-2026, with client-side support from Anthropic's Claude apps and Visual Studio Code, and server-side support from a first wave that includes Asana, Atlassian, Figma, Linear, and Supabase, with more following. Okta is the identity provider shipping support at launch, though the underlying mechanism is an open extension to OAuth rather than an Okta-specific feature, so other identity providers can add it over time. Worth checking whether a given server and identity provider actually support it yet before assuming it's available, this is one of the newer pieces of the ecosystem, and a non-EMA fallback is still worth planning for in the meantime.</p>
+    <p>EMA went stable in mid-2026, with client-side support from Anthropic's Claude apps and Visual Studio Code, and server-side support from a first wave that includes Asana, Atlassian, Figma, Linear, and Supabase, with more following. Okta is the identity provider shipping support at launch, though the underlying mechanism is an open extension to OAuth rather than an Okta-specific feature, so other identity providers can add it over time. Check whether a given server and identity provider support it yet before assuming it's available. This is one of the newer pieces of the ecosystem, and a non-EMA fallback is still worth planning for in the meantime.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -129,6 +129,54 @@
   <p class="lede">Letting every AI application connect directly to every server it needs turns into an operational mess at exactly the scale where it matters most.</p>
 
   <p>An MCP gateway sits between AI agents and the servers they call, the same role an <a href="web-networking.html#api-gateway">API gateway</a> plays for ordinary application traffic, just applied to model-initiated tool calls instead. Rather than an N-to-N mesh of every host potentially reaching every server directly, the gateway collapses that into a 1-to-N hub: a single place to enforce authorization, apply security policy, and log what happened, regardless of which host or which server is involved in a given call.</p>
+
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 700 232" style="max-width:100%;display:block;background:var(--surface);border:1px solid var(--border);border-radius:8px;" role="img" aria-label="Left: without a gateway, every host connects to every server in a tangled mesh. Right: with a gateway, hosts and servers each connect only to a central hub." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="mcp-a" markerWidth="7" markerHeight="6" refX="6" refY="3" orient="auto"><polygon points="0 0,7 3,0 6" fill="var(--accent)"/></marker>
+      </defs>
+      <text x="170" y="20" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text)">Without a gateway</text>
+      <text x="528" y="20" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text)">With a gateway</text>
+      <line x1="350" y1="8" x2="350" y2="224" stroke="var(--border)"/>
+
+      <!-- LEFT: mesh -->
+      <!-- hosts -->
+      <g font-family="'IBM Plex Mono',monospace" font-size="9">
+      <rect x="18" y="46" width="60" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/><text x="48" y="63" text-anchor="middle" fill="var(--text-dim)">Host</text>
+      <rect x="18" y="102" width="60" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/><text x="48" y="119" text-anchor="middle" fill="var(--text-dim)">Host</text>
+      <rect x="18" y="158" width="60" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/><text x="48" y="175" text-anchor="middle" fill="var(--text-dim)">Host</text>
+      <!-- servers -->
+      <rect x="252" y="46" width="66" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/><text x="285" y="63" text-anchor="middle" fill="var(--text-dim)">Server</text>
+      <rect x="252" y="102" width="66" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/><text x="285" y="119" text-anchor="middle" fill="var(--text-dim)">Server</text>
+      <rect x="252" y="158" width="66" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/><text x="285" y="175" text-anchor="middle" fill="var(--text-dim)">Server</text>
+      </g>
+      <!-- 9 mesh lines -->
+      <g stroke="color-mix(in srgb, var(--text-faint) 55%, transparent)" stroke-width="1">
+      <line x1="78" y1="59" x2="252" y2="59"/><line x1="78" y1="59" x2="252" y2="115"/><line x1="78" y1="59" x2="252" y2="171"/>
+      <line x1="78" y1="115" x2="252" y2="59"/><line x1="78" y1="115" x2="252" y2="115"/><line x1="78" y1="115" x2="252" y2="171"/>
+      <line x1="78" y1="171" x2="252" y2="59"/><line x1="78" y1="171" x2="252" y2="115"/><line x1="78" y1="171" x2="252" y2="171"/>
+      </g>
+      <text x="170" y="210" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">every host wires up every server (N×M)</text>
+
+      <!-- RIGHT: hub -->
+      <g font-family="'IBM Plex Mono',monospace" font-size="9">
+      <rect x="366" y="46" width="56" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/><text x="394" y="63" text-anchor="middle" fill="var(--text-dim)">Host</text>
+      <rect x="366" y="102" width="56" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/><text x="394" y="119" text-anchor="middle" fill="var(--text-dim)">Host</text>
+      <rect x="366" y="158" width="56" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/><text x="394" y="175" text-anchor="middle" fill="var(--text-dim)">Host</text>
+      <rect x="608" y="46" width="62" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/><text x="639" y="63" text-anchor="middle" fill="var(--text-dim)">Server</text>
+      <rect x="608" y="102" width="62" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/><text x="639" y="119" text-anchor="middle" fill="var(--text-dim)">Server</text>
+      <rect x="608" y="158" width="62" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/><text x="639" y="175" text-anchor="middle" fill="var(--text-dim)">Server</text>
+      </g>
+      <rect x="486" y="98" width="72" height="36" rx="5" fill="color-mix(in srgb, var(--accent) 12%, transparent)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="522" y="120" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="var(--accent)">Gateway</text>
+      <g stroke="var(--accent)" stroke-width="1.2">
+      <line x1="422" y1="59" x2="486" y2="112"/><line x1="422" y1="115" x2="486" y2="116"/><line x1="422" y1="171" x2="486" y2="120"/>
+      <line x1="558" y1="112" x2="608" y2="59"/><line x1="558" y1="116" x2="608" y2="115"/><line x1="558" y1="120" x2="608" y2="171"/>
+      </g>
+      <text x="528" y="210" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">one place for auth, policy, and logging</text>
+    </svg>
+    <figcaption style="font-size:13px;color:var(--text-dim);margin-top:8px;line-height:1.5;">The gateway turns a tangle of direct host-to-server connections into a single hub where authorization, policy, and audit logging live in one place.</figcaption>
+  </figure>
 
   <p>That logging is the part that matters most for anyone running this in production. Every tool invocation passing through the gateway gets recorded: which agent, acting on behalf of which user, called which tool, with what arguments, and what came back. Without a gateway, that trail either doesn't exist or has to be reconstructed separately by every server, which in practice means it mostly doesn't get built at all. With one, it's a byproduct of the architecture rather than something each team has to remember to add.</p>
 
@@ -138,14 +186,14 @@
 
   <p>This is the same underlying problem covered in the <a href="browser-security.html#xss">browser security article</a>'s treatment of XSS: untrusted input reaching a place that has authority to act on it. There, the untrusted input was attacker-supplied markup reaching a browser that would execute it. Here, the untrusted input is a tool's own description field, and the place with authority is the model deciding what to do next.</p>
 
-  <p>A tool's name and description exist to tell the model what the tool does and when to use it, and that text is rarely shown to the human approving the connection. <strong>Tool poisoning</strong> exploits exactly that gap: instructions hidden inside a tool's description, invisible in whatever summary a user actually sees, can direct the model to take extra, unintended actions whenever that tool gets invoked for its ordinary purpose, up to and including reading and exporting data the user never asked to share. A related variant, the <strong>rug pull</strong>, doesn't even need a malicious description from the start. A tool can behave exactly as advertised when it's first approved, then have its definition quietly changed by the server afterward, and most clients have no mechanism to notice or re-flag a definition that changed after the fact.</p>
+  <p>A tool's name and description exist to tell the model what the tool does and when to use it, and that text is rarely shown to the human approving the connection. <strong>Tool poisoning</strong> exploits exactly that gap. Instructions hidden inside a tool's description, invisible in whatever summary a user sees, can direct the model to take extra, unintended actions whenever that tool gets invoked for its ordinary purpose, up to and including reading and exporting data the user never asked to share. A related variant, the <strong>rug pull</strong>, doesn't even need a malicious description from the start. A tool can behave exactly as advertised when it's first approved, then have its definition quietly changed by the server afterward, and most clients have no mechanism to notice or re-flag a definition that changed after the fact.</p>
 
   <div class="callout danger">
     <div class="callout-title">Why this is hard to catch by inspection alone</div>
-    <p>Neither attack requires tricking a user into clicking anything. The victim already approved the tool, for a legitimate-looking reason, before any malicious text was either present or activated. Defenses accordingly focus on the description itself: open scanning tools exist specifically to check MCP tool definitions for hidden instructions before they ever reach a model, and attestation-based approaches aim to detect a definition changing between the time it was reviewed and the time it's actually used.</p>
+    <p>Neither attack requires tricking a user into clicking anything. The victim already approved the tool, for a legitimate-looking reason, before any malicious text was either present or activated. Defenses accordingly focus on the description itself: open scanning tools exist specifically to check MCP tool definitions for hidden instructions before they ever reach a model, and attestation-based approaches aim to detect a definition changing between the time it was reviewed and the time it's used.</p>
   </div>
 
-  <p>None of this is a reason to avoid MCP, any more than XSS risk is a reason to avoid rendering user-supplied content in a browser. It's a reason to treat a tool's description with the same suspicion as any other text arriving from outside the conversation, and to have the authorization and gateway pieces from the previous two sections in place before an agent gets access to anything that actually matters, not after.</p>
+  <p>None of this is a reason to avoid MCP, any more than XSS risk is a reason to avoid rendering user-supplied content in a browser. It's a reason to treat a tool's description with the same suspicion as any other text arriving from outside the conversation, and to have the authorization and gateway pieces from the previous two sections in place before an agent gets access to anything that matters, not after.</p>
 
 </main>
 </div><!-- end .shell -->

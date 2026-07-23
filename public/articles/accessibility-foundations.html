@@ -54,12 +54,12 @@
 
   <div class="sidebar-section">Standards &amp; Regulation</div>
   <a href="#standards">The Standards Landscape</a>
-  <a href="#regulation">Who Actually Enforces This</a>
+  <a href="#regulation">Who Enforces This</a>
   <a href="#overlays">The Overlay Widget Shortcut</a>
 
   <div class="sidebar-section">Putting It Into Practice</div>
   <a href="#planning">Planning for It as a System</a>
-  <a href="#testing">Testing Strategy</a>
+  <a href="#testing">Testing Accessibility</a>
 </nav>
 
 <main>
@@ -177,7 +177,7 @@
 <span class="p">&lt;</span><span class="t">button</span><span class="p">&gt;</span>Submit order<span class="p">&lt;/</span><span class="t">button</span><span class="p">&gt;</span></code></pre>
   </div>
 
-  <p>The rule the W3C's own authoring guidance leads with is worth stating plainly, since it settles most day-to-day decisions on its own: don't use ARIA if a native element or attribute already does the job. Reach for it when the markup genuinely has no native equivalent, not as a default way to build a custom design system's components.</p>
+  <p>The rule the W3C's own authoring guidance leads with settles most day-to-day decisions on its own: don't use ARIA if a native element or attribute already does the job. Reach for it when the markup genuinely has no native equivalent, not as a default way to build a custom design system's components.</p>
 
   <p>Worth knowing at a conceptual level, since it explains a class of bug that shows up constantly in component libraries: a screen reader computes an element's accessible name by checking a fixed order of sources, not by picking whichever one looks most convenient. An explicit <code>aria-labelledby</code> or <code>aria-label</code> wins if present, then visible label text associated through a <code>&lt;label&gt;</code> element or similar mechanism, then the element's own text content, and only as a last resort a <code>title</code> attribute, which most screen readers treat as a weak fallback rather than a primary name. A component that sets <code>aria-label</code> for one piece of visible text and then changes the visible text later, without updating the attribute, produces a real name mismatch: sighted users read one label, screen reader users hear another. That drift is a common, quiet source of accessibility bugs precisely because nothing about it fails visually.</p>
 
@@ -191,7 +191,7 @@
 
   <p>A successor, WCAG 3.0, is in development and worth tracking without planning around yet. It proposes a graded outcome model in place of the current binary pass-or-fail criteria, closer to a maturity score than a checklist. As of a March 2026 working draft it listed 174 requirements and remained far from a stable, citable conformance model. Organizations should keep conforming to WCAG 2.2 and treat WCAG 3.0 as a multi-year horizon, not something worth deferring current work for.</p>
 
-  <h2 id="regulation">Who Actually Enforces This</h2>
+  <h2 id="regulation">Who Enforces This</h2>
   <p class="lede">Deadlines move, penalties vary by jurisdiction, but the direction has only gone one way: more regulators naming WCAG explicitly, not fewer.</p>
 
   <p>In the European Union, the <strong>European Accessibility Act</strong> (EAA) has applied since 28 June 2025, and 2026 is the first full year national authorities are actively supervising against a deadline that has already passed. It reaches further than most government-only accessibility rules, covering private-sector e-commerce, banking, and other digital services sold into the EU, not just public bodies. Enforcement sits with member states individually rather than one central regulator, and the first test case is already underway: disability advocacy groups filed suits in France in November 2025 against four major retailers, with no ruling and no fines issued as of April 2026.</p>
@@ -241,7 +241,7 @@
   <!-- ═══════════════════════════════════════════════════
        TESTING
   ════════════════════════════════════════════════════ -->
-  <h2 id="testing">Testing Strategy</h2>
+  <h2 id="testing">Testing Accessibility</h2>
   <p class="lede">Automated scanning is a floor, not a substitute for a person using a keyboard and a screen reader.</p>
 
   <p>Automated tools like axe-core catch a real share of issues, and estimates of how much vary by methodology. Deque's own sampling against real, documented defects puts detectable coverage around 57%. Other estimates, testing against the full criteria set rather than a sample of already-known defects, put the automatable share lower, closer to 30 to 40%. Either number leaves a substantial remainder that needs human judgment: whether alt text actually describes an image rather than restating its filename, whether a form's focus order matches its visual reading order, whether an error message read aloud actually explains what to fix. A scanner can confirm an image has an <code>alt</code> attribute. It can't confirm the attribute says anything useful.</p>

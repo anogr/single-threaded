@@ -83,7 +83,7 @@
     <div class="dot"></div><span>June 2026</span>
   </div>
 
-  <p class="wide" style="max-width:700px;">Every login form, JWT, passkey prompt, and API key eventually resolves to the same handful of mechanisms. A session gets created and stored somewhere, a token gets issued and later verified, a credential gets checked against something the server already knows. This article works through those mechanisms directly: how sessions and tokens differ, what a JWT actually contains and why it can be verified without a database lookup, where each credential should be stored, how passkeys replace passwords with public-key cryptography, and where API keys still fit for machine-to-machine access.</p>
+  <p class="wide" style="max-width:700px;">Every login form, JWT, passkey prompt, and API key eventually resolves to the same handful of mechanisms. A session gets created and stored somewhere, a token gets issued and later verified, a credential gets checked against something the server already knows. This article works through those mechanisms directly: how sessions and tokens differ, what a JWT contains and why it can be verified without a database lookup, where each credential should be stored, how passkeys replace passwords with public-key cryptography, and where API keys still fit for machine-to-machine access.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="authn-authz">Authentication vs Authorization</h2>
@@ -99,9 +99,9 @@
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="basic-auth">Basic Authentication</h2>
-  <p class="lede">The simplest authentication scheme is built into HTTP itself. Seeing why it fell out of favor for user-facing apps makes it clearer what sessions and tokens are actually improving on.</p>
+  <p class="lede">The simplest authentication scheme is built into HTTP itself. Seeing why it fell out of favor for user-facing apps makes it clearer what sessions and tokens improve on.</p>
 
-  <p>HTTP Basic Authentication sends a username and password with every single request, base64-encoded inside an <code>Authorization</code> header. There's no session, no token, and nothing stored between requests. The server just checks the credentials again each time a request arrives.</p>
+  <p>HTTP Basic Authentication sends a username and password with every single request, base64-encoded inside an <code>Authorization</code> header. There's no session, no token, and nothing stored between requests. The server checks the credentials again on each request.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -118,7 +118,11 @@
     <p>Anyone who intercepts a Basic Auth header can decode it in one step and read the password directly. Basic Auth is only acceptable over HTTPS, and even then, the password itself crosses the network on every request rather than a revocable, time-limited credential standing in for it.</p>
   </div>
 
-  <p>Because the real password is retransmitted on every request rather than a revocable, time-limited credential standing in for it, a single leaked request exposes a permanent credential rather than something narrowly scoped and easy to revoke. That's a large part of why Basic Auth is rare in user-facing applications today. When the client is a browser, there's a second problem: the credential prompt it shows is a native browser dialog, separate from the page itself, triggered automatically whenever a response carries a Basic Auth challenge. That dialog can't be styled to match the app, and there's no clean way to log out short of closing the browser, since it caches the credential for the rest of the session. Where Basic Auth still earns its place is internal tools behind a VPN, service-to-service calls on a private network, and simple webhook or CI callbacks, none of which go through a browser prompt at all, so the operational simplicity outweighs those downsides.</p>
+  <p>This retransmission is the core weakness. The credential on the wire is the real password, not a short-lived stand-in, so one intercepted request leaks something permanent and broadly scoped. A time-limited token would have expired on its own and could be revoked; the password can't be, short of changing it everywhere. That is most of why Basic Auth is rare in user-facing applications today.</p>
+
+  <p>The browser adds a second problem. The credential prompt is a native dialog the browser raises on its own whenever a response carries a Basic Auth challenge, separate from the page. It can't be styled to match the application, and there is no clean way to log out short of closing the browser, which caches the credential for the rest of the session.</p>
+
+  <p>Basic Auth still earns its place away from the browser, in settings such as internal tools behind a VPN, service-to-service calls on a private network, and simple webhook or CI callbacks. None of these go through a browser prompt, so the operational simplicity outweighs the downsides.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="sessions-tokens">Sessions and Tokens</h2>
@@ -185,8 +189,7 @@
       <rect x="138" y="22" width="74" height="24" rx="4" fill="var(--surface-2)" stroke="var(--border)" stroke-width="1"/>
       <text x="175" y="38" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-dim)">App Server</text>
       <rect x="258" y="22" width="80" height="24" rx="4" fill="var(--surface-2)" stroke="var(--red)" stroke-width="1"/>
-      <text x="298" y="35" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--red)">Session</text>
-      <text x="298" y="45" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--red)">Store (DB)</text>
+      <text x="298" y="35" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--red)">Session Store</text>
       <!-- Lifelines -->
       <line x1="40" y1="46" x2="40" y2="245" stroke="var(--border)" stroke-width="1" stroke-dasharray="3,3"/>
       <line x1="175" y1="46" x2="175" y2="245" stroke="var(--border)" stroke-width="1" stroke-dasharray="3,3"/>
@@ -237,7 +240,7 @@
       <text x="502" y="145" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-dim)">GET /profile + Bearer JWT</text>
       <!-- Server verifies locally -->
       <rect x="543" y="158" width="136" height="22" rx="3" fill="color-mix(in srgb, var(--green) 7%, transparent)" stroke="color-mix(in srgb, var(--green) 20%, transparent)" stroke-width="1"/>
-      <text x="611" y="173" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--green)">Verify signature locally (no DB!)</text>
+      <text x="611" y="173" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--green)">Verify signature locally</text>
       <line x1="605" y1="196" x2="400" y2="196" stroke="var(--green)" stroke-width="1.2" marker-end="url(#aa-lg)"/>
       <text x="502" y="193" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--green)">200 OK</text>
       <!-- Footer note -->
@@ -249,7 +252,7 @@
   <h3>Opaque tokens and introspection</h3>
   <p>A third option sits between the two. An <strong>opaque token</strong> looks like a JWT in transport, a string sent as a Bearer token in the <code>Authorization</code> header, but carries no information of its own. It's just a random identifier, like a session ID. The resource server can't validate it locally, so it has to check with whoever issued it, typically through a <strong>token introspection</strong> endpoint, an OAuth-defined mechanism covered in the <a href="oauth-oidc.html#tokens">OAuth &amp; OIDC</a> article. This trades away the main appeal of JWTs, local validation without a network round trip, for the same easy revocation sessions have.</p>
 
-  <p>Real systems often use both rather than picking one. An API gateway or <a href="oauth-oidc.html#token-storage">BFF</a> at the edge can hand the browser an opaque, instantly revocable token, introspect it once per request, then mint a short-lived JWT for that request to carry through internal services. Revocation stays centralized at the edge, while everything behind it validates locally without a repeated network call.</p>
+  <p>Real systems often use both rather than picking one. An API gateway or <a href="oauth-oidc.html#bff-architecture">BFF</a> at the edge can hand the browser an opaque, instantly revocable token, introspect it once per request, then mint a short-lived JWT for that request to carry through internal services. Revocation stays centralized at the edge, while everything behind it validates locally without a repeated network call.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="jwt">JSON Web Tokens</h2>
@@ -294,7 +297,16 @@
   </div>
 
   <h3 id="jwt-validation">Validation</h3>
-  <p>Accepting a JWT without validating it is equivalent to accepting no authentication at all. A server that receives one has to recompute the expected signature and reject anything that doesn't match, since a mismatch means the token was tampered with or never issued by a trusted party to begin with. It also has to reject a token whose <code>exp</code> timestamp has already passed, confirm the <code>iss</code> claim names an issuer it actually trusts, and confirm the <code>aud</code> claim names this service rather than some other API the token happened to be issued for. Most JWT libraries perform all of this automatically once configured with the right key, issuer, and audience.</p>
+  <p>Accepting a JWT without validating it is equivalent to accepting no authentication at all. Validation is a fixed set of checks, and a token that fails any one of them is rejected:</p>
+
+  <ul>
+    <li><strong>Signature.</strong> Recompute the expected signature and reject any mismatch. A mismatch means the token was tampered with, or was never issued by a trusted party to begin with.</li>
+    <li><strong>Expiry.</strong> Reject a token whose <code>exp</code> timestamp has already passed.</li>
+    <li><strong>Issuer.</strong> Confirm the <code>iss</code> claim names an issuer the server trusts.</li>
+    <li><strong>Audience.</strong> Confirm the <code>aud</code> claim names this service, not some other API the token was issued for.</li>
+  </ul>
+
+  <p>Most JWT libraries run all four automatically once configured with the right key, issuer, and audience.</p>
 
   <h3 id="jwt-pitfalls">Pitfalls</h3>
   <p>JWTs are frequently misused beyond the validation checks above. The most common mistakes share a theme, trusting the token before validating it.</p>
@@ -326,7 +338,7 @@
     </div>
   </div>
 
-  <p>The practical recommendation for most web applications is <strong>HttpOnly, Secure, SameSite=Strict cookies</strong>. This eliminates XSS-based token theft (cookie is not readable by scripts) and eliminates CSRF (cookie is not sent cross-site). The server sets the cookie on login. The browser attaches it automatically on every subsequent request.</p>
+  <p>The practical recommendation for most web applications is an <strong>HttpOnly, Secure</strong> cookie with <code>SameSite</code> set. HttpOnly removes XSS-based token theft, since scripts can't read the cookie, and <code>SameSite</code> blunts CSRF by controlling when the cookie is sent cross-site. <code>SameSite=Strict</code> is the tightest option, but it has a real cost: a user arriving from an external link, an email or another site, sends no cookie on that first request and lands logged out, appearing signed in only after a reload. For that reason many applications use <code>SameSite=Lax</code> for the session cookie. Lax withholds the cookie on the cross-site subrequests and unsafe-method requests where CSRF lives, while still sending it on a top-level navigation the user initiated themselves. Either way the server sets the cookie on login, and the browser attaches it automatically afterward.</p>
 
   <div class="callout info">
     <div class="callout-title">Memory storage for SPAs</div>
@@ -358,11 +370,69 @@
 
   <p>The flow has two parts. During <strong>registration</strong>, the server sends a random challenge. The browser asks the authenticator to generate a new key pair and sign the challenge, then returns the public key and a credential ID for the server to store against the account. During <strong>authentication</strong>, the server sends a new challenge. The browser unlocks the existing private key, via Face ID, a PIN, or similar, to sign it, and the server verifies that signature against the stored public key.</p>
 
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 700 236" style="max-width:100%;display:block;background:var(--surface);border:1px solid var(--border);border-radius:8px;" role="img" aria-label="Passkey registration versus sign-in, shown as two challenge-response exchanges between device and server" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="pk-l" markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto"><polygon points="8 0, 0 3, 8 6" fill="var(--text-dim)"/></marker>
+        <marker id="pk-rg" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="var(--green)"/></marker>
+      </defs>
+      <!-- Panel headers + divider -->
+      <text x="175" y="16" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text)">Registration</text>
+      <text x="525" y="16" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text)">Sign-In</text>
+      <line x1="350" y1="6" x2="350" y2="228" stroke="var(--border)" stroke-width="1"/>
+
+      <!-- ── LEFT: Registration ── -->
+      <rect x="10" y="24" width="80" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="50" y="41" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-dim)">Device</text>
+      <rect x="250" y="24" width="90" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="295" y="41" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-dim)">Server</text>
+      <line x1="50" y1="50" x2="50" y2="222" stroke="var(--border)" stroke-dasharray="3,3"/>
+      <line x1="295" y1="50" x2="295" y2="222" stroke="var(--border)" stroke-dasharray="3,3"/>
+      <!-- challenge -->
+      <line x1="289" y1="72" x2="56" y2="72" stroke="var(--text-dim)" stroke-width="1.2" marker-end="url(#pk-l)"/>
+      <text x="172" y="69" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-dim)">1. random challenge</text>
+      <!-- device generates key pair -->
+      <rect x="14" y="84" width="128" height="34" rx="3" fill="color-mix(in srgb, var(--accent) 7%, transparent)" stroke="color-mix(in srgb, var(--accent) 22%, transparent)"/>
+      <text x="78" y="98" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="8.5" fill="var(--accent)">Generate key pair</text>
+      <text x="78" y="110" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="8.5" fill="var(--text-faint)">private key on device</text>
+      <!-- reply: public key -->
+      <line x1="56" y1="140" x2="289" y2="140" stroke="var(--green)" stroke-width="1.2" marker-end="url(#pk-rg)"/>
+      <text x="172" y="137" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--green)">2. public key + credential ID</text>
+      <!-- server stores -->
+      <rect x="236" y="152" width="108" height="26" rx="3" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="290" y="168" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="8.5" fill="var(--text-dim)">Store public key</text>
+      <text x="175" y="208" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">Only the public key reaches the server</text>
+
+      <!-- ── RIGHT: Sign-In ── -->
+      <rect x="362" y="24" width="80" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="402" y="41" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-dim)">Device</text>
+      <rect x="566" y="24" width="90" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="611" y="41" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-dim)">Server</text>
+      <line x1="402" y1="50" x2="402" y2="222" stroke="var(--border)" stroke-dasharray="3,3"/>
+      <line x1="611" y1="50" x2="611" y2="222" stroke="var(--border)" stroke-dasharray="3,3"/>
+      <!-- new challenge -->
+      <line x1="605" y1="72" x2="408" y2="72" stroke="var(--text-dim)" stroke-width="1.2" marker-end="url(#pk-l)"/>
+      <text x="508" y="69" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-dim)">1. new challenge</text>
+      <!-- unlock + sign -->
+      <rect x="360" y="84" width="150" height="34" rx="3" fill="color-mix(in srgb, var(--accent) 7%, transparent)" stroke="color-mix(in srgb, var(--accent) 22%, transparent)"/>
+      <text x="435" y="98" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="8.5" fill="var(--accent)">Unlock private key</text>
+      <text x="435" y="110" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="8.5" fill="var(--text-faint)">sign the challenge</text>
+      <!-- reply: assertion -->
+      <line x1="408" y1="140" x2="605" y2="140" stroke="var(--green)" stroke-width="1.2" marker-end="url(#pk-rg)"/>
+      <text x="508" y="137" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--green)">2. signed assertion</text>
+      <!-- server verifies -->
+      <rect x="544" y="152" width="122" height="26" rx="3" fill="color-mix(in srgb, var(--green) 8%, transparent)" stroke="color-mix(in srgb, var(--green) 22%, transparent)"/>
+      <text x="605" y="168" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="8.5" fill="var(--green)">Verify with stored key</text>
+      <text x="525" y="208" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">Private key never leaves the device</text>
+    </svg>
+    <figcaption style="font-size:13px;color:var(--text-dim);margin-top:8px;line-height:1.5;">Both exchanges are challenge-response. Registration stores a public key; sign-in proves possession of the matching private key without ever transmitting it.</figcaption>
+  </figure>
+
   <p>Once sign-in succeeds, everything else in this article still applies. A passkey replaces the password as the credential, but the server still needs to establish a session or issue a token afterward, the same way covered above. Passkeys change how identity is proven at login, not what happens for the rest of the request lifecycle.</p>
 
   <div class="callout info aside">
     <div class="callout-title">Multi-factor authentication</div>
-    <p>Combining independent factors (something known, something held, something inherent) is usually handled by an identity platform or authentication service rather than built by hand. A passkey backed by device biometrics already satisfies two factors on its own, possession of the device plus the biometric unlock, which is one reason it's displacing password-plus-SMS-code as the default. It's worth knowing that TOTP apps, push approval, and hardware security keys exist as building blocks for this, without needing to implement any of them from scratch.</p>
+    <p>Combining independent factors (something known, something held, something inherent) is usually handled by an identity platform or authentication service rather than built by hand. A passkey's strongest property isn't that it counts as two factors, it's that it's phishing-resistant: the signature is bound to the origin, so it can't be replayed against a lookalike site. It does fold a second factor into one step when the device requires a biometric or PIN before signing, though how tightly the credential is tied to the user depends on the type. A device-bound passkey, such as a hardware security key, ties it to a physical object; a synced passkey trades some of that binding for recovery across a user's devices. TOTP apps, push approval, and hardware security keys are the usual building blocks, and none of them need to be implemented from scratch.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -399,7 +469,7 @@
 
   <div class="callout info aside">
     <div class="callout-title">mTLS as an alternative</div>
-    <p>For service-to-service calls inside a private network, mutual TLS can identify the calling service using its certificate instead of, or alongside, an API key. It's common in service meshes and zero-trust network setups, but issuing and rotating the certificates is usually handled by infrastructure or platform tooling rather than application code, so it's more useful to recognize the term than to know how to configure it.</p>
+    <p>For service-to-service calls inside a private network, mutual TLS can identify the calling service using its certificate instead of, or alongside, an API key. It's common in service meshes and zero-trust network setups, though issuing and rotating the certificates is handled by infrastructure or platform tooling rather than application code.</p>
   </div>
 
   <div class="callout warn">

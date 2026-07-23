@@ -129,17 +129,17 @@
   <a href="#grants">Grant Types</a>
   <a href="#endpoints">Endpoints</a>
   <a href="#pkce">PKCE</a>
-  <a href="#par">PAR</a>
   <a href="#state">State &amp; CSRF</a>
   <div class="sidebar-section">OIDC</div>
   <a href="#oidc">What OIDC Adds</a>
   <a href="#userinfo">UserInfo Endpoint</a>
   <div class="sidebar-section">Security</div>
-  <a href="#dpop">DPoP: Sender Binding</a>
   <a href="#bff-architecture">BFF Architecture</a>
   <a href="#attacks">Common Attacks</a>
   <a href="#refresh">Refresh &amp; Rotation</a>
-  <div class="sidebar-section">2026 Topics</div>
+  <div class="sidebar-section">Advanced OAuth</div>
+  <a href="#par">PAR</a>
+  <a href="#dpop">DPoP: Sender Binding</a>
   <a href="#oauth21">OAuth 2.1: What's New</a>
   <a href="#agentic">Agentic &amp; AI Auth</a>
   <a href="#fapi">FAPI &amp; High Security</a>
@@ -157,7 +157,7 @@
 
   <p>OAuth's design deliberately stops there. It hands out a token proving permission, but nothing in the specification says who that token belongs to. That gap turns into a real problem the moment a "sign in with Google" button needs to know the user's actual identity, not just a permission slip. <strong>OIDC</strong> fills that gap. It reuses OAuth's architecture, and adds one new artifact: a signed token asserting who just authenticated. OAuth answers what a client may do. OIDC answers who is doing it.</p>
 
-  <p>This article explains why each protocol exists, and how they work together to provide secure authentication and authorization. It also discusses common implementation mistakes, security best practices, and recent developments such as OAuth 2.1 and authorization for AI agents. It builds on the credential mechanics covered in the <a href="authentication-fundamentals.html">authentication fundamentals</a> article.</p>
+  <p>This article explains why each protocol exists, and how they work together to provide secure authentication and authorization. It also discusses common implementation mistakes, security best practices, and recent developments such as OAuth 2.1 and authorization for AI agents. It builds on the credential mechanics covered in the <a href="auth.html">authentication fundamentals</a> article.</p>
 
   <div class="callout info">
     <div class="callout-title">Authorization vs Authentication</div>
@@ -177,7 +177,7 @@
   <h2 id="roles">Roles &amp; Actors</h2>
   <p class="lede">Every OAuth conversation, no matter how complex, is really just four parties talking to each other in a fixed pattern.</p>
 
-  <p>Before any of the redirects and tokens make sense, it helps to fix the cast of characters firmly in mind, because the entire specification is written in terms of these four roles, and almost every security property in OAuth exists to keep one of them from impersonating or deceiving another.</p>
+  <p>Before any of the redirects and tokens make sense, it helps to fix the cast of characters firmly in mind. The entire specification is written in terms of these four roles, and almost every security property in OAuth exists to keep one of them from impersonating or deceiving another.</p>
 
   <div class="concept-grid">
     <div class="card blue">
@@ -205,13 +205,13 @@
   <div class="callout info">
     <div class="callout-title">The same distinction, with names attached</div>
     <p>Mapped onto these four roles, the distinction from the introduction becomes concrete. The user is the resource owner since they own the photos in Google Photos. The photo-printing app is the client that needs access to the photos. Google Identity is the authorization server and Google Photos is the resource server.</p>
-    <p>The resource owner grants the client a scoped token through the authorization server, and the client never sees a password. The resource server simply checks that token against the requested operation. Identity, when it matters, arrives separately through OIDC's ID token.</p>
+    <p>The resource owner grants the client a scoped token through the authorization server, and the client never sees a password. The resource server checks that token against the requested operation. Identity, when it matters, arrives separately through OIDC's ID token.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="client-types">Client Types</h2>
   <p class="lede">Not all OAuth clients can be trusted equally. The spec splits them into two categories precisely so it can treat them differently.</p>
-  <p>The single question that determines which category a client falls into is simple: can this application keep a secret from the end user? A server-side app's code runs somewhere the user can never inspect, so it can hold a real secret. Anything running on the user's own device or in their own browser can always be decompiled, inspected, or read directly, so it cannot. This distinction matters as soon as a client tries to prove its identity when redeeming a token, covered below, so it's worth settling before looking at any of the flows themselves.</p>
+  <p>The single question that determines which category a client falls into is simple: can this application keep a secret from the end user? A server-side app's code runs somewhere the user can never inspect, so it can hold a real secret. Anything running on the user's own device or in their own browser can always be decompiled, inspected, or read directly, so it cannot. This distinction matters as soon as a client tries to prove its identity when redeeming a token, covered below, so settle it before looking at any of the flows themselves.</p>
 
   <div class="concept-grid">
     <div class="card green">
@@ -234,18 +234,18 @@
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="tokens">Tokens</h2>
   <p class="lede">Three tokens, three jobs. Confusing them is the single most common source of OAuth bugs.</p>
-  <p>If there's one mental model worth memorizing from this entire guide, it's this: the access token is for machines, the ID token is for the application, and the refresh token is for staying logged in quietly. Mixing these up (sending an ID token to an API, or treating an access token as proof of identity) is responsible for a surprising share of real-world OAuth bugs.</p>
+  <p>One mental model carries the rest of this guide: the access token is for machines, the ID token is for the application, and the refresh token is for staying logged in quietly. Mixing these up (sending an ID token to an API, or treating an access token as proof of identity) is responsible for a surprising share of real-world OAuth bugs.</p>
 
   <div class="concept-grid" style="grid-template-columns:1fr 1fr 1fr;">
     <div class="card blue">
       <div class="card-label">Access Token</div>
       <div class="card-title">API Credential</div>
-      <p>The credential attached to every API request, typically as <code>Authorization: Bearer &lt;token&gt;</code>. Intentionally short-lived, usually minutes to a couple of hours. It may be a <a href="authentication-fundamentals.html#jwt">JWT</a> the resource server verifies locally, or an opaque string requiring an introspection call. Either way, its only job is proving the bearer has permission for a given set of scopes.</p>
+      <p>The credential attached to every API request, typically as <code>Authorization: Bearer &lt;token&gt;</code>. Intentionally short-lived, usually minutes to a couple of hours. It may be a <a href="auth.html#jwt">JWT</a> the resource server verifies locally, or an opaque string requiring an introspection call. Either way, its only job is proving the bearer has permission for a given set of scopes.</p>
     </div>
     <div class="card purple">
       <div class="card-label">ID Token</div>
       <div class="card-title">Identity Proof (OIDC)</div>
-      <p>A <a href="authentication-fundamentals.html#jwt">JWT</a> meant for the application itself to consume directly rather than forward anywhere. It carries claims about who just authenticated, and its presence is what turns a plain OAuth exchange into an OIDC login. Never send this to an API. That's the access token's job.</p>
+      <p>A <a href="auth.html#jwt">JWT</a> meant for the application itself to consume directly rather than forward anywhere. It carries claims about who just authenticated, and its presence is what turns a plain OAuth exchange into an OIDC login. Never send this to an API. That's the access token's job.</p>
     </div>
     <div class="card green">
       <div class="card-label">Refresh Token</div>
@@ -274,10 +274,10 @@
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="scopes">Scopes</h2>
   <p class="lede">Scopes are how OAuth implements the principle of least privilege. They let a client ask for exactly what it needs, nothing more.</p>
-  <p>A scope is simply a string that names a unit of access. When the client sends the user to the authorization server, it lists the scopes it wants, and the consent screen is essentially a human-readable translation of that list. Once granted, the requested scopes get baked into the access token, and the resource server checks, on every request, that the token carries the scope required for that operation.</p>
+  <p>A scope is a string that names a unit of access. When the client sends the user to the authorization server, it lists the scopes it wants, and the consent screen is a human-readable translation of that list. Once granted, the requested scopes get baked into the access token, and the resource server checks, on every request, that the token carries the scope required for that operation.</p>
 
   <h3>OIDC Standard Scopes</h3>
-  <p>OIDC defines a small set of standard scopes so that identity providers don't all invent their own conventions for "give me the user's email." These are worth memorizing since they appear in nearly every integration:</p>
+  <p>OIDC defines a small set of standard scopes so that identity providers don't all invent their own conventions for "give me the user's email." These appear in nearly every integration:</p>
   <div class="scope-grid">
     <div class="scope-item"><div class="scope-name">openid</div><div class="scope-desc">Turns a plain OAuth request into an OIDC request. Required to receive an ID token at all. Without it, only an access token is returned.</div></div>
     <div class="scope-item"><div class="scope-name">profile</div><div class="scope-desc">Name, picture, website, locale, birthdate, and similar non-sensitive profile fields.</div></div>
@@ -287,7 +287,7 @@
     <div class="scope-item"><div class="scope-name">offline_access</div><div class="scope-desc">Requests a refresh token back, so the user doesn't need to log in again every time their access token expires.</div></div>
   </div>
 
-  <p>Beyond these standard ones, real applications almost always define their own custom scopes shaped around their API, things like <code>read:orders</code> or <code>admin:users</code>. Designing good scopes is really an exercise in API design: think in terms of the operations a client should be allowed to perform on a resource.</p>
+  <p>Beyond these standard ones, real applications almost always define their own custom scopes shaped around their API, such as <code>read:orders</code> or <code>admin:users</code>. Designing good scopes is an exercise in API design: think in terms of the operations a client should be allowed to perform on a resource.</p>
 
   <div class="callout info">
     <div class="callout-title">Scopes are not a substitute for fine-grained authorization</div>
@@ -328,7 +328,7 @@
       <span class="badge badge-orange">Input-constrained devices</span>
       <h3 style="margin-top:16px;">Device Authorization Grant</h3>
       <p>Designed for devices that have no convenient way to handle a browser redirect (smart TVs, CLI tools, or IoT devices with no keyboard). Instead of opening a browser on the device itself, it displays a short code and a URL. The user picks up their phone or laptop, visits that URL, types in the code, and authenticates there instead, while the original device quietly polls the token endpoint in the background until approval comes through.</p>
-      <p><strong>Use when:</strong> building a CLI tool (this is exactly how <code>gh auth login</code> works), a smart TV app, or any other device without a practical way to render a full browser-based login screen. Increasingly also used for headless AI agent authorization.</p>
+      <p><strong>Use when:</strong> building a CLI tool (this is exactly how <code>gh auth login</code> works), a smart TV app, or any other device without a practical way to render a full browser-based login screen. Also used for headless AI agent authorization.</p>
     </div>
     <div class="tab-panel" id="grant-implicit">
       <span class="badge badge-red">Deprecated</span>
@@ -513,42 +513,6 @@
   <p>While PKCE was originally specified as a mitigation for public clients, OAuth 2.1 requires it everywhere, even for confidential server-side clients that do have a client secret. It's cheap to implement and closes off an entire class of attack, so there's little reason not to use it universally.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="par">Pushed Authorization Requests (PAR) <span class="badge-new">2026</span></h2>
-  <p class="lede">PAR flips the authorization flow. Instead of stuffing everything in a URL, the parameters are pushed to the server first, and a reference comes back.</p>
-  <p>Pushed Authorization Requests address a subtle weakness in the standard authorization code flow: all authorization parameters travel in the browser's URL, where they can be logged, intercepted, or tampered with. PAR moves those parameters to a back-channel POST first.</p>
-
-  <div class="pkce-vis">
-    <div class="pkce-step">
-      <div class="pkce-num">1</div>
-      <div class="pkce-content">
-        <strong>Client POSTs parameters to <code>/par</code></strong>
-        <p>All authorization parameters (scope, redirect_uri, PKCE challenge, etc.) are sent as a back-channel POST, authenticated with client credentials. No browser involved yet.</p>
-      </div>
-    </div>
-    <div class="pkce-arrow">&#8595;</div>
-    <div class="pkce-step">
-      <div class="pkce-num">2</div>
-      <div class="pkce-content">
-        <strong>Server returns a <code>request_uri</code></strong>
-        <p>The server stores the parameters and returns a short-lived, one-time-use <code>request_uri</code> reference: an opaque token that stands in for the full parameter set.</p>
-      </div>
-    </div>
-    <div class="pkce-arrow">&#8595;</div>
-    <div class="pkce-step">
-      <div class="pkce-num">3</div>
-      <div class="pkce-content">
-        <strong>Browser redirect uses only the <code>request_uri</code></strong>
-        <p>The redirect to /authorize carries just <code>client_id</code> and <code>request_uri</code>. All the sensitive parameters are already safely stored on the server side.</p>
-      </div>
-    </div>
-  </div>
-
-  <div class="callout new">
-    <div class="callout-title">Why PAR matters today</div>
-    <p>PAR is now mandatory in FAPI 2.0 (Financial-grade API) and strongly recommended as a general security best practice. It's also a prerequisite for Rich Authorization Requests (RAR), which allow structured authorization data (like specifying exactly which bank accounts a fintech app may access) rather than flat scope strings. For high-security or regulated applications, PAR is no longer optional.</p>
-  </div>
-
-  <!-- ══════════════════════════════════════════════════ -->
   <h2 id="state">State Parameter &amp; CSRF</h2>
   <p class="lede">A single random string is all that stands between a login flow and a class of attack that links the wrong account to the wrong session.</p>
   <p>The <code>state</code> parameter looks almost too simple to matter. It's just an opaque random value generated by the client, sent along with the authorization request, and checked against what comes back when the user returns. But that simple round trip is exactly what defeats a CSRF attack against the OAuth flow itself: it proves that the browser completing the login is the same browser that initiated it.</p>
@@ -588,7 +552,7 @@
 
   <p>It's this last point, standardization, that's arguably OIDC's biggest practical contribution. Plain OAuth leaves a lot of room for interpretation: providers were free to invent their own ways of representing user profile data. OIDC pins all of that down, which is exactly why a single OIDC client library can talk to Google, Microsoft, Okta, and a dozen other providers with barely any provider-specific code.</p>
 
-  <p>The three-part structure behind any JWT, header, payload, and signature, along with how the signature gets verified, is covered in the <a href="authentication-fundamentals.html#jwt-structure">authentication fundamentals</a> article. An ID token doesn't change any of that. It just guarantees a fixed set of identity claims will be present in the payload:</p>
+  <p>The three-part structure behind any JWT, header, payload, and signature, along with how the signature gets verified, is covered in the <a href="auth.html#jwt-structure">authentication fundamentals</a> article. An ID token doesn't change any of that. It just guarantees a fixed set of identity claims will be present in the payload:</p>
 
   <div class="scope-grid">
     <div class="scope-item"><div class="scope-name">nonce</div><div class="scope-desc">Replay protection value, checked against the nonce sent in /authorize.</div></div>
@@ -599,7 +563,7 @@
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="userinfo">UserInfo Endpoint</h2>
   <p class="lede">The ID token is a snapshot taken at login. Sometimes what's true right now matters more.</p>
-  <p>An OIDC endpoint that returns fresh profile data for the authenticated user. Call it with a Bearer access token that includes the <code>openid</code> scope. The ID token is a snapshot taken at login. If the user has since changed their display name or avatar, the UserInfo endpoint reflects the current state.</p>
+  <p>An OIDC endpoint that returns fresh profile data for the authenticated user. Call it with a Bearer access token that includes the <code>openid</code> scope. Because the ID token only reflects login time, a display name or avatar the user changed since then shows up here but not in the token.</p>
 
   <pre class="code-block"><span class="cm">// Frontend or backend fetch (requires a valid access token)</span>
 <span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'https://auth.example.com/userinfo'</span>, {
@@ -610,48 +574,7 @@
 
   <div class="callout info">
     <div class="callout-title">ID token vs UserInfo</div>
-    <p>The ID token is a snapshot at login time. The UserInfo endpoint returns the current state. If the user's avatar is displayed and might change, call UserInfo. For simply establishing identity at login, the ID token is enough.</p>
-  </div>
-
-  <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="dpop">DPoP (Demonstrating Proof of Possession) <span class="badge-new">2026</span></h2>
-  <p class="lede">DPoP makes a stolen bearer token useless.</p>
-  <p>DPoP solves a fundamental weakness of Bearer tokens: anyone who obtains a Bearer token can use it. DPoP cryptographically binds an access token to a specific private key held by the client, so even a captured token can't be replayed by an attacker who doesn't hold that key.</p>
-
-  <div class="dpop-flow">
-    <div class="dpop-row">
-      <div class="dpop-icon client">&#128273;</div>
-      <div class="dpop-text">
-        <strong>Client generates a key pair</strong>
-        <p>An ephemeral public/private key pair is created by the client. The public key will be embedded in tokens. The private key never leaves the client.</p>
-      </div>
-    </div>
-    <div class="dpop-row">
-      <div class="dpop-icon client">&#128248;</div>
-      <div class="dpop-text">
-        <strong>Client sends a DPoP proof JWT to /token</strong>
-        <p>A short-lived JWT signed by the private key that proves the client holds the private key right now.</p>
-      </div>
-    </div>
-    <div class="dpop-row">
-      <div class="dpop-icon server">&#9989;</div>
-      <div class="dpop-text">
-        <strong>Auth server binds the access token to the public key</strong>
-        <p>The issued access token contains a thumbprint of the client's public key. The token is now "sender-constrained."</p>
-      </div>
-    </div>
-    <div class="dpop-row">
-      <div class="dpop-icon api">&#128274;</div>
-      <div class="dpop-text">
-        <strong>API verifies DPoP proof on every request</strong>
-        <p>The client attaches both the access token and a fresh DPoP proof JWT to each API call. The resource server verifies the proof's signature matches the key thumbprint in the token. A stolen token without the private key is useless.</p>
-      </div>
-    </div>
-  </div>
-
-  <div class="callout new">
-    <div class="callout-title">DPoP adoption today</div>
-    <p>DPoP is mandatory in FAPI 2.0 and supported by major identity providers. For most web apps, the BFF pattern achieves similar protection by keeping tokens off the browser entirely. For SPAs that must hold tokens client-side, DPoP is the strongest mitigation available.</p>
+    <p>The ID token is a snapshot at login time. The UserInfo endpoint returns the current state. If the user's avatar is displayed and might change, call UserInfo. For establishing identity at login, the ID token is enough.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -820,7 +743,7 @@
       <p>An attacker crafts a token with <code>"alg":"none"</code> and no signature. Naive verifiers that trust the <code>alg</code> header accept it as valid.</p>
       <div class="callout ok" style="margin-top:12px;">
         <div class="callout-title">Mitigation: allowlist algorithms</div>
-        <p>Covered in full, alongside JWT's other common pitfalls, in the <a href="authentication-fundamentals.html#jwt-pitfalls">JWT Pitfalls</a> section of the authentication fundamentals article: never let the token's own <code>alg</code> header decide how it gets verified, and reject <code>none</code> always.</p>
+        <p>Covered in full, alongside JWT's other common pitfalls, in the <a href="auth.html#jwt-pitfalls">JWT Pitfalls</a> section of the authentication fundamentals article: never let the token's own <code>alg</code> header decide how it gets verified, and reject <code>none</code> always.</p>
       </div>
     </div>
   </div>
@@ -894,9 +817,91 @@
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
+  <div class="callout info">
+    <div class="callout-title">Advanced OAuth</div>
+    <p>Everything up to here covers the flows a typical application needs. What follows goes deeper than most teams will use day to day: sender-constrained tokens, pushed requests, the newer consolidated specification, and the profiles built for regulated and agent-driven systems. Reach for these when a threat model, a compliance regime, or an autonomous client calls for them.</p>
+  </div>
+
+  <h2 id="par">Pushed Authorization Requests (PAR) <span class="badge-new">2026</span></h2>
+  <p class="lede">PAR flips the authorization flow. Instead of stuffing everything in a URL, the parameters are pushed to the server first, and a reference comes back.</p>
+  <p>Pushed Authorization Requests address a subtle weakness in the standard authorization code flow: all authorization parameters travel in the browser's URL, where they can be logged, intercepted, or tampered with. PAR moves those parameters to a back-channel POST first.</p>
+
+  <div class="pkce-vis">
+    <div class="pkce-step">
+      <div class="pkce-num">1</div>
+      <div class="pkce-content">
+        <strong>Client POSTs parameters to <code>/par</code></strong>
+        <p>All authorization parameters (scope, redirect_uri, PKCE challenge, etc.) are sent as a back-channel POST, authenticated with client credentials. No browser involved yet.</p>
+      </div>
+    </div>
+    <div class="pkce-arrow">&#8595;</div>
+    <div class="pkce-step">
+      <div class="pkce-num">2</div>
+      <div class="pkce-content">
+        <strong>Server returns a <code>request_uri</code></strong>
+        <p>The server stores the parameters and returns a short-lived, one-time-use <code>request_uri</code> reference: an opaque token that stands in for the full parameter set.</p>
+      </div>
+    </div>
+    <div class="pkce-arrow">&#8595;</div>
+    <div class="pkce-step">
+      <div class="pkce-num">3</div>
+      <div class="pkce-content">
+        <strong>Browser redirect uses only the <code>request_uri</code></strong>
+        <p>The redirect to /authorize carries just <code>client_id</code> and <code>request_uri</code>. All the sensitive parameters are already safely stored on the server side.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout new">
+    <div class="callout-title">Why PAR matters today</div>
+    <p>PAR is now mandatory in FAPI 2.0 (Financial-grade API) and strongly recommended as a general security best practice. It's also a prerequisite for Rich Authorization Requests (RAR), which allow structured authorization data (like specifying exactly which bank accounts a fintech app may access) rather than flat scope strings. For high-security or regulated applications, PAR is no longer optional.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="dpop">DPoP (Demonstrating Proof of Possession) <span class="badge-new">2026</span></h2>
+  <p class="lede">DPoP makes a stolen bearer token useless.</p>
+  <p>DPoP solves a fundamental weakness of Bearer tokens: anyone who obtains a Bearer token can use it. DPoP cryptographically binds an access token to a specific private key held by the client, so even a captured token can't be replayed by an attacker who doesn't hold that key.</p>
+
+  <div class="dpop-flow">
+    <div class="dpop-row">
+      <div class="dpop-icon client">&#128273;</div>
+      <div class="dpop-text">
+        <strong>Client generates a key pair</strong>
+        <p>An ephemeral public/private key pair is created by the client. The public key will be embedded in tokens. The private key never leaves the client.</p>
+      </div>
+    </div>
+    <div class="dpop-row">
+      <div class="dpop-icon client">&#128248;</div>
+      <div class="dpop-text">
+        <strong>Client sends a DPoP proof JWT to /token</strong>
+        <p>A short-lived JWT signed by the private key that proves the client holds the private key right now.</p>
+      </div>
+    </div>
+    <div class="dpop-row">
+      <div class="dpop-icon server">&#9989;</div>
+      <div class="dpop-text">
+        <strong>Auth server binds the access token to the public key</strong>
+        <p>The issued access token contains a thumbprint of the client's public key. The token is now "sender-constrained."</p>
+      </div>
+    </div>
+    <div class="dpop-row">
+      <div class="dpop-icon api">&#128274;</div>
+      <div class="dpop-text">
+        <strong>API verifies DPoP proof on every request</strong>
+        <p>The client attaches both the access token and a fresh DPoP proof JWT to each API call. The resource server verifies the proof's signature matches the key thumbprint in the token. A stolen token without the private key is useless.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout new">
+    <div class="callout-title">DPoP adoption today</div>
+    <p>DPoP is mandatory in FAPI 2.0 and supported by major identity providers. For most web apps, the BFF pattern achieves similar protection by keeping tokens off the browser entirely. For SPAs that must hold tokens client-side, DPoP is the strongest mitigation available.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
   <h2 id="oauth21">OAuth 2.1: What's New <span class="badge-new">2026</span></h2>
   <p class="lede">OAuth 2.1 is not a new protocol. It's a curated consolidation of a decade of security best practices into a single, tighter document.</p>
-  <p>OAuth 2.1 folds the most important security best practices and several extensions into one coherent specification. This removes the footguns that experience has shown developers tend to stumble into. As of today the specification is still an IETF draft rather than a published RFC, but its requirements are already stable and widely implemented by major authorization servers, so treating it as the current baseline is safe in practice. An implementation that already follows current best practices is probably already compliant with 2.1. The key changes are:</p>
+  <p>OAuth 2.1 folds the most important security best practices and several extensions into one coherent specification. This removes the footguns that experience has shown developers tend to stumble into. The specification is still an IETF draft rather than a published RFC, but its requirements are already stable and widely implemented by major authorization servers, so treating it as the current baseline is safe in practice. An implementation that already follows current best practices is probably already compliant with 2.1. The key changes are:</p>
 
   <div class="concept-grid">
     <div class="card green">
@@ -957,7 +962,7 @@
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="fapi">FAPI &amp; High-Security Profiles <span class="badge-new">2026</span></h2>
   <p class="lede">FAPI 2.0 is what OAuth looks like when the stakes are high enough that every optional best practice becomes mandatory.</p>
-  <p>The Financial-grade API Security Profile (FAPI 2.0), published by the OpenID Foundation, takes the OAuth security best practices and turns them into a strict, auditable profile. It was designed for open banking but is increasingly adopted for any regulated API, including healthcare, government, and payments. Building to this profile means using all of the following:</p>
+  <p>The Financial-grade API Security Profile (FAPI 2.0), published by the OpenID Foundation, takes the OAuth security best practices and turns them into a strict, auditable profile. It was designed for open banking but is now adopted for any regulated API, including healthcare, government, and payments. Building to this profile means using all of the following:</p>
 
   <div class="scope-grid">
     <div class="scope-item"><div class="scope-name">PAR</div><div class="scope-desc">Pushed Authorization Requests: mandatory. All authorization parameters travel back-channel.</div></div>
@@ -970,10 +975,10 @@
 
   <div class="callout new">
     <div class="callout-title">Should I care about FAPI if I'm not in fintech?</div>
-    <p>FAPI 2.0 is a useful benchmark even outside regulated APIs. Its requirements represent a curated list of the most impactful security controls. Think of it as a security checklist rather than a compliance obligation. The components most worth adopting broadly are PAR (removes parameters from browser URLs), DPoP (stops token replay), and private_key_jwt (eliminates shared secret management).</p>
+    <p>FAPI 2.0 is a useful benchmark even outside regulated APIs. Its requirements represent a curated list of the most impactful security controls. Think of it as a security checklist rather than a compliance obligation. The components most useful to adopt broadly are PAR (removes parameters from browser URLs), DPoP (stops token replay), and private_key_jwt (eliminates shared secret management).</p>
   </div>
 
-  <p class="wide" style="max-width:700px;margin-top:40px;color:var(--text-dim);font-size:14px;border-top:1px solid var(--border);padding-top:24px;">That's the shape of OAuth and OIDC: four roles, three tokens, one well-trodden flow, and a growing stack of security enhancements (PKCE, state, nonce, rotation, DPoP, PAR), each closing a specific, real attack. Most libraries handle these mechanics automatically, but knowing what they're doing is what makes it possible to debug a broken integration, audit an existing implementation, authorize an AI agent safely, or make an informed call the day a library doesn't quite fit the situation. For implementation specifics, the auth provider's SDK documentation and the <a href="https://oauth.net/2.1/">OAuth 2.1 draft spec</a> are the two references worth keeping close.</p>
+  <p class="wide" style="max-width:700px;margin-top:40px;color:var(--text-dim);font-size:14px;border-top:1px solid var(--border);padding-top:24px;">That's the shape of OAuth and OIDC: four roles, three tokens, one well-trodden flow, and a growing stack of security enhancements (PKCE, state, nonce, rotation, DPoP, PAR), each closing a specific, real attack. Most libraries handle these mechanics automatically, but knowing what they're doing is what makes it possible to debug a broken integration, audit an existing implementation, authorize an AI agent safely, or make an informed call the day a library doesn't quite fit the situation. For implementation specifics, the auth provider's SDK documentation and the <a href="https://oauth.net/2.1/">OAuth 2.1 draft spec</a> are the two references to keep close.</p>
 
 </main>
 </div>

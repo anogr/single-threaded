@@ -72,7 +72,7 @@
 
   <p>Security is also not a feature that can be added after the fact. A login system built without thinking about brute force, session fixation, or credential stuffing will require significant rework to harden. The most effective place to apply security thinking is during design, before the code is written.</p>
 
-  <p>This article covers the conceptual foundation: how web applications commonly fail, the principles that reduce that risk, and a habit of thinking about threats proactively. The section below on how applications fail is structured around the <strong>OWASP Top 10</strong>, the industry's reference list of the most critical web application security risks, current as of its 2025 revision. OWASP revises the list periodically as attack patterns shift, and it's the vocabulary most security discussions, audits, and tooling use, so the categories are worth knowing even without reading the source document. The articles on <a href="browser-security.html">browser security</a> and <a href="authentication-fundamentals.html">authentication fundamentals</a> build on this foundation with specific mechanisms and defenses.</p>
+  <p>This article covers the conceptual foundation: how web applications commonly fail, the principles that reduce that risk, and a habit of thinking about threats proactively. The section below on how applications fail is structured around the <strong>OWASP Top 10</strong>, the industry's reference list of the most critical web application security risks, current as of its 2025 revision. OWASP revises the list periodically as attack patterns shift, and its categories are the vocabulary most security discussions, audits, and tooling use. Knowing them is enough to follow that conversation, without reading the source document itself. The articles on <a href="browser-security.html">browser security</a> and <a href="auth.html">authentication fundamentals</a> build on this foundation with specific mechanisms and defenses.</p>
   </section>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -84,7 +84,7 @@
   <p>Beyond transport, every web application must answer two questions for every request. <strong>Authentication</strong> asks: who is this? It establishes identity by verifying that a request comes from who it claims to be from. <strong>Authorization</strong> asks: what are they allowed to do? It enforces permissions by deciding whether the authenticated identity has the right to perform the requested operation. The two are distinct operations. Failing at authentication lets strangers in. Failing at authorization lets legitimate users do things they shouldn't. Conflating the two (treating authentication as sufficient proof of authorization) is one of the most common sources of access control vulnerabilities.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="access-control">How Web Applications Fail: Broken Access Control</h2>
+  <h2 id="access-control">Broken Access Control</h2>
   <p class="lede">An authenticated user accesses resources or performs actions they should not be permitted to. This is the most frequently occurring vulnerability class in modern web applications, present in some form in nearly every application tested.</p>
 
   <p>The most common form is insecure direct object reference (IDOR): a resource identifier in a URL or request body that is not validated against the requesting user's permissions. A request like <code>GET /invoices/10042</code> might return the invoice regardless of whether the requesting user owns it. The application authenticates the user but doesn't check whether they're authorized to see that specific record.</p>
@@ -108,11 +108,12 @@
     <li>Validate destination URLs against an allowlist of expected hosts rather than a blocklist.</li>
     <li>Reject requests to private IP ranges and link-local addresses, including the cloud metadata range, unless a feature specifically needs them.</li>
     <li>Don't follow redirects blindly, since a validated URL can redirect to an internal address after the check has already passed.</li>
+    <li>Harden the metadata service itself. On AWS, requiring <strong>IMDSv2</strong> is the direct fix for the Capital One class: it hands out credentials only after a session token fetched with a <code>PUT</code> request and a custom header, which an ordinary SSRF (a plain <code>GET</code> to a URL) can't produce. Other clouds offer similar header- or token-gated metadata modes.</li>
   </ul>
   <p>The <a href="web-networking.html">web application networking</a> article covers network segmentation as a second line of defense.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="misconfiguration">How Web Applications Fail: Security Misconfiguration</h2>
+  <h2 id="misconfiguration">Security Misconfiguration</h2>
   <p class="lede">Correct software deployed incorrectly. The code has no flaw. The environment around it is configured dangerously.</p>
 
   <p>Security misconfiguration is pervasive because the default configuration of many systems prioritizes convenience over security. Common examples:</p>
@@ -132,17 +133,19 @@
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="supply-chain">How Web Applications Fail: Software Supply Chain Failures</h2>
+  <h2 id="supply-chain">Software Supply Chain Failures</h2>
   <p class="lede">Modern applications don't just depend on their own code. They depend on everything upstream of it: libraries, build tools, CI/CD pipelines, and the infrastructure that turns source into a running deployment. A compromise anywhere in that chain reaches every application downstream of it.</p>
 
   <p>The narrowest version of this problem is a known vulnerability sitting in a dependency. A typical frontend application has hundreds of transitive dependencies: packages that are dependencies of dependencies, often several layers deep. The same is true on the backend. Most developers can name their direct dependencies, but very few know the full transitive tree. When a vulnerability is discovered in a widely-used library, it affects every application that includes it, directly or indirectly, whether or not the application uses the vulnerable feature. The Log4Shell vulnerability in late 2021 illustrated the scale of this risk: a critical remote code execution flaw in Log4j, a Java logging library so ubiquitous that hundreds of thousands of applications were affected, many without their teams realizing they depended on it at all.</p>
 
   <p>The broader and more consequential concern is the supply chain itself being tampered with, rather than merely containing an old vulnerability. In the 2019/2020 SolarWinds breach, attackers compromised the build system of a network monitoring vendor and inserted malicious code into a routine software update, which was then installed by roughly 18,000 organizations, several of them government agencies. Nobody downloaded anything unusual. The trusted update mechanism was the attack. More recently, a self-propagating worm nicknamed Shai-Hulud spread through the npm registry by publishing malicious versions of popular packages that harvested credentials from developer machines and used them to automatically publish more infected packages in turn, reaching hundreds of package versions before it was stopped. Attacks like these target developer tooling and build infrastructure directly, on the assumption that compromising one link poisons everyone downstream of it.</p>
 
-  <p>Defending against this requires visibility into what's actually running, not just what's listed in a <code>package.json</code> or <code>requirements.txt</code>. A <strong>software bill of materials</strong> (SBOM) is an inventory of every component, direct and transitive, that makes up a piece of software, similar in spirit to a food label listing ingredients. Combined with software composition analysis tools (Dependabot, Snyk, OWASP Dependency-Track) that continuously check that inventory against newly disclosed vulnerabilities, an SBOM turns "are we exposed to this" from a guess into a query. Beyond dependency scanning, hardening the build pipeline itself matters just as much: requiring review before code merges, signing build artifacts so a tampered package can be detected, scoping CI/CD credentials narrowly, and not letting a single person push a change all the way to production without another person in the loop.</p>
+  <p>Defending against this requires visibility into what's running, not just what's listed in a <code>package.json</code> or <code>requirements.txt</code>. A <strong>software bill of materials</strong> (SBOM) is an inventory of every component, direct and transitive, that makes up a piece of software, similar in spirit to a food label listing ingredients. Combined with software composition analysis tools (Dependabot, Snyk, OWASP Dependency-Track) that continuously check that inventory against newly disclosed vulnerabilities, an SBOM turns "are we exposed to this" from a guess into a query. Beyond dependency scanning, hardening the build pipeline itself matters just as much: requiring review before code merges, signing build artifacts so a tampered package can be detected, scoping CI/CD credentials narrowly, and not letting a single person push a change all the way to production without another person in the loop.</p>
+
+  <p>The same threat has a narrower, browser-specific form: a third-party script loaded at runtime from a CDN, where a compromise of that CDN runs attacker code directly in the user's page. The <a href="browser-security.html#sri">supply chain attacks</a> section of the browser security article covers that case and Subresource Integrity, the browser-level defense against it.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="cryptographic-failures">How Web Applications Fail: Cryptographic Failures</h2>
+  <h2 id="cryptographic-failures">Cryptographic Failures</h2>
   <p class="lede">Sensitive data that should be protected isn't. Often it's transmitted without encryption, stored incorrectly, or "protected" with algorithms that are no longer adequate.</p>
 
   <p>The most common practical failure is <strong>password storage</strong>. Passwords must never be stored in plain text. If the database is compromised, plain-text passwords expose every user's credentials immediately. Because people reuse passwords, this cascades into breaches on other services. The correct approach is a one-way hash designed specifically for passwords: <strong>bcrypt</strong>, <strong>Argon2</strong>, or <strong>scrypt</strong>. These are deliberately slow and include a salt, which makes precomputed attacks (rainbow tables) impractical. General-purpose fast hashes like MD5 and SHA-256 are not appropriate for passwords. Their speed becomes a liability when an attacker is running millions of guesses per second.</p>
@@ -150,7 +153,7 @@
   <p>Beyond passwords: transmitting sensitive data over HTTP instead of HTTPS, storing credit card numbers or health data without encryption at rest, using outdated encryption standards, and encrypting data that should instead be hashed (encryption is reversible, passwords need irreversibility). The principle is to classify data by sensitivity and apply protection proportional to the risk of exposure.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="injection">How Web Applications Fail: Injection</h2>
+  <h2 id="injection">Injection</h2>
   <p class="lede">Injection vulnerabilities happen when an application treats untrusted data as instructions. They have existed since the earliest web applications and remain among the most reliably damaging.</p>
 
   <p>SQL injection is the canonical example. When user input is concatenated directly into a SQL query, an attacker can escape the intended context and modify the query itself. A login form that constructs its query like this:</p>
@@ -181,7 +184,7 @@
   <p>Injection vulnerabilities are largely a solved problem in modern frameworks: ORMs and query builders use parameterized queries by default. They persist in legacy code and in places where developers bypass the safe abstraction, typically for convenience or to build dynamic queries.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="insecure-design">How Web Applications Fail: Insecure Design</h2>
+  <h2 id="insecure-design">Insecure Design</h2>
   <p class="lede">Some vulnerabilities aren't bugs in the code. They're the predictable result of a design that never accounted for an adversary in the first place.</p>
 
   <p>Every other failure mode in this article describes an implementation mistake: a query built the wrong way, a check that's missing, a default left unchanged. Those are fixable by writing the code correctly. Insecure design is different. The code does exactly what it was built to do, and what it was built to do is unsafe. A password reset flow that emails the new password in plain text is working as designed. A discount code system with no limit on how many codes a single session can try is working as designed. A file upload feature that saves whatever it receives to a public directory is working as designed. No amount of careful coding rescues a design that never considered what an attacker would do with the feature.</p>
@@ -194,7 +197,7 @@
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="auth-failures">How Web Applications Fail: Authentication Failures</h2>
+  <h2 id="auth-failures">Authentication Failures</h2>
   <p class="lede">Weak authentication mechanisms give attackers a foothold that strong application logic can't compensate for.</p>
 
   <p><strong>Credential stuffing</strong> is the most prevalent form of authentication attack today. Attackers use lists of username and password pairs leaked from previous breaches, of which there are billions in circulation, and test them against other services. It is effective because a significant proportion of users reuse passwords across sites. If a user's credentials were leaked from a breached forum, those same credentials may work on their bank, email, or workplace applications.</p>
@@ -208,10 +211,10 @@
     <li>Not invalidating all sessions when a password is changed.</li>
   </ul>
 
-  <p><strong>Multi-factor authentication</strong> is the single most effective mitigation. An attacker who has a user's password still cannot authenticate if a second factor (a TOTP code, a push notification, a hardware key) is required. For high-value accounts and administrative access, MFA should be mandatory, not optional. Widespread adoption of standardized authentication frameworks has measurably reduced how often these failures show up in the wild, which is a rare piece of good news in this list. The <a href="authentication-fundamentals.html">authentication fundamentals</a> article covers sessions, tokens, and the practical mechanics of implementing authentication.</p>
+  <p><strong>Multi-factor authentication</strong> is the single most effective mitigation. An attacker who has a user's password still cannot authenticate if a second factor (a TOTP code, a push notification, a hardware key) is required. For high-value accounts and administrative access, MFA should be mandatory, not optional. Widespread adoption of standardized authentication frameworks has measurably reduced how often these failures show up in the wild, which is a rare piece of good news in this list. The <a href="auth.html">authentication fundamentals</a> article covers sessions, tokens, and the practical mechanics of implementing authentication.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="integrity-failures">How Web Applications Fail: Software and Data Integrity Failures</h2>
+  <h2 id="integrity-failures">Software and Data Integrity Failures</h2>
   <p class="lede">Not everything that arrives at an application is safe to trust just because it's shaped like ordinary data. Sometimes the format itself can carry instructions.</p>
 
   <p><strong>Insecure deserialization</strong> is the clearest example. Serialization converts an in-memory object into a format that can be stored or transmitted. Deserialization converts it back. Some serialization formats, including Java's native serialization, Python's <code>pickle</code>, and PHP's <code>unserialize</code>, can encode more than plain data: they can encode instructions for reconstructing arbitrary objects, including ones that execute code as a side effect of being reconstructed. If an application deserializes data from a source it doesn't fully control (a cookie, a cache entry, a message from another service) using one of these formats, an attacker who can influence that data can potentially get code to run the moment it's deserialized, without ever exploiting a separate bug.</p>
@@ -231,7 +234,7 @@ data = pickle.<span class="fn">loads</span>(request.cookies[<span class="s">'ses
   <p>The dependable fix is to avoid deserializing untrusted data in formats that support this at all. Cross a trust boundary (between the browser and the server, or between two services owned by different teams) using a data-only format like JSON, which has no mechanism for encoding executable behavior. If a native serialization format is unavoidable for internal use, never accept it from anything the user can influence, and validate the resulting structure strictly rather than trusting it implicitly. This is the same trust-boundary thinking behind the <a href="#supply-chain">software supply chain failures covered above</a>, just applied at the level of a single object instead of an entire dependency: both are cases of an application implicitly trusting the integrity of something it didn't create itself.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="logging-alerting">How Web Applications Fail: Security Logging and Alerting Failures</h2>
+  <h2 id="logging-alerting">Security Logging and Alerting Failures</h2>
   <p class="lede">An attack that isn't logged never happened, as far as the system is concerned. An attack that's logged but never triggers an alert is barely better.</p>
 
   <p>Every other failure mode in this article describes a way an attacker gets in, or gets access they shouldn't have. This one describes what happens after: nothing. Logins, failed logins, permission changes, and high-value transactions need to be recorded with enough context (who, what, when, from where) to reconstruct an incident later. Many applications log successful actions and skip the failures, which is backwards: a string of failed login attempts against one account is exactly the pattern worth catching before it succeeds, not after.</p>
@@ -240,11 +243,11 @@ data = pickle.<span class="fn">loads</span>(request.cookies[<span class="s">'ses
 
   <div class="callout warn">
     <div class="callout-title">Logs are also an attack surface</div>
-    <p>Logging sensitive data (passwords, tokens, full credit card numbers) creates a second, often less-protected copy of exactly the information an attacker wants. And a log line built by concatenating unsanitized user input can itself become an injection point: part of what made Log4Shell so severe was that a logged string could contain a lookup expression the logging library would evaluate rather than just print. Treat log input with the same suspicion as any other untrusted data, and separate what's useful for debugging from what's actually safe to persist.</p>
+    <p>Logging sensitive data (passwords, tokens, full credit card numbers) creates a second, often less-protected copy of exactly the information an attacker wants. And a log line built by concatenating unsanitized user input can itself become an injection point: part of what made Log4Shell so severe was that a logged string could contain a lookup expression the logging library would evaluate rather than just print. Treat log input with the same suspicion as any other untrusted data, and separate what's useful for debugging from what's safe to persist.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="exceptional-conditions">How Web Applications Fail: Mishandling of Exceptional Conditions</h2>
+  <h2 id="exceptional-conditions">Mishandling of Exceptional Conditions</h2>
   <p class="lede">Software fails constantly, in small ways: a null value where one wasn't expected, a network call that times out, a downstream service that returns an error. What the system does in that moment is often where the real vulnerability lives.</p>
 
   <p>An exceptional condition is any point where the code's assumptions turn out to be wrong: a required field is missing, a payment provider times out, memory runs out, a privilege check can't complete because the permissions service is unreachable. None of these are attacks by themselves. They become vulnerabilities when the application's response to them is worse than doing nothing at all: leaking a stack trace with a database schema in it, granting access because a check errored out instead of denying it, or leaving a multi-step transaction half-applied because a failure partway through was never rolled back.</p>
@@ -256,6 +259,29 @@ data = pickle.<span class="fn">loads</span>(request.cookies[<span class="s">'ses
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="principles">Security Principles</h2>
   <p class="lede">The failure modes above share common themes. The principles below are responses to those themes. They don't prevent every attack, but they limit damage and reduce the attack surface.</p>
+
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 700 260" style="max-width:100%;display:block;background:var(--surface);border:1px solid var(--border);border-radius:8px;" role="img" aria-label="Defense in depth shown as nested layers: network and infrastructure surround transport security, which surrounds authentication and authorization, which surrounds input validation, which surrounds the data at the core" xmlns="http://www.w3.org/2000/svg">
+      <text x="350" y="20" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="var(--text-dim)" letter-spacing="0.04em">Defense in depth: no single layer is trusted alone</text>
+      <!-- Layer 1: Network -->
+      <rect x="60" y="32" width="580" height="212" rx="10" fill="color-mix(in srgb, var(--text-dim) 5%, transparent)" stroke="color-mix(in srgb, var(--text-dim) 30%, transparent)"/>
+      <text x="350" y="48" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--text-dim)">Network &amp; infrastructure &#183; firewall, WAF, segmentation</text>
+      <!-- Layer 2: Transport -->
+      <rect x="108" y="58" width="484" height="164" rx="9" fill="color-mix(in srgb, var(--teal) 6%, transparent)" stroke="color-mix(in srgb, var(--teal) 32%, transparent)"/>
+      <text x="350" y="74" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--teal)">Transport security &#183; HTTPS / TLS</text>
+      <!-- Layer 3: AuthN + AuthZ -->
+      <rect x="156" y="84" width="388" height="112" rx="8" fill="color-mix(in srgb, var(--accent) 7%, transparent)" stroke="color-mix(in srgb, var(--accent) 32%, transparent)"/>
+      <text x="350" y="100" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--accent)">Authentication &amp; authorization &#183; least privilege</text>
+      <!-- Layer 4: Input validation -->
+      <rect x="204" y="110" width="292" height="60" rx="7" fill="color-mix(in srgb, var(--gold) 8%, transparent)" stroke="color-mix(in srgb, var(--gold) 34%, transparent)"/>
+      <text x="350" y="126" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--gold)">Input validation &amp; output encoding</text>
+      <!-- Core: Data -->
+      <rect x="290" y="132" width="120" height="26" rx="6" fill="color-mix(in srgb, var(--red) 12%, transparent)" stroke="color-mix(in srgb, var(--red) 40%, transparent)"/>
+      <text x="350" y="149" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="var(--red)">Data</text>
+      <text x="350" y="236" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text-faint)">Each layer assumes the one outside it might fail, and still protects the data if it does.</text>
+    </svg>
+    <figcaption style="font-size:13px;color:var(--text-dim);margin-top:8px;line-height:1.5;">Defense in depth: an attacker who defeats one control still faces the next. The principles below describe individual layers of this stack.</figcaption>
+  </figure>
 
   <div class="principles-grid">
     <div class="card red">
@@ -296,11 +322,27 @@ data = pickle.<span class="fn">loads</span>(request.cookies[<span class="s">'ses
 
   <p>Threat modeling is the practice of systematically identifying potential attacks before they happen. It doesn't require a formal process. The core habit is asking a few questions during design: what data does this feature handle? Who has access to it? What happens if an attacker can modify the input? What's the worst-case outcome if this goes wrong?</p>
 
-  <p>A useful mental framework for categorizing threats is <strong>STRIDE</strong>, which covers six classes: <em>Spoofing</em> (impersonating another user or system), <em>Tampering</em> (modifying data in transit or at rest), <em>Repudiation</em> (denying having performed an action), <em>Information disclosure</em> (exposing data to unauthorized parties), <em>Denial of service</em> (making a system unavailable), and <em>Elevation of privilege</em> (gaining permissions beyond what was granted). Running through these categories for a new feature takes minutes and often surfaces issues that would otherwise only appear in production.</p>
+  <p>A useful mental framework for categorizing threats is <strong>STRIDE</strong>, an acronym for six classes of attack. Running through the six for a new feature takes minutes and often surfaces issues that would otherwise only appear in production.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Letter</th><th>Threat</th><th>What it means</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>S</strong></td><td>Spoofing</td><td>Impersonating another user or system.</td></tr>
+        <tr><td><strong>T</strong></td><td>Tampering</td><td>Modifying data in transit or at rest.</td></tr>
+        <tr><td><strong>R</strong></td><td>Repudiation</td><td>Denying having performed an action.</td></tr>
+        <tr><td><strong>I</strong></td><td>Information disclosure</td><td>Exposing data to unauthorized parties.</td></tr>
+        <tr><td><strong>D</strong></td><td>Denial of service</td><td>Making a system unavailable.</td></tr>
+        <tr><td><strong>E</strong></td><td>Elevation of privilege</td><td>Gaining permissions beyond what was granted.</td></tr>
+      </tbody>
+    </table>
+  </div>
 
   <div class="callout info">
     <div class="callout-title">Where to go next</div>
-    <p>The <a href="browser-security.html">browser security</a> article covers the specific attacks that target web browsers (XSS, CSRF, clickjacking) and the HTTP headers that defend against them. The <a href="authentication-fundamentals.html">authentication fundamentals</a> article covers sessions, JWTs, tokens, and MFA mechanics. The <a href="oauth-oidc.html">OAuth &amp; OIDC</a> article covers delegated authorization flows. The <a href="web-networking.html">web application networking</a> article covers the infrastructure layer that backs up these application-level defenses: firewalls, WAFs, and network zones.</p>
+    <p>The <a href="browser-security.html">browser security</a> article covers the specific attacks that target web browsers (XSS, CSRF, clickjacking) and the HTTP headers that defend against them. The <a href="auth.html">authentication fundamentals</a> article covers sessions, JWTs, tokens, and MFA mechanics. The <a href="oauth-oidc.html">OAuth &amp; OIDC</a> article covers delegated authorization flows. The <a href="web-networking.html">web application networking</a> article covers the infrastructure layer that backs up these application-level defenses: firewalls, WAFs, and network zones.</p>
   </div>
 
 </main>

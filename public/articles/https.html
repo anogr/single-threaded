@@ -34,6 +34,7 @@
   <a href="#handshake">TLS handshake</a>
   <a href="#anatomy">Certificate anatomy</a>
   <a href="#chain">Chain of trust</a>
+  <a href="#transparency-revocation">Transparency &amp; revocation</a>
 
   <div class="sidebar-section">In Practice</div>
   <a href="#trust-store">Trust stores</a>
@@ -46,7 +47,7 @@
 
   <div class="eyebrow">Security · TLS</div>
   <h1>HTTPS and Certificates</h1>
-  <p class="subtitle">How HTTPS actually works: the two problems it solves, the TLS handshake, certificate anatomy, and the chain of trust behind the padlock.</p>
+  <p class="subtitle">How HTTPS works: the two problems it solves, the TLS handshake, certificate anatomy, and the chain of trust behind the padlock.</p>
   <div class="byline">
     <strong>Deep dive</strong>
     <div class="dot"></div><span>~9 min read</span>
@@ -59,7 +60,7 @@
   ════════════════════════════════════════════════════ -->
   <section id="intro">
     <p>Encryption keeps the data moving between a browser and a server private. Certificates prove that the server on the other end is actually who it claims to be. HTTPS bundles both together. Most of the confusion around it has nothing to do with encryption at all, it's the identity half that gets complicated, especially once private, company-internal services enter the picture.</p>
-    <p>This article works through both halves: how the TLS handshake sets up an encrypted connection in a handful of round trips, what a certificate actually contains, how browsers decide whether to trust one, and where things typically go wrong once internal services and local development environments get involved.</p>
+    <p>This article works through both halves: how the TLS handshake sets up an encrypted connection in a handful of round trips, what a certificate contains, how browsers decide whether to trust one, and where things typically go wrong once internal services and local development environments get involved.</p>
   </section>
 
   <!-- ═══════════════════════════════════════════════════
@@ -87,7 +88,7 @@
        SECURE CONTEXTS
   ════════════════════════════════════════════════════ -->
   <h2 id="secure-context">Why HTTPS matters even with nothing to hide</h2>
-  <p>Browsers don't only use connection security to decide whether to show a warning icon. A long list of capabilities are gated behind what's called a <strong>secure context</strong>, regardless of whether the page actually handles anything sensitive. They simply refuse to initialize over plain HTTP. <code>localhost</code> gets an exemption, covered below, but a plain internal hostname over HTTP does not. This is often the real reason an internal tool needs HTTPS in development: not because it's transmitting secrets, but because a feature it depends on won't run without one.</p>
+  <p>Browsers don't only use connection security to decide whether to show a warning icon. A long list of capabilities are gated behind what's called a <strong>secure context</strong>, regardless of whether the page handles anything sensitive. They refuse to initialize over plain HTTP. <code>localhost</code> gets an exemption, covered below, but a plain internal hostname over HTTP does not. This is often the real reason an internal tool needs HTTPS in development: not because it's transmitting secrets, but because a feature it depends on won't run without one.</p>
 
   <div class="callout info">
     <div class="callout-title">APIs gated behind a secure context</div>
@@ -145,7 +146,7 @@
       <text x="350" y="291" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--green)">Secure session: application data begins</text>
       <text x="350" y="318" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--text-faint)">All subsequent traffic uses symmetric encryption (fast)</text>
     </svg>
-    <figcaption style="font-size:13px;color:var(--text-dim);margin-top:8px;line-height:1.5;">Steps 1 and 2 use ECDHE, an asymmetric key exchange, to let browser and server independently derive the same shared secret. From that point on, everything including the certificate travels encrypted with keys derived from that secret. Step 3 is where the browser actually verifies the certificate. Step 4 is ordinary application traffic, encrypted with symmetric session keys.</figcaption>
+    <figcaption style="font-size:13px;color:var(--text-dim);margin-top:8px;line-height:1.5;">Steps 1 and 2 use ECDHE, an asymmetric key exchange, to let browser and server independently derive the same shared secret. From that point on, everything including the certificate travels encrypted with keys derived from that secret. Step 3 is where the browser verifies the certificate. Step 4 is ordinary application traffic, encrypted with symmetric session keys.</figcaption>
   </figure>
 
   <div class="table-wrap">
@@ -244,7 +245,7 @@
     <div class="card purple">
       <div class="card-label">app.internal.company.com</div>
       <div class="card-title">Leaf cert</div>
-      <p>The certificate a server actually presents during the handshake. Signed by the intermediate.</p>
+      <p>The certificate a server presents during the handshake. Signed by the intermediate.</p>
     </div>
   </div>
 
@@ -252,6 +253,18 @@
     <div class="callout-title">Self-signed certificates break the chain</div>
     <p>A self-signed certificate is signed by its own private key instead of a CA's. There's no chain to walk and no trusted root at the end of it, so the browser can't verify identity, even though the connection is still encrypted.</p>
   </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       TRANSPARENCY & REVOCATION
+  ════════════════════════════════════════════════════ -->
+  <h2 id="transparency-revocation">Certificate Transparency and revocation</h2>
+  <p class="lede">The chain proves who signed a certificate. Two more mechanisms keep the signers honest and deal with certificates that have to be pulled early.</p>
+
+  <p>A CA is trusted to vouch for identities, but nothing in the chain itself stops one from issuing a certificate for a domain it never should have, whether through a mistake or a compromise. <strong>Certificate Transparency</strong> (CT) addresses that by requiring every publicly trusted certificate to be recorded in append-only public logs when it's issued. The CA gets back a signed timestamp proving the certificate was logged, and browsers reject a certificate that doesn't carry them. Chrome has enforced this since 2018 and Safari since 2021. The practical payoff is that a domain owner can monitor the logs and spot a certificate for their domain that they never requested, which is often the first sign a CA has been tricked or breached.</p>
+
+  <p>Revocation is the opposite problem: a certificate that was issued correctly but now has to be killed before it expires, because its private key leaked or the domain changed hands. The two traditional mechanisms both disappointed. A <strong>Certificate Revocation List</strong> (CRL) is a CA-published list of revoked certificates, historically too large to download on every connection. The <strong>Online Certificate Status Protocol</strong> (OCSP) let a browser ask the CA about a single certificate in real time. That leaked browsing history to the CA, which learned which site the user was visiting. It was also toothless: browsers treated a failed lookup as success, so an attacker could just block the check. The industry has largely moved on. Let's Encrypt shut down its OCSP responders in 2025, and the CA/Browser Forum has made OCSP optional. Browsers now rely on their own aggregated, compressed revocation sets shipped with updates (Chrome's CRLSets, Firefox's CRLite) rather than querying a CA per connection.</p>
+
+  <p>This is also the real reason certificate lifetimes keep shrinking. If revocation can't be trusted to pull a bad certificate out of circulation quickly, the alternative is to make certificates expire soon enough that a leaked one has little value. That is the logic behind the schedule to cut maximum validity toward 47 days, covered under the pitfalls below. A short lifetime is a revocation mechanism that always works, at the cost of making automated renewal mandatory.</p>
 
   <!-- ═══════════════════════════════════════════════════
        TRUST STORES

@@ -77,7 +77,7 @@
       React doesn't ship a pattern library. What it ships is a small set of rules about how state and rendering relate to each other, and most of what people call a "React pattern" is really a way of working within those rules instead of around them. Compound components, the state reducer trick from Downshift, headless hooks: none of these are things React tells you to do. They are solutions that kept showing up once enough teams hit the same wall, and eventually the community gave them names.
     </p>
     <p>
-      This is a field guide to six of them. For each one: the problem it solves, a minimal version of the code, and when reaching for it is the wrong call. Before any of that, it's worth naming the three behaviors of React that make these patterns necessary in the first place, because every pattern below is really just a different arrangement of the same three constraints.
+      This is a field guide to six of them. For each one: the problem it solves, a minimal version of the code, and when reaching for it is the wrong call. Before any of that come the three behaviors of React that make these patterns necessary in the first place, because every pattern below is just a different arrangement of the same three constraints.
     </p>
   </section>
 
@@ -141,7 +141,7 @@
   </p>
 
   <p>
-    The third is that React is <strong>reactive to state change</strong>, specifically. A component re-renders because <code>setState</code> or a reducer's <code>dispatch</code> ran, not because you told it to refresh. There's no <code>render()</code> call scattered through the codebase the way there might be in an imperative UI framework. This sounds like a small distinction, but it's the reason concurrent rendering, batching, and the <code>useSyncExternalStore</code>-style hooks that bridge non-React state into a component all exist: React needs render to stay a pure function of state so it's free to schedule, interrupt, and retry that function on its own terms.
+    The third is that React is <strong>reactive to state change</strong>, specifically. A component re-renders because <code>setState</code> or a reducer's <code>dispatch</code> ran, not because you told it to refresh. There's no <code>render()</code> call scattered through the codebase the way there might be in an imperative UI framework. This sounds like a small distinction, but it's the reason concurrent rendering, batching, and the <code>useSyncExternalStore</code>-style hooks that bridge non-React state into a component all exist. React needs render to stay a pure function of state, so it's free to schedule, interrupt, and retry that function on its own terms.
   </p>
 
   <div class="pillar-grid">
@@ -296,7 +296,7 @@
   <p class="lede">Split behavior from presentation entirely: a hook owns the logic, the consumer owns every pixel of markup.</p>
 
   <p>
-    A styled component that ships its own markup and CSS is fast to use and slow to restyle. Every team that wants a different look ends up fighting the shipped styles with overrides, or forking the component outright. The headless pattern sidesteps this by not shipping markup at all. All the interactive logic, the keyboard handling, the ARIA attributes, lives in a hook. The hook returns state and a set of prop getters, and the consumer decides what elements to render and how they look. This is the same idea Downshift introduced for comboboxes, and it's why libraries like TanStack Table and React Aria ship as hooks rather than styled components: a table or a date picker has wildly different visual requirements from one product to the next, but the logic of sorting rows or navigating a calendar with a keyboard barely changes.
+    A styled component that ships its own markup and CSS is fast to use and slow to restyle. Every team that wants a different look ends up fighting the shipped styles with overrides, or forking the component outright. The headless pattern sidesteps this by not shipping markup at all. All the interactive logic, the keyboard handling, the ARIA attributes, lives in a hook. The hook returns state and a set of prop getters, and the consumer decides what elements to render and how they look. This is the same idea Downshift introduced for comboboxes, and it's why libraries like TanStack Table and React Aria ship as hooks rather than styled components. A table or a date picker has wildly different visual requirements from one product to the next, but the logic of sorting rows or navigating a calendar with a keyboard barely changes.
   </p>
 
   <div class="code-block">
@@ -398,7 +398,7 @@
   <p class="lede">The pattern that replaced higher-order components and render props for most everyday reuse.</p>
 
   <p>
-    Before hooks, sharing stateful logic across components meant one of two things. A higher-order component, a function that took a component and returned a new one with extra props injected, or a render prop, a component whose child was a function it called with some data. Both worked, and both had real costs. Two HOCs wrapping the same component could inject props with the same name and silently collide, and a component tree wrapped in three or four HOCs was legitimately hard to read in React DevTools, since every one of them added a layer that had nothing to do with what was actually on screen. Render props avoided the naming collisions but nested visually in the JSX even though nothing about them was rendering nested DOM.
+    Before hooks, sharing stateful logic across components meant one of two things. A higher-order component, a function that took a component and returned a new one with extra props injected, or a render prop, a component whose child was a function it called with some data. Both worked, and both had real costs. Two HOCs wrapping the same component could inject props with the same name and silently collide. A component tree wrapped in three or four HOCs was legitimately hard to read in React DevTools, since every one of them added a layer that had nothing to do with what was on screen. Render props avoided the naming collisions but nested visually in the JSX even though nothing about them was rendering nested DOM.
   </p>
 
   <p>
@@ -458,7 +458,7 @@
   <p class="lede">A single large context re-renders every consumer on every change. Splitting it is the fix that costs almost nothing.</p>
 
   <p>
-    React re-renders every component subscribed to a context whenever that context's value changes, whether or not the component actually reads the part that changed. A common mistake is one large context holding both frequently changing state and the dispatch function used to update it. Every component that only wants to dispatch an action, and never reads the state itself, still re-renders on every update, because it's subscribed to the same context object as everything else.
+    React re-renders every component subscribed to a context whenever that context's value changes, whether or not the component reads the part that changed. A common mistake is one large context holding both frequently changing state and the dispatch function used to update it. Every component that only wants to dispatch an action, and never reads the state itself, still re-renders on every update, because it's subscribed to the same context object as everything else.
   </p>
 
   <p>
