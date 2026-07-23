@@ -53,16 +53,17 @@
   <p class="subtitle">How commits become releases, why continuous delivery and continuous deployment aren't the same thing, and the deployment strategies that limit the blast radius of a bad one.</p>
   <div class="byline">
     <strong>Deep dive</strong>
+    <div class="dot"></div><span>Andreas Ögren</span>
     <div class="dot"></div><span>~14 min read</span>
     <div class="dot"></div><span>Delivery pipelines &amp; deployment</span>
-    <div class="dot"></div><span>July 2026</span>
+    <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <section id="intro">
   <p>"DevOps," "CI/CD," and "the pipeline" get used almost interchangeably in most conversations, which makes it easy to lose track of which one is actually being discussed. They aren't the same thing. One is an organizational practice. The other two are the technical machinery that makes that practice possible at any scale beyond a handful of manual deploys.</p>
 
-  <p>This article works through that distinction first, then builds up the mechanics on top of it: what continuous integration actually automates, why continuous delivery and continuous deployment get conflated despite meaning different things, what a pipeline's stages do in the order they run, and how a change actually reaches production once it clears them. It closes with the deployment models, GitOps included, that determine what happens after a pipeline decides a change is ready to go out.</p>
+  <p>This article works through that distinction first, then builds up the mechanics on top of it. It covers what continuous integration actually automates, and why continuous delivery and continuous deployment get conflated despite meaning different things. It then turns to what a pipeline's stages do in the order they run, and how a change actually reaches production once it clears them. It closes with the deployment models, GitOps included, that determine what happens after a pipeline decides a change is ready to go out.</p>
   </section>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -107,7 +108,7 @@
   <h2 id="pipeline-anatomy">Anatomy of a Pipeline</h2>
   <p class="lede">A pipeline is a sequence, and the order of its stages is not arbitrary: each one is a gate the next stage shouldn't run without.</p>
 
-  <p>A commit or a merge into the shared branch triggers the sequence. <strong>Build</strong> compiles or packages the change into a single deployable artifact, a compiled binary, a bundled application, or a container image built and tagged from a Dockerfile, the specifics covered in <a href="containers-orchestration.html#images">Containers and Orchestration</a> when that artifact is a container image. <strong>Automated tests</strong> run next, acting as a gate the change can't pass without: unit tests check individual pieces in isolation, integration tests check that pieces work together, and end-to-end tests check the whole system the way a user would encounter it. Exactly how much of each type a team should write, and where the balance shifts for a given architecture, is discussed in <a href="testing-strategy.html">Testing Strategy</a>. What matters here is only that these tests are what the pipeline checks before letting a change go any further.</p>
+  <p>A commit or a merge into the shared branch triggers the sequence. <strong>Build</strong> compiles or packages the change into a single deployable artifact, a compiled binary, a bundled application, or a container image built and tagged from a Dockerfile, the specifics covered in <a href="containers-orchestration.html#images">Containers and Orchestration</a> when that artifact is a container image. <strong>Automated tests</strong> run next, acting as a gate the change can't pass without. Unit tests check individual pieces in isolation, and integration tests check that pieces work together. End-to-end tests check the whole system the way a user would encounter it. Exactly how much of each type a team should write, and where the balance shifts for a given architecture, is discussed in <a href="testing-strategy.html">Testing Strategy</a>. What matters here is only that these tests are what the pipeline checks before letting a change go any further.</p>
 
   <p>After tests pass, <strong>static analysis and linting</strong> catch style and correctness issues that a test wouldn't, and a <strong>security scan</strong> checks the artifact and its dependencies for known vulnerabilities, the kind of supply-chain check covered in more depth in <a href="web-security-principles.html#supply-chain">Web Security Principles</a>. Once an artifact clears every gate, it's <strong>published</strong> to a registry, a container registry or a package repository, where it becomes the fixed, versioned thing every later stage refers to by tag or digest rather than rebuilding from source again.</p>
 

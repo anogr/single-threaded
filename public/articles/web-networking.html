@@ -48,14 +48,15 @@
   <p class="subtitle">The infrastructure between a browser and the backend, and what each layer means for security and scalability.</p>
   <div class="byline">
     <strong>Conceptual overview</strong>
+    <div class="dot"></div><span>Andreas Ögren</span>
     <div class="dot"></div><span>~14 min read</span>
     <div class="dot"></div><span>Architecture</span>
-    <div class="dot"></div><span>June 2026</span>
+    <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <section id="intro">
-  <p class="lede">Web applications face three problems at once: the internet is hostile, user demand is unpredictable, and a single server has finite capacity. The infrastructure between a browser and application code exists to address all three.</p>
+  <p class="lede">Web applications face three problems at once. The internet is hostile, user demand is unpredictable, and a single server has finite capacity. The infrastructure between a browser and application code exists to address all three.</p>
 
   <p>Traffic from the public internet can come from anyone, so requests need to be filtered for threats before reaching application code, data needs to be encrypted in transit, and services inside the private network need to verify each other's identity rather than assume internal traffic is safe. Demand is a separate problem: load needs to be spread across multiple instances to absorb spikes, and content should be served from locations close to users to keep latency low. Routing is the third concern, directing each request to the right backend and centralizing access control rather than rebuilding it in every service.</p>
 
@@ -250,7 +251,7 @@
   <h2 id="reverse-proxy">Reverse Proxy</h2>
   <p>The name makes more sense once a forward proxy is defined. A forward proxy works on behalf of the client: a corporate proxy or VPN sits in front of the user, makes outbound requests on their behalf, and the destination server sees the proxy's address rather than the original client's. A reverse proxy is the mirror image. It works on behalf of the server. Clients connect to the proxy's address, and the actual backend servers are not directly reachable from outside.</p>
 
-  <p>A reverse proxy sits in front of one or more backends, accepting connections on their behalf and forwarding each request to the right backend. The value of this arrangement is that cross-cutting concerns can be handled at the proxy rather than repeated in every backend: TLS can be terminated there, responses can be cached and compressed, headers can be rewritten, and requests can be routed to entirely different applications based on the URL path. That last point becomes concrete with an example: a single domain can send <code>/login</code> to an authentication service and <code>/my-account</code> to a profile service, with the proxy directing each request to the right backend. The client sees one address. The proxy decides what runs behind it. These things can also be done within application code, but a reverse proxy centralizes them for all backends without changing the applications themselves.</p>
+  <p>A reverse proxy sits in front of one or more backends, accepting connections on their behalf and forwarding each request to the right backend. The value of this arrangement is that cross-cutting concerns can be handled at the proxy rather than repeated in every backend. TLS can be terminated there, and responses can be cached and compressed. Headers can be rewritten, and requests can be routed to entirely different applications based on the URL path. That last point becomes concrete with an example: a single domain can send <code>/login</code> to an authentication service and <code>/my-account</code> to a profile service, with the proxy directing each request to the right backend. The client sees one address. The proxy decides what runs behind it. These things can also be done within application code, but a reverse proxy centralizes them for all backends without changing the applications themselves.</p>
 
   <p>Nginx and Caddy are the most common standalone reverse proxies, but in practice these components overlap considerably. An AWS Application Load Balancer is simultaneously a load balancer and a reverse proxy. An Nginx instance can act as reverse proxy, load balancer, and static file server at once. These distinctions are conceptual: they describe a primary job and what a component needs to see to do it. When evaluating a product, the useful question is which of these jobs it covers and how well.</p>
 

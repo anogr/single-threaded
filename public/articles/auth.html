@@ -78,12 +78,13 @@
   <p class="subtitle">How a login turns into a credential that's verified on every subsequent request, using sessions, JWTs, passkeys, and API keys.</p>
   <div class="byline">
     <strong>Deep dive</strong>
+    <div class="dot"></div><span>Andreas Ögren</span>
     <div class="dot"></div><span>~14 min read</span>
     <div class="dot"></div><span>Authentication</span>
-    <div class="dot"></div><span>June 2026</span>
+    <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
-  <p class="wide" style="max-width:700px;">Every login form, JWT, passkey prompt, and API key eventually resolves to the same handful of mechanisms. A session gets created and stored somewhere, a token gets issued and later verified, a credential gets checked against something the server already knows. This article works through those mechanisms directly: how sessions and tokens differ, what a JWT contains and why it can be verified without a database lookup, where each credential should be stored, how passkeys replace passwords with public-key cryptography, and where API keys still fit for machine-to-machine access.</p>
+  <p class="wide" style="max-width:700px;">Every login form, JWT, passkey prompt, and API key eventually resolves to the same handful of mechanisms. A session gets created and stored somewhere, a token gets issued and later verified, a credential gets checked against something the server already knows. This article works through each of those mechanisms. It explains how sessions and tokens differ, what a JWT contains, and why it can be verified without a database lookup. It also covers where each credential should be stored, how passkeys replace passwords with public-key cryptography, and where API keys still fit for machine-to-machine access.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="authn-authz">Authentication vs Authorization</h2>
@@ -123,6 +124,11 @@
   <p>The browser adds a second problem. The credential prompt is a native dialog the browser raises on its own whenever a response carries a Basic Auth challenge, separate from the page. It can't be styled to match the application, and there is no clean way to log out short of closing the browser, which caches the credential for the rest of the session.</p>
 
   <p>Basic Auth still earns its place away from the browser, in settings such as internal tools behind a VPN, service-to-service calls on a private network, and simple webhook or CI callbacks. None of these go through a browser prompt, so the operational simplicity outweighs the downsides.</p>
+
+  <div class="callout warn">
+    <div class="callout-title">The userinfo URL syntax</div>
+    <p>The URI standard defines a <strong>userinfo</strong> component for embedding credentials directly in a URL, in the form <code>https://username:password@host/path</code>. A client that recognizes this syntax extracts the username and password and turns them into a Basic Authentication header. <code>https://alice:s3cr3t@example.com/private/</code> produces the same header shown above, without the browser showing a login prompt first. Credentials in the URL are a URI feature, not a separate HTTP authentication mechanism. The browser is building the same Basic Auth header from a different source. Most browsers now strip or reject userinfo credentials rather than honoring them automatically, because a password sitting in the URL ends up in browser history, server access logs, and any <code>Referer</code> header sent to another site.</p>
+  </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="sessions-tokens">Sessions and Tokens</h2>

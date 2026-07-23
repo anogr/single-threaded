@@ -59,9 +59,10 @@
   <p class="subtitle">How web applications fail, and a framework for thinking about threats before they become incidents.</p>
   <div class="byline">
     <strong>Deep dive</strong>
+    <div class="dot"></div><span>Andreas Ögren</span>
     <div class="dot"></div><span>~18 min read</span>
     <div class="dot"></div><span>Security fundamentals</span>
-    <div class="dot"></div><span>July 2026</span>
+    <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -72,7 +73,7 @@
 
   <p>Security is also not a feature that can be added after the fact. A login system built without thinking about brute force, session fixation, or credential stuffing will require significant rework to harden. The most effective place to apply security thinking is during design, before the code is written.</p>
 
-  <p>This article covers the conceptual foundation: how web applications commonly fail, the principles that reduce that risk, and a habit of thinking about threats proactively. The section below on how applications fail is structured around the <strong>OWASP Top 10</strong>, the industry's reference list of the most critical web application security risks, current as of its 2025 revision. OWASP revises the list periodically as attack patterns shift, and its categories are the vocabulary most security discussions, audits, and tooling use. Knowing them is enough to follow that conversation, without reading the source document itself. The articles on <a href="browser-security.html">browser security</a> and <a href="auth.html">authentication fundamentals</a> build on this foundation with specific mechanisms and defenses.</p>
+  <p>This article covers the conceptual foundation. It looks at how web applications commonly fail and the principles that reduce that risk, and it builds a habit of thinking about threats proactively. The section below on how applications fail is structured around the <strong>OWASP Top 10</strong>, the industry's reference list of the most critical web application security risks, current as of its 2025 revision. OWASP revises the list periodically as attack patterns shift, and its categories are the vocabulary most security discussions, audits, and tooling use. Knowing them is enough to follow that conversation, without reading the source document itself. The articles on <a href="browser-security.html">browser security</a> and <a href="auth.html">authentication fundamentals</a> build on this foundation with specific mechanisms and defenses.</p>
   </section>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -140,7 +141,7 @@
 
   <p>The broader and more consequential concern is the supply chain itself being tampered with, rather than merely containing an old vulnerability. In the 2019/2020 SolarWinds breach, attackers compromised the build system of a network monitoring vendor and inserted malicious code into a routine software update, which was then installed by roughly 18,000 organizations, several of them government agencies. Nobody downloaded anything unusual. The trusted update mechanism was the attack. More recently, a self-propagating worm nicknamed Shai-Hulud spread through the npm registry by publishing malicious versions of popular packages that harvested credentials from developer machines and used them to automatically publish more infected packages in turn, reaching hundreds of package versions before it was stopped. Attacks like these target developer tooling and build infrastructure directly, on the assumption that compromising one link poisons everyone downstream of it.</p>
 
-  <p>Defending against this requires visibility into what's running, not just what's listed in a <code>package.json</code> or <code>requirements.txt</code>. A <strong>software bill of materials</strong> (SBOM) is an inventory of every component, direct and transitive, that makes up a piece of software, similar in spirit to a food label listing ingredients. Combined with software composition analysis tools (Dependabot, Snyk, OWASP Dependency-Track) that continuously check that inventory against newly disclosed vulnerabilities, an SBOM turns "are we exposed to this" from a guess into a query. Beyond dependency scanning, hardening the build pipeline itself matters just as much: requiring review before code merges, signing build artifacts so a tampered package can be detected, scoping CI/CD credentials narrowly, and not letting a single person push a change all the way to production without another person in the loop.</p>
+  <p>Defending against this requires visibility into what's running, not just what's listed in a <code>package.json</code> or <code>requirements.txt</code>. A <strong>software bill of materials</strong> (SBOM) is an inventory of every component, direct and transitive, that makes up a piece of software, similar in spirit to a food label listing ingredients. Combined with software composition analysis tools (Dependabot, Snyk, OWASP Dependency-Track) that continuously check that inventory against newly disclosed vulnerabilities, an SBOM turns "are we exposed to this" from a guess into a query. Beyond dependency scanning, hardening the build pipeline itself matters just as much. That means requiring review before code merges, and signing build artifacts so a tampered package can be detected. It also means scoping CI/CD credentials narrowly, and not letting a single person push a change all the way to production without another person in the loop.</p>
 
   <p>The same threat has a narrower, browser-specific form: a third-party script loaded at runtime from a CDN, where a compromise of that CDN runs attacker code directly in the user's page. The <a href="browser-security.html#sri">supply chain attacks</a> section of the browser security article covers that case and Subresource Integrity, the browser-level defense against it.</p>
 
