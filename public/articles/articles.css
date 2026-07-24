@@ -2,13 +2,14 @@
 @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;0,6..72,700;1,6..72,300;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 /* ── Design tokens ────────────────────────────────────────── */
-/* Warm near-black, ivory text. One brand accent (amber). Three
-   muted semantic colours (do / warn / don't) — warn intentionally
-   shares the accent hue. A couple of muted neutrals (clay, slate,
-   sand) exist only for non-semantic variety: index cards, method
-   pills, syntax highlighting. Nothing here is meant to read as a
-   rainbow — nine tenths of the page should be bg, text and one
-   accent, with colour reserved for when it actually says something. */
+/* Warm near-black, ivory text. One brand accent (amber). Four muted
+   semantic colours (info / do / warn / don't): info is a cool slate
+   so it stays distinct from the amber warn, and warn intentionally
+   shares the accent hue. Clay and sand neutrals exist for non-semantic
+   variety: index cards, method pills, syntax highlighting. Nothing
+   here is meant to read as a rainbow — nine tenths of the page should
+   be bg, text and one accent, with colour reserved for when it
+   actually says something. */
 :root {
   /* Backgrounds */
   --bg:          #15130f;
@@ -25,22 +26,24 @@
   --text-dim:    #d2c5ab;
   --text-faint:  #ab9e88;
 
-  /* Accent — amber (brand + info + warning) */
+  /* Accent — amber (brand + warning) */
   --accent:      #e2963c;
   --accent-wash: color-mix(in srgb, var(--accent) 8%, transparent);
   --accent2:     #b98a63;
 
-  /* Semantic colours: do / warn / don't */
-  --green:       #7a9b6e;
-  --green-wash:  color-mix(in srgb, var(--green) 8%, transparent);
-  --orange:      #c98a3f;
-  --orange-wash: color-mix(in srgb, var(--orange) 8%, transparent);
-  --red:         #a8594a;
-  --red-wash:    color-mix(in srgb, var(--red) 8%, transparent);
+  /* Semantic colours: info / do / warn / don't. Info is the cool
+     slate so it reads as distinct from the amber warn; warn shares
+     the accent hue intentionally. */
   --teal:        #7d93a8;
   --teal-wash:   color-mix(in srgb, var(--teal) 8%, transparent);
+  --green:       #7a9b6e;
+  --green-wash:  color-mix(in srgb, var(--green) 8%, transparent);
+  --orange:      #d9822a;
+  --orange-wash: color-mix(in srgb, var(--orange) 13%, transparent);
+  --red:         #a8594a;
+  --red-wash:    color-mix(in srgb, var(--red) 8%, transparent);
 
-  /* Gold — kept for decorative use */
+  /* Gold — decorative, plus the "new" callout */
   --gold:        #c9a24f;
   --gold-wash:   color-mix(in srgb, var(--gold) 8%, transparent);
 
@@ -475,6 +478,7 @@ pre code {
   font-size: 14px;
   line-height: 1.65;
   border: 1px solid;
+  border-left-width: 4px;
   max-width: var(--content-w);
 }
 .callout-title,
@@ -488,17 +492,17 @@ pre code {
 }
 .callout p { margin: 0; max-width: none; font-size: inherit; }
 
-.callout.info   { background: var(--accent-wash);  border-color: color-mix(in srgb, var(--accent) 30%, transparent);  color: var(--text-body); }
-.callout.info   .callout-title { color: var(--accent); }
-.callout.ok     { background: var(--green-wash);   border-color: color-mix(in srgb, var(--green) 30%, transparent);   color: var(--text-body); }
+.callout.info   { background: var(--teal-wash);    border-color: color-mix(in srgb, var(--teal) 30%, transparent);    border-left-color: var(--teal);   color: var(--text-body); }
+.callout.info   .callout-title { color: var(--teal); }
+.callout.ok     { background: var(--green-wash);   border-color: color-mix(in srgb, var(--green) 30%, transparent);   border-left-color: var(--green);  color: var(--text-body); }
 .callout.ok     .callout-title { color: var(--green); }
-.callout.warn   { background: var(--orange-wash);  border-color: color-mix(in srgb, var(--orange) 30%, transparent);  color: var(--text-body); }
+.callout.warn   { background: var(--orange-wash);  border-color: color-mix(in srgb, var(--orange) 40%, transparent);  border-left-color: var(--orange); color: var(--text-body); }
 .callout.warn   .callout-title { color: var(--orange); }
-.callout.danger { background: var(--red-wash);     border-color: color-mix(in srgb, var(--red) 30%, transparent);     color: var(--text-body); }
+.callout.danger { background: var(--red-wash);     border-color: color-mix(in srgb, var(--red) 30%, transparent);     border-left-color: var(--red);    color: var(--text-body); }
 .callout.danger .callout-title { color: var(--red); }
-.callout.new    { background: var(--teal-wash);    border-color: color-mix(in srgb, var(--teal) 30%, transparent);    color: var(--text-body); }
-.callout.new    .callout-title { color: var(--teal); }
-.callout.gold   { background: var(--gold-wash);    border-color: color-mix(in srgb, var(--gold) 30%, transparent);    color: var(--text-body); }
+.callout.new    { background: var(--gold-wash);    border-color: color-mix(in srgb, var(--gold) 30%, transparent);    border-left-color: var(--gold);   color: var(--text-body); }
+.callout.new    .callout-title { color: var(--gold); }
+.callout.gold   { background: var(--gold-wash);    border-color: color-mix(in srgb, var(--gold) 30%, transparent);    border-left-color: var(--gold);   color: var(--text-body); }
 .callout.gold   .callout-title { color: var(--gold); }
 
 /* Left-border style variant */
@@ -509,9 +513,11 @@ pre code {
   border-radius: 0 6px 6px 0;
   padding-left: 20px;
 }
+.callout.aside.info   { border-left-color: var(--teal); }
 .callout.aside.warn   { border-left-color: var(--orange); }
 .callout.aside.danger { border-left-color: var(--red); }
 .callout.aside.ok     { border-left-color: var(--green); }
+.callout.aside.new    { border-left-color: var(--gold); }
 .callout.aside.gold   { border-left-color: var(--gold); }
 
 /* ── Badges ───────────────────────────────────────────────── */
