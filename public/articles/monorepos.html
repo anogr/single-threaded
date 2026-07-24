@@ -88,10 +88,8 @@
   <h1>Monorepos</h1>
   <p class="subtitle">How teams decide between one repository and many, and the workspace, caching, and orchestration layers that keep a large one fast.</p>
   <div class="byline">
-    <strong>Deep dive</strong>
-    <div class="dot"></div><span>Andreas Ögren</span>
+    <span>Andreas Ögren</span>
     <div class="dot"></div><span>~24 min read</span>
-    <div class="dot"></div><span>Repository architecture</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
@@ -110,7 +108,7 @@
        ORGANIZATION VS BUILD INFRASTRUCTURE
   ════════════════════════════════════════════════════ -->
   <h2 id="layers">Repository Organization vs. Build Infrastructure</h2>
-  <p class="lede">A monorepo is where code lives. An orchestrator, a build system, and a package manager are separate decisions about how that code gets built, and conflating the two is the most common confusion in this space.</p>
+  <p class="lede">A monorepo is where code lives. An orchestrator, a build system, and a package manager are separate decisions about how that code gets built.</p>
 
   <p>Repository organization answers one question: does code for multiple projects live in a single repository, or is it spread across many. That's the whole decision. Nothing about workspaces, caching, or build graphs is implied by it. A team can put every project in one Git repository and still build each one exactly as it would if the projects lived apart. Each package runs its own independent install step and its own independent test command, knowing nothing about its neighbors. That's a monorepo in name only, and it's a real, if uncomfortable, starting point for a lot of organizations.</p>
 
@@ -274,7 +272,13 @@
 
   <p>The build graph from the previous section answers what order things run in. It doesn't answer whether they need to run at all. The idea that makes a large monorepo fast rather than merely organized is <strong>incremental computation</strong>. If a package's inputs, meaning its source files and the packages it depends on, haven't changed since the last time it was built, there's no reason to rebuild or retest it. The output from last time is still correct.</p>
 
-  <p>Making that safe requires a few pieces working together. <strong>Task hashing</strong> computes a fingerprint from a package's source files, its dependencies' outputs, and its build configuration, then uses that fingerprint as a cache key. <strong>Content-addressable caching</strong> stores build outputs keyed by that same fingerprint, whether on a developer's own machine or in a shared remote cache the whole team and every CI run can read from. <strong>Affected-project analysis</strong> walks the dependency graph backward from whatever files a commit actually touched, to work out exactly which packages could possibly be affected. Change one file inside <code>core</code>, and everything downstream of it needs checking. Change one file inside a leaf package nothing else depends on, and the rest of the graph, however large, can be skipped entirely.</p>
+  <p>Making that safe requires a few pieces working together:</p>
+  <ul>
+    <li><strong>Task hashing</strong> computes a fingerprint from a package's source files, its dependencies' outputs, and its build configuration, then uses that fingerprint as a cache key.</li>
+    <li><strong>Content-addressable caching</strong> stores build outputs keyed by that same fingerprint, whether on a developer's own machine or in a shared remote cache the whole team and every CI run can read from.</li>
+    <li><strong>Affected-project analysis</strong> walks the dependency graph backward from whatever files a commit actually touched, to work out exactly which packages could possibly be affected.</li>
+  </ul>
+  <p>Change one file inside <code>core</code>, and everything downstream of it needs checking. Change one file inside a leaf package nothing else depends on, and the rest of the graph, however large, can be skipped entirely.</p>
 
   <div class="figure-wrap">
     <svg viewBox="0 0 700 350" role="img" aria-label="Diagram showing an affected build after a single package changes. Five package boxes are arranged as before, app-web and app-mobile at the top, ui and api-client in the middle, core at the bottom. The api-client box is marked changed and highlighted strongly. App-web and app-mobile are marked rebuilds and highlighted, because both depend on api-client. The ui and core boxes are marked cache hit and shown faded with dashed borders, because neither depends on api-client and neither needs to rebuild." xmlns="http://www.w3.org/2000/svg">

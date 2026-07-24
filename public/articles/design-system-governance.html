@@ -67,10 +67,8 @@
   <h1>Design System Governance</h1>
   <p class="subtitle">How a shared component library stays consistent once tokens, releases, and contribution rules have to hold across many teams instead of one.</p>
   <div class="byline">
-    <strong>Field guide</strong>
-    <div class="dot"></div><span>Andreas Ögren</span>
+    <span>Andreas Ögren</span>
     <div class="dot"></div><span>~11 min read</span>
-    <div class="dot"></div><span>Component library governance</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
@@ -95,7 +93,13 @@
 
   <p>What a design token is and how it comes out of a design file is covered in <a href="ux-principles.html#tokens">UX Principles</a> and <a href="implementing-figma-designs.html#tokens">Implementing Figma Designs</a>. What matters for governance is what happens after the token exists: it only earns its name once it's defined in exactly one place, with every consumer reading that name instead of the literal value underneath it.</p>
 
-  <p>Many token systems settle into three tiers. A <strong>global token</strong> holds a raw value, one step of a color scale or spacing scale, with no opinion about where it gets used. An <strong>alias token</strong> gives a subset of those values a purpose, such as <code>color.primary</code> pointing at whichever global color the brand currently treats as primary. A <strong>component token</strong> goes one level narrower still, such as <code>button.background.primary</code> pointing at the alias above it. A rebrand that changes the primary color only edits the one global value at the root of that chain. Every alias and component token downstream updates on its own, instead of a maintainer hunting down every place that color was ever referenced directly.</p>
+  <p>Many token systems settle into three tiers:</p>
+  <ol>
+    <li>A <strong>global token</strong> holds a raw value, one step of a color scale or spacing scale, with no opinion about where it gets used.</li>
+    <li>An <strong>alias token</strong> gives a subset of those values a purpose, such as <code>color.primary</code> pointing at whichever global color the brand currently treats as primary.</li>
+    <li>A <strong>component token</strong> goes one level narrower still, such as <code>button.background.primary</code> pointing at the alias above it.</li>
+  </ol>
+  <p>A rebrand that changes the primary color only edits the one global value at the root of that chain. Every alias and component token downstream updates on its own, instead of a maintainer hunting down every place that color was ever referenced directly.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -187,7 +191,7 @@
     </table>
   </div>
 
-  <p>The first four rows are the ones worth sitting with. A padding token moving a few pixels doesn't touch a button's TypeScript props, but it makes the button taller, and a consumer that sized a container to fit the old height now clips it. A focus ring one pixel wider can start overlapping an adjacent element that was never designed with that width in mind. None of these show up in a diff of the component's public API, which is exactly why a review focused only on types misses them.</p>
+  <p>The first four rows matter most. A padding token moving a few pixels doesn't touch a button's TypeScript props, but it makes the button taller, and a consumer that sized a container to fit the old height now clips it. A focus ring one pixel wider can start overlapping an adjacent element that was never designed with that width in mind. None of these show up in a diff of the component's public API, which is exactly why a review focused only on types misses them.</p>
 
   <p>The practical response is to size a release by its blast radius, not by whether a type signature changed. Different organizations draw that line differently, and both are defensible: some treat any layout-affecting change as a major release on principle, while others reserve that classification for changes wide enough to break more than a handful of consumers. Which convention a team picks matters less than writing it down, so a release doesn't get classified by whoever happens to be merging that week. A changelog tool such as Changesets, common in library monorepos, forces every contributor to record what changed and how severe it is before merging, rather than trusting a git log to explain itself later. Before removing an old prop or renaming a token, give consumers a deprecation window and a codemod, a script that mechanically rewrites the old usage to the new one across every consuming repository. Asking forty teams to hand-edit an import is a reliable way to stall a migration for a year.</p>
 
@@ -287,7 +291,7 @@
 
   <p>Each of these is worth reading as feedback before it's read as a violation. A team that forked a button because the shared version couldn't handle an icon-only variant is describing a real gap in the library, not simply breaking a rule. Treating every instance as something to police rather than something to ask about tends to push the next gap further underground instead of surfacing it as a proposal.</p>
 
-  <p>The signals worth tracking stay simple: what fraction of a team's components actually import from the shared library rather than a local equivalent, how many duplicate or forked components turn up in a periodic audit, and how long a new team takes to become productive with the library instead of quietly building their own version of it. None of those numbers matter as a target to hit. They matter as an early warning that the process in the previous section isn't fitting the teams it's meant to serve.</p>
+  <p>Three simple signals track this: what fraction of a team's components actually import from the shared library rather than a local equivalent, how many duplicate or forked components turn up in a periodic audit, and how long a new team takes to become productive with the library instead of quietly building their own version of it. None of those numbers matter as a target to hit. They matter as an early warning that the process in the previous section isn't fitting the teams it's meant to serve.</p>
 
   <!-- ═══════════════════════════════════════════════════
        DISTRIBUTION

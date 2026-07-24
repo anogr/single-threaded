@@ -152,10 +152,8 @@
   <h1>OAuth &amp; OIDC</h1>
   <p class="subtitle">How OAuth's delegation model and OpenID Connect's identity layer fit together, and the architecture patterns that keep tokens out of the browser.</p>
   <div class="byline">
-    <strong>A field guide</strong>
-    <div class="dot"></div><span>Andreas Ögren</span>
+    <span>Andreas Ögren</span>
     <div class="dot"></div><span>~39 min read</span>
-    <div class="dot"></div><span>Authentication &amp; authorization flows</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
@@ -587,7 +585,7 @@
   <h2 id="bff-architecture">A Common BFF Architecture</h2>
   <p class="lede">A secure pattern that ties together the session cookie, a server-side token store, and the API layer behind it.</p>
 
-  <p>Use a Backend for Frontend (BFF) where a server component handles the OAuth flow and stores tokens server-side. The browser only gets a session cookie. Tokens never touch the browser's storage, so the entire <a href="browser-security.html#xss">XSS</a> token theft surface disappears. This is the strongly recommended architecture for any app that can support a server component.</p>
+  <p>A <a href="web-networking.html#bff">Backend for Frontend</a> (BFF) is a server layer shaped around one specific frontend's needs. Applied to authentication, that shape is a server component that handles the OAuth flow and stores tokens server-side, so the browser only ever gets a session cookie. Tokens never touch the browser's storage, so the entire <a href="browser-security.html#xss">XSS</a> token theft surface disappears. This is the strongly recommended architecture for any app that can support a server component.</p>
 
   <p>A common BFF architecture starts with the browser that holds a single opaque session identifier in an HttpOnly, Secure cookie. It carries no claims of its own and is only a lookup key. The BFF, a server-side process the frontend talks to instead of the authorization server or the resource APIs directly, keeps a fast key-value store, typically Redis, mapping that session identifier to the access token, refresh token, and ID token issued for that session. Redis fits well here because it is shared across every BFF instance behind a <a href="web-networking.html#load-balancing">load balancer</a>, and its per-key expiry lines up naturally with token lifetimes.</p>
 

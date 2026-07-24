@@ -33,6 +33,7 @@
   <a href="#firewall">Firewall</a>
   <a href="#reverse-proxy">Reverse Proxy</a>
   <a href="#api-gateway">API Gateway</a>
+  <a href="#bff">Backend for Frontend</a>
   <a href="#zones">Network Zones</a>
 
   <div class="sidebar-section">Patterns</div>
@@ -47,10 +48,8 @@
   <h1>Web Application Networking</h1>
   <p class="subtitle">The infrastructure between a browser and the backend, and what each layer means for security and scalability.</p>
   <div class="byline">
-    <strong>Conceptual overview</strong>
-    <div class="dot"></div><span>Andreas Ögren</span>
-    <div class="dot"></div><span>~14 min read</span>
-    <div class="dot"></div><span>Architecture</span>
+    <span>Andreas Ögren</span>
+    <div class="dot"></div><span>~15 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
@@ -268,6 +267,16 @@
   <p>It can also transform requests and responses, translating between protocols, rewriting headers, or converting payload formats so that backend services and clients can evolve independently. Where a general-purpose reverse proxy is neutral about what flows through it, an API gateway is opinionated about API traffic specifically.</p>
 
   <p>The practical benefit is that these concerns are handled once at the gateway rather than duplicated across every service. Individual services receive already-authenticated requests and can focus on domain logic. For external developers, the gateway is typically the visible face of the API: the endpoint they connect to, where access is granted and usage is tracked.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="bff">Backend for Frontend (BFF)</h2>
+  <p>An API gateway applies one set of policies uniformly to every consumer that calls it. A Backend for Frontend (BFF) takes the opposite approach. It is a server layer built for one specific frontend, shaped around that frontend's data needs rather than around a generic API contract.</p>
+
+  <p>A BFF sits between a single client application and the backend services it depends on. Instead of the client making several calls and assembling the result itself, the BFF aggregates those calls on the server and returns one response already shaped for that screen. It can drop fields the client never uses, rename fields to match how the frontend already models its data, and fold together several backend responses into a single round trip. A product's web frontend and its mobile app often get a BFF each, because the mobile client typically wants a leaner payload over a slower network, while the web app can afford a fuller response.</p>
+
+  <p>The tradeoff is more infrastructure to run. Each dedicated BFF is another deployable, with its own release cadence and its own team boundary to keep straight. A BFF earns its place when a client's data-shaping needs genuinely diverge from what a shared API already returns, not by default for every frontend a product ships.</p>
+
+  <p>A BFF sits closer to the client than the gateway does. Client applications talk to their BFF, not the gateway, and the BFF is what calls through the gateway to reach backend services. That keeps the gateway's cross-cutting policies in force for BFF traffic too. <a href="oauth-oidc.html#bff-architecture">Keeping authentication tokens off the browser</a> is one common reason to build a BFF this way. Using the BFF pattern to keep the real tokens server-side, the client then holds only an opaque session cookie.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="zones">Network Zones</h2>

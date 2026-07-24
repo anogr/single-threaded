@@ -67,10 +67,8 @@
   <h1>CSS at Scale</h1>
   <p class="subtitle">How teams keep CSS maintainable as codebases, component counts, and contributor lists grow.</p>
   <div class="byline">
-    <strong>Deep dive</strong>
-    <div class="dot"></div><span>Andreas Ögren</span>
+    <span>Andreas Ögren</span>
     <div class="dot"></div><span>~24 min read</span>
-    <div class="dot"></div><span>CSS architecture</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
@@ -222,7 +220,7 @@
 
   <p>That flatness is the entire mechanism. Because every BEM selector has identical, minimal specificity, two rules can only conflict based on source order, never on an escalating specificity score, which is what actually ends the specificity wars from the previous section. BEM does nothing for namespace collisions on its own, <code>.card</code> and <code>.card</code> can still collide if two teams pick the same block name, and it does nothing for dead CSS or theming. It's a naming discipline, not an isolation mechanism.</p>
 
-  <p>SMACSS and OOCSS, both from the early 2010s, layer additional rules on top of a BEM-like naming approach: OOCSS separates structure from skin so a button's layout and its colour can be reused independently, SMACSS categorizes rules into base, layout, module, state, and theme buckets to keep authors from mixing concerns in one file. Neither sees much greenfield adoption today, but ITCSS, Inverted Triangle CSS, is worth a specific mention. It orders a stylesheet from generic, low-specificity rules, resets, element defaults, down to specific, high-specificity rules, utilities, overrides, so that source order and specificity increase together instead of fighting each other. That's precisely the ordering problem cascade layers now solve natively, which is why ITCSS reads less like a dated methodology today and more like a preview of <code>@layer</code>.</p>
+  <p>SMACSS and OOCSS, both from the early 2010s, layer additional rules on top of a BEM-like naming approach: OOCSS separates structure from skin so a button's layout and its colour can be reused independently, SMACSS categorizes rules into base, layout, module, state, and theme buckets to keep authors from mixing concerns in one file. Neither sees much greenfield adoption today, but ITCSS, Inverted Triangle CSS, stands out from the other two. It orders a stylesheet from generic, low-specificity rules, resets, element defaults, down to specific, high-specificity rules, utilities, overrides, so that source order and specificity increase together instead of fighting each other. That's precisely the ordering problem cascade layers now solve natively, which is why ITCSS reads less like a dated methodology today and more like a preview of <code>@layer</code>.</p>
 
   <div class="table-wrap">
     <table>
@@ -512,7 +510,7 @@
 
   <p>Second, co-location versus global stylesheets stopped being a binary decision. Early framework opinions pushed hard toward one extreme or the other, one global stylesheet for the whole app, or one scoped stylesheet per component with nothing shared. In practice, most codebases today land somewhere in between: global cascade layers for resets, tokens, and typography, with co-located, scoped styles, CSS Modules, <code>@scope</code>, or a zero-runtime CSS-in-JS library, for anything component-specific. The two aren't competitors, they're different layers of the same stylesheet doing different jobs.</p>
 
-  <p>Third, tooling underneath CSS authoring changed more than the authoring syntax did. Lightning CSS, originally built for Parcel, ships with Vite by default for one specific job, minifying the final CSS output, and Tailwind v4's own Oxide engine uses it internally for the same reason. Replacing PostCSS entirely for the rest of the pipeline, nesting, autoprefixing, custom media queries, is still an opt-in setting in Vite rather than the default, so most projects are running a mix of the two without necessarily knowing it. That's still worth calling out, because it inverts a pattern from a few years earlier, when picking a CSS approach also meant picking a build tool. Today, the build tool underneath a given authoring syntax is more often a replaceable implementation detail than a permanent commitment.</p>
+  <p>Third, tooling underneath CSS authoring changed more than the authoring syntax did. Lightning CSS, originally built for Parcel, ships with Vite by default for one specific job, minifying the final CSS output, and Tailwind v4's own Oxide engine uses it internally for the same reason. Replacing PostCSS entirely for the rest of the pipeline, nesting, autoprefixing, custom media queries, is still an opt-in setting in Vite rather than the default, so most projects are running a mix of the two without necessarily knowing it. That inverts a pattern from a few years earlier, when picking a CSS approach also meant picking a build tool. Today, the build tool underneath a given authoring syntax is more often a replaceable implementation detail than a permanent commitment.</p>
 
   <p>The fourth and most structural shift is how much native CSS now does on its own. Cascade layers let a stylesheet declare explicit priority groups that resolve before specificity ever gets consulted: a reset layer always loses to a base layer, which always loses to a components layer, which always loses to an overrides layer, regardless of how many selectors or IDs any individual rule inside those layers uses.</p>
 

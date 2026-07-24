@@ -87,10 +87,8 @@
   <h1>React Server Components</h1>
   <p class="subtitle">How the server/client boundary actually works, and when to pass data down instead of fetching it in the browser.</p>
   <div class="byline">
-    <strong>Deep dive</strong>
-    <div class="dot"></div><span>Andreas Ögren</span>
+    <span>Andreas Ögren</span>
     <div class="dot"></div><span>~22 min read</span>
-    <div class="dot"></div><span>React architecture</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
@@ -237,7 +235,7 @@
     </div>
   </div>
 
-  <p>The two problems overlap in the data-fetching case, which is why the conflation is so common, but RSC is solving the second problem. The loader pattern was never trying to.</p>
+  <p>The two problems overlap in the data-fetching case, but RSC is solving the second problem. The loader pattern was never trying to.</p>
 
   <p>The distinction is more than terminology. A team that adopts Remix or SvelteKit gets server-side data fetching without ever touching a serialized component tree, without a <code>'use client'</code> directive to reason about, and without a rule about which imports are safe to nest where. A team adopting RSC takes on the component-tree model deliberately, in exchange for the ability to keep genuinely inert content, such as layout chrome, static copy, and presentation logic, off the client entirely rather than shipping it as JavaScript that happens to render once and never update again. Neither approach is strictly newer or more advanced than the other. They're solving adjacent but different problems, and a team that only needs server-side data shouldn't feel obligated to adopt RSC's component model just because both get described, loosely, as "server-side React."</p>
 
@@ -433,7 +431,7 @@
   <h2 id="operational-cost">Operational Cost</h2>
   <p class="lede">Moving rendering onto the server doesn't remove cost. It relocates cost into serverless economics specifically.</p>
 
-  <p>Server components shift rendering compute from the visitor's device to a function running per request, which means the usual serverless tradeoffs now apply to page rendering itself, not just to API routes. A function that hasn't run recently pays a <strong>cold start</strong> before the first byte goes out. A render that streams for several seconds while waiting on slow data holds memory for the whole duration, and enough concurrent slow renders can pressure a function's memory ceiling the same way any long-lived request would. The RSC model doesn't guarantee zero client-side JavaScript, either. A large subtree that's genuinely interactive still ships and hydrates like it always did, so time-to-interactive for that portion of the page doesn't automatically improve just because the tree around it is server-rendered. None of this is a performance-tuning concern so much as a capacity-planning one. Cold starts, concurrent render memory, and residual client bundle size are the numbers worth watching, and none of them show up in a single benchmark run.</p>
+  <p>Server components shift rendering compute from the visitor's device to a function running per request, which means the usual serverless tradeoffs now apply to page rendering itself, not just to API routes. A function that hasn't run recently pays a <strong>cold start</strong> before the first byte goes out. A render that streams for several seconds while waiting on slow data holds memory for the whole duration, and enough concurrent slow renders can pressure a function's memory ceiling the same way any long-lived request would. The RSC model doesn't guarantee zero client-side JavaScript, either. A large subtree that's genuinely interactive still ships and hydrates like it always did, so time-to-interactive for that portion of the page doesn't automatically improve just because the tree around it is server-rendered. None of this is a performance-tuning concern so much as a capacity-planning one. Cold starts, concurrent render memory, and residual client bundle size are the numbers that matter here, and none of them show up in a single benchmark run.</p>
 
   <p>Most serverless platforms also cap how long a single function invocation can run, which puts a hard ceiling on how long a streaming RSC response can stay open waiting on a slow dependency, a constraint that doesn't exist in the same way for a long-running origin server process. The <a href="rendering-strategies.html#ssr">edge-versus-origin tradeoff</a> covered for plain SSR carries over here too, and it matters more for RSC than for a stateless API route. An edge runtime buys lower cold-start latency in exchange for less compute headroom, and a streaming render has to sustain its connection for the whole duration rather than finishing in one quick round trip.</p>
 

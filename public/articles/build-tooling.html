@@ -79,10 +79,8 @@
   <h1>Build Tooling</h1>
   <p class="subtitle">How tree-shaking and code-splitting actually work, and which tool fits which job in 2026: Vite, esbuild, Rollup, webpack, and Turbopack.</p>
   <div class="byline">
-    <strong>Deep dive</strong>
-    <div class="dot"></div><span>Andreas Ögren</span>
+    <span>Andreas Ögren</span>
     <div class="dot"></div><span>~21 min read</span>
-    <div class="dot"></div><span>Build tooling</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
@@ -101,7 +99,7 @@
   <h2 id="history">From Task Runners to Bundlers</h2>
   <p class="lede">Bundling and running tasks used to be the same job. They split apart because they're not actually the same problem.</p>
 
-  <p>Before any of today's tools existed, the browser simply had no module system. Every script tag shared one global scope, and keeping a large jQuery-era codebase from stepping on its own variables was a matter of discipline, not tooling. Browserify, released in 2011, was the first tool to matter here: it let developers write Node-style <code>require()</code> calls and walk the resulting dependency graph into one file the browser could load, effectively smuggling CommonJS modules into a place they were never designed to run. Grunt and Gulp arrived around the same time to solve an adjacent but different problem: running a sequence of tasks (compile Sass, minify images, concatenate scripts) rather than resolving a module graph. It's worth keeping that distinction in mind, because a task runner and a bundler are answering different questions, and a fair amount of early tooling confusion came from treating them as competitors.</p>
+  <p>Before any of today's tools existed, the browser simply had no module system. Every script tag shared one global scope, and keeping a large jQuery-era codebase from stepping on its own variables was a matter of discipline, not tooling. Browserify, released in 2011, was the first tool to matter here: it let developers write Node-style <code>require()</code> calls and walk the resulting dependency graph into one file the browser could load, effectively smuggling CommonJS modules into a place they were never designed to run. Grunt and Gulp arrived around the same time to solve an adjacent but different problem: running a sequence of tasks (compile Sass, minify images, concatenate scripts) rather than resolving a module graph. A task runner and a bundler answer different questions, though early tooling often treated them as competitors anyway.</p>
 
   <p>webpack, first released in 2012 by Tobias Koppers, absorbed both jobs into one tool and became the default answer for most of the following decade. Its core idea, that literally everything (JavaScript, CSS, images, fonts) is a module that flows through a graph of loaders and plugins, was flexible enough to support the entire ecosystem's fads as they arrived: CSS Modules, hot module replacement, tree-shaking once ES modules made static analysis possible, code-splitting via dynamic <code>import()</code>. Babel, released in 2014 as 6to5, filled the adjacent gap of letting developers write syntax browsers didn't support yet, and the two tools became the standard pairing for years. Rollup, released in 2015 by Rich Harris, took a narrower and more opinionated position. It targeted ES modules specifically, ahead of webpack's own tree-shaking, and produced flatter, more readable output that library authors preferred over webpack's more general-purpose runtime wrapper.</p>
 
@@ -145,7 +143,7 @@
   <h2 id="tree-shaking">Tree-Shaking Fundamentals</h2>
   <p class="lede">Tree-shaking isn't smart. It's a reachability check, and it only works when the code is honest about what it can reach.</p>
 
-  <p>The mental model worth holding onto is simple: starting from an app's entry point, a bundler follows every <code>import</code> statement it can see and marks each export it reaches as live. Anything never reached by that walk (an unused named export, a function nobody imports) gets dropped from the final bundle entirely, not just minified into a shorter name. This only works reliably against ES modules, because <code>import</code> and <code>export</code> are static. They have to appear at the top level of a file and reference fixed names, so a bundler can build that reachability graph without running any code. CommonJS's <code>require()</code> and <code>module.exports</code> are just function calls and object assignments at runtime, which a bundler generally can't safely trace the same way. A library shipped only as CommonJS is close to a black box as far as tree-shaking is concerned. It's all or nothing.</p>
+  <p>The mental model is simple: starting from an app's entry point, a bundler follows every <code>import</code> statement it can see and marks each export it reaches as live. Anything never reached by that walk (an unused named export, a function nobody imports) gets dropped from the final bundle entirely, not just minified into a shorter name. This only works reliably against ES modules, because <code>import</code> and <code>export</code> are static. They have to appear at the top level of a file and reference fixed names, so a bundler can build that reachability graph without running any code. CommonJS's <code>require()</code> and <code>module.exports</code> are just function calls and object assignments at runtime, which a bundler generally can't safely trace the same way. A library shipped only as CommonJS is close to a black box as far as tree-shaking is concerned. It's all or nothing.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -297,7 +295,7 @@
        LANDSCAPE
   ════════════════════════════════════════════════════ -->
   <h2 id="landscape">The Tool-by-Tool Landscape</h2>
-  <p class="lede">Most of these tools aren't really competing for the same job. Knowing which job each one signed up for clears up most of the confusion.</p>
+  <p class="lede">Most of these tools aren't really competing for the same job.</p>
 
   <p>Vite has settled into the role of default choice for new frontend projects that aren't tied to a specific metaframework's own bundler, and is the build tool underneath Vue, Svelte, Solid, and Astro's own tooling, alongside plenty of plain React setups. Its dev-server split covered earlier is the headline feature, but its plugin API, modeled closely on Rollup's, is what let it absorb the ecosystem so quickly: a plugin written against Rollup's hook interface mostly works in Vite unmodified. As of Vite 8, released in March 2026, Rolldown is the bundler underneath both dev pre-bundling and production builds by default, no opt-in required, replacing the esbuild-plus-Rollup combination Vite ran on for its first several years.</p>
 
@@ -340,7 +338,7 @@
 
   <p>The clearest sign of how seriously the ecosystem is treating this shift arrived in June 2026, when Cloudflare acquired VoidZero, the company behind Vite, Vitest, Rolldown, and Oxc, and folded Evan You's team into its own engineering organization. Cloudflare committed to keeping all of it MIT-licensed and vendor-agnostic, and set up an independently governed fund to support contributors unaffiliated with either company. It's a deliberate hedge against the toolchain underneath most of the frontend ecosystem becoming a single vendor's proprietary lever. Whatever its business motivations, the acquisition is a fair marker of how central Vite's toolchain has become: it's no longer treated as one bundler brand competing with others so much as shared substrate underneath a large share of the ecosystem.</p>
 
-  <p>Not everything has converged yet, and it's worth being honest about that. esbuild remains Go and actively maintained, not a relic being quietly retired, and webpack's JavaScript codebase isn't going anywhere either given how much production infrastructure still depends on it. The convergence is real at the level of new default choices, new projects, new Vite installs, new library scaffolding, rather than a wholesale replacement of what's already deployed. That distinction matters for the decision framework below: migrating an existing, working build pipeline for a marginal speed gain is a different calculus than picking a starting point for something new.</p>
+  <p>Not everything has converged yet. esbuild remains Go and actively maintained, not a relic being quietly retired, and webpack's JavaScript codebase isn't going anywhere either given how much production infrastructure still depends on it. The convergence is real at the level of new default choices, new projects, new Vite installs, new library scaffolding, rather than a wholesale replacement of what's already deployed. That distinction matters for the decision framework below: migrating an existing, working build pipeline for a marginal speed gain is a different calculus than picking a starting point for something new.</p>
 
   <!-- ═══════════════════════════════════════════════════
        CHOOSING
@@ -372,7 +370,7 @@
     </div>
   </div>
 
-  <p>One case sits outside this framework entirely: a team building microfrontends, where the bundler choice is entangled with a composition mechanism like Module Federation rather than a single app's build. That decision, along with why Rspack shows up again there for a different reason (Module Federation 2.0's unified runtime) and where Zephyr fits for cross-bundler dependency resolution, belongs to <a href="microfrontends.html#tooling">the tooling section of the microfrontends article</a> rather than a repeat of it here. The through-line worth keeping from this article into that one is the same: tree-shaking and code-splitting are properties of how a bundler reasons about a single module graph. Composing several independently built graphs into one page, which is what microfrontends actually do, is a layer on top of everything covered here, not a replacement for it.</p>
+  <p>One case sits outside this framework entirely: a team building microfrontends, where the bundler choice is entangled with a composition mechanism like Module Federation rather than a single app's build. That decision, along with why Rspack shows up again there for a different reason (Module Federation 2.0's unified runtime) and where Zephyr fits for cross-bundler dependency resolution, belongs to <a href="microfrontends.html#tooling">the tooling section of the microfrontends article</a> rather than a repeat of it here. The through-line from this article into that one stays the same: tree-shaking and code-splitting are properties of how a bundler reasons about a single module graph. Composing several independently built graphs into one page, which is what microfrontends actually do, is a layer on top of everything covered here, not a replacement for it.</p>
 
 </main>
 </div><!-- end .shell -->

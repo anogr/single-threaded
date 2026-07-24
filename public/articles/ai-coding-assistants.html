@@ -64,10 +64,8 @@
   <h1>AI Coding Assistants</h1>
   <p class="subtitle">How AI coding assistants evolved from autocomplete to repository-aware agents, and how context files decide whether they help.</p>
   <div class="byline">
-    <strong>Deep dive</strong>
-    <div class="dot"></div><span>Andreas Ögren</span>
+    <span>Andreas Ögren</span>
     <div class="dot"></div><span>~18 min read</span>
-    <div class="dot"></div><span>AI-assisted development</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
@@ -124,7 +122,7 @@
 
   <div class="callout info">
     <div class="callout-title">Context window vs. context file</div>
-    <p>The context window is a hard limit on how many tokens a single request can hold. A context file, covered next, is a document written once that gets loaded into that window every session. Confusing the two is an easy mistake to make: one is a constraint nobody controls, the other is a lever a team controls directly.</p>
+    <p>The context window is a hard limit on how many tokens a single request can hold. A context file, covered next, is a document written once that gets loaded into that window every session. One is a constraint nobody controls, while the other is a lever a team controls directly.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -248,7 +246,7 @@
 
   <p><strong>Agent Skills</strong> are the answer that's emerged for that case, and Claude's is the version most tools have converged around. A skill is a folder containing a <code>SKILL.md</code> file, plus optionally whatever scripts or reference material the task needs, and it isn't loaded the way a context file is. At the start of a session, the agent sees only each installed skill's name and a one-line description, cheap enough to keep dozens of them around without any real cost. Only once a task matches one does the agent read the full <code>SKILL.md</code> and, if the skill bundles one, run a script rather than write the equivalent code from scratch. A skill for filling out PDF forms costs nothing on a session that never touches a PDF. It's the same idea as lazy loading in ordinary software: pay for what gets used.</p>
 
-  <p>A <strong>prompt file</strong> solves a different problem and shouldn't be confused with either of the above. It isn't discovered automatically the way a skill is, and it isn't always-on the way a context file is. It's a saved, reusable request a developer invokes deliberately, closer to a snippet library than a configuration surface. VS Code and GitHub Copilot's <code>.prompt.md</code> convention is a concrete example: a short markdown file, invoked as a slash command, that packages up something asked for often enough to be worth saving, "write a changelog entry from the current diff," say, so it doesn't get retyped from scratch every time it comes up. The distinction to hold onto is this: a context file changes what the agent already knows without being asked, and a skill adds a capability the agent reaches for when a task calls for it. A prompt file is different from both. It's a request that still waits for someone to run it.</p>
+  <p>A <strong>prompt file</strong> solves a different problem from either of the above. It isn't discovered automatically the way a skill is, and it isn't always-on the way a context file is. It's a saved, reusable request a developer invokes deliberately, closer to a snippet library than a configuration surface. VS Code and GitHub Copilot's <code>.prompt.md</code> convention is a concrete example: a short markdown file, invoked as a slash command, that packages up something asked for often enough to be worth saving, "write a changelog entry from the current diff," say, so it doesn't get retyped from scratch every time it comes up. The distinction to hold onto is this: a context file changes what the agent already knows without being asked, and a skill adds a capability the agent reaches for when a task calls for it. A prompt file is different from both. It's a request that still waits for someone to run it.</p>
 
   <p>A <strong>subagent</strong> addresses a third, unrelated problem. A long session's context window fills up with everything the agent has read along the way, and a large exploratory side-task, such as chasing down every caller of a function slated for removal or auditing a directory for one pattern, can crowd out the context that matters for the task the developer is there for. A subagent is a separate invocation that starts from an empty context window, defined in its own short markdown file (a name, a description of when to reach for it, which tools it's allowed to use, and its own system prompt) and handed a bounded piece of work. It reports back a result, not its entire scratch process, so the main conversation stays focused on what the developer is working on instead of accumulating every file the side-task happened to open. It's also a natural place to route cheap, narrow work to a smaller model while a more capable one stays on the main thread.</p>
 

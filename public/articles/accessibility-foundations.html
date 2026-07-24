@@ -68,10 +68,8 @@
   <h1>Accessibility as an Architecture Decision</h1>
   <p class="subtitle">Why accessibility is cheaper to design in than to retrofit, what standards actually govern it, and how to plan for it before code gets written.</p>
   <div class="byline">
-    <strong>Deep dive</strong>
-    <div class="dot"></div><span>Andreas Ögren</span>
+    <span>Andreas Ögren</span>
     <div class="dot"></div><span>~15 min read</span>
-    <div class="dot"></div><span>Accessibility fundamentals</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
@@ -83,7 +81,7 @@
 
     <p>An estimated 1.3 billion people, about 16% of the global population, experience a significant disability. That figure only counts conditions that meaningfully limit daily activity. It doesn't count the much larger group who hit a temporary or situational version of the same barrier: an arm in a cast, a phone screen washed out by sunlight, a hallway too noisy for audio to help, a new parent operating a laptop one-handed. Reach is the first reason accessibility belongs at the architecture level rather than the QA level. It's also, on its own, the least persuasive one to a team under deadline pressure, so this article covers the other two: what legally governs the decision, and why the cost of getting it right moves in one direction as a project ages.</p>
 
-    <p>That cost curve is the part worth internalizing before anything else. A component library that renders a real <code>&lt;button&gt;</code> instead of a styled <code>&lt;div&gt;</code> costs nothing extra to build correctly the first time. The same fix applied after three hundred product screens have copied the wrong pattern is a migration project. Accessibility isn't unusual in this respect. It follows the same shape as any architectural decision made once at the foundation versus repeated badly at every call site, just with a wider blast radius, because interactive components get reused more than almost anything else in a frontend codebase.</p>
+    <p>That cost curve matters more than anything else here. A component library that renders a real <code>&lt;button&gt;</code> instead of a styled <code>&lt;div&gt;</code> costs nothing extra to build correctly the first time. The same fix applied after three hundred product screens have copied the wrong pattern is a migration project. Accessibility isn't unusual in this respect. It follows the same shape as any architectural decision made once at the foundation versus repeated badly at every call site, just with a wider blast radius, because interactive components get reused more than almost anything else in a frontend codebase.</p>
 
     <div class="figure-wrap">
       <svg viewBox="0 0 700 260" role="img" aria-label="Line chart showing the cost of fixing an accessibility issue rising sharply across four project phases: component library, feature build, pre-launch audit, and post-launch remediation. The line starts low and flat during the component library phase and climbs steeply by the post-launch remediation phase." xmlns="http://www.w3.org/2000/svg">
@@ -177,7 +175,7 @@
 
   <p>The rule the W3C's own authoring guidance leads with settles most day-to-day decisions on its own: don't use ARIA if a native element or attribute already does the job. Reach for it when the markup genuinely has no native equivalent, not as a default way to build a custom design system's components.</p>
 
-  <p>Worth knowing at a conceptual level, since it explains a class of bug that shows up constantly in component libraries: a screen reader computes an element's accessible name by checking a fixed order of sources, not by picking whichever one looks most convenient. An explicit <code>aria-labelledby</code> or <code>aria-label</code> wins if present, then visible label text associated through a <code>&lt;label&gt;</code> element or similar mechanism, then the element's own text content, and only as a last resort a <code>title</code> attribute, which most screen readers treat as a weak fallback rather than a primary name. A component that sets <code>aria-label</code> for one piece of visible text and then changes the visible text later, without updating the attribute, produces a real name mismatch: sighted users read one label, screen reader users hear another. That drift is a common, quiet source of accessibility bugs precisely because nothing about it fails visually.</p>
+  <p>A screen reader computes an element's accessible name by checking a fixed order of sources, not by picking whichever one looks most convenient. That order explains a class of bug that shows up constantly in component libraries. An explicit <code>aria-labelledby</code> or <code>aria-label</code> wins if present, then visible label text associated through a <code>&lt;label&gt;</code> element or similar mechanism, then the element's own text content, and only as a last resort a <code>title</code> attribute, which most screen readers treat as a weak fallback rather than a primary name. A component that sets <code>aria-label</code> for one piece of visible text and then changes the visible text later, without updating the attribute, produces a real name mismatch: sighted users read one label, screen reader users hear another. That drift is a common, quiet source of accessibility bugs precisely because nothing about it fails visually.</p>
 
   <!-- ═══════════════════════════════════════════════════
        STANDARDS
@@ -187,7 +185,7 @@
 
   <p>The <strong>Web Content Accessibility Guidelines</strong> (WCAG) are the W3C's technical standard for accessible web content, and version 2.2 is the current Recommendation as of 2026. It carries real international weight beyond the W3C's own endorsement: WCAG 2.2 was approved as ISO/IEC 40500:2025 in October 2025, giving it the same formal standing as an ISO specification in procurement and regulatory contexts. WCAG defines three conformance levels, A, AA, and AAA, each layering stricter criteria on the one below it. AA is the level that matters in practice, since it's the level named by essentially every law or regulation that references WCAG at all. Full AAA conformance is rare and, for some criteria, not achievable for all content by design.</p>
 
-  <p>A successor, WCAG 3.0, is in development and worth tracking without planning around yet. It proposes a graded outcome model in place of the current binary pass-or-fail criteria, closer to a maturity score than a checklist. As of a March 2026 working draft it listed 174 requirements and remained far from a stable, citable conformance model. Organizations should keep conforming to WCAG 2.2 and treat WCAG 3.0 as a multi-year horizon, not something worth deferring current work for.</p>
+  <p>A successor, WCAG 3.0, is in development, though not yet mature enough to plan around. It proposes a graded outcome model in place of the current binary pass-or-fail criteria, closer to a maturity score than a checklist. As of a March 2026 working draft it listed 174 requirements and remained far from a stable, citable conformance model. Organizations should keep conforming to WCAG 2.2 and treat WCAG 3.0 as a multi-year horizon, not something worth deferring current work for.</p>
 
   <h2 id="regulation">Who Enforces This</h2>
   <p class="lede">Deadlines move, penalties vary by jurisdiction, but the direction has only gone one way: more regulators naming WCAG explicitly, not fewer.</p>

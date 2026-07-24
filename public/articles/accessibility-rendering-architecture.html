@@ -67,10 +67,8 @@
   <h1>Accessibility and Rendering Architecture</h1>
   <p class="subtitle">How rendering strategy, streaming, and hydration decisions change what accessibility work a team actually has to do.</p>
   <div class="byline">
-    <strong>Deep dive</strong>
-    <div class="dot"></div><span>Andreas Ögren</span>
+    <span>Andreas Ögren</span>
     <div class="dot"></div><span>~13 min read</span>
-    <div class="dot"></div><span>Rendering architecture</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
@@ -131,9 +129,15 @@
     <figcaption>An MPA gives three accessibility behaviors for free on every navigation. Client-side routing gives none of them automatically, which is why a router needs an explicit fix path rather than an assumption that the browser will handle it.</figcaption>
   </div>
 
-  <p>The fix is well established and doesn't require much code, only the discipline to apply it on every route change. On navigation, move focus to a sensible landing point, usually the page's own <code>&lt;h1&gt;</code>, made programmatically focusable with <code>tabindex="-1"</code> since headings aren't focusable by default. Update <code>document.title</code> to match the new page. And announce the change through an <code>aria-live="polite"</code> region, which lets a screen reader report the update without requiring focus to physically land inside the region for the announcement to fire. The three pieces work together. Focus gives a keyboard user a sensible place to start reading and interacting, and the live region gives a screen reader user the announcement an MPA would have produced automatically. The title update keeps browser history and screen reader page-summary features accurate on top of that.</p>
+  <p>The fix is well established and doesn't require much code, only the discipline to apply it on every route change:</p>
+  <ul>
+    <li>Move focus to a sensible landing point, usually the page's own <code>&lt;h1&gt;</code>, made programmatically focusable with <code>tabindex="-1"</code> since headings aren't focusable by default.</li>
+    <li>Update <code>document.title</code> to match the new page.</li>
+    <li>Announce the change through an <code>aria-live="polite"</code> region, which lets a screen reader report the update without requiring focus to physically land inside the region for the announcement to fire.</li>
+  </ul>
+  <p>The three pieces work together. Focus gives a keyboard user a sensible place to start reading and interacting, and the live region gives a screen reader user the announcement an MPA would have produced automatically. The title update keeps browser history and screen reader page-summary features accurate on top of that.</p>
 
-  <p>This is worth treating as a real evaluation criterion when choosing or building a router, not an afterthought bolted on once a product ships. Coverage varies by framework and by version, so it's worth checking directly against whichever router a project is actually evaluating rather than assuming. Some routers ship this behavior close to automatically, restoring scroll position and moving focus to a sensible default on route change. Others leave it entirely to application code, treating focus and announcement as a concern for whoever builds each page rather than something the router itself owns. Knowing which camp a router falls into before committing to it saves a retrofit later, for exactly the reason described in <a href="accessibility-foundations.html">Accessibility as an Architecture Decision</a>: the same gap costs a line of code early and a migration project once a hundred routes have shipped without it.</p>
+  <p>This is a real evaluation criterion when choosing or building a router, not an afterthought bolted on once a product ships. Coverage varies by framework and by version, so check directly against whichever router a project is actually evaluating rather than assuming. Some routers ship this behavior close to automatically, restoring scroll position and moving focus to a sensible default on route change. Others leave it entirely to application code, treating focus and announcement as a concern for whoever builds each page rather than something the router itself owns. Knowing which camp a router falls into before committing to it saves a retrofit later, for exactly the reason described in <a href="accessibility-foundations.html">Accessibility as an Architecture Decision</a>: the same gap costs a line of code early and a migration project once a hundred routes have shipped without it.</p>
 
   <!-- ═══════════════════════════════════════════════════
        STREAMING
@@ -165,7 +169,7 @@
     <figcaption>Streaming sends whichever boundary finishes first, not whichever boundary appears first. That's a feature for speed and a hazard for anyone whose focus or listening order depends on the document's actual structure.</figcaption>
   </div>
 
-  <p>Neither failure is unique to React Server Components. Both apply to any streaming SSR implementation, since the underlying mechanism, independently resolving chunks sent as they finish, is the same regardless of framework. What's specific to Server Components is that the pattern encourages wrapping more of a page in independent boundaries than teams typically used with plain streaming SSR, which increases how often a boundary sits near something interactive enough to matter. The practical guidance isn't to avoid streaming. It's to treat any boundary near an interactive element, a button, a form field, anything focusable, as worth a specific manual check: focus it, trigger the boundary's resolution, and confirm focus survives or is deliberately redirected somewhere sensible.</p>
+  <p>Neither failure is unique to React Server Components. Both apply to any streaming SSR implementation, since the underlying mechanism, independently resolving chunks sent as they finish, is the same regardless of framework. What's specific to Server Components is that the pattern encourages wrapping more of a page in independent boundaries than teams typically used with plain streaming SSR, which increases how often a boundary sits near something interactive enough to matter. The practical guidance isn't to avoid streaming. It's to give any boundary near an interactive element, a button, a form field, anything focusable, a specific manual check: focus it, trigger the boundary's resolution, and confirm focus survives or is deliberately redirected somewhere sensible.</p>
 
   <p>A "skip to main content" link, the common pattern that lets a keyboard user bypass repeated navigation and jump straight to a page's primary content, runs into a related version of the same timing question on a streamed page. If the skip link's target is itself inside a boundary that hasn't resolved yet, activating it lands focus on an empty placeholder rather than real content, and the user has to try again once the boundary finishes. It's a small case, but it's the kind of small case that only shows up when someone actually tests the interaction against a slow or throttled connection, not against the fast local network a development environment usually runs on.</p>
 

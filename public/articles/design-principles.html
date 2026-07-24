@@ -83,10 +83,8 @@
   <h1>Software Design Principles</h1>
   <p class="subtitle">Why the same handful of rules for structuring code and dependencies keep reappearing across languages.</p>
   <div class="byline">
-    <strong>Deep dive</strong>
-    <div class="dot"></div><span>Andreas Ögren</span>
+    <span>Andreas Ögren</span>
     <div class="dot"></div><span>~31 min read</span>
-    <div class="dot"></div><span>Software design</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
@@ -488,7 +486,7 @@
     A high-level policy, "send a welcome email on signup," hard-wired to a low-level detail, a specific SMTP client, means changing the detail requires editing the policy. The <strong>Dependency Inversion Principle</strong> (DIP), from Robert C. Martin, is the fix stated abstractly. Depend on abstractions, not concretions. High-level modules and low-level modules should both depend on an interface between them, rather than the high-level module depending directly on the low-level module's implementation.
   </p>
   <p>
-    DIP is a principle, not a technique, and it's worth being precise about the difference, because it gets conflated constantly with the pattern that follows it. Dependency inversion says what should be true of the relationship between two modules. Dependency injection, next, is one way of making it true in code, not a synonym for it.
+    DIP is a principle, not a technique. The difference matters because it gets conflated constantly with the pattern that follows it. Dependency inversion says what should be true of the relationship between two modules. Dependency injection, next, is one way of making it true in code, not a synonym for it.
   </p>
 
   <h3 id="di">Dependency Injection</h3>
@@ -659,7 +657,7 @@
   </div>
 
   <p>
-    CQS is a guideline, not a hard constraint, and plenty of well-established methods break it on purpose. <code>Array.prototype.pop()</code> removes the last element and returns it in one call, and nobody considers that a design flaw. An auto-incrementing counter that returns the new value on every call does the same thing, and so does a SQL <code>INSERT</code> that returns the generated id from the same statement that created the row. Splitting either into a separate command and query would mean an extra round trip, or a second read that could see a different answer than the write just produced. The line worth holding is narrower than "never combine." A method that returns state while changing it is fine when the return value is inseparable from the change, the very thing the write just produced. It's a problem when the return value is incidental and calling the method for its side effect alone becomes a trap for the next person to read it.
+    CQS is a guideline, not a hard constraint, and plenty of well-established methods break it on purpose. <code>Array.prototype.pop()</code> removes the last element and returns it in one call, and nobody considers that a design flaw. An auto-incrementing counter that returns the new value on every call does the same thing, and so does a SQL <code>INSERT</code> that returns the generated id from the same statement that created the row. Splitting either into a separate command and query would mean an extra round trip, or a second read that could see a different answer than the write just produced. The real line is narrower than "never combine." A method that returns state while changing it is fine when the return value is inseparable from the change, the very thing the write just produced. It's a problem when the return value is incidental and calling the method for its side effect alone becomes a trap for the next person to read it.
   </p>
 
   <p>

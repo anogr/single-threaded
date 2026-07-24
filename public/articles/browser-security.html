@@ -69,10 +69,8 @@
   <h1>Browser Security</h1>
   <p class="subtitle">How attackers exploit the trust between a browser and a page, and the headers that close each gap: XSS, CSRF, and clickjacking.</p>
   <div class="byline">
-    <strong>Deep dive</strong>
-    <div class="dot"></div><span>Andreas Ögren</span>
+    <span>Andreas Ögren</span>
     <div class="dot"></div><span>~14 min read</span>
-    <div class="dot"></div><span>Browser security</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
@@ -249,7 +247,14 @@
   <h3>Defenses</h3>
   <p>The modern defense is the <strong>SameSite cookie attribute</strong>, covered in depth in the <a href="http.html">HTTP</a> article. With <code>SameSite=Strict</code>, the session cookie is never sent on a cross-site request. <code>SameSite=Lax</code> (the browser default since around 2020) sends the cookie only on a cross-site request that's both a top-level navigation and uses a safe method, an ordinary link click being the common case. The hidden form in the classic example above submits as a POST, which isn't a safe method, so Lax withholds the cookie there too, exactly like Strict. Either setting works by keeping the cookie from ever reaching the server. The bank sees a request with no valid session at all, forged or not.</p>
 
-  <p><strong>CSRF tokens</strong> defend against the same attack as SameSite, at a different layer, which is why sites commonly use both rather than relying on either alone. SameSite is a single point of protection, and it can fail in several ways: it might be misconfigured or disabled, unsupported by an older client, set to <code>SameSite=None</code> for a legitimate cross-origin integration, or not apply because the request came from a same-site subdomain the application doesn't fully trust. In any of those cases a forged request can still arrive with the session cookie attached, and nothing about the cookie itself stops it.</p>
+  <p><strong>CSRF tokens</strong> defend against the same attack as SameSite, at a different layer, which is why sites commonly use both rather than relying on either alone. SameSite is a single point of protection, and it can fail in several ways:</p>
+  <ul>
+    <li>Misconfigured or disabled outright.</li>
+    <li>Unsupported by an older client.</li>
+    <li>Set to <code>SameSite=None</code> for a legitimate cross-origin integration.</li>
+    <li>Not applied because the request came from a same-site subdomain the application doesn't fully trust.</li>
+  </ul>
+  <p>In any of those cases a forged request can still arrive with the session cookie attached, and nothing about the cookie itself stops it.</p>
 
   <p>CSRF tokens are the independent backstop for that case. The server embeds a second, unique, unpredictable value into each form or response, and rejects any state-changing request that doesn't include a matching one. A forged request from evilsite.com might still arrive carrying the victim's session cookie, but evilsite.com was never able to read bank.com's page, so it never saw the token and has no way to include it. The request fails on the token alone.</p>
 

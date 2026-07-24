@@ -55,10 +55,8 @@
   <h1>Containers and Orchestration</h1>
   <p class="subtitle">Docker and Kubernetes at the level a deployment decision requires, from what a container actually is to when Kubernetes is the wrong choice.</p>
   <div class="byline">
-    <strong>Deep dive</strong>
-    <div class="dot"></div><span>Andreas Ögren</span>
+    <span>Andreas Ögren</span>
     <div class="dot"></div><span>~29 min read</span>
-    <div class="dot"></div><span>Containers &amp; Kubernetes</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
@@ -219,7 +217,12 @@
 
   <p>Inside the control plane, several components split up the decision-making. The API server is the single entry point: every other component, including a human running a command-line tool, talks to the cluster only through it. Behind that, etcd stores the cluster's entire state, the scheduler decides which node a new container should run on based on available resources, and a set of controllers continuously compare what's actually running against what was requested, correcting any difference they find. This comparison of desired state against actual state, run continuously rather than once, is called <strong>declarative reconciliation</strong>, and it's the design principle underneath everything else in this article: describe the outcome that should exist, not the steps to get there. None of these components run the application itself. That's the worker node's job.</p>
 
-  <p>Each worker node runs three things. A kubelet is the agent that receives instructions from the API server and makes sure the containers assigned to that node are actually running. A kube-proxy handles network routing to and from containers on that node. And the container runtime itself, whichever OCI-compliant one the cluster is configured to use, is what actually starts and stops the containers.</p>
+  <p>Each worker node runs three things:</p>
+  <ul>
+    <li>A <strong>kubelet</strong> is the agent that receives instructions from the API server and makes sure the containers assigned to that node are actually running.</li>
+    <li>A <strong>kube-proxy</strong> handles network routing to and from containers on that node.</li>
+    <li>The <strong>container runtime</strong> itself, whichever OCI-compliant one the cluster is configured to use, is what actually starts and stops the containers.</li>
+  </ul>
 
   <figure style="margin:24px 0 8px;">
     <svg viewBox="0 0 560 332" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Kubernetes cluster topology: a control plane containing the API server, scheduler, controller manager, and etcd, connected down to two worker nodes, each running a kubelet, kube-proxy, and container runtime, hosting several Pods">

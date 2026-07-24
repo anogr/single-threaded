@@ -52,10 +52,8 @@
   <h1>CI/CD and DevOps</h1>
   <p class="subtitle">How commits become releases, why continuous delivery and continuous deployment aren't the same thing, and the deployment strategies that limit the blast radius of a bad one.</p>
   <div class="byline">
-    <strong>Deep dive</strong>
-    <div class="dot"></div><span>Andreas Ögren</span>
+    <span>Andreas Ögren</span>
     <div class="dot"></div><span>~14 min read</span>
-    <div class="dot"></div><span>Delivery pipelines &amp; deployment</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
@@ -80,7 +78,7 @@
 
   <p><strong>Continuous integration</strong> (CI) means developers merge small changes into a shared branch frequently, often multiple times a day, and every merge triggers an automated build and test run. The point isn't the automation for its own sake. It's timing. Two developers editing overlapping code will eventually conflict, and that conflict is cheap to resolve within hours of a small change and expensive to resolve after weeks of divergent work on separate branches, when neither side remembers exactly what the other one touched. CI forces that reckoning to happen early and often, in change sizes small enough that a failure is quick to diagnose.</p>
 
-  <p>The practice originated within Extreme Programming, Kent Beck's methodology from the late 1990s, and was popularized more broadly by Martin Fowler's writing in the early 2000s. What's worth carrying forward from that history isn't the specific practice as it existed then. It's the underlying bet: that frequent, small, automatically verified integrations beat infrequent, large, manually verified ones, at basically any team size.</p>
+  <p>The practice originated within Extreme Programming, Kent Beck's methodology from the late 1990s, and was popularized more broadly by Martin Fowler's writing in the early 2000s. What carries forward from that history isn't the specific practice as it existed then. It's the underlying bet: that frequent, small, automatically verified integrations beat infrequent, large, manually verified ones, at basically any team size.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="delivery-vs-deployment">Continuous Delivery vs. Continuous Deployment</h2>
@@ -267,7 +265,7 @@
 
   <p>A traditional pipeline works by pushing: the CI system authenticates outward to the target infrastructure and applies the change itself, whether that's calling a cloud provider's API or running a deployment command directly against a cluster. <strong>GitOps</strong> inverts that direction. The desired state of a deployment, which version should be running, how many replicas, what configuration, lives as declarative configuration committed to a Git repository. An agent running inside the target environment continuously watches that repository and reconciles the environment's actual state to match it, rather than waiting for anything to be pushed to it. Argo CD and Flux are the two tools most commonly used to run that agent inside a Kubernetes cluster.</p>
 
-  <p>The security implication is worth calling out on its own, separate from the mechanics. Because the agent inside the cluster pulls from Git rather than the CI system pushing outward, the CI system never needs write access to production at all. It only needs write access to a Git repository. If CI credentials are ever compromised, the blast radius stops at "an attacker can commit to a repo," which still has code review and audit history around it, rather than "an attacker has a direct line to production infrastructure."</p>
+  <p>The security implication stands apart from the mechanics. Because the agent inside the cluster pulls from Git rather than the CI system pushing outward, the CI system never needs write access to production at all. It only needs write access to a Git repository. If CI credentials are ever compromised, the blast radius stops at "an attacker can commit to a repo," which still has code review and audit history around it, rather than "an attacker has a direct line to production infrastructure."</p>
 
   <p>GitOps works best where the target's state is already expressible as declarative configuration, which is where Kubernetes manifests fit naturally and a fleet of servers driven by imperative scripts, run this command, then that one, doesn't. That gap can be narrowed by wrapping an imperative script inside a declarative layer, but doing so is extra tooling in itself. Below a certain amount of that effort, a push-based pipeline remains the simpler fit for infrastructure that isn't already described declaratively.</p>
 
@@ -328,7 +326,7 @@
 
   <p><strong>Infrastructure as code</strong> (IaC) means declaring infrastructure, servers, networks, managed databases, the building blocks covered in <a href="cloud-computing.html">Cloud Computing Fundamentals</a>, as versioned configuration, rather than changing it by hand through a cloud provider's console. Terraform is the most widely used representative tool. The point isn't just automation for its own sake; it's that infrastructure changes become reviewable, repeatable, and auditable the same way code changes already are, instead of living only in whoever happened to click through a console last.</p>
 
-  <p>IaC and GitOps solve adjacent but distinct problems, worth keeping separate rather than treating as one topic. IaC provisions infrastructure that changes infrequently: the cluster itself, the network it sits on, the managed database it connects to. GitOps reconciles the application deployment running on top of that already-provisioned infrastructure, which changes far more often. Both apply the same underlying principle, describe the desired state and let a tool reach it, to two different layers of the stack.</p>
+  <p>IaC and GitOps solve adjacent but distinct problems that shouldn't be treated as one topic. IaC provisions infrastructure that changes infrequently: the cluster itself, the network it sits on, the managed database it connects to. GitOps reconciles the application deployment running on top of that already-provisioned infrastructure, which changes far more often. Both apply the same underlying principle, describe the desired state and let a tool reach it, to two different layers of the stack.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="rollbacks">Rollbacks and Pipeline Health</h2>
@@ -336,7 +334,7 @@
 
   <p>Whatever deployment strategy is in use, a fast rollback is the real safety net underneath it. Redeploying the last known-good artifact, something every promotion model in this article already assumes exists in a registry, is almost always faster and safer than trying to debug forward under production pressure while users are actively affected. This is one more reason the same artifact should be promoted rather than rebuilt at each environment, covered earlier: a rollback is only as fast as finding the exact previous artifact, and a rebuild-per-environment approach means that artifact might not even exist anymore in the form that was actually running.</p>
 
-  <p>The pipeline itself is also worth watching, not just what it deploys. Build duration creeping upward and a rising flaky-test rate are both signals that a pipeline is starting to slow a team down or, worse, starting to get ignored when it fails. Diagnosing what's actually happening once something is live, correlating a symptom back to a specific deployment, belongs to a dedicated observability article covering logs, metrics, and traces together; this is only the part specific to keeping the delivery mechanism itself healthy.</p>
+  <p>The pipeline itself deserves attention too, not just what it deploys. Build duration creeping upward and a rising flaky-test rate are both signals that a pipeline is starting to slow a team down or, worse, starting to get ignored when it fails. Diagnosing what's actually happening once something is live, correlating a symptom back to a specific deployment, belongs to a dedicated observability article covering logs, metrics, and traces together; this is only the part specific to keeping the delivery mechanism itself healthy.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="maturity">Pipeline Maturity: Choosing How Much to Build</h2>
