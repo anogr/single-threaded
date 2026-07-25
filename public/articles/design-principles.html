@@ -81,10 +81,10 @@
 
   <div class="eyebrow">Code Architecture · Principles</div>
   <h1>Software Design Principles</h1>
-  <p class="subtitle">Why the same handful of rules for structuring code and dependencies keep reappearing across languages.</p>
+  <p class="subtitle">Why the same handful of rules for structuring code and dependencies keep reappearing across languages and decades, and when to bend them.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~31 min read</span>
+    <div class="dot"></div><span>~34 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
@@ -92,7 +92,7 @@
        INTRODUCTION
   ════════════════════════════════════════════════════ -->
   <section id="intro">
-    <p>A <strong>design principle</strong> is a rule of thumb for shaping code and the dependencies between its parts. It emerges from repeated observations of the same kind of mistake across many projects. A principle isn't enforced by the compiler, nor is it universally correct. Instead, it's a trade-off that pays off in a particular context, and understanding when to apply it is just as important as understanding the principle itself. This article explores the most enduring design principles, not as a checklist to apply everywhere, but as tools for solving recurring problems in real codebases.</p>
+    <p>A <strong>design principle</strong> is a rule of thumb for shaping code and the dependencies between its parts. It emerges from repeated observations of the same kind of mistake across many projects. A principle isn't enforced by the compiler, nor is it universally correct. Instead, it's a trade-off that pays off in a particular context. Understanding when to apply it is just as important as understanding the principle itself. This article explores the most enduring design principles, not as a checklist to apply everywhere, but as tools for solving recurring problems in real codebases.</p>
     <p>A codebase that ignores these principles doesn't fail loudly. A one-line fix in a payment method breaks checkout, because two features were quietly sharing state neither owner knew about. A new hire spends a full day tracing what a single function does before daring to touch it, because it does five unrelated things under one name. A test can't run without spinning up a database, a mail server, and half the application, because nothing in the code was built to run in isolation. Each of these traces back to the same handful of recurring issues:</p>
     <ul>
       <li><strong>Understanding gets harder</strong>, because behavior that looks self-contained turns out to depend on something two files away that nobody documented.</li>
@@ -101,7 +101,7 @@
       <li><strong>Extending gets more fragile</strong>, because new behavior has to be wedged into a structure that wasn't built to expect it.</li>
     </ul>
     <p>
-      Every principle in this article addresses one or more of these costs, though pushed past the problem it was meant to solve, most start adding costs of their own back into the system. Many other concerns, such as correctness and security, also benefit indirectly when a system is easier to understand, change, test, and extend.
+      Every principle in this article addresses one or more of these costs. Pushed past the problem it was meant to solve, though, most start adding costs of their own back into the system. Many other concerns, such as correctness and security, also benefit indirectly when a system is easier to understand, change, test, and extend.
     </p>
     <p>
       This article groups the structural principles into four branches, based on the kind of decision each one governs.
@@ -171,7 +171,7 @@
 
   <h2 id="history">History</h2>
     <p>
-      These ideas didn't arrive from one place. Some genuinely emerged in isolation. A Navy contractor described one in the 1960s. A researcher building an experimental object-oriented language described another in 1972. A pair of graduate students at Northeastern rediscovered a version of a third in the 1980s while working on something else entirely. Other ideas share more of a common thread. Liskov, Meyer, and Lieberherr were all working inside the same academic object-oriented research community in the late 1980s, and their principles arrived within a year of each other. What both groups have in common is the absence of any coordinated effort. Nobody sat down to build a unified theory of software design. Each was staring at a different kind of mess and reaching for whatever fixed it.
+      These ideas didn't arrive from one place. Some emerged in isolation, out of unrelated fields entirely. An aircraft engineer working under military contract popularized one in the 1960s, a researcher studying how to decompose large software systems into independent modules described another in 1972, and a research team at Northeastern arrived at a third in 1987 as a byproduct of an unrelated project on adaptive and aspect-oriented programming. Other ideas share more of a common thread. Liskov, Meyer, and Lieberherr were all working inside the same academic object-oriented research community in the late 1980s, and their principles arrived within a year of each other. What both groups have in common is the absence of any coordinated effort. Nobody sat down to build a unified theory of software design, and each was simply staring at a different kind of mess, reaching for whatever fixed it.
     </p>
     <p>
       That's why these principles keep resurfacing under different names in different decades.
@@ -193,7 +193,7 @@
           </tbody>
         </table>
       </div>
-      <p style="margin-top:10px;">Several of the principles bundled into "SOLID" (Open/Closed, Liskov Substitution) and Command Query Separation predate the acronym by more than a decade. SOLID branded existing ideas. It didn't invent them.</p>
+      <p style="margin-top:10px;">Several of the principles bundled into "SOLID" (Open/Closed, Liskov Substitution) and Command Query Separation predate the acronym by more than a decade. SOLID branded existing ideas rather than inventing them.</p>
     </div>
 
   <!-- ═══════════════════════════════════════════════════
@@ -286,7 +286,7 @@
   </div>
 
   <p>
-    Two things had to be true for the extraction above to be sound. The check had to appear a third time, per the Rule of Three, and it had to represent the same piece of knowledge each time, not three rules that merely resembled each other today. That second condition is where DRY is most often misapplied. Merging two things that only <em>look</em> alike into one shared abstraction feels productive in the moment. It stops feeling productive once they diverge for unrelated reasons and the shared function grows an <code>if (isSpecialCase)</code> branch to keep serving both, until the abstraction is harder to read than the duplication it replaced. A wrong abstraction costs more than the duplication it was meant to remove.
+    Two things had to be true for the extraction above to be sound. The check had to appear a third time, per the Rule of Three, and it had to represent the same piece of knowledge each time, not three rules that merely resembled each other today. That second condition is where DRY is most often misapplied. Merging two things that only <em>look</em> alike into one shared abstraction feels productive in the moment. It stops feeling productive once they diverge for unrelated reasons. The shared function grows an <code>if (isSpecialCase)</code> branch to keep serving both, until the abstraction is harder to read than the duplication it replaced. A wrong abstraction costs more than the duplication it was meant to remove.
   </p>
 
   <!-- ═══════════════════════════════════════════════════
@@ -300,7 +300,7 @@
     David Parnas's 1972 paper "On the Criteria to Be Used in Decomposing Systems into Modules" made an argument that still holds. A module should hide an implementation decision behind a stable interface, so that changing the decision later doesn't require changing everything that depends on the module. Parnas called this <strong>information hiding</strong>. <strong>Encapsulation</strong> is the practice that follows from it in most languages today. Expose a method that performs an operation, not the internal data structure that operation happens to use today. A queue class exposing <code>enqueue()</code> and <code>dequeue()</code> can switch its internal storage from an array to a linked list without a single caller noticing. A queue class that exposes its backing array directly can't.
   </p>
   <p>
-    This is the oldest of the organizational principles here, predating separation of concerns by two years. The two principles that follow in this section overlap heavily with encapsulation applied at a specific scale, though neither reduces to it completely. Single responsibility is partly encapsulation at the level of a module, and partly a claim about cohesion, keeping together the code that changes for one reason. Interface segregation is partly encapsulation at the level of an interface, and partly about limiting how much of an interface's volatility a caller is exposed to. Overdone, encapsulation turns defensive. Every field gets a getter and a setter that exposes it right back out, hiding nothing, or a legitimate configuration need routes through three layers of indirection because nothing was left adjustable. Hiding a decision is only valuable when the decision might actually change. That's also why a plain, immutable value object, a coordinate pair or a date range, is usually better off exposing its fields directly. There's no implementation decision underneath a value object like that to protect, so a method wrapped around the field would just be encapsulation with nothing to hide.
+    This is the oldest of the organizational principles here, predating separation of concerns by two years. The two principles that follow in this section overlap heavily with encapsulation applied at a specific scale, though neither reduces to it completely. Single responsibility is partly encapsulation at the level of a module, and partly a claim about cohesion, keeping together the code that changes for one reason. Interface segregation is partly encapsulation at the level of an interface, and partly about limiting how much of an interface's volatility a caller is exposed to. Overdone, encapsulation turns defensive. Every field gets a getter and a setter that exposes it right back out, hiding nothing. A legitimate configuration need might instead route through three layers of indirection, because nothing was left adjustable. Hiding a decision is only valuable when the decision might actually change. That's also why a plain, immutable value object, a coordinate pair or a date range, is usually better off exposing its fields directly. There's no implementation decision underneath a value object like that to protect, so a method wrapped around the field would just be encapsulation with nothing to hide.
   </p>
 
   <h3 id="separation-of-concerns">Separation of concerns</h3>
@@ -332,7 +332,7 @@
 
   <h3 id="cohesion-coupling">High cohesion, low coupling</h3>
   <p>
-    <strong>Cohesion</strong> and <strong>coupling</strong> are the clearest lens for what the four principles above have in common, though not a complete account of what each one does on its own. Cohesion describes how closely the responsibilities within a module belong together. High cohesion means the module's responsibilities naturally fit together. Encapsulation and the Single Responsibility Principle (SRP), when applied well, tend to promote high cohesion, and both also make a module easier to test in isolation. Coupling describes the dependencies between modules. Low coupling means modules depend as little as possible on one another. Separation of concerns and the Interface Segregation Principle (ISP) applied well help reduce coupling between modules. ISP's narrower interfaces carry the added benefit of making it easier to discover which capability a caller actually needs.
+    <strong>Cohesion</strong> and <strong>coupling</strong> are the clearest lens for what the four principles above have in common, though not a complete account of what each one does on its own. Cohesion describes how closely the responsibilities within a module belong together, and high cohesion means those responsibilities naturally fit. Encapsulation and the Single Responsibility Principle (SRP), when applied well, tend to promote high cohesion, and both also make a module easier to test in isolation. Coupling describes the dependencies between modules instead, where low coupling means each one depends as little as possible on the others. Separation of concerns and the Interface Segregation Principle (ISP), applied well, help reduce that coupling, and ISP's narrower interfaces carry the added benefit of making it easier to discover which capability a caller actually needs.
   </p>
 
   <div class="figure-wrap">
@@ -599,7 +599,7 @@
     The first version chains through three classes' internal structure at once, touching <code>Order</code>, <code>Customer</code>, and <code>Address</code> in a single expression. If <code>Customer</code> ever stores a shipping address and a billing address separately instead of one <code>address</code> field, every chain like this one breaks, scattered across however many call sites reach into the object graph. The delegating method on the second line is the same coupling problem section two named for modules, applied to a single call chain.
   </p>
   <p>
-    Overused, the Law of Demeter turns into a rule about syntax instead of dependencies. Every class in the chain grows a one-line wrapper method whose only job is forwarding a call to the next collaborator. The codebase fills with wrapper-method bloat like <code>getBillingCity()</code> that exist purely to satisfy the rule. That's worth doing when <code>Customer</code>'s internal structure is genuinely likely to change. It's wasted ceremony when it isn't, an extra method to read, test, and maintain for a structure that was never going anywhere. The rule is about not depending on another object's internal structure, not about refusing to chain method calls. A chain over immutable value objects, such as a fluent builder, is harmless, because there's no changeable internal structure to leak in the first place.
+    Overused, the Law of Demeter turns into a rule about syntax instead of dependencies. Every class in the chain grows a one-line wrapper method whose only job is forwarding a call to the next collaborator, and the codebase fills with wrapper-method bloat like <code>getBillingCity()</code> that exists purely to satisfy the rule. That's worth doing when <code>Customer</code>'s internal structure is genuinely likely to change. It's wasted ceremony when it isn't: an extra method to read, test, and maintain, for a structure that was never going anywhere. The rule is about not depending on another object's internal structure, not about refusing to chain method calls. A chain over immutable value objects, such as a fluent builder, is harmless, because there's no changeable internal structure to leak in the first place.
   </p>
 
   <h3 id="tell-dont-ask">Tell, Don't Ask</h3>
@@ -657,7 +657,7 @@
   </div>
 
   <p>
-    CQS is a guideline, not a hard constraint, and plenty of well-established methods break it on purpose. <code>Array.prototype.pop()</code> removes the last element and returns it in one call, and nobody considers that a design flaw. An auto-incrementing counter that returns the new value on every call does the same thing, and so does a SQL <code>INSERT</code> that returns the generated id from the same statement that created the row. Splitting either into a separate command and query would mean an extra round trip, or a second read that could see a different answer than the write just produced. The real line is narrower than "never combine." A method that returns state while changing it is fine when the return value is inseparable from the change, the very thing the write just produced. It's a problem when the return value is incidental and calling the method for its side effect alone becomes a trap for the next person to read it.
+    CQS is a guideline, not a hard constraint, and plenty of well-established methods break it on purpose. <code>Array.prototype.pop()</code> removes the last element and returns it in one call, and nobody considers that a design flaw. An auto-incrementing counter that returns the new value on every call does the same thing, and so does a SQL <code>INSERT</code> that returns the generated id from the same statement that created the row. Splitting either into a separate command and query would mean an extra round trip, or a second read that could see a different answer than the write just produced. The real line is narrower than "never combine." A method that returns state while changing it is fine when the return value is simply the result the write just produced, inseparable from the change itself. It's a problem when the return value is incidental, and calling the method for its side effect alone becomes a trap for the next person to read it.
   </p>
 
   <p>
@@ -746,7 +746,7 @@
   </div>
 
   <p>
-    The pattern in that table is the whole argument of this article compressed into one shape. Nothing on this list is free, and nothing on this list is free of a stopping point. DRY removes duplicated knowledge until the abstraction it creates has to serve two things that were never actually the same thing. OCP removes the risk of editing working code until the extension point it adds is speculation dressed up as architecture. The practical heuristic that falls out of all seventeen principles is the same one. Apply a principle when it removes a cost you can already point to in the code in front of you. That cost might be a specific change that's hard to make, a specific concept that's hard to follow, or a specific case that's hard to test. Not because the principle is well known, and not preemptively, before that cost has actually shown up.
+    The pattern in that table is the whole argument of this article compressed into one shape. Nothing on this list is free, and nothing on this list is free of a stopping point. DRY removes duplicated knowledge until the abstraction it creates has to serve two things that were never actually the same thing. OCP removes the risk of editing working code until the extension point it adds is speculation dressed up as architecture. The practical heuristic that falls out of all seventeen principles is the same one. Apply a principle when it removes a cost you can already point to in the code in front of you, a specific change that's hard to make, a specific concept that's hard to follow, or a specific case that's hard to test. Don't apply it because the principle is well known, and don't apply it preemptively, before that cost has actually shown up.
   </p>
 
 </main>

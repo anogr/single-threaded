@@ -70,15 +70,15 @@
   <p class="subtitle">How attackers exploit the trust between a browser and a page, and the headers that close each gap: XSS, CSRF, and clickjacking.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~14 min read</span>
+    <div class="dot"></div><span>~24 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
-  <p class="wide" style="max-width:700px;">Browsers enforce a set of security boundaries that web applications rely on, but those boundaries can be circumvented if an application makes certain mistakes. This article covers the most common browser-targeted attacks, what makes them possible, and the combination of application-level practices and HTTP headers that defend against them. The <a href="web-security-principles.html">security principles</a> article provides the conceptual background.</p>
+  <p>Browsers enforce a set of security boundaries that web applications rely on, but those boundaries can be circumvented if an application makes certain mistakes. This article covers the most common browser-targeted attacks, what makes them possible, and the combination of application-level practices and HTTP headers that defend against them. The <a href="web-security-principles.html">security principles</a> article provides the conceptual background.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="xss">Cross-Site Scripting (XSS)</h2>
-  <p class="lede">Cross-Site Scripting (XSS) is an injection attack where malicious JavaScript is injected to a web page trusted by other users. Once running in a victim's browser, that script has the same capabilities as any legitimate script on the page.</p>
+  <p class="lede">Cross-Site Scripting (XSS) is an injection attack where malicious JavaScript is injected into a web page trusted by other users. Once running in a victim's browser, that script has the same capabilities as any legitimate script on the page.</p>
 
   <h3>How it works</h3>
   <p>The "cross-site" part of the name refers to where the code comes from, not where it runs. The script is authored by the attacker, someone with no legitimate reason to run code on the site at all. But the browser executes it inside the site's own origin, with the same access to cookies, the DOM, and API calls as code the site wrote itself.</p>
@@ -86,7 +86,7 @@
 
   <p>There are three main forms, and they differ in where the unsafe step happens. <strong>Stored XSS</strong> is the most severe. The malicious payload is saved to the database (in a comment, a profile name, a message) and gets served to every user who views that page.</p>
 
-  <p><strong>Reflected XSS</strong> also involves the server, but nothing is saved. A crafted URL carries the payload as a query parameter. The server reads that parameter and writes it straight into the HTML it sends back, a search page that echoes "You searched for: ..." being the classic case. The browser parses it as markup, because the server never escaped it. Since the server put the payload into the response, viewing the page's source shows the injected script sitting right there in the HTML. The attack still needs a victim to click the crafted link, since the payload only exists for that one request.</p>
+  <p><strong>Reflected XSS</strong> also involves the server, but nothing is saved. A crafted URL carries the payload as a query parameter, and the server reads that parameter and writes it straight into the HTML it sends back. A search page that echoes "You searched for: ..." is the classic case, and the browser parses that echoed text as markup because the server never escaped it. Since the server put the payload into the response, viewing the page's source shows the injected script sitting right there in the HTML. The attack still needs a victim to click the crafted link, though, since the payload only exists for that one request.</p>
 
   <p><strong>DOM-based XSS</strong> never touches the server at all. The HTML the server sends back is identical for every visitor, and its source shows nothing unusual. The payload lives in the URL, often after a <code>#</code>, which browsers never even send to the server. The page's own JavaScript reads it (with something like <code>location.hash</code>) and writes it into the DOM (with <code>innerHTML</code> or a similar sink) without escaping it. The bug is entirely in client-side code, not in anything the server rendered.</p>
 
@@ -142,13 +142,13 @@
   </figure>
 
   <h3>Defenses</h3>
-  <p>The primary defense is <strong>output encoding</strong>. Any untrusted data inserted into HTML must be escaped so that it cannot be interpreted as markup. The characters that matter most are <code>&lt;</code>, <code>&gt;</code>, <code>&amp;</code>, <code>"</code>, and <code>'</code>: escaped, these become <code>&amp;lt;</code>, <code>&amp;gt;</code>, and so on. Modern frontend frameworks (React, Vue, Angular, Svelte) escape output by default. The danger is bypassing these protections deliberately (<code>dangerouslySetInnerHTML</code> in React, <code>v-html</code> in Vue, or raw <code>innerHTML</code> in vanilla JavaScript) without first sanitizing the input through a trusted library like DOMPurify.</p>
+  <p>The primary defense is <strong>output encoding</strong>. Any untrusted data inserted into HTML must be escaped so that it cannot be interpreted as markup. The characters that matter most are <code>&lt;</code>, <code>&gt;</code>, <code>&amp;</code>, <code>"</code>, and <code>'</code>. Escaped, these become <code>&amp;lt;</code>, <code>&amp;gt;</code>, and so on. Modern frontend frameworks (React, Vue, Angular, Svelte) escape output by default. The danger is bypassing these protections deliberately (<code>dangerouslySetInnerHTML</code> in React, <code>v-html</code> in Vue, or raw <code>innerHTML</code> in vanilla JavaScript) without first sanitizing the input through a trusted library like DOMPurify.</p>
 
-  <p><strong>HttpOnly cookies</strong> don't prevent XSS but meaningfully limit its impact. A cookie marked HttpOnly is not accessible to JavaScript. <code>document.cookie</code> won't include it. This means an XSS payload cannot steal session tokens stored in HttpOnly cookies, which removes the most common goal of XSS attacks. This is why session cookies should always be HttpOnly.</p>
+  <p><strong>HttpOnly cookies</strong> don't prevent XSS but meaningfully limit its impact. A cookie marked HttpOnly is not accessible to JavaScript, so <code>document.cookie</code> won't include it. An XSS payload therefore cannot steal session tokens stored in HttpOnly cookies, which removes the most common goal of XSS attacks. Session cookies should always be HttpOnly.</p>
 
-  <p><strong>Content Security Policy (CSP)</strong> is a response header that tells the browser which scripts are allowed to run. It is a second line of defense. It doesn't fix the underlying injection, but a well-built policy stops an injected script from executing or exfiltrating data even when output encoding has already failed.</p>
+  <p><strong>Content Security Policy (CSP)</strong> is a response header that tells the browser which scripts are allowed to run. It acts as a second line of defense rather than a fix for the underlying injection. A well-built policy can still stop an injected script from executing or exfiltrating data, even when output encoding has already failed.</p>
 
-  <p>Early CSP policies worked by allowlisting the hosts scripts could be loaded from, such as <code>script-src 'self' https://cdn.example.com</code>. That approach has aged badly. A single allowlisted host that also serves an old JSONP endpoint or an open redirect is often enough to slip a script past the whole policy, and large sites almost always end up allowlisting something exploitable. The current recommendation is a <strong>nonce-based</strong> policy paired with <code>'strict-dynamic'</code>, which drops host allowlisting for scripts entirely.</p>
+  <p>Early CSP policies worked by allowlisting the hosts scripts could be loaded from, such as <code>script-src 'self' https://cdn.example.com</code>. That approach has aged badly. A single allowlisted host that also serves an old JSONP endpoint or an open redirect is often enough to slip a script past the whole policy. Large sites almost always end up allowlisting something exploitable somewhere in that list. The current recommendation is a <strong>nonce-based</strong> policy paired with <code>'strict-dynamic'</code>, which drops host allowlisting for scripts entirely.</p>
 
   <div class="header-block">
     <div><span class="hl-comment"># Fragile: an allowlisted host can often be turned against the policy</span></div>
@@ -160,13 +160,13 @@
 
   <p>A <strong>nonce</strong> is a random value generated fresh for each response and added to both the CSP header and every inline <code>&lt;script&gt;</code> tag the page legitimately includes. The browser runs only the scripts whose nonce matches, so an injected script, unable to guess that response's nonce, never executes. The nonce must be unpredictable and must change on every response. A reused or guessable one is no protection. <code>'strict-dynamic'</code> then says that any script the browser already trusts, because it carried the right nonce, may load further scripts itself. That is what lets a single nonced bootstrap script pull in the rest of an application without the policy naming every host it fetches from.</p>
 
-  <p><strong>Trusted Types</strong> covers the case a nonce doesn't: DOM-based XSS, where the malicious data never passes through the server for a nonce or an encoder to catch. Enabled with <code>require-trusted-types-for 'script'</code>, it forces the dangerous DOM sinks (<code>innerHTML</code>, <code>document.write</code>, and similar) to reject a plain string. They accept only a value produced by an explicit sanitizer policy the application defines, which collapses DOM XSS down to the few auditable places those values get created. Trusted Types reached support across all major browsers in early 2026, having been Chromium-only before that.</p>
+  <p><strong>Trusted Types</strong> covers a case a nonce doesn't reach. DOM-based XSS never sends its malicious data through the server, so there's no nonce or encoder in the pipeline to catch it. Enabled with <code>require-trusted-types-for 'script'</code>, it forces the dangerous DOM sinks (<code>innerHTML</code>, <code>document.write</code>, and similar) to reject a plain string. They accept only a value produced by an explicit sanitizer policy the application defines, which collapses DOM XSS down to the few auditable places those values get created. Trusted Types was Chromium-only for years, and the other major engines have since added support. A browser without it ignores the directive and enforces nothing, so treat it as hardening on top of the other defenses.</p>
 
   <div class="header-block">
     <div><span class="hl-name">Content-Security-Policy:</span> <span class="hl-value">require-trusted-types-for 'script'</span></div>
   </div>
 
-  <p><strong>X-Content-Type-Options: nosniff</strong> prevents browsers from interpreting a response as a different content type than what the server declared. Modern browsers already enforce strict MIME type checking for script execution, so this header is defense-in-depth rather than a primary control. It still earns its place since it prevents browsers from treating downloaded files as HTML, closes content-type confusion on some less common resource types, and signals a deliberate security posture to scanning tools and intermediaries.</p>
+  <p><strong>X-Content-Type-Options: nosniff</strong> prevents browsers from interpreting a response as a different content type than what the server declared. Modern browsers already enforce strict MIME type checking for script execution, so this header is defense-in-depth rather than a primary control. It still earns its place by preventing browsers from treating downloaded files as HTML and closing content-type confusion on some less common resource types. It also signals a deliberate security posture to scanning tools and intermediaries.</p>
 
   <div class="header-block">
     <div><span class="hl-name">X-Content-Type-Options:</span> <span class="hl-value">nosniff</span></div>
@@ -245,10 +245,11 @@
   </figure>
 
   <h3>Defenses</h3>
-  <p>The modern defense is the <strong>SameSite cookie attribute</strong>, covered in depth in the <a href="http.html">HTTP</a> article. With <code>SameSite=Strict</code>, the session cookie is never sent on a cross-site request. <code>SameSite=Lax</code> (the browser default since around 2020) sends the cookie only on a cross-site request that's both a top-level navigation and uses a safe method, an ordinary link click being the common case. The hidden form in the classic example above submits as a POST, which isn't a safe method, so Lax withholds the cookie there too, exactly like Strict. Either setting works by keeping the cookie from ever reaching the server. The bank sees a request with no valid session at all, forged or not.</p>
+  <p>The modern defense is the <strong>SameSite cookie attribute</strong>, covered in depth in the <a href="http.html">HTTP</a> article. With <code>SameSite=Strict</code>, the session cookie is never sent on a cross-site request. <code>SameSite=Lax</code> sends the cookie only on a cross-site request that's both a top-level navigation and uses a safe method. An ordinary link click is the common case. Chromium-based browsers apply Lax by default when a cookie sets no <code>SameSite</code> attribute. Firefox and Safari still treat a missing attribute as <code>None</code>, so the attribute should always be set explicitly. The hidden form in the classic example above submits as a POST, which isn't a safe method, so Lax withholds the cookie there too, exactly like Strict. Either setting works by keeping the cookie from ever reaching the server. The bank sees a request with no valid session at all, forged or not.</p>
 
-  <p><strong>CSRF tokens</strong> defend against the same attack as SameSite but at a different layer, which is why sites commonly use both rather than relying on either alone. SameSite is a single point of protection, and it can fail in several ways:</p>
+  <p><strong>CSRF tokens</strong> defend against the same attack as SameSite, but they work at a different layer. That's why sites commonly use both instead of relying on either alone. SameSite is a single point of protection, and it can fail in several ways:</p>
   <ul>
+    <li>Never set, in a browser that doesn't apply Lax by default.</li>
     <li>Misconfigured or disabled outright.</li>
     <li>Unsupported by an older client.</li>
     <li>Set to <code>SameSite=None</code> for a legitimate cross-origin integration.</li>
@@ -256,13 +257,13 @@
   </ul>
   <p>In any of those cases a forged request can still arrive with the session cookie attached, and nothing about the cookie itself stops it.</p>
 
-  <p>CSRF tokens are the independent backstop for that case. The server embeds a second, unique, unpredictable value into each form or response, and rejects any state-changing request that doesn't include a matching one. A forged request from evilsite.com might still arrive carrying the victim's session cookie, but evilsite.com was never able to read bank.com's page, so it never saw the token and has no way to include it. The request fails on the token alone.</p>
+  <p>CSRF tokens are the independent backstop for that case. The server embeds a second, unique, unpredictable value into each form or response, and rejects any state-changing request that doesn't include a matching one. A forged request from evilsite.com might still arrive carrying the victim's session cookie, but evilsite.com was never able to read bank.com's page. It never saw the token, so it has no way to include it. The request fails on the token alone.</p>
 
   <div class="attack-defense">
     <div class="card red">
       <div class="card-label">Attack</div>
       <div class="card-title">How CSRF works</div>
-      <p>Attacker's page triggers a cross-origin request. Browser automatically sends the victim's cookies. Server sees a valid session and processes the request.</p>
+      <p>The attacker's page triggers a cross-origin request, and the browser automatically sends the victim's cookies along with it. The server sees a valid session and processes the request.</p>
     </div>
     <div class="card teal">
       <div class="card-label">Defense</div>
@@ -276,15 +277,15 @@
   <p class="lede">The same-origin policy is the browser's default-deny rule for reading across origins. CORS is how a server opts specific origins back in.</p>
 
   <h3>What it protects against</h3>
-  <p>Browsers enforce a same-origin policy - JavaScript running on one origin cannot read the response to a request it made to a different origin. An origin is the combination of scheme, host, and port, so <code>https://app.example.com</code> and <code>https://api.example.com</code> count as different origins even though they share a domain. Without this rule, any page visited could quietly call a bank's API or a webmail API while the user happens to be logged into either, and read back whatever came out, if the session cookie's SameSite attribute is None. The <a href="#scenarios">inbox-reading scenario below</a> walks through exactly that.</p>
+  <p>Under the same-origin policy, JavaScript running on one origin cannot read the response to a request it made to a different origin. An origin is the combination of scheme, host, and port, so <code>https://app.example.com</code> and <code>https://api.example.com</code> count as different origins even though they share a domain. Without this rule, any page the user visits could quietly call a bank's API or a webmail API through the user's existing session. It could then read back whatever came out, provided the session cookie is sent cross-site at all. The <a href="#scenarios">inbox-reading scenario below</a> walks through exactly that.</p>
 
   <h3>Why it only blocks reads, not sends</h3>
-  <p>A page on evilsite.com can still make the browser send a request to mail.com. The same-origin policy was never designed to stop that. Long before JavaScript could make a request at all, a plain HTML form or an <code>&lt;img&gt;</code> tag could already trigger a cross-origin GET or POST. The web still depends on that today, for ordinary links, embedded images, and third-party forms. Blocking all cross-origin sends outright would break huge parts of the web that have nothing to do with attackers. What the policy targets instead is stopping the attacker's page from reading whatever comes back. A request that changes something on the server, with no interest in reading the response, is a different problem entirely. That's CSRF, covered above, and it's why SameSite cookies and CSRF tokens exist as a defense that has nothing to do with CORS.</p>
+  <p>A page on evilsite.com can still make the browser send a request to mail.com. The same-origin policy was never designed to stop that. Long before JavaScript could make a request at all, a plain HTML form or an <code>&lt;img&gt;</code> tag could already trigger a cross-origin GET or POST. The web still depends on that today for things like ordinary links, embedded images, and third-party forms. Blocking all cross-origin sends outright would break huge parts of the web that have nothing to do with attackers. What the policy targets instead is stopping the attacker's page from reading whatever comes back. A request that changes something on the server, with no interest in reading the response, is a different problem entirely. That's CSRF, covered above, and it's why SameSite cookies and CSRF tokens exist as a defense that has nothing to do with CORS.</p>
 
   <h3>CORS: opting specific origins back in</h3>
-  <p>CORS is the mechanism a server uses to tell the browser a particular origin is allowed to read its responses. The header-by-header mechanics, the preflight exchange, <code>Access-Control-Allow-Origin</code>, credentialed requests, are covered in the <a href="http.html#cors">HTTP</a> article. What matters here is why preflight exists at all.</p>
+  <p>CORS is the mechanism a server uses to tell the browser a particular origin is allowed to read its responses. The header-by-header mechanics, such as the preflight exchange, <code>Access-Control-Allow-Origin</code>, and credentialed requests, are covered in the <a href="http.html#cors">HTTP</a> article. What matters here is why preflight exists at all.</p>
 
-  <p>A request with a custom header, a JSON body, or a method like <code>PUT</code> or <code>DELETE</code> is something a plain HTML form could never produce. Before <code>fetch</code> and XHR existed, no server had a reason to check where a request like that came from, because a cross-origin script had no way to send one. Most servers still don't check the <code>Origin</code> header on every request. A well-written one could reject an unexpected origin itself, but CORS can't assume every server does. So the browser first sends a side-effect-free <code>OPTIONS</code> request, and only sends the real one if the server explicitly answers with the right <code>Access-Control-*</code> headers. A server that's never heard of CORS simply won't answer correctly, and the real request never goes out. That protects servers that were never written with cross-origin JavaScript in mind, without requiring them to add anything.</p>
+  <p>A request with a custom header, a JSON body, or a method like <code>PUT</code> or <code>DELETE</code> is something a plain HTML form could never produce. Before <code>fetch</code> and XHR existed, no server had a reason to check where a request like that came from, because a cross-origin script had no way to send one. Most servers still don't check the <code>Origin</code> header on every request. A well-written one could reject an unexpected origin itself, but CORS can't assume every server does. So the browser first sends a side-effect-free <code>OPTIONS</code> request, and only sends the real one if the server explicitly answers with the right <code>Access-Control-*</code> headers. A server that's never heard of CORS won't answer correctly, and the real request never goes out. That protects servers that were never written with cross-origin JavaScript in mind, without requiring them to add anything.</p>
 
   <div class="callout danger">
     <div class="callout-title">A common misconfiguration</div>
@@ -300,7 +301,7 @@
       <li><strong>CSRF</strong> is an attack that exploits the browser's automatic cookie attachment to forge a state-changing request. Defenses are SameSite cookies and CSRF tokens.</li>
       <li><strong>CORS</strong> is not an attack. It's a protocol that allows a server to selectively relax the same-origin policy for trusted origins.</li>
     </ul>
-    <p>The mix-up usually comes from CSRF and CORS both involving a second origin. The browser sends a cross-origin request whether or not CORS allows it. CORS only governs whether the response can be read, not whether the request goes out. That's why a perfectly configured CORS policy does nothing to stop a CSRF attack, and a strict CSRF defense does nothing to stop a script from reading a response it was already permitted to read. XSS doesn't involve a second origin at all. It just means the attacker's code is running with the first origin's own trust, as if the site had written it.</p>
+    <p>The mix-up usually comes from CSRF and CORS both involving a second origin. The browser sends a cross-origin request whether or not CORS allows it. CORS only governs whether the response can be read, not whether the request goes out. That's why a perfectly configured CORS policy does nothing to stop a CSRF attack. A strict CSRF defense, in turn, does nothing to stop a script from reading a response it was already permitted to read. XSS doesn't involve a second origin at all. It means the attacker's code is running with the first origin's own trust, as if the site had written it.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -313,7 +314,7 @@
   <h3>Defenses</h3>
   <p>The defense is preventing pages from being embedded in iframes outside the site's control. Two mechanisms do this.</p>
 
-  <p><code>X-Frame-Options</code> is the older header. <code>DENY</code> prevents embedding anywhere. <code>SAMEORIGIN</code> only allows embedding in iframes on the same origin.</p>
+  <p><code>X-Frame-Options</code> is the older header. <code>DENY</code> prevents embedding anywhere, while <code>SAMEORIGIN</code> allows it only in iframes on the same origin.</p>
 
   <div class="header-block">
     <div><span class="hl-name">X-Frame-Options:</span> <span class="hl-value">DENY</span></div>
@@ -339,9 +340,9 @@
   <p class="lede">HTTPS prevents eavesdropping, but only if the browser uses it. On the first visit, an attacker on the same network can intercept the initial HTTP request before HTTPS kicks in.</p>
 
   <h3>How it works</h3>
-  <p>Modern browsers already default to HTTPS in most cases. Type a bare domain into the address bar and the browser tries HTTPS first, and most links on the modern web already point to an <code>https://</code> URL. The downgrade risk that remains lives in the cases that bypass this default. A user types <code>http://</code> explicitly into the address bar, or clicks a link that hardcodes the <code>http://</code> scheme, perhaps an old bookmark, a link on a page that was never updated, a printed URL, or a QR code. In either case the browser's first request goes out as plain HTTP, and an attacker on the same network (a café WiFi network, for example) can intercept it before anything redirects to HTTPS.</p>
+  <p>Modern browsers already default to HTTPS in most cases. Type a bare domain into the address bar, and the browser tries HTTPS first. Most links on the modern web already point to an <code>https://</code> URL. The downgrade risk that remains lives in the cases that bypass this default. A user might type <code>http://</code> explicitly into the address bar, or click a link that hardcodes the <code>http://</code> scheme, such as an old bookmark, a link on a page that was never updated, a printed URL, or a QR code. In either case the browser's first request goes out as plain HTTP, and an attacker on the same network (a café WiFi network, for example) can intercept it before anything redirects to HTTPS.</p>
 
-  <p>SSL stripping is the classic form this attack takes. The attacker sits between the user and the server, intercepts that initial HTTP request, and instead of forwarding it, talks to the real server over HTTPS themselves while relaying a plain HTTP response back to the victim. The user thinks they're talking to the real site; they're actually talking to the attacker, and since the victim's own connection is HTTP, everything they send or receive is visible and modifiable. Even if the server's first response to the HTTP request is a redirect to HTTPS, that redirect still has to cross the attacker's connection first, so the attacker can intercept it and keep the victim on HTTP.</p>
+  <p>SSL stripping is the classic form this attack takes. The attacker sits between the user and the server and intercepts that initial HTTP request. Instead of forwarding it, they talk to the real server over HTTPS themselves, while relaying a plain HTTP response back to the victim. The user believes they're talking to the real site, but they're talking to the attacker. Since the victim's own connection is HTTP, everything they send or receive is visible and modifiable. Even if the server's first response to the HTTP request is a redirect to HTTPS, that redirect still has to cross the attacker's connection first. The attacker can intercept it there too, keeping the victim on HTTP.</p>
 
   <h3>Defense: HSTS</h3>
   <p>HTTP Strict Transport Security (HSTS) instructs the browser to always use HTTPS for a domain (even if the user types HTTP) for a specified period. Once the browser has seen the HSTS header, it converts any HTTP request for that domain to HTTPS before sending it, bypassing any attacker in the middle.</p>
@@ -350,7 +351,7 @@
     <div><span class="hl-name">Strict-Transport-Security:</span> <span class="hl-value">max-age=31536000; includeSubDomains</span></div>
   </div>
 
-  <p><code>max-age</code> is in seconds: 31536000 is one year. <code>includeSubDomains</code> applies the policy to all subdomains, which prevents an attacker from attacking a subdomain to compromise the main site via cookies. <code>preload</code> (an optional additional directive) opts the domain into browser preload lists.</p>
+  <p><code>max-age</code> is measured in seconds, so 31536000 means one year. <code>includeSubDomains</code> applies the policy to all subdomains, which prevents an attacker from attacking a subdomain to compromise the main site via cookies. <code>preload</code> (an optional additional directive) opts the domain into browser preload lists.</p>
 
   <h3>The first-visit problem and preloading</h3>
   <p>HSTS solves the problem for <em>returning</em> visitors, but not the first visit. The browser hasn't yet received the HSTS header. The <strong>HSTS preload list</strong> is a list of domains that major browsers ship with, instructing them to always use HTTPS before the first request. Submitting to the preload list at <a href="https://hstspreload.org" target="_blank" rel="noopener">hstspreload.org</a> is free, but it is a significant commitment. Removing a domain takes months and requires coordination with browser vendors. Only submit if every subdomain of the domain is certain to serve HTTPS indefinitely.</p>
@@ -360,7 +361,7 @@
   <p class="lede">Loading a third-party script means trusting that it will always contain what's expected. If the CDN or the script provider is compromised, users run malicious code.</p>
 
   <h3>How it works</h3>
-  <p>Including a script from a CDN with a plain <code>&lt;script src="..."&gt;</code> tag means whatever that URL serves, the users execute. If the CDN is breached or the script provider's account is compromised, the injected code runs with full access to the page and can steal form inputs, session data, or anything else on the page. This happened to Polyfill.io in 2024, affecting hundreds of thousands of sites that trusted a shared CDN.</p>
+  <p>Including a script from a CDN with a plain <code>&lt;script src="..."&gt;</code> tag means the site executes whatever that URL happens to serve. If the CDN is breached or the script provider's account is compromised, the injected code runs with full access to the page and can steal form inputs, session data, or anything else on the page. This happened to Polyfill.io in 2024, affecting hundreds of thousands of sites that trusted a shared CDN.</p>
 
   <p>This is the browser-facing edge of a larger problem. Build tooling, package registries, and CI/CD pipelines can be tampered with the same way, and a compromise there reaches an application before a single script tag is ever written. The <a href="web-security-principles.html#supply-chain">software supply chain</a> section of the web application security article covers that broader threat and the defenses (software bills of materials, dependency scanning, signed artifacts) that apply upstream of the browser.</p>
 
@@ -382,10 +383,10 @@
   <p>The hash is generated from the exact file content at the time the tag is added. SRI only works for static, versioned assets. It cannot protect dynamically updated scripts (where the URL stays the same but the content changes), because any legitimate update would also break the hash. For dynamically updated third-party scripts, the only reliable mitigation is to self-host a pinned version and update it manually.</p>
 
   <h3>The npm supply chain</h3>
-  <p>A CDN script tag is only one entry point. Most applications also pull in far more third-party code through npm, often hundreds of packages once transitive dependencies are counted, and none of it sits behind a browser script tag SRI can check. It gets installed on a developer's machine or a CI runner and ends up bundled directly into the production build, so the malicious code becomes part of the bundle before it ever reaches a browser. This isn't hypothetical: in 2021, an attacker compromised the maintainer account behind <code>ua-parser-js</code>, a package downloaded millions of times a week, and published versions containing a cryptominer and a credential stealer.</p>
+  <p>A CDN script tag is only one entry point. Most applications also pull in far more third-party code through npm, often hundreds of packages once transitive dependencies are counted. None of it sits behind a browser script tag SRI can check. It gets installed on a developer's machine or a CI runner, then ends up bundled directly into the production build. The malicious code becomes part of the bundle before it ever reaches a browser. In 2021, an attacker compromised the maintainer account behind <code>ua-parser-js</code>, a package downloaded millions of times a week, and published versions containing a cryptominer and a credential stealer.</p>
 
   <h3>Defense: lockfiles and auditing</h3>
-  <p>Committing a lockfile (<code>package-lock.json</code>) and installing with <code>npm ci</code> instead of <code>npm install</code> ensures every install uses the exact package versions that were already reviewed, rather than whatever a version range happens to resolve to on a given day. <code>npm audit</code> checks installed dependencies against a database of known-malicious and vulnerable packages, and should run in CI rather than only on a developer's machine. The same logic applies regardless of which package manager a project uses, pnpm and Yarn included.</p>
+  <p>Committing a lockfile (<code>package-lock.json</code>) and installing with <code>npm ci</code> instead of <code>npm install</code> ensures every install uses the exact package versions that were already reviewed. Otherwise, a version range might resolve to something different on any given day. <code>npm audit</code> checks installed dependencies against a database of known-malicious and vulnerable packages, and should run in CI rather than only on a developer's machine. The same logic applies regardless of which package manager a project uses, pnpm and Yarn included.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="leakage">Information Leakage</h2>
@@ -399,7 +400,7 @@
     <div><span class="hl-name">Referrer-Policy:</span> <span class="hl-value">strict-origin-when-cross-origin</span></div>
   </div>
 
-  <p><code>strict-origin-when-cross-origin</code> is the browser default in modern browsers. It sends the full URL for same-origin requests (useful for internal analytics) and only the origin for cross-origin ones (no path, no query string). For pages that are genuinely sensitive, <code>no-referrer</code> sends nothing at all.</p>
+  <p><code>strict-origin-when-cross-origin</code> is the default in modern browsers. It sends the full URL for same-origin requests (useful for internal analytics) and only the origin for cross-origin ones (no path, no query string). For pages that are genuinely sensitive, <code>no-referrer</code> sends nothing at all.</p>
 
   <h3>Permissions-Policy</h3>
   <p>Permissions-Policy controls which browser features a page and its embedded content can access: camera, microphone, geolocation, payment APIs, and others. A page that doesn't use the camera can declare that explicitly, which means a compromised third-party script embedded in the page cannot activate it even if it tries.</p>
@@ -413,7 +414,7 @@
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="scenarios">Attack Scenarios: What Stops What</h2>
-  <p class="lede">Every section above explains a mechanism on its own. Attacks are easier to reason about as stories - what the attacker is after, and the one control that stops them.</p>
+  <p class="lede">Every section above explains a mechanism on its own. Attacks are easier to reason about as stories that name what the attacker is after and the one control that stops them.</p>
   <p>The seven scenarios below cover every attack in this article, plus a variant of CSRF that steals data through a cross-origin read rather than forging a write.</p>
 
   <h3>1. Stealing session tokens through an injected comment</h3>
@@ -477,7 +478,7 @@
     <div class="card red">
       <div class="card-label">Scenario</div>
       <div class="card-title">SSL stripping</div>
-      <p>A user connects to bank.com over café WiFi. The attacker wants to read and alter the user's traffic, including their login credentials, so they intercept the first plain-HTTP request, talk to the real bank.com over HTTPS themselves, and relay an unencrypted version back to the victim.</p>
+      <p>A user connects to bank.com over café WiFi. The attacker wants to read and alter the user's traffic, including their login credentials. To do that, they intercept the first plain-HTTP request, talk to the real bank.com over HTTPS themselves, and relay an unencrypted version back to the victim.</p>
     </div>
     <div class="card teal">
       <div class="card-label">What stops it</div>
@@ -491,7 +492,7 @@
     <div class="card red">
       <div class="card-label">Scenario</div>
       <div class="card-title">Breached dependency</div>
-      <p>A user checks out on an online store that loads its charting library from a shared CDN. The attacker wants the payment details entered on that checkout page, so once the CDN is breached, the injected code runs with full page access on every site that includes the script, this one included.</p>
+      <p>A user checks out on an online store that loads its charting library from a shared CDN. The attacker wants the payment details entered on that checkout page. Once the CDN is breached, the injected code runs with full page access on every site that includes the script, this one included.</p>
     </div>
     <div class="card teal">
       <div class="card-label">What stops it</div>
@@ -505,7 +506,7 @@
     <div class="card red">
       <div class="card-label">Scenario</div>
       <div class="card-title">Referer leakage</div>
-      <p>A user requests a password reset and clicks the emailed link, landing on <code>bank.com/reset?token=abc123</code>, a page that also loads a third-party analytics script. The attacker wants that token, since it can take over the account, and by default the browser hands over the full URL, token included, in the <code>Referer</code> header of every request the script makes.</p>
+      <p>A user requests a password reset and clicks the emailed link, landing on <code>bank.com/reset?token=abc123</code>, a page that also loads a third-party analytics script. The attacker wants that token, since it can be used to take over the account. By default, the browser hands over the full URL, token included, in the <code>Referer</code> header of every request the script makes.</p>
     </div>
     <div class="card teal">
       <div class="card-label">What stops it</div>

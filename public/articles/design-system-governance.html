@@ -43,7 +43,6 @@
 
 <nav class="sidebar" id="sidebar">
   <a class="sidebar-back" href="index.html">← All articles</a>
-  <a class="sidebar-logo" href="index.html">Article<br><span>Design System Governance</span></a>
 
   <div class="sidebar-section">Foundations</div>
   <a href="#intro">A Library Isn't a System</a>
@@ -68,7 +67,7 @@
   <p class="subtitle">How a shared component library stays consistent once tokens, releases, and contribution rules have to hold across many teams instead of one.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~11 min read</span>
+    <div class="dot"></div><span>~12 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
@@ -82,7 +81,7 @@
 
     <p>The payoff of getting it right is consistency that holds at scale, and not only the visual kind. A design system that's working keeps a button looking the same everywhere, behaving the same everywhere, exposing the same props for the same idea everywhere, meeting the same accessibility bar everywhere, and shipping changes on a schedule teams can plan around. Visual, behavioral, API, accessibility, and release consistency are five separate threads, and all five keep resurfacing through the rest of this article.</p>
 
-    <p>Four other articles on this site cover pieces adjacent to this one without overlapping it. <a href="ux-principles.html">UX Principles</a> covers the design thinking behind an interface. <a href="implementing-figma-designs.html">Implementing Figma Designs</a> covers turning one design file into code. <a href="css-architectures.html">CSS at Scale</a> covers the mechanics of scaling stylesheets, and <a href="react-patterns-component-design.html">React Patterns &amp; Component Design</a> covers structuring a single component well. This article sits above all four: it assumes the components and tokens already exist, and asks how they stay consistent once many teams depend on them instead of one.</p>
+    <p>Four other articles in this series cover pieces adjacent to this one without overlapping it. <a href="ux-principles.html">UX Principles</a> covers the design thinking behind an interface, and <a href="implementing-figma-designs.html">Implementing Figma Designs</a> covers turning one design file into code. <a href="css-architectures.html">CSS at Scale</a> covers the mechanics of scaling stylesheets, and <a href="react-patterns-component-design.html">React Patterns &amp; Component Design</a> covers structuring a single component well. This article sits above all four: it assumes the components and tokens already exist, and asks how they stay consistent once many teams depend on them instead of one.</p>
   </section>
 
   <!-- ═══════════════════════════════════════════════════
@@ -161,11 +160,11 @@
     <figcaption>Renaming <code>color.primary</code> invalidates all four outputs at once. That's what makes a token name effectively public API, not an internal implementation detail.</figcaption>
   </div>
 
-  <p>That last point, stated plainly: a token's name is public API even though it looks like an internal detail. <code>color.primary</code> gets referenced directly by dozens of components across teams that never open the token source file. Renaming it breaks every one of them at once, not just the one file it was edited in. That's what turns token management into a versioning problem rather than a naming exercise.</p>
+  <p>Stated plainly, a token's name is public API even though it looks like an internal detail. <code>color.primary</code> gets referenced directly by dozens of components across teams that never open the token source file. Renaming it breaks every one of them at once, not just the one file it was edited in. That's what turns token management into a versioning problem rather than a naming exercise.</p>
 
   <div class="callout warn">
     <div class="callout-title">A Token Rename Is a Breaking Change</div>
-    <p>Treat a token rename on the same release cadence as a breaking API change, with a deprecation period and a migration path, never as a silent patch. The people who'll notice aren't reading the changelog for a components package; they're reading it for whichever token file they imported.</p>
+    <p>Treat a token rename on the same release cadence as a breaking API change, with a deprecation period and a migration path, never as a silent patch. The people who'll notice aren't reading the changelog for a components package. They're reading it for whichever token file they imported.</p>
   </div>
 
   <!-- ═══════════════════════════════════════════════════
@@ -174,7 +173,7 @@
   <h2 id="versioning">Versioning a Shared Library</h2>
   <p class="lede">A component's exported types can stay identical release over release while the component itself quietly breaks every application that renders it.</p>
 
-  <p>Semantic versioning gives a shared library a vocabulary for change: a patch for a fix that alters nothing about behavior, a minor version for an addition that doesn't break existing usage, and a major version for anything that does. That vocabulary works well when a library's surface is made of function signatures and prop types. A design system's real surface is wider than that, and a change can break a consumer without touching a single type.</p>
+  <p>Semantic versioning gives a shared library a vocabulary for change. A patch marks a fix that alters nothing about behavior, a minor version marks an addition that doesn't break existing usage, and a major version marks anything that does. That vocabulary works well when a library's surface is made of function signatures and prop types. A design system's real surface is wider than that, and a change can break a consumer without touching a single type.</p>
 
   <div class="table-wrap">
     <table>
@@ -193,7 +192,7 @@
 
   <p>The first four rows matter most. A padding token moving a few pixels doesn't touch a button's TypeScript props, but it makes the button taller, and a consumer that sized a container to fit the old height now clips it. A focus ring one pixel wider can start overlapping an adjacent element that was never designed with that width in mind. None of these show up in a diff of the component's public API, which is exactly why a review focused only on types misses them.</p>
 
-  <p>The practical response is to size a release by its blast radius, not by whether a type signature changed. Different organizations draw that line differently, and both are defensible: some treat any layout-affecting change as a major release on principle, while others reserve that classification for changes wide enough to break more than a handful of consumers. Which convention a team picks matters less than writing it down, so a release doesn't get classified by whoever happens to be merging that week. A changelog tool such as Changesets, common in library monorepos, forces every contributor to record what changed and how severe it is before merging, rather than trusting a git log to explain itself later. Before removing an old prop or renaming a token, give consumers a deprecation window and a codemod, a script that mechanically rewrites the old usage to the new one across every consuming repository. Asking forty teams to hand-edit an import is a reliable way to stall a migration for a year.</p>
+  <p>The practical response is to size a release by its blast radius, not by whether a type signature changed. Different organizations draw that line differently, and both are defensible. Some treat any layout-affecting change as a major release on principle. Others reserve that classification for changes wide enough to break more than a handful of consumers. Which convention a team picks matters less than writing it down, so a release doesn't get classified by whoever happens to be merging that week. A changelog tool such as Changesets, common in library monorepos, forces every contributor to record what changed and how severe it is before merging, rather than trusting a git log to explain itself later. Before removing an old prop or renaming a token, give consumers a deprecation window and a codemod, a script that mechanically rewrites the old usage to the new one across every consuming repository. Asking forty teams to hand-edit an import is a reliable way to stall a migration for a year.</p>
 
   <!-- ═══════════════════════════════════════════════════
        CONTRIBUTION
@@ -228,9 +227,9 @@
     </table>
   </div>
 
-  <p>Hybrid is where most systems that survive contact with more than a few teams end up settling, because centralized ownership stops scaling around the same point federated ownership starts drifting. Making it work means a real proposal process instead of an open pull request queue. Someone writes a short proposal describing the problem, the proposed API, and the alternatives considered, sometimes called an RFC, short for request for comments. A core team or a rotating review group then evaluates it: does the API match existing naming and prop conventions, does it clear the accessibility bar the rest of the library holds, and is it genuinely reusable rather than one team's specific need wearing a shared component's name. A brief written decision record, sometimes called an architecture decision record, saves the next contributor from re-litigating a choice nobody remembers making.</p>
+  <p>Hybrid is where most systems that survive contact with more than a few teams end up settling, because centralized ownership stops scaling around the same point federated ownership starts drifting. Making it work means a real proposal process instead of an open pull request queue. Someone writes a short proposal describing the problem, the proposed API, and the alternatives considered, sometimes called a request for comments (RFC). A core team or a rotating review group then evaluates it. Does the API match existing naming and prop conventions? Does it clear the accessibility bar the rest of the library holds? Is it genuinely reusable, rather than one team's specific need wearing a shared component's name? A brief written decision record, sometimes called an architecture decision record, saves the next contributor from re-litigating a choice nobody remembers making.</p>
 
-  <p>Contribution answers how a change gets in. Ownership answers who's responsible once it ships: whoever fixes the next accessibility regression, patches a security issue in a dependency, keeps the documentation matching the current API, and answers a consuming team's question about it. A system where many teams contribute components but no single owner exists for any of them accumulates components that are still published, still consumed, and slowly falling further behind the rest of the library. Assigning an owner at merge time is the cheap time to decide it; deciding it after something breaks is not.</p>
+  <p>Contribution answers how a change gets in. Ownership answers who's responsible once it ships. That means whoever fixes the next accessibility regression, patches a security issue in a dependency, keeps the documentation matching the current API, and answers a consuming team's question about it. A system where many teams contribute components but no single owner exists for any of them accumulates components that are still published, still consumed, and slowly falling further behind the rest of the library. Assigning an owner at merge time is the cheap time to decide it. Deciding it after something breaks is not.</p>
 
   <p>Documentation is where that ownership becomes visible to everyone outside the library itself. A prop, token, or migration path that isn't written down is effectively invisible to a team that wasn't in the review, no matter how carefully it was designed. Treating documentation as part of what ships with a change, rather than a follow-up task that happens whenever someone gets to it, is what keeps the published record matching what the library actually does.</p>
 
@@ -287,11 +286,11 @@
   <h2 id="drift">Drift and Adoption</h2>
   <p class="lede">A dependency graph can say a library is adopted everywhere. Whether it's actually consistent is a different question, usually answered by looking at what teams built instead of using it.</p>
 
-  <p>A literal fork, copying a component's source into a local repository, is the most visible form of <strong>drift</strong> and also the rarest, since it's easy to catch in a code search. Most drift is quieter: a wrapper component that reimplements half the original's behavior to work around one missing prop, a block of markup copy-pasted because importing the real component felt slower that day, a local CSS override reaching past whatever style API the component actually exposes, a token value overridden locally instead of proposing a new alias, or a feature flag meant to run for two weeks that's still splitting the codebase in two a year later. The same pattern shows up before any code gets written, too: a designer duplicating a component locally instead of pulling from the shared <a href="implementing-figma-designs.html">Figma library</a> drifts for the same reason a copy-pasted component does.</p>
+  <p>A literal fork, copying a component's source into a local repository, is the most visible form of <strong>drift</strong> and also the rarest, since it's easy to catch in a code search. Most drift is quieter. A wrapper component reimplements half the original's behavior to work around one missing prop, or a block of markup gets copy-pasted because importing the real component felt slower that day. Elsewhere a local CSS override reaches past whatever style API the component actually exposes, or a token value gets overridden locally instead of proposing a new alias. A feature flag meant to run for two weeks is still splitting the codebase in two a year later. The same pattern shows up before any code gets written, too. For example, a designer duplicating a component locally instead of pulling from the shared <a href="implementing-figma-designs.html">Figma library</a> drifts for the same reason a copy-pasted component does.</p>
 
   <p>Each of these is worth reading as feedback before it's read as a violation. A team that forked a button because the shared version couldn't handle an icon-only variant is describing a real gap in the library, not simply breaking a rule. Treating every instance as something to police rather than something to ask about tends to push the next gap further underground instead of surfacing it as a proposal.</p>
 
-  <p>Three simple signals track this: what fraction of a team's components actually import from the shared library rather than a local equivalent, how many duplicate or forked components turn up in a periodic audit, and how long a new team takes to become productive with the library instead of quietly building their own version of it. None of those numbers matter as a target to hit. They matter as an early warning that the process in the previous section isn't fitting the teams it's meant to serve.</p>
+  <p>Three simple signals track this. One is what fraction of a team's components actually import from the shared library rather than a local equivalent. Another is how many duplicate or forked components turn up in a periodic audit. The third is how long a new team takes to become productive with the library instead of quietly building their own version of it. None of those numbers matter as a target to hit. They matter as an early warning that the process in the previous section isn't fitting the teams it's meant to serve.</p>
 
   <!-- ═══════════════════════════════════════════════════
        DISTRIBUTION
@@ -309,9 +308,9 @@
   <h2 id="overkill">When It's Overkill</h2>
   <p class="lede">Governance has a real cost, and it's worth paying only once enough independent teams are pulling on the same library to justify it.</p>
 
-  <p>None of the process described above, proposals, formal token tiers, a dedicated review group, is free. A single product team of fifty engineers shipping on one roadmap can usually get by with a shared components folder, a chat channel, and the habit of asking before changing something widely used. Layering a full governance process onto a team that size adds meetings without adding much consistency, because there was rarely much drift to solve in the first place.</p>
+  <p>None of the process described above, such as proposals, formal token tiers, or a dedicated review group, is free. A single product team of fifty engineers shipping on one roadmap can usually get by with a shared components folder, a chat channel, and the habit of asking before changing something widely used. Layering a full governance process onto a team that size adds meetings without adding much consistency, because there was rarely much drift to solve in the first place.</p>
 
-  <p>The variable that matters is the number of independent teams, not the total headcount. Five ten-person teams that each ship on their own schedule need real governance sooner than one fifty-person team following a single roadmap, because independence is what produces the divergent decisions this article exists to catch. The signal that it's time is usually concrete: the same component gets rebuilt more than once across teams, a rebrand touches dozens of files instead of one token, or a bug gets fixed in one place and reported again a month later from a team quietly running a forked copy.</p>
+  <p>The variable that matters is the number of independent teams, not the total headcount. Five ten-person teams that each ship on their own schedule need real governance sooner than one fifty-person team following a single roadmap, because independence is what produces the divergent decisions this article exists to catch. The signal that it's time is usually concrete. The same component gets rebuilt more than once across teams. A rebrand touches dozens of files instead of one token. Or a bug gets fixed in one place and reported again a month later from a team quietly running a forked copy.</p>
 
 </main>
 </div><!-- end .shell -->

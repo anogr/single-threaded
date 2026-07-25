@@ -153,7 +153,7 @@
   <p class="subtitle">How OAuth's delegation model and OpenID Connect's identity layer fit together, and the architecture patterns that keep tokens out of the browser.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~39 min read</span>
+    <div class="dot"></div><span>~36 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
@@ -161,11 +161,11 @@
 
   <p>OAuth's design deliberately stops there. It hands out a token proving permission, but nothing in the specification says who that token belongs to. That gap turns into a real problem the moment a "sign in with Google" button needs to know the user's actual identity, not just a permission slip. <strong>OIDC</strong> fills that gap. It reuses OAuth's architecture, and adds one new artifact: a signed token asserting who just authenticated. OAuth answers what a client may do. OIDC answers who is doing it.</p>
 
-  <p>This article explains why each protocol exists, and how they work together to provide secure authentication and authorization. It also discusses common implementation mistakes, security best practices, and recent developments such as OAuth 2.1 and authorization for AI agents. It builds on the credential mechanics covered in the <a href="auth.html">authentication fundamentals</a> article.</p>
+  <p>This article explains why each protocol exists, and how they work together to provide secure authentication and authorization. It also discusses common implementation mistakes, security best practices, and recent developments such as OAuth 2.1 and authorization for AI agents. It builds on the credential mechanics covered in the <a href="auth.html">authentication</a> article.</p>
 
   <div class="callout info">
     <div class="callout-title">Authorization vs Authentication</div>
-    <p><strong>OAuth 2.0</strong> is an <em>authorization</em> framework. It exists to answer the question "what is this app allowed to do on the user's behalf?" The original RFC never actually defines who the user is. Identity simply isn't OAuth's job.<br><br>
+    <p><strong>OAuth 2.0</strong> is an <em>authorization</em> framework. It exists to answer the question "what is this app allowed to do on the user's behalf?" The original RFC never defines who the user is. Identity simply isn't OAuth's job.<br><br>
     <strong>OIDC</strong> was built specifically to close that gap. It layers <em>authentication</em> on top of OAuth's authorization mechanics and answers "who is this user?" by introducing a new artifact, the ID token.</p>
   </div>
 
@@ -215,7 +215,7 @@
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="client-types">Client Types</h2>
   <p class="lede">Not all OAuth clients can be trusted equally. The spec splits them into two categories precisely so it can treat them differently.</p>
-  <p>The single question that determines which category a client falls into is simple: can this application keep a secret from the end user? A server-side app's code runs somewhere the user can never inspect, so it can hold a real secret. Anything running on the user's own device or in their own browser can always be decompiled, inspected, or read directly, so it cannot. This distinction matters as soon as a client tries to prove its identity when redeeming a token, covered below, so settle it before looking at any of the flows themselves.</p>
+  <p>One question determines which category a client falls into: can this application keep a secret from the end user? A server-side app's code runs somewhere the user can never inspect, so it can hold a real secret. Anything running on the user's own device or in their own browser can always be decompiled, inspected, or read directly, so it cannot. This distinction matters as soon as a client tries to prove its identity when redeeming a token, covered below, so settle it before looking at any of the flows themselves.</p>
 
   <div class="concept-grid">
     <div class="card green">
@@ -238,7 +238,7 @@
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="tokens">Tokens</h2>
   <p class="lede">Three tokens, three jobs. Confusing them is the single most common source of OAuth bugs.</p>
-  <p>One mental model carries the rest of this guide: the access token is for machines, the ID token is for the application, and the refresh token is for staying logged in quietly. Mixing these up (sending an ID token to an API, or treating an access token as proof of identity) is responsible for a surprising share of real-world OAuth bugs.</p>
+  <p>The access token is for machines, the ID token is for the application, and the refresh token is for staying logged in quietly. Mixing these up (sending an ID token to an API, or treating an access token as proof of identity) is responsible for a surprising share of real-world OAuth bugs.</p>
 
   <div class="concept-grid" style="grid-template-columns:1fr 1fr 1fr;">
     <div class="card blue">
@@ -300,7 +300,7 @@
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="grants">Grant Types</h2>
-  <p class="lede">A grant type is just a recipe: the specific sequence of requests a client follows to walk away with tokens.</p>
+  <p class="lede">A grant type is a recipe with the specific sequence of requests a client follows to walk away with tokens.</p>
   <p>OAuth defines several of these recipes because "getting a token" looks completely different depending on the kind of client being built. A web app with a logged-in human in front of it has very different constraints than a cron job with no user at all, or a smart TV with no keyboard. Picking the wrong grant type for the situation is one of the most common OAuth mistakes.</p>
 
   <div class="tabs" id="grant-tabs">
@@ -315,7 +315,7 @@
       <span class="badge badge-green">Recommended for most apps</span>
       <h3 style="margin-top:16px;">Authorization Code + PKCE</h3>
       <p>This is the workhorse flow, and almost certainly the right one to reach for absent a specific reason not to. The user is redirected away to the authorization server, where they authenticate and consent, and is then redirected back carrying a short-lived <em>authorization code</em> rather than a token. That code is then traded for actual tokens through a separate, back-channel request that never touches the browser. PKCE sits alongside this exchange specifically to stop that authorization code from being usable by anyone other than the client that requested it, even if it gets intercepted along the way.</p>
-      <p><strong>Use when:</strong> building a web app with a backend, a single-page app, or a mobile app: essentially any flow where a real human is sitting in front of a browser or device. In OAuth 2.1, PKCE is required for all authorization code flows regardless of client type.</p>
+      <p><strong>Use when:</strong> building a web app with a backend, a single-page app, or a mobile app. It fits any flow where a real human is sitting in front of a browser or device. In OAuth 2.1, PKCE is required for all authorization code flows regardless of client type.</p>
     </div>
     <div class="tab-panel" id="grant-cc">
       <span class="badge badge-blue">Machine-to-machine</span>
@@ -337,7 +337,7 @@
     <div class="tab-panel" id="grant-implicit">
       <span class="badge badge-red">Deprecated</span>
       <h3 style="margin-top:16px;">Implicit Flow</h3>
-      <p>This was OAuth's original answer for single-page apps, back before PKCE existed: rather than returning a code that gets exchanged for tokens, the authorization server returned the access token directly in the URL fragment, as in <code>#access_token=...</code>. It seemed reasonable at the time, but tokens sitting in a URL turn out to leak in all sorts of mundane ways: browser history, referrer headers sent to third-party scripts, and server access logs all end up holding a live credential.</p>
+      <p>This was OAuth's original answer for single-page apps, back before PKCE existed: rather than returning a code that gets exchanged for tokens, the authorization server returned the access token directly in the URL fragment, as in <code>#access_token=...</code>. It seemed reasonable at the time, but tokens sitting in a URL turn out to leak in all sorts of mundane ways. Browser history, referrer headers sent to third-party scripts, and server access logs all end up holding a live credential.</p>
       <div class="callout danger" style="margin-top:12px;">
         <div class="callout-title">Do not use: removed in OAuth 2.1</div>
         <p>Use Authorization Code + PKCE for SPAs instead. It solves the same problem without exposing tokens in the URL. The implicit flow has been formally removed from the OAuth 2.1 specification.</p>
@@ -372,7 +372,7 @@
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="endpoints">Endpoints</h2>
-  <p class="lede">Every authorization server exposes the same small handful of URLs. These five cover enough to read any OAuth integration.</p>
+  <p class="lede">Every authorization server exposes the same small handful of URLs. These six cover enough to read any OAuth integration.</p>
 
   <div class="endpoint">
     <div class="endpoint-header" onclick="toggleEndpoint(this)">
@@ -448,7 +448,7 @@
       <span class="chevron">&#9658;</span>
     </div>
     <div class="endpoint-body">
-      <p>The counterpart to issuing tokens is being able to take them back. Call it with a refresh token (or, on some providers, an access token) when a user logs out, and the authorization server invalidates it immediately rather than waiting for it to expire naturally. This matters most for refresh tokens. A proper "log out everywhere" feature is really just a call to this endpoint.</p>
+      <p>The counterpart to issuing tokens is being able to take them back. Call it with a refresh token (or, on some providers, an access token) when a user logs out, and the authorization server invalidates it immediately rather than waiting for it to expire naturally. This matters most for refresh tokens. A proper "log out everywhere" feature amounts to a call to this endpoint.</p>
     </div>
   </div>
 
@@ -472,8 +472,8 @@
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="pkce">PKCE (Proof Key for Code Exchange)</h2>
-  <p class="lede">A clever cryptographic handshake that turns a stealable authorization code into something useless to anyone but the client that requested it.</p>
-  <p>PKCE (pronounced "pixie") exists to solve a very specific problem: how to prove that whoever is redeeming an authorization code is the exact same client that originally requested it, when that client has no secret it can use to prove its identity? The trick is to generate a secret on the fly, for that one login attempt only, and only ever reveal it at the very last step.</p>
+  <p class="lede">A cryptographic handshake that turns a stealable authorization code into something useless to anyone but the client that requested it.</p>
+  <p>PKCE (pronounced "pixie") exists to solve a specific problem: how to prove that whoever is redeeming an authorization code is the exact same client that originally requested it, when that client has no secret it can use to prove its identity? The trick is to generate a secret on the fly, for that one login attempt only, and only ever reveal it at the very last step.</p>
 
   <div class="pkce-vis">
     <div class="pkce-step">
@@ -556,7 +556,7 @@
 
   <p>It's this last point, standardization, that's arguably OIDC's biggest practical contribution. Plain OAuth leaves a lot of room for interpretation: providers were free to invent their own ways of representing user profile data. OIDC pins all of that down, which is exactly why a single OIDC client library can talk to Google, Microsoft, Okta, and a dozen other providers with barely any provider-specific code.</p>
 
-  <p>The three-part structure behind any JWT, header, payload, and signature, along with how the signature gets verified, is covered in the <a href="auth.html#jwt-structure">authentication fundamentals</a> article. An ID token doesn't change any of that. It just guarantees a fixed set of identity claims will be present in the payload:</p>
+  <p>The three-part structure behind any JWT, header, payload, and signature, along with how the signature gets verified, is covered in the <a href="auth.html#jwt-structure">authentication</a> article. An ID token doesn't change any of that. It just guarantees a fixed set of identity claims will be present in the payload:</p>
 
   <div class="scope-grid">
     <div class="scope-item"><div class="scope-name">nonce</div><div class="scope-desc">Replay protection value, checked against the nonce sent in /authorize.</div></div>
@@ -587,7 +587,7 @@
 
   <p>A <a href="web-networking.html#bff">Backend for Frontend</a> (BFF) is a server layer shaped around one specific frontend's needs. Applied to authentication, that shape is a server component that handles the OAuth flow and stores tokens server-side, so the browser only ever gets a session cookie. Tokens never touch the browser's storage, so the entire <a href="browser-security.html#xss">XSS</a> token theft surface disappears. This is the strongly recommended architecture for any app that can support a server component.</p>
 
-  <p>A common BFF architecture starts with the browser that holds a single opaque session identifier in an HttpOnly, Secure cookie. It carries no claims of its own and is only a lookup key. The BFF, a server-side process the frontend talks to instead of the authorization server or the resource APIs directly, keeps a fast key-value store, typically Redis, mapping that session identifier to the access token, refresh token, and ID token issued for that session. Redis fits well here because it is shared across every BFF instance behind a <a href="web-networking.html#load-balancing">load balancer</a>, and its per-key expiry lines up naturally with token lifetimes.</p>
+  <p>A common BFF architecture starts with the browser, which holds a single opaque session identifier in an HttpOnly, Secure cookie. It carries no claims of its own and is only a lookup key. The BFF, a server-side process the frontend talks to instead of the authorization server or the resource APIs directly, keeps a fast key-value store, typically Redis, mapping that session identifier to the access token, refresh token, and ID token issued for that session. Redis fits well here because it is shared across every BFF instance behind a <a href="web-networking.html#load-balancing">load balancer</a>, and its per-key expiry lines up naturally with token lifetimes.</p>
 
   <p>The BFF also exposes its own endpoint, something like <code>/bff/userinfo</code>, for the frontend to read identity claims. Internally it either reads the cached ID token or calls the authorization server's <a href="#userinfo">UserInfo endpoint</a>, and returns plain JSON to the browser. The browser never handles a JWT directly.</p>
 
@@ -747,7 +747,7 @@
       <p>An attacker crafts a token with <code>"alg":"none"</code> and no signature. Naive verifiers that trust the <code>alg</code> header accept it as valid.</p>
       <div class="callout ok" style="margin-top:12px;">
         <div class="callout-title">Mitigation: allowlist algorithms</div>
-        <p>Covered in full, alongside JWT's other common pitfalls, in the <a href="auth.html#jwt-pitfalls">JWT Pitfalls</a> section of the authentication fundamentals article: never let the token's own <code>alg</code> header decide how it gets verified, and reject <code>none</code> always.</p>
+        <p>Covered in full, alongside JWT's other common pitfalls, in the <a href="auth.html#jwt-pitfalls">JWT Pitfalls</a> section of the authentication article: never let the token's own <code>alg</code> header decide how it gets verified, and reject <code>none</code> always.</p>
       </div>
     </div>
   </div>
@@ -800,7 +800,7 @@
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="refresh">Refresh Tokens &amp; Rotation</h2>
   <p class="lede">The mechanism that lets users stay logged in for weeks without re-typing a password, and the part that needs the most careful handling.</p>
-  <p>Refresh tokens solve a real tension in the design of short-lived access tokens: access tokens need to expire quickly so a leaked one does limited damage, but users shouldn't have to re-authenticate every hour either. A refresh token is the answer: a long-lived credential that, kept safely on the server, can be silently traded for a brand-new access token whenever the old one runs out, with the user never noticing.</p>
+  <p>Refresh tokens solve a real tension in the design of short-lived access tokens: access tokens need to expire quickly so a leaked one does limited damage, but users shouldn't have to re-authenticate every hour either. A refresh token resolves that tension. Kept safely on the server, this long-lived credential can be silently traded for a brand-new access token whenever the old one runs out, with the user never noticing.</p>
 
   <div class="concept-grid">
     <div class="card green">
@@ -826,7 +826,7 @@
     <p>Everything up to here covers the flows a typical application needs. What follows goes deeper than most teams will use day to day: sender-constrained tokens, pushed requests, the newer consolidated specification, and the profiles built for regulated and agent-driven systems. Reach for these when a threat model, a compliance regime, or an autonomous client calls for them.</p>
   </div>
 
-  <h2 id="par">Pushed Authorization Requests (PAR) <span class="badge-new">2026</span></h2>
+  <h2 id="par">Pushed Authorization Requests (PAR)</h2>
   <p class="lede">PAR flips the authorization flow. Instead of stuffing everything in a URL, the parameters are pushed to the server first, and a reference comes back.</p>
   <p>Pushed Authorization Requests address a subtle weakness in the standard authorization code flow: all authorization parameters travel in the browser's URL, where they can be logged, intercepted, or tampered with. PAR moves those parameters to a back-channel POST first.</p>
 
@@ -862,7 +862,7 @@
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="dpop">DPoP (Demonstrating Proof of Possession) <span class="badge-new">2026</span></h2>
+  <h2 id="dpop">DPoP (Demonstrating Proof of Possession)</h2>
   <p class="lede">DPoP makes a stolen bearer token useless.</p>
   <p>DPoP solves a fundamental weakness of Bearer tokens: anyone who obtains a Bearer token can use it. DPoP cryptographically binds an access token to a specific private key held by the client, so even a captured token can't be replayed by an attacker who doesn't hold that key.</p>
 
@@ -899,11 +899,11 @@
 
   <div class="callout new">
     <div class="callout-title">DPoP adoption today</div>
-    <p>DPoP is mandatory in FAPI 2.0 and supported by major identity providers. For most web apps, the BFF pattern achieves similar protection by keeping tokens off the browser entirely. For SPAs that must hold tokens client-side, DPoP is the strongest mitigation available.</p>
+    <p>FAPI 2.0 mandates sender-constrained tokens, with DPoP as one of the two accepted mechanisms (mTLS is the other), and major identity providers support it. For most web apps, the BFF pattern achieves similar protection by keeping tokens off the browser entirely. For SPAs that must hold tokens client-side, DPoP is the strongest mitigation available.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="oauth21">OAuth 2.1: What's New <span class="badge-new">2026</span></h2>
+  <h2 id="oauth21">OAuth 2.1: What's New</h2>
   <p class="lede">OAuth 2.1 is not a new protocol. It's a curated consolidation of a decade of security best practices into a single, tighter document.</p>
   <p>OAuth 2.1 folds the most important security best practices and several extensions into one coherent specification. This removes the footguns that experience has shown developers tend to stumble into. The specification is still an IETF draft rather than a published RFC, but its requirements are already stable and widely implemented by major authorization servers, so treating it as the current baseline is safe in practice. An implementation that already follows current best practices is probably already compliant with 2.1. The key changes are:</p>
 
@@ -931,7 +931,7 @@
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="agentic">Agentic &amp; AI Authorization <span class="badge-new">2026</span></h2>
+  <h2 id="agentic">Agentic &amp; AI Authorization</h2>
   <p class="lede">When an AI agent acts on a user's behalf (booking flights, sending emails, querying databases) the authorization model gets more complex.</p>
   <p>AI agents and LLM-based assistants are a real authorization use case that existing OAuth flows weren't quite designed for. The core challenge is that a user delegates authority to an agent, and that agent may need to call many APIs or run for a long time. It might spawn sub-agents, or operate without the user being present at all. Standard OAuth handles the initial delegation well, but the devil is in the details.</p>
 
@@ -964,7 +964,7 @@
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="fapi">FAPI &amp; High-Security Profiles <span class="badge-new">2026</span></h2>
+  <h2 id="fapi">FAPI &amp; High-Security Profiles</h2>
   <p class="lede">FAPI 2.0 is what OAuth looks like when the stakes are high enough that every optional best practice becomes mandatory.</p>
   <p>The Financial-grade API Security Profile (FAPI 2.0), published by the OpenID Foundation, takes the OAuth security best practices and turns them into a strict, auditable profile. It was designed for open banking but is now adopted for any regulated API, including healthcare, government, and payments. Building to this profile means using all of the following:</p>
 
@@ -982,7 +982,7 @@
     <p>FAPI 2.0 is a useful benchmark even outside regulated APIs. Its requirements represent a curated list of the most impactful security controls. Think of it as a security checklist rather than a compliance obligation. The components most useful to adopt broadly are PAR (removes parameters from browser URLs), DPoP (stops token replay), and private_key_jwt (eliminates shared secret management).</p>
   </div>
 
-  <p class="wide" style="max-width:700px;margin-top:40px;color:var(--text-dim);font-size:14px;border-top:1px solid var(--border);padding-top:24px;">That's the shape of OAuth and OIDC. Four roles, three tokens, and one well-trodden flow carry the delegation itself, backed by a growing stack of security enhancements (PKCE, state, nonce, rotation, DPoP, PAR), each closing a specific, real attack. Most libraries handle these mechanics automatically, but knowing what they're doing is what makes it possible to debug a broken integration, audit an existing implementation, authorize an AI agent safely, or make an informed call the day a library doesn't quite fit the situation. For implementation specifics, the auth provider's SDK documentation and the <a href="https://oauth.net/2.1/">OAuth 2.1 draft spec</a> are the two references to keep close.</p>
+  <p class="wide" style="max-width:700px;margin-top:40px;color:var(--text-dim);font-size:14px;border-top:1px solid var(--border);padding-top:24px;">Most libraries handle these mechanics automatically, but knowing what they're doing is what makes it possible to debug a broken integration, audit an existing implementation, authorize an AI agent safely, or make an informed call the day a library doesn't quite fit the situation. For implementation specifics, the auth provider's SDK documentation and the <a href="https://oauth.net/2.1/">OAuth 2.1 draft spec</a> are the two references to keep close.</p>
 
 </main>
 </div>

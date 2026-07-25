@@ -47,10 +47,10 @@
 
   <div class="eyebrow">Security · TLS</div>
   <h1>HTTPS and Certificates</h1>
-  <p class="subtitle">How HTTPS works: the two problems it solves, the TLS handshake, certificate anatomy, and the chain of trust behind the padlock.</p>
+  <p class="subtitle">The two problems TLS solves, the handshake that sets up an encrypted connection, and the chain of trust behind the padlock.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~9 min read</span>
+    <div class="dot"></div><span>~11 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
@@ -58,7 +58,7 @@
        INTRODUCTION
   ════════════════════════════════════════════════════ -->
   <section id="intro">
-    <p>Encryption keeps the data moving between a browser and a server private. Certificates prove that the server on the other end is actually who it claims to be. HTTPS bundles both together. The encryption half is mechanical and largely settled, while the identity half is where things get complicated.</p>
+    <p>Encryption keeps the data moving between a browser and a server private. Certificates prove that the server on the other end is who it claims to be. HTTPS bundles both together. The encryption half is mechanical and largely settled, while the identity half is where things get complicated.</p>
     <p>This article works through both halves. It covers how the TLS handshake sets up an encrypted connection in a handful of round trips, what a certificate contains, and how browsers decide whether to trust one. It closes with where things typically go wrong once internal services and local development environments get involved.</p>
   </section>
 
@@ -81,7 +81,7 @@
     </div>
   </div>
 
-  <p>Both problems get solved in a handful of round trips, before a single byte of the page loads. Here's the sequence.</p>
+  <p>Both problems get solved in a handful of round trips, before a single byte of the page loads. The handshake section further down walks through that sequence.</p>
 
   <!-- ═══════════════════════════════════════════════════
        SECURE CONTEXTS
@@ -97,7 +97,7 @@
   <!-- ═══════════════════════════════════════════════════
        HANDSHAKE
   ════════════════════════════════════════════════════ -->
-  <h2 id="handshake">Four steps, a few milliseconds</h2>
+  <h2 id="handshake">The TLS handshake</h2>
   <p class="lede">Steps 1 and 2 use asymmetric math (ECDHE) to derive a shared secret. From there, everything including the certificate travels encrypted, and step 4 is where ordinary application traffic begins.</p>
 
   <figure style="margin:24px 0 8px;">
@@ -182,7 +182,7 @@
        CERTIFICATE ANATOMY
   ════════════════════════════════════════════════════ -->
   <h2 id="anatomy">Anatomy of a certificate</h2>
-  <p class="lede">It's just a small, signed document. Each field below serves a specific purpose.</p>
+  <p class="lede">A small, signed document. Each field below serves a specific purpose.</p>
 
   <div class="table-wrap">
     <table>
@@ -203,17 +203,17 @@
         <tr>
           <td>Validity</td>
           <td>90 days</td>
-          <td>A not-before and not-after date. Expired certificates are treated as fully untrusted, there's no grace period.</td>
+          <td>A not-before and not-after date. Expired certificates are treated as fully untrusted. There is no grace period.</td>
         </tr>
         <tr>
           <td>Public key</td>
           <td>EC P-256</td>
-          <td>The server's public key. The matching private key never leaves the server, proving possession of it is part of how the server proves its identity.</td>
+          <td>The server's public key. The matching private key never leaves the server. Proving possession of it is part of how the server proves its identity.</td>
         </tr>
         <tr>
           <td>Signature</td>
           <td>SHA-256 + RSA</td>
-          <td>The issuer's signature over the rest of the certificate, made with the issuer's private key. This is the part a browser actually verifies.</td>
+          <td>The issuer's signature over the rest of the certificate, made with the issuer's private key. This is the part a browser verifies.</td>
         </tr>
       </tbody>
     </table>
@@ -259,7 +259,7 @@
   <h2 id="transparency-revocation">Certificate Transparency and revocation</h2>
   <p class="lede">The chain proves who signed a certificate. Two more mechanisms keep the signers honest and deal with certificates that have to be pulled early.</p>
 
-  <p>A CA is trusted to vouch for identities, but nothing in the chain itself stops one from issuing a certificate for a domain it never should have, whether through a mistake or a compromise. <strong>Certificate Transparency</strong> (CT) addresses that by requiring every publicly trusted certificate to be recorded in append-only public logs when it's issued. The CA gets back a signed timestamp proving the certificate was logged, and browsers reject a certificate that doesn't carry them. Chrome has enforced this since 2018 and Safari since 2021. The practical payoff is that a domain owner can monitor the logs and spot a certificate for their domain that they never requested, which is often the first sign a CA has been tricked or breached.</p>
+  <p>A CA is trusted to vouch for identities, but nothing in the chain itself stops one from issuing a certificate for a domain it never should have, whether through a mistake or a compromise. <strong>Certificate Transparency</strong> (CT) addresses that by requiring every publicly trusted certificate to be recorded in append-only public logs when it's issued. The CA gets back a signed timestamp proving the certificate was logged, and browsers reject a certificate that doesn't carry them. Chrome and Safari have both enforced this since 2018. The practical payoff is that a domain owner can monitor the logs and spot a certificate for their domain that they never requested, which is often the first sign a CA has been tricked or breached.</p>
 
   <p>Revocation is the opposite problem: a certificate that was issued correctly but now has to be killed before it expires, because its private key leaked or the domain changed hands. The two traditional mechanisms both disappointed. A <strong>Certificate Revocation List</strong> (CRL) is a CA-published list of revoked certificates, historically too large to download on every connection. The <strong>Online Certificate Status Protocol</strong> (OCSP) let a browser ask the CA about a single certificate in real time. That leaked browsing history to the CA, which learned which site the user was visiting. It was also toothless: browsers treated a failed lookup as success, so an attacker could just block the check. The industry has largely moved on. Let's Encrypt shut down its OCSP responders in 2025, and the CA/Browser Forum has made OCSP optional. Browsers now rely on their own aggregated, compressed revocation sets shipped with updates (Chrome's CRLSets, Firefox's CRLite) rather than querying a CA per connection.</p>
 
@@ -269,8 +269,8 @@
        TRUST STORES
   ════════════════════════════════════════════════════ -->
   <h2 id="trust-store">Trust stores, and why internal certs get flagged</h2>
-  <p><strong>About 150</strong> root Certificate Authorities ship preinstalled in most operating systems and browsers. Public CAs like Let's Encrypt chain up to one of these, which is why their certificates "just work" with no warning.</p>
-  <p>Companies often run their own internal certificate authority for services that were never meant to be public. Those certificates are perfectly valid technically, but they're <strong>untrusted</strong> by browsers and tools like Node.js unless that internal CA's certificate has been explicitly added to the relevant trust store. A device that's never been told to trust it treats the certificate exactly like a self-signed one: same red triangle, same "connection is not private" page.</p>
+  <p>About 150 root Certificate Authorities ship preinstalled in most operating systems and browsers. Public CAs like Let's Encrypt chain up to one of these, which is why their certificates "just work" with no warning.</p>
+  <p>Companies often run their own internal certificate authority for services that were never meant to be public. Those certificates are perfectly valid technically, but they're untrusted by browsers and tools like Node.js unless that internal CA's certificate has been explicitly added to the relevant trust store. A device that's never been told to trust it treats the certificate exactly like a self-signed one: same red triangle, same "connection is not private" page.</p>
   <p>The fix isn't a different kind of certificate. It's distribution. Once an internal root CA's public certificate is installed into the trust store on every device that needs to reach those internal services, typically pushed out once via MDM or group policy, the warnings disappear.</p>
 
   <h3>Node.js: a second, separate trust store</h3>
@@ -357,7 +357,7 @@ location / {
   <!-- ═══════════════════════════════════════════════════
        PITFALLS
   ════════════════════════════════════════════════════ -->
-  <h2 id="pitfalls">Things that trip people up</h2>
+  <h2 id="pitfalls">Common pitfalls</h2>
 
   <div class="table-wrap">
     <table>

@@ -28,7 +28,6 @@
 
 <nav class="sidebar" id="sidebar">
   <a class="sidebar-back" href="index.html">← All articles</a>
-  <a class="sidebar-logo" href="index.html">Article<br><span>Client State</span></a>
 
   <div class="sidebar-section">Overview</div>
   <a href="#overview">Four questions, not one problem</a>
@@ -65,7 +64,7 @@
   <section id="overview">
     <p>For a long stretch of the 2010s, state management meant one thing: put everything into a single global store and read it back out with selectors. It didn't matter whether the data came from a user typing into a form, a toggle in the interface, or a response from an API call. All of it went through the same dispatch mechanism and showed up in the same devtools timeline. Redux was the default answer almost regardless of the question being asked.</p>
 
-    <p>That collapse didn't mean every Redux app mixed a dropdown's open state and an API response in the same reducer without a second thought. Plenty of teams kept that boundary clean. The real gap was that Redux was the only tool built for coordinating state at all, so a product record fetched from an API got coordinated through the same actions and reducers as genuinely client-owned data, because nothing else was designed to hold it. A shopping cart shared across three components and a product fetched from an API don't share a lifecycle, and coordinating both by hand through the same mechanism is what made the store's async logic swell.</p>
+    <p>That collapse didn't mean every Redux app mixed a dropdown's open state and an API response in the same reducer without a second thought. Plenty of teams kept that boundary clean. The real gap was that Redux was the only tool built for coordinating state at all. A product record fetched from an API ended up coordinated through the same actions and reducers as genuinely client-owned data, because nothing else was designed to hold it. A shopping cart shared across three components and a product fetched from an API don't share a lifecycle. Coordinating both by hand through the same mechanism is what made the store's async logic swell.</p>
 
     <p>What follows treats client state as four separate questions instead of one collapsed problem. The table below maps each question to the section that answers it. The article then works through them in order, ending with a framework for placing any given piece of state correctly.</p>
 
@@ -94,7 +93,7 @@
 
   <p>Whether a dropdown is open, what text is currently typed but not yet submitted, and which tab is active are owned by the client instead. No server request created them and none can override them, because the server was never asked and has no opinion on the matter. Data owned this way is <strong>client state</strong>.</p>
 
-  <p>Ownership doesn't track rendering strategy. A page rendered entirely on the server for its first paint still has client-owned state the moment a menu opens in the browser, and a single-page app still has server-owned state the instant it fetches a record over the network. The question of who owns a piece of data is separate from the question of where its markup gets produced. Treating them as the same question is what leads teams to store server-owned data in tools built for client ownership, and to build ad-hoc syncing logic to keep client-owned drafts in a database table that never needed to know about them.</p>
+  <p>Ownership doesn't track rendering strategy. A page rendered entirely on the server for its first paint still has client-owned state the moment a menu opens in the browser. A single-page app still has server-owned state the instant it fetches a record over the network. The question of who owns a piece of data is separate from the question of where its markup gets produced. Treating them as the same question is what leads teams to store server-owned data in tools built for client ownership. It's also what leads teams to write ad-hoc syncing logic to keep client-owned drafts in sync with a database table that never needed to know about them.</p>
 
   <!-- ═══════════════════════════════════════════════════
        TAXONOMY
@@ -157,11 +156,11 @@
 
   <p>Before Redux, coordinating state across a large tree meant passing callbacks down through however many component layers separated a change from the components that needed to react to it, or reaching for whatever ad-hoc global object a team invented that week. Redux replaced both with one store, one way to change it through actions and reducers, and a devtools timeline that could replay any sequence of updates. For genuinely global, frequently cross-cutting application state in a large codebase, that combination was, and still is, a real improvement over the alternatives it replaced.</p>
 
-  <p>What actually drove the "Redux everywhere" era wasn't the store's design. It was the absence of anywhere else to put fetched data. Before dedicated server-state tools existed, a product record pulled from an API had nowhere purpose-built to live, so it went into the same store used for coordinating client-owned state instead, regardless of how carefully a given team kept its reducers organized. Every team then built its own loading flags, error handling, and refetch logic by hand inside reducers, thunks, or sagas, and every team's version had slightly different bugs. The complaint that followed was "Redux has too much boilerplate," but the boilerplate was mostly the cost of manually reimplementing a cache, not a cost of coordinating client-owned state.</p>
+  <p>What drove the "Redux everywhere" era wasn't the store's design. It was the absence of anywhere else to put fetched data. Before dedicated server-state tools existed, a product record pulled from an API had nowhere purpose-built to live, so it went into the same store used for coordinating client-owned state instead, regardless of how carefully a given team kept its reducers organized. Every team then built its own loading flags, error handling, and refetch logic by hand inside reducers, thunks, or sagas, and every team's version had slightly different bugs. The complaint that followed was "Redux has too much boilerplate," but the boilerplate was mostly the cost of manually reimplementing a cache, not a cost of coordinating client-owned state.</p>
 
   <div class="callout info aside">
     <div class="callout-title">Redux Toolkit didn't disappear</div>
-    <p>Large, established codebases with genuinely complex, deeply cross-cutting client state still use Redux Toolkit in 2026, and it remains a reasonable choice for that specific problem. What changed is the size of the problem it gets reached for, now that server data has somewhere else to go.</p>
+    <p>Large, established codebases with genuinely complex, deeply cross-cutting client state still use Redux Toolkit today, and it remains a reasonable choice for that specific problem. What changed is the size of the problem it gets reached for, now that server data has somewhere else to go.</p>
   </div>
 
   <!-- ═══════════════════════════════════════════════════
@@ -172,9 +171,9 @@
 
   <p>A <strong>cache</strong>, in this sense, is a local copy of data that's allowed to be temporarily wrong, expires on a known schedule, and can be silently replaced with a fresher copy without anyone needing to be told. That's a different contract than a store, which promises the data inside it is correct until something explicitly changes it. Server-owned data can only ever meet the cache contract, because the client was never the authority on it in the first place.</p>
 
-  <p>Tools built around this idea fetch data, keep it under a key derived from its parameters, mark it stale after a configurable window, and quietly refetch it in the background while the stale copy keeps rendering, a pattern generally known as <strong>stale-while-revalidate</strong>. Loading and error states fall out of the fetch's own lifecycle instead of being tracked by hand. Two components requesting the same data at once get deduplicated into a single request rather than firing twice.</p>
+  <p>Tools built around this idea fetch data and keep it under a key derived from its parameters, marking it stale after a configurable window. The stale copy keeps rendering while the tool quietly refetches it in the background, a pattern generally known as <strong>stale-while-revalidate</strong>. Loading and error states fall out of the fetch's own lifecycle instead of being tracked by hand. Two components requesting the same data at once get deduplicated into a single request rather than firing twice.</p>
 
-  <p>TanStack Query, which began life as React Query, is the clearest example and the default choice for this job in most new React codebases. It's also deliberately framework-agnostic. The same caching core ships as Solid Query, Vue Query, and Svelte Query, a reasonable sign that the underlying pattern is a general answer to server-owned data rather than a trick specific to one framework's rendering model. The deeper mechanics of cache invalidation, staleness windows, and how this interacts with browser and CDN caching are worth a dedicated look elsewhere. What matters here is narrower: once a value is recognized as server-owned, reaching for a cache instead of a store is the direct consequence of the ownership question from earlier, not a separate decision.</p>
+  <p>TanStack Query, which began life as React Query, is the clearest example and the default choice for this job in most new React codebases. It's also deliberately framework-agnostic. The same caching core ships as Solid Query, Vue Query, and Svelte Query, a reasonable sign that the underlying pattern is a general answer to server-owned data rather than a trick specific to one framework's rendering model. The deeper mechanics of cache invalidation, staleness windows, and how this interacts with browser and CDN caching belong to a separate discussion. What matters here is narrower: once a value is recognized as server-owned, reaching for a cache instead of a store is the direct consequence of the ownership question from earlier, not a separate decision.</p>
 
   <!-- ═══════════════════════════════════════════════════
        STORE VS ATOM
@@ -182,7 +181,7 @@
   <h2 id="store-vs-atom">One Store vs. Many Atoms</h2>
   <p class="lede">This is a question about shape, not about how updates travel. That question comes next.</p>
 
-  <p>Once a piece of state is confirmed as client-owned application state, meaning it survived both the taxonomy above and the "do you actually need to store this" question that closes this article, there's still a choice about how to organize it. A <strong>store-based</strong> approach keeps one shared object holding many fields, updated through actions or setter functions, with components subscribing to whichever slice they read. Zustand and Redux Toolkit both work this way, differing mainly in how much ceremony sits between a component and an update.</p>
+  <p>Once a piece of state is confirmed as client-owned application state, meaning it survived both the taxonomy above and the "do you need to store this at all" question that closes this article, there's still a choice about how to organize it. A <strong>store-based</strong> approach keeps one shared object holding many fields, updated through actions or setter functions, with components subscribing to whichever slice they read. Zustand and Redux Toolkit both work this way, differing mainly in how much ceremony sits between a component and an update.</p>
 
   <p>An <strong>atom-based</strong> approach splits the same state into many small, independently addressable units instead of one object, an approach Jotai is built around. A component that reads one atom only re-renders when that specific atom changes, regardless of how many other atoms exist elsewhere in the app. That avoids a failure mode store-based approaches have to solve deliberately with selectors: a broad store update causing every subscriber to reconsider itself even when most of them don't care about the field that changed. It's the same all-or-nothing re-render behavior that makes <a href="react-antipatterns.html#context-as-store">Context as a global store</a> an antipattern once the shared value grows past a few unrelated fields.</p>
 
@@ -220,11 +219,11 @@
        SIGNALS
   ════════════════════════════════════════════════════ -->
   <h2 id="signals">Signals: A Different Reactivity Model</h2>
-  <p class="lede">The store-versus-atom question was about how state is organized. This one is about how a change actually reaches the screen.</p>
+  <p class="lede">The store-versus-atom question was about how state is organized. This one is about how a change reaches the screen.</p>
 
-  <p>React's model is component-centric. When state changes, React re-renders the component that owns it and, by default, the subtree beneath it, computes what the result looks like, and diffs that result against the previous render before patching only the parts of the real document that actually differ. The state change itself doesn't know what depends on it. The framework finds out by re-running components and comparing outputs.</p>
+  <p>React's model is component-centric. When state changes, React re-renders the component that owns it and, by default, the subtree beneath it. It then computes what the result looks like and diffs that result against the previous render, before patching only the parts of the real document that differ. The state change itself doesn't know what depends on it. The framework finds out by re-running components and comparing outputs.</p>
 
-  <p><strong>Signals</strong> take a different approach: a signal tracks, at the moment it's read, exactly which computations or DOM bindings depend on it, so when its value changes, only those specific dependents update. Nothing re-runs a component function, and nothing diffs a tree, because the framework already knows precisely what needs to change and updates it directly.</p>
+  <p><strong>Signals</strong> take a different approach. A signal tracks, at the moment it's read, exactly which computations or DOM bindings depend on it. When its value changes, only those specific dependents update. Nothing re-runs a component function, and nothing diffs a tree, because the framework already knows precisely what needs to change and updates it directly.</p>
 
   <p>Signals have become the norm almost everywhere except React. Solid pioneered the fine-grained version of this model and remains the performance reference point for it. Angular made signals the default reactive primitive and, starting with Angular 21, ships zoneless by default. That means it no longer needs Zone.js patching every asynchronous browser API just to detect that something might have changed. Zone.js became fully optional in Angular 22, cutting bundle size and removing a layer of change-detection overhead that used to run on every event regardless of whether it mattered. Svelte 5's runes look like ordinary variables, using <code>$state</code>, <code>$derived</code>, and <code>$effect</code> instead of a signal's usual get and set syntax, but they converge on the same signal-style tracking underneath. Preact ships signals as an add-on that can even be used inside a React tree for the specific components that need fine-grained updates without leaving the ecosystem.</p>
 
@@ -288,7 +287,7 @@
       <text x="525" y="270" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">No component re-render, no diff:</text>
       <text x="525" y="284" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">each dependent updates on its own</text>
     </svg>
-    <figcaption>React re-renders a component and diffs its subtree on every state change, a fixed pipeline that runs regardless of how much actually changed. A signal write instead notifies only the specific bindings that read it, each updating its own DOM node directly.</figcaption>
+    <figcaption>React re-renders a component and diffs its subtree on every state change, a fixed pipeline that runs regardless of how much changed. A signal write instead notifies only the specific bindings that read it, each updating its own DOM node directly.</figcaption>
   </div>
 
   <!-- ═══════════════════════════════════════════════════
@@ -297,7 +296,7 @@
   <h2 id="do-you-need-a-library">Do You Need a Library at All?</h2>
   <p class="lede">Once ephemeral state has a hook, navigation state has the URL, and server state has a cache, what's left over for a dedicated library is often smaller than it looks.</p>
 
-  <p>A typical 2026 app handles most of its state without reaching for a global store. Ephemeral state lives in <code>useState</code> or <code>useReducer</code> and dies with its component. Navigation state lives in the URL through a router's search params. Server state lives in a cache. What remains is genuine application state, and in a lot of products that's a short list, small enough for React's context API or its framework's equivalent to handle without a dependency: an authenticated user, a theme, maybe a cart.</p>
+  <p>A typical app today handles most of its state without reaching for a global store. Ephemeral state lives in <code>useState</code> or <code>useReducer</code> and dies with its component. Navigation state lives in the URL through a router's search params. Server state lives in a cache. What remains is genuine application state, and in a lot of products that's a short list, small enough for React's context API or its framework's equivalent to handle without a dependency: an authenticated user, a theme, maybe a cart.</p>
 
   <p>State shared between two adjacent components doesn't need to be promoted to global scope either. Lifting it to their nearest common parent and passing it down usually solves the problem with less machinery than a store would add.</p>
 
@@ -316,7 +315,7 @@
 
   <p>What's left after all three questions is the actual candidate for a store or an atom set: state that's genuinely client-owned, doesn't need to live in the URL, and is read or written across distant, unrelated parts of the tree. Which of those two fits depends on whether the state naturally forms one cohesive object or a set of independently changing pieces. If the framework already has native signals, a good part of the propagation question may already be handled without adding anything at all.</p>
 
-  <p>The failure of the "Redux everywhere" era wasn't that a global store is a bad idea. It's that one tool was asked to answer all four of these questions the same way, for every piece of state, regardless of what actually owned it or how it needed to update. Placing state correctly was always less about which library gets installed and more about answering ownership, placement, organization, and propagation honestly for each piece of data as it's created.</p>
+  <p>The failure of the "Redux everywhere" era wasn't that a global store is a bad idea. It's that one tool was asked to answer all four of these questions the same way, for every piece of state, regardless of what owned it or how it needed to update. Placing state correctly was always less about which library gets installed and more about answering ownership, placement, organization, and propagation honestly for each piece of data as it's created.</p>
 
   <div class="figure-wrap">
     <svg viewBox="0 0 700 380" role="img" aria-label="Decision flowchart for placing a piece of state: first ask whether the server owns it, if yes cache it. If no, ask whether it must survive a refresh or be shareable, if yes put it in the URL. If no, ask whether it is local to one or two components, if yes use local state. Otherwise it is a candidate for a shared store or atom set." xmlns="http://www.w3.org/2000/svg">

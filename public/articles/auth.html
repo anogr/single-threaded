@@ -78,11 +78,11 @@
   <p class="subtitle">How a login turns into a credential that's verified on every subsequent request, using sessions, tokens, passkeys, and API keys.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~14 min read</span>
+    <div class="dot"></div><span>~17 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
-  <p class="wide" style="max-width:700px;">Every login form, JWT, passkey prompt, and API key eventually resolves to the same handful of mechanisms. A session gets created and stored somewhere, a token gets issued and later verified, a credential gets checked against something the server already knows. This article works through each of those mechanisms. It explains how sessions and tokens differ, what a JWT contains, and why it can be verified without a database lookup. It also covers where each credential should be stored, how passkeys replace passwords with public-key cryptography, and where API keys still fit for machine-to-machine access.</p>
+  <p>Every login form, JWT, passkey prompt, and API key eventually resolves to the same handful of mechanisms. Either the server records that a login happened and hands the client a reference to that record, or it issues a signed credential that carries the proof in itself. This article works through each of those mechanisms. It explains how sessions and tokens differ, what a JWT contains, and why it can be verified without a database lookup. The article then covers where each credential should be stored, how passkeys replace passwords with public-key cryptography, and where API keys still fit for machine-to-machine access.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="authn-authz">Authentication vs Authorization</h2>
@@ -92,7 +92,7 @@
 
   <p><strong>Authentication</strong> proves identity. It answers the question "are you who you claim to be?" using credentials such as a password, a token, a certificate, or a biometric. The credentials that prove identity fall into three categories, called <strong>authentication factors</strong>. Something known is a secret the user can recall, such as a password or PIN. Something held is an object the user possesses, such as a phone, an authenticator app, or a hardware security key. Something inherent is a physical trait, such as a fingerprint or face. Requiring proof from more than one category at once is what multi-factor authentication means.</p>
 
-  <p><strong>Authorization</strong> establishes permission. It determines what an authenticated identity is allowed to do, answering the question "does this identity have the right to perform this operation?" Authorization is always relative to an identity. There is nothing to authorize without one. But authentication alone is not sufficient for authorization. A valid login doesn't mean every resource is accessible.</p>
+  <p><strong>Authorization</strong> establishes permission. It determines what an authenticated identity is allowed to do, answering the question "does this identity have the right to perform this operation?" Authorization is always relative to an identity, since there is nothing to authorize without one. But authentication alone is not sufficient for authorization, because a valid login doesn't mean every resource is accessible.</p>
 
   <p>Conflating the two is a common source of access control vulnerabilities. An application that checks "is this user logged in?" for every request but not "does this user own this resource?" has authenticated correctly but failed at authorization. The <a href="web-security-principles.html">security principles</a> article covers broken access control in more depth.</p>
 
@@ -117,7 +117,7 @@
     <p>Anyone who intercepts a Basic Auth header can decode it in one step and read the password directly. Basic Auth is therefore only acceptable over HTTPS, where the header is encrypted.</p>
   </div>
 
-  <p>This retransmission is the core weakness. The credential on the wire is the real password, not a short-lived stand-in, so one intercepted request leaks something permanent and broadly scoped. A time-limited token would have expired on its own and could be revoked; the password can't be, short of changing it everywhere. That is most of why Basic Auth is rare in user-facing applications today.</p>
+  <p>This retransmission is the core weakness. The credential on the wire is the real password, not a short-lived stand-in, so one intercepted request leaks something permanent and broadly scoped. A time-limited token would eventually expire on its own and could be revoked before then. The password can't be revoked at all, short of changing it everywhere it's used, which is most of why Basic Auth is rare in user-facing applications today.</p>
 
   <p>The browser adds a second problem. The credential prompt is a native dialog the browser raises on its own whenever a response carries a Basic Auth challenge, separate from the page. It can't be styled to match the application, and there is no clean way to log out short of closing the browser, which caches the credential for the rest of the session.</p>
 
@@ -125,7 +125,7 @@
 
   <div class="callout warn">
     <div class="callout-title">The userinfo URL syntax</div>
-    <p>The <strong>userinfo</strong> URL syntax, <code>https://alice:s3cr3t@example.com/private/</code>, is a URI feature that the browser turns into the same Basic Auth header, skipping the login prompt. Typing such a URL still sends the request. Browsers only hide the credentials from the address bar and ignore them on cross-origin subresources. Avoid it since a password in the URL leaks into history, access logs, and the <code>Referer</code> header.</p>
+    <p>The <strong>userinfo</strong> URL syntax, <code>https://alice:s3cr3t@example.com/private/</code>, is a URI feature that the browser converts into the same Basic Auth header, skipping the login prompt. Browsers hide the credentials from the address bar, but typing the URL still sends them, except on cross-origin subresources, where the browser drops them instead. Avoid this syntax, since a password in the URL leaks into browser history, access logs, and the <code>Referer</code> header.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -151,7 +151,7 @@
   </div>
 
   <h3>Token-based authentication</h3>
-  <p>The server encodes all necessary information (user ID, roles, expiry) directly into a signed token, most commonly a <strong>JWT</strong> (JSON Web Token), discussed in detail further down, and returns it to the client. On subsequent requests, the client sends the token. The server validates the signature and reads the claims without consulting any external store. The server is stateless with respect to authentication.</p>
+  <p>The login response instead carries a signed token that encodes the user ID, roles, and expiry directly. The most common token format is the JSON Web Token (JWT), discussed in detail further down. On subsequent requests the client sends the token back. The server validates the signature and reads the claims without consulting any external store, which leaves it stateless with respect to authentication.</p>
 
   <div class="two-col">
     <div class="card teal">
@@ -255,18 +255,18 @@
   </figure>
 
   <h3>Opaque tokens and introspection</h3>
-  <p>A third option sits between the two. An <strong>opaque token</strong> looks like a JWT in transport, a string sent as a Bearer token in the <code>Authorization</code> header, but carries no information of its own. It's just a random identifier, like a session ID. The resource server can't validate it locally, so it has to check with whoever issued it, typically through a <strong>token introspection</strong> endpoint, an OAuth-defined mechanism covered in the <a href="oauth-oidc.html#tokens">OAuth &amp; OIDC</a> article. This trades away the main appeal of JWTs, local validation without a network round trip, for the same easy revocation sessions have.</p>
+  <p>A third option sits between the two. An <strong>opaque token</strong> travels like a JWT in the <code>Authorization</code> header, but carries no information of its own. It is a random identifier, like a session ID. The resource server can't validate it locally, so it asks the issuer whether the token is still good, typically through a <strong>token introspection</strong> endpoint defined by OAuth and covered in the <a href="oauth-oidc.html#tokens">OAuth &amp; OIDC</a> article. This gives up the main appeal of a JWT, which is validation without a network round trip, in exchange for the same easy revocation sessions have.</p>
 
-  <p>Real systems often use both rather than picking one. An API gateway or <a href="oauth-oidc.html#bff-architecture">BFF</a> at the edge can hand the browser an opaque, instantly revocable token, introspect it once per request, then mint a short-lived JWT for that request to carry through internal services. Revocation stays centralized at the edge, while everything behind it validates locally without a repeated network call.</p>
+  <p>Real systems often use both rather than picking one. An API gateway or <a href="web-networking.html#bff">Backend for Frontend (BFF)</a> at the edge can hand the browser an opaque, instantly revocable token, introspect it once per request, then mint a short-lived JWT for that request to carry through internal services. Revocation stays centralized at the edge, while everything behind it validates locally without a repeated network call.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="jwt">JSON Web Tokens</h2>
   <p class="lede">The most common way to implement the token-based approach above, a self-contained, signed credential any server can verify without a database lookup.</p>
 
-  <p>A <strong>JWT</strong> (JSON Web Token) is a self-contained credential. A server issues one after login, the client attaches it to later requests, typically as <code>Authorization: Bearer &lt;token&gt;</code>, and any server holding the right key can verify it on its own, without looking anything up in a database. That property is what makes it the token-based side of the sessions-versus-tokens tradeoff described above. The word <code>Bearer</code> in that header names its trust model. A <strong>bearer token</strong> is one that anyone holding the string can use, because the server checks that the token is valid but not who presents it.</p>
+  <p>A <strong>JWT</strong> (JSON Web Token) is a self-contained credential. A server issues one after login, and the client attaches it to later requests, typically as <code>Authorization: Bearer &lt;token&gt;</code>. Any server holding the right key can verify the token on its own, without looking anything up in a database. That property is what makes it the token-based side of the sessions-versus-tokens tradeoff described above. The word <code>Bearer</code> in that header names its trust model. A <strong>bearer token</strong> is one that anyone holding the string can use, because the server checks that the token is valid but not who presents it.</p>
 
   <h3 id="jwt-structure">Structure</h3>
-  <p>Structurally, a JWT consists of three base64url-encoded JSON objects separated by dots, a <strong>header</strong>, a <strong>payload</strong>, and a <strong>signature</strong>.</p>
+  <p>Structurally, a JWT consists of three base64url-encoded segments separated by dots: a <strong>header</strong>, a <strong>payload</strong>, and a <strong>signature</strong>. The header and payload are JSON objects. The signature is the raw output of the signing algorithm.</p>
 
   <div class="jwt-block">
     <span class="jwt-header">eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9</span><span class="jwt-dot">.</span><span class="jwt-payload">eyJzdWIiOiJ1c2VyXzEyMyIsImlzcyI6ImF1dGguZXhhbXBsZS5jb20iLCJhdWQiOiJhcGkuZXhhbXBsZS5jb20iLCJleHAiOjE3MTk0ODk2MDAsImlhdCI6MTcxOTQ4NjAwMCwicm9sZXMiOlsiZWRpdG9yIl19</span><span class="jwt-dot">.</span><span class="jwt-signature">SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c</span>
@@ -298,7 +298,7 @@
 
   <div class="callout warn">
     <div class="callout-title">The payload is not encrypted</div>
-    <p>Base64url encoding is not encryption. It is reversible by anyone. The payload of a JWT is readable by anyone who intercepts the token. Never put passwords, secrets, or sensitive personal data in JWT claims. The signature prevents <em>tampering</em>, not <em>reading</em>.</p>
+    <p>Base64url encoding is not encryption. Because it's reversible by anyone, the payload of a JWT is readable by anyone who intercepts the token. Never put passwords, secrets, or sensitive personal data in JWT claims. The signature prevents <em>tampering</em>, not <em>reading</em>.</p>
   </div>
 
   <h3 id="jwt-validation">Validation</h3>
@@ -314,15 +314,15 @@
   <p>Most JWT libraries run all four automatically once configured with the right key, issuer, and audience.</p>
 
   <h3 id="jwt-pitfalls">Pitfalls</h3>
-  <p>JWTs are frequently misused beyond the validation checks above. The most common mistakes share a theme, trusting the token before validating it.</p>
+  <p>JWTs are frequently misused beyond the validation checks above. Most of the common mistakes come down to trusting the token before validating it.</p>
 
   <p><strong>Not validating the signature.</strong> This sounds too obvious to be a real mistake, but several high-profile incidents have involved JWT libraries that, depending on configuration, accepted tokens without verifying the signature. Always use a well-maintained library and check that signature verification is not disabled or configurable per-request.</p>
 
-  <p><strong>The <code>alg: none</code> attack.</strong> Some early JWT implementations accepted a token that declared its algorithm as <code>none</code>, meaning no signature was needed. An attacker could set any claims they liked and the server would accept the token as valid. Modern libraries reject <code>alg: none</code> by default, but the lesson is to never accept the algorithm from the token itself. Specify the expected algorithm server-side. The same failure mode is cataloged as JWT Algorithm Confusion in the <a href="oauth-oidc.html#attack-alg-none">OAuth &amp; OIDC article's attack list</a>.</p>
+  <p><strong>The <code>alg: none</code> attack.</strong> Some early JWT implementations accepted a token that declared its algorithm as <code>none</code>, meaning no signature was needed. An attacker could set any claims they liked and the server would accept the token as valid. Modern libraries reject <code>alg: none</code> by default, but the underlying lesson still applies. Never accept the algorithm claimed by the token itself, and specify the expected algorithm server-side instead. The same failure mode is cataloged as JWT Algorithm Confusion in the <a href="oauth-oidc.html#attack-alg-none">OAuth &amp; OIDC article's attack list</a>.</p>
 
-  <p><strong>Overly long expiry.</strong> A JWT that is valid for 30 days cannot be revoked if the user's account is compromised or deleted. Short-lived access tokens (15 minutes to 1 hour) paired with a longer-lived refresh token to renew them are the standard approach, a pattern formalized by OAuth 2.0 and covered in more depth in the <a href="oauth-oidc.html#refresh">OAuth &amp; OIDC</a> article. The access token can't be revoked, but the damage is limited by its short lifetime.</p>
+  <p><strong>Overly long expiry.</strong> A JWT that is valid for 30 days cannot be revoked if the user's account is compromised or deleted. The standard approach is a short-lived access token (15 minutes to 1 hour) paired with a longer-lived refresh token that renews it. OAuth 2.0 formalized the pattern, and the <a href="oauth-oidc.html#refresh">OAuth &amp; OIDC</a> article covers it in more depth. The access token still can't be revoked early, but its short lifetime limits the damage.</p>
 
-  <p><strong>Storing sensitive data in claims.</strong> As noted above, claims are readable by anyone who can intercept the token. Limit claims to identifiers and roles. Do not include personal data, permissions that shouldn't be visible, or anything otherwise considered private.</p>
+  <p><strong>Storing sensitive data in claims.</strong> Claims are readable by anyone who can intercept the token, the same as the rest of the payload. Limit claims to identifiers and roles, and don't include personal data, permissions that shouldn't be visible, or anything otherwise considered private.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="token-storage">Token Storage</h2>
@@ -343,22 +343,22 @@
     </div>
   </div>
 
-  <p>The practical recommendation for most web applications is an <strong>HttpOnly, Secure</strong> cookie with <code>SameSite</code> set. HttpOnly removes XSS-based token theft, since scripts can't read the cookie, and <code>SameSite</code> blunts CSRF by controlling when the cookie is sent cross-site. <code>SameSite=Strict</code> is the tightest option, but it has a real cost: a user arriving from an external link, an email or another site, sends no cookie on that first request and lands logged out, appearing signed in only after a reload. For that reason many applications use <code>SameSite=Lax</code> for the session cookie. Lax withholds the cookie on the cross-site subrequests and unsafe-method requests where CSRF lives, while still sending it on a top-level navigation the user initiated themselves. Either way the server sets the cookie on login, and the browser attaches it automatically afterward.</p>
+  <p>The practical recommendation for most web applications is an <strong>HttpOnly, Secure</strong> cookie with <code>SameSite</code> set. HttpOnly removes XSS-based token theft, since scripts can't read the cookie, and <code>SameSite</code> blunts CSRF by controlling when the cookie is sent cross-site. <code>SameSite=Strict</code> is the tightest option, but it has a real cost. A user who arrives from an external link, such as an email or another site, sends no cookie on that first request. They land logged out and appear signed in only after a reload. For that reason many applications use <code>SameSite=Lax</code> for the session cookie. Lax withholds the cookie on the cross-site subrequests and unsafe-method requests where CSRF lives, while still sending it on a top-level navigation the user initiated themselves. Either way the server sets the cookie on login, and the browser attaches it automatically afterward.</p>
 
   <div class="callout info">
     <div class="callout-title">Memory storage for SPAs</div>
-    <p>A third option is to hold the token in a JavaScript variable that lives only in memory, distinct from <code>localStorage</code>, <code>sessionStorage</code>, or an HttpOnly cookie. This only works in a single-page application. Its JavaScript context survives across the whole session, while a traditional multi-page app reloads that context on every navigation, losing the variable each time. The tradeoff is that a manual reload, a closed tab, or a link opened in a new tab loses the token too, requiring the application to silently re-authenticate. Memory storage is still reachable by XSS, since injected script shares the same privileges as the application (see the <a href="browser-security.html">browser security</a> article). For SPAs that can't rely on a same-site HttpOnly cookie, the pattern increasingly recommended instead is a <strong>Backend-for-Frontend (BFF)</strong> architecture, where the browser only ever holds a session cookie and a server-side component attaches the real access token to outgoing API calls.</p>
+    <p>A third option is to hold the token in a JavaScript variable that lives only in memory, distinct from <code>localStorage</code>, <code>sessionStorage</code>, or an HttpOnly cookie. This only works in a single-page application (SPA). Its JavaScript context survives across the whole session, while a traditional multi-page app reloads that context on every navigation, losing the variable each time. The tradeoff is that a manual reload, a closed tab, or a link opened in a new tab loses the token too, requiring the application to silently re-authenticate. Memory storage is still reachable by XSS, since injected script shares the same privileges as the application (see the <a href="browser-security.html">browser security</a> article). For SPAs that can't rely on a same-site HttpOnly cookie, the recommended pattern instead is a <a href="oauth-oidc.html#bff-architecture">BFF architecture</a>, where the browser only ever holds a session cookie and a server-side component attaches the real access token to outgoing API calls.</p>
   </div>
 
-  <p>Every storage option above is still just guarding a bearer token against theft, and whoever holds the string can use it, which is why so much of this section has been about limiting exposure rather than eliminating it. <strong>DPoP</strong>, an OAuth-defined mechanism, removes the bearer property instead by binding a token to a private key that never leaves the client, so a stolen token alone isn't enough to use it. It's covered in the <a href="oauth-oidc.html#dpop">OAuth &amp; OIDC</a> article.</p>
+  <p>Every storage option above is still only guarding a bearer token against theft. Whoever holds the string can use it, which is why so much of this section has been about limiting exposure rather than eliminating it. <strong>DPoP</strong>, an OAuth-defined mechanism, removes the bearer property instead by binding a token to a private key that never leaves the client, so a stolen token alone isn't enough to use it. It's covered in the <a href="oauth-oidc.html#dpop">OAuth &amp; OIDC</a> article.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="passkeys">Passkeys and WebAuthn</h2>
   <p class="lede">A public-key credential that replaces the password itself, not just what happens after it.</p>
 
-  <p>A passkey is a public/private key pair generated on the user's device specifically for one site. The private key never leaves the device or the user's synced keychain, only the public key is ever sent to the server. Registration and sign-in both happen through <strong>WebAuthn</strong>, a browser API that is part of the FIDO2 standard, which asks the operating system to create or use that key pair and returns a signed response the server can verify.</p>
+  <p>A passkey is a public/private key pair generated on the user's device specifically for one site. The private key never leaves the device or the user's synced keychain. Only the public key is ever sent to the server. Registration and sign-in both happen through <strong>WebAuthn</strong>, a browser API that is part of the FIDO2 standard. The API asks the operating system to create or use the key pair and returns a signed response the server can verify.</p>
 
-  <p>This inverts the password model in a way that matters for security. A password is a shared secret, the same string exists on the user's device and the server's database, and it can be typed into any site that asks for it, including a convincing fake. A passkey's private key is never transmitted and never typed. The signature produced during sign-in is also bound to the origin that requested it, so a passkey created for <code>example.com</code> cannot be used to authenticate to a phishing page at a different domain, even one that looks identical. Database breaches are less damaging too. Stealing a table of public keys gives an attacker nothing usable, since a public key cannot sign anything on its own.</p>
+  <p>This inverts the password model in a way that matters for security. A password is a shared secret. The same string exists on the user's device and in the server's database, and it can be typed into any site that asks for it, including a convincing fake. A passkey's private key is never transmitted and never typed. The signature produced during sign-in is also bound to the origin that requested it, so a passkey created for <code>example.com</code> cannot be used to authenticate to a phishing page at a different domain, even one that looks identical. Database breaches are less damaging too. Stealing a table of public keys gives an attacker nothing usable, since a public key cannot sign anything on its own.</p>
 
   <div class="two-col">
     <div class="card teal">
@@ -437,7 +437,7 @@
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="api-keys">API Keys</h2>
-  <p class="lede">API keys are the simplest form of authentication, a shared secret that identifies a client. They work well for server-to-server communication but require careful handling.</p>
+  <p class="lede">A shared secret for machine-to-machine access, simple to issue and easy to mishandle.</p>
 
   <p>An API key is a long random string issued by the server and shared with a specific client. The client presents it on every request. The server looks it up and determines what the client is allowed to do. Unlike user authentication, API keys typically identify an application or a team rather than an individual person.</p>
 
@@ -458,7 +458,7 @@
   </div>
 
   <h3>Storage and rotation</h3>
-  <p>API keys should be stored hashed on the server, just like passwords. If the database is breached, the raw keys are not exposed. The client sees the key once on creation. After that, the server only stores a hash. When comparing an incoming key to the stored hash, a constant-time comparison is used to avoid timing attacks.</p>
+  <p>API keys should be stored hashed on the server, just like passwords. If the database is breached, the raw keys are not exposed. The client sees the key once, at creation, and after that the server only stores a hash. When comparing an incoming key to the stored hash, a constant-time comparison is used to avoid timing attacks.</p>
 
   <p>Beyond hashing, a production key management setup needs three more properties:</p>
   <ul>
