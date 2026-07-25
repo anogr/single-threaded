@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-Agent Systems — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+</head>
+
+<body>
+
+<!-- Mobile header -->
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Articles</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+
+  <div class="sidebar-section">The Tradeoff</div>
+  <a href="#why">Why Multiple Agents</a>
+
+  <div class="sidebar-section">Patterns</div>
+  <a href="#orchestrator">Orchestrator and Workers</a>
+  <a href="#topologies">Pipelines, Swarms, and Debates</a>
+
+  <div class="sidebar-section">Infrastructure</div>
+  <a href="#isolation">Workspace Isolation</a>
+  <a href="#a2a">Agent-to-Agent Communication</a>
+
+  <div class="sidebar-section">Production</div>
+  <a href="#failure-modes">Failure Modes</a>
+  <a href="#when">When to Reach for It</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">AI · Orchestration</div>
+  <h1>Multi-Agent Systems</h1>
+  <p class="subtitle">What a second agent adds, the patterns that coordinate agent teams, and why the failures look like distributed systems.</p>
+  <div class="byline">
+    <span>Andreas Ögren</span>
+    <div class="dot"></div><span>~11 min read</span>
+    <div class="dot"></div><span>Last updated July 2026</span>
+  </div>
+
+  <p>Every agent in this series so far works alone. One agent holds one <a href="how-llms-work.html#context-window">context window</a>, and it does one thing at a time. Those two limits define a ceiling. A task too large to fit one window, or too slow to run serially, does not get easier with better prompting.</p>
+
+  <p>There are two ways past the ceiling. The first is a bigger window, and the LLM article covers why that route thins out well before it solves the problem. The second is more agents, and it is this article's subject. Adding agents buys capacity and parallelism, and it pays for them in the currency every distributed system pays. Coordination becomes part of the work, and eventually most of it.</p>
+
+  <div class="callout info">
+    <div class="callout-title">Building on earlier articles</div>
+    <p>This article assumes the assistant/agent distinction from <a href="ai-coding-assistants.html">the assistants article</a> and the context-window mechanics from <a href="how-llms-work.html">how large language models work</a>. The single-tool <a href="ai-coding-assistants.html#beyond-context-files">subagent</a> covered earlier is the smallest version of what this article generalizes.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="why">Why Multiple Agents</h2>
+  <p class="lede">What a second agent adds is a second context window. Everything else follows from that.</p>
+
+  <p>The intuition to discard first is that several agents form a smarter collective. What splitting the work buys, mechanically, is independent context windows. Each agent reasons in its own window, uncluttered by the others' reading, tool output, and dead ends. Total working context stops being capped by any single request. That fact, more than any notion of collective intelligence, is what every pattern in this article exploits.</p>
+
+  <p>Splitting pays off under three conditions, and reliably only under them. The first is specialization. An agent with a narrow objective and a clean window outperforms a generalist working in a crowded one. The second is parallelism. Sub-tasks that do not depend on each other can run at the same time, which shortens wall-clock time even as total compute rises. The third is critique. A reviewer agent whose context holds none of the author's reasoning catches what self-review misses, for the same reason a fresh human reviewer does.</p>
+
+  <p>Underneath specialization sits an older idea, bounded responsibility. A worker with a small, clearly stated objective has a small prompt surface, an output that can be judged against the objective, and a role that can be rewritten or reassigned without touching the rest of the system. The architecture articles on this site make the same case for <a href="design-principles.html">single responsibility</a> in code and for <a href="microfrontends.html">team-sized ownership</a> of frontends. Agents behave better under bounded responsibility for the same reasons modules and teams do.</p>
+
+  <p>The price arrives in three dimensions, and the failure modes later in the article map onto the same three. Compute multiplies, since every handoff repeats context and every aggregation re-reads results. Anthropic's engineering account of its own orchestrated research system, the best-documented production example, reports token consumption around an order of magnitude beyond an ordinary chat interaction. Latency stacks, because handoffs and aggregation are serial steps wrapped around the parallel work. Reliability drops, because each added agent, handoff, and merge is one more part that can fail.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="orchestrator">Orchestrator and Workers</h2>
+  <p class="lede">One agent plans, the others execute, and the planning is the hard part.</p>
+
+  <p>The pattern most production systems converge on has one coordinating agent, the <strong>orchestrator</strong>, and a set of <strong>workers</strong> it creates per task. The orchestrator's job runs in a sequence that looks the same across frameworks:</p>
+
+  <ol>
+    <li><strong>Decompose</strong> the task into pieces that are independent, evaluable, and together sufficient.</li>
+    <li><strong>Assign</strong> each piece to a worker as a narrow, self-contained objective.</li>
+    <li><strong>Isolate</strong> each worker in its own clean context window.</li>
+    <li><strong>Aggregate</strong> the results as they return.</li>
+    <li><strong>Re-plan</strong> when a result changes the picture, spawning or redirecting workers.</li>
+  </ol>
+
+  <p>Decomposition is where quality is won or lost. Cutting a task into truly independent, checkable pieces is the same skill as decomposing any system, and a bad cut cannot be rescued downstream. Workers handed overlapping pieces duplicate effort or contradict each other. Workers handed a piece with a hidden dependency stall or guess. Spawning a worker takes a fraction of a second. Deciding what the worker should do is the engineering, which is why the human gate, when there is one, belongs at this step.</p>
+
+  <p>Aggregation is where the independent-windows insight becomes visible in the data flow. Workers report results, never transcripts. A worker may read fifty files and reason at length, and what returns to the orchestrator is a summary sized for the orchestrator's budget. The coordinating window holds the plan and the findings, not the full working state of every agent. Anthropic's research system follows this shape, a lead agent decomposing a question and merging what parallel searchers bring back, and its published gains came specifically from spreading reasoning across separate windows.</p>
+
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 700 300" style="max-width:100%;display:block;background:var(--surface);border:1px solid var(--border);border-radius:8px;" role="img" aria-label="An orchestrator agent at the top decomposes a task and sends pieces down to three workers, each with its own context window. Summaries, not transcripts, flow back up." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="mas-d" markerWidth="7" markerHeight="6" refX="6" refY="3" orient="auto"><polygon points="0 0,7 3,0 6" fill="var(--accent)"/></marker>
+        <marker id="mas-u" markerWidth="7" markerHeight="6" refX="6" refY="3" orient="auto"><polygon points="0 0,7 3,0 6" fill="var(--teal)"/></marker>
+      </defs>
+      <!-- orchestrator -->
+      <rect x="260" y="28" width="180" height="48" rx="6" fill="color-mix(in srgb, var(--accent) 12%, transparent)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="350" y="49" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="var(--accent)">Orchestrator</text>
+      <text x="350" y="66" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="8.5" fill="var(--text-faint)">plan + findings only</text>
+      <!-- workers -->
+      <g>
+        <rect x="55" y="180" width="170" height="60" rx="6" fill="var(--surface-2)" stroke="var(--border)"/>
+        <text x="140" y="205" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10.5" fill="var(--text-dim)">Worker A</text>
+        <text x="140" y="224" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="8.5" fill="var(--text-faint)">own context window</text>
+        <rect x="265" y="180" width="170" height="60" rx="6" fill="var(--surface-2)" stroke="var(--border)"/>
+        <text x="350" y="205" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10.5" fill="var(--text-dim)">Worker B</text>
+        <text x="350" y="224" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="8.5" fill="var(--text-faint)">own context window</text>
+        <rect x="475" y="180" width="170" height="60" rx="6" fill="var(--surface-2)" stroke="var(--border)"/>
+        <text x="560" y="205" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10.5" fill="var(--text-dim)">Worker C</text>
+        <text x="560" y="224" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="8.5" fill="var(--text-faint)">own context window</text>
+      </g>
+      <!-- down arrows (tasks) -->
+      <g stroke="var(--accent)" stroke-width="1.4">
+        <line x1="300" y1="76" x2="125" y2="176" marker-end="url(#mas-d)"/>
+        <line x1="335" y1="76" x2="335" y2="176" marker-end="url(#mas-d)"/>
+        <line x1="400" y1="76" x2="545" y2="176" marker-end="url(#mas-d)"/>
+      </g>
+      <!-- up arrows (summaries) -->
+      <g stroke="var(--teal)" stroke-width="1.4" stroke-dasharray="5 4">
+        <line x1="160" y1="176" x2="315" y2="80" marker-end="url(#mas-u)"/>
+        <line x1="365" y1="176" x2="365" y2="80" marker-end="url(#mas-u)"/>
+        <line x1="575" y1="176" x2="420" y2="80" marker-end="url(#mas-u)"/>
+      </g>
+      <!-- legend -->
+      <line x1="180" y1="272" x2="216" y2="272" stroke="var(--accent)" stroke-width="1.4"/>
+      <text x="224" y="276" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-dim)">tasks down</text>
+      <line x1="350" y1="272" x2="386" y2="272" stroke="var(--teal)" stroke-width="1.4" stroke-dasharray="5 4"/>
+      <text x="394" y="276" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-dim)">summaries up</text>
+    </svg>
+    <figcaption style="font-size:13px;color:var(--text-dim);margin-top:8px;line-height:1.5;">Orchestrator-worker. Each worker reasons in its own context window, and only summaries travel back up, which keeps the orchestrator's window on plan and findings.</figcaption>
+  </figure>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="topologies">Pipelines, Swarms, and Debates</h2>
+  <p class="lede">The alternatives earn a paragraph each, and a reason to pick them.</p>
+
+  <p>A <strong>pipeline</strong> chains agents so that each one's output is the next one's input, a drafting agent feeding an editing agent feeding a fact-checking agent. It fits work that is naturally staged, where each stage transforms the whole artifact. Its weakness is that stages run serially, so latency adds up, and a defect introduced early flows through everything downstream.</p>
+
+  <p>A <strong>swarm</strong> drops the coordinator. Peer agents pull work from a shared queue and handle items independently. The shape fits high volumes of homogeneous, separable items, such as triaging a backlog or processing documents. Without a coordinator there is no single place where a plan lives or a mistake gets caught, so the shape suits work where any single item is cheap to redo.</p>
+
+  <p>A <strong>debate</strong> sets agents to argue opposing positions, with a judge, often a human, deciding. It is the critique condition from earlier run in both directions, and it can raise quality on judgment-heavy questions at a steep multiple of the token cost. As a standing pattern it is rarer than the other two, and closer to a deliberate quality gate than a way of producing work.</p>
+
+  <p>Orchestrator-worker remains the reference point, and most production systems either are one or contain one. The alternatives are worth reaching for when the work visibly has their shape, staged transformation, an embarrassingly parallel queue, or a decision worth the cost of structured disagreement.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="isolation">Workspace Isolation</h2>
+  <p class="lede">Two writers, one file, no lock. The oldest concurrency bug applies to agents too.</p>
+
+  <p>Independent context windows do not imply independent workspaces. Two agents editing one repository checkout collide the way two processes writing one file always have. One agent's half-finished refactor becomes another's confusing input. A test run picks up a mixture of both agents' changes and fails in ways neither can explain. The failure is worse than it was for processes, because an agent does not crash on inconsistent state. It reads the wreckage as context and carries on, confidently.</p>
+
+  <p>Git worktrees are the lightweight answer, giving each agent a separate working copy backed by the same repository, with results merged deliberately afterward. Containers and sandboxes are the heavier answer, isolating processes, dependencies, and network access along with the files. The harness tools named in <a href="agentic-coding-workflows.html#harness-engineering">the workflows article</a>, Claude Squad at the light end and Gas Town at the heavy end, are to a large extent machinery for this, keeping parallel sessions from touching each other's state.</p>
+
+  <p>Isolation solved creates the next problem. Agents that cannot touch each other's state still need to hand work to each other.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="a2a">Agent-to-Agent Communication</h2>
+  <p class="lede">Inside one product, a handoff is an implementation detail. Across products, it needs a protocol.</p>
+
+  <p>Within a single framework, communication is internal plumbing. The orchestrator invokes its workers the way a program calls functions, and no standard is needed. The problem changes when the agents belong to different vendors. A company's procurement agent delegating to a supplier's support agent shares no runtime with it, and every pair of products wiring up a bespoke integration recreates the N&times;M problem that <a href="mcp-ai-integration.html">MCP</a> solved for tools, one level up.</p>
+
+  <p><strong>Agent2Agent</strong> (A2A) is the protocol emerging to fill that slot. An agent publishes an <strong>agent card</strong>, a machine-readable description of what it can do and where to reach it. Another agent discovers the card, delegates a task, and receives results, with the protocol handling the exchange in between. The division of labor between the two protocols is clean and worth memorizing. MCP connects an agent to tools and data. A2A connects agents to each other.</p>
+
+  <div class="callout new">
+    <div class="callout-title">Where A2A stands</div>
+    <p>A2A reached version 1.0 under the Linux Foundation in 2026, with over 150 backing organizations and support landing across the major cloud platforms. That is real momentum, and it is still young next to MCP, which has years of deployment and tooling behind it. Treat A2A as the emerging standard for agent interoperability rather than a settled one, and check current client and platform support before designing around it.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="failure-modes">Failure Modes</h2>
+  <p class="lede">Every classic distributed-systems failure has an agent-shaped version, and one is new.</p>
+
+  <p>Coordination fails first. A handoff is a summary, and a summary is lossy. The detail a worker judged irrelevant and dropped is sometimes the detail the next agent needed, and no error is raised when it vanishes. The tighter the coupling between sub-tasks, the more each handoff loses, which is the mechanical reason decomposition quality dominates everything downstream.</p>
+
+  <p>State consistency fails quietly. Two agents acting on different pictures of the world, one having read the repository before the other's merge landed, produce work that is individually correct and jointly wrong. Practitioner post-mortems repeatedly name context inconsistency, rather than the choice of pattern, as the leading cause of production failures. It is the other face of the isolation the whole approach depends on. Independent windows mean independent views, and independent views drift. The same mismatch between plan and reality appears in single-agent form as <a href="agentic-coding-workflows.html#context-blindness">context blindness</a>, and the grounding step described there applies here per agent.</p>
+
+  <p>Errors cascade. A wrong intermediate result does not sit inert, it gets built upon, and by the time the flaw surfaces in the final output several agents have compounded it. Checks belong at the seams, validating a worker's result before the orchestrator builds on it, because the final artifact no longer reveals where things went wrong.</p>
+
+  <p>Which is the observability failure in miniature. A five-agent run cannot be debugged from its final answer. Without a record of which agent did what, with which input, and what came back, there is nothing to inspect, and the trail has to be designed in rather than reconstructed later. The shape is the one the <a href="mcp-ai-integration.html#gateway">MCP gateway</a> section describes for tool calls, applied to every handoff.</p>
+
+  <p>Cost fails loudest and last. Orchestration calls stack on top of every worker call, so spend grows faster than agent count, and a workflow that looked cheap in a pilot behaves differently multiplied across a team's daily volume. The three dimensions from the start of this article, compute, latency, and reliability, are the budget lines to watch, and none of them improves with scale.</p>
+
+  <p>One documented anti-fit deserves its own mention. Tightly interdependent work, where each step needs the full nuance of the step before it, loses more through lossy handoffs than it gains from parallelism. Much of coding has that character, and Anthropic's account draws the same line, strong results on parallelizable research, weaker fit for interdependent implementation work. The multi-agent coding setups that do work concentrate on the separable parts, such as parallel exploration, isolated subtasks, and review passes, rather than splitting one feature across five authors.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="when">When to Reach for It</h2>
+  <p class="lede">One agent, engineered well, is the default. The escalation has a checklist.</p>
+
+  <p>The default remains a single agent with disciplined <a href="agentic-coding-workflows.html#context-engineering">context engineering</a>, because every cost in the previous section arrives the moment there is a second node. Escalate when the task decomposes into independent parts and at least one of the three conditions from the start of this article holds. A specialist would beat the generalist, the parts can run in parallel, or an independent critic would catch what self-review misses. If none of them holds, a second agent adds coordination cost and nothing else.</p>
+
+  <p>Where a team does escalate, the human gate from <a href="agentic-coding-workflows.html#human-gate">the workflows article</a> moves to the decomposition step. A flawed plan costs minutes to correct before any worker runs, and multiplies across every worker after. Reviewing five workers' output without having reviewed the plan that produced it is diff review at its most expensive.</p>
+
+  <p>The discipline for running all of this already exists, because the thing being run is older than it looks. A multi-agent system is not a smarter language model, but a distributed system whose nodes happen to be language models. It rewards the instincts distributed systems have always rewarded, such as explicit contracts between parts, isolation by default, checks at the seams, and a record of what happened. Teams that bring those instincts keep the capacity and the parallelism. Teams that skip them rediscover, at token prices, why the instincts exist.</p>
+
+</main>
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+
+</body>
+</html>

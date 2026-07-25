@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data and IP in AI Tooling — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+</head>
+
+<body>
+
+<!-- Mobile header -->
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Articles</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+
+  <div class="sidebar-section">The Spine</div>
+  <a href="#ladder">The Deployment Ladder</a>
+
+  <div class="sidebar-section">Along the Ladder</div>
+  <a href="#retention-training">Retention and Training</a>
+  <a href="#secrets">Secrets Hygiene</a>
+
+  <div class="sidebar-section">The Legal Surface</div>
+  <a href="#ownership">Who Owns Generated Code</a>
+  <a href="#indemnity">Infringement Risk and Indemnity</a>
+
+  <div class="sidebar-section">Practice</div>
+  <a href="#checklist">The Procurement Checklist</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">AI · Data &amp; Compliance</div>
+  <h1>Data and IP in AI Tooling</h1>
+  <p class="subtitle">Where code goes when an assistant reads it, what the vendor may do with it, and who owns what comes back.</p>
+  <div class="byline">
+    <span>Andreas Ögren</span>
+    <div class="dot"></div><span>~9 min read</span>
+    <div class="dot"></div><span>Last updated July 2026</span>
+  </div>
+
+  <p>Within weeks of AI tooling arriving in an organization, the same four questions surface. Where does the code go when an assistant reads it? Does anything typed into a prompt become training data? Who owns the code that comes back? And who pays if that code turns out to infringe someone's copyright?</p>
+
+  <p>None of them are answered in the editor. Three of the four are answered by what was bought, which product, at which tier, deployed where. This article works through the questions along that ladder, and flags the one question the ladder cannot answer. The <a href="ai-code-review.html">governance article</a> covers what happens to AI-written code inside the development process. This one covers the data and intellectual property (IP) surface underneath it, the part decided in procurement and account settings rather than in the pull request.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="ladder">The Deployment Ladder</h2>
+  <p class="lede">Four rungs, and almost every guarantee changes at each one.</p>
+
+  <p>The baseline fact comes first. Unless a model is self-hosted, inference happens on the vendor's servers, so everything the assistant reads leaves the machine by design. That includes the prompt, the open files, and whatever repository context the tool gathered on its own. An agentic session sends far more than a chat session, because an agent <a href="ai-coding-assistants.html#context-window">explores the repository</a> and reads files the developer never opened. The question is never whether code leaves. It is what the party receiving it is allowed to do, and that is what the ladder prices.</p>
+
+  <p>The bottom rung is consumer SaaS, the free and individual tiers of the mainstream tools. Guarantees are thinnest here. Controls live in a settings page the vendor can reorganize, defaults change with product announcements, and the contract is a consumer terms-of-service the organization never negotiated.</p>
+
+  <p>Enterprise SaaS is the next rung, and the step between the two is the sharpest on the ladder. The organization gets a <strong>data processing agreement</strong> (DPA), a negotiated contract that fixes what the vendor may do with submitted data, and training exclusion is standard in these terms. The rung also brings the governance surface of organization administrators, centrally managed policy, audit logs, workspace isolation, and identity integration. These are not compliance decoration. They decide who in the organization can connect what, and who can see that it happened, the same identity-provider-centralized shape the <a href="mcp-ai-integration.html#governance">MCP article's enterprise authorization section</a> describes for connector access.</p>
+
+  <p>The third rung consumes models through a cloud tenant the organization already operates, the hyperscaler-hosted route. Prompts and completions stay inside a compliance boundary that existing agreements, monitoring, and residency commitments already cover. The <a href="cloud-computing.html">shared-responsibility framing</a> from the cloud article applies unchanged, with the model as one more managed service inside it.</p>
+
+  <p>The top rung is self-hosted open-weight models. Nothing leaves, and everything is now an operations problem, including the hardware, the serving stack, and the model updates the SaaS rungs deliver invisibly. The climb, at every step, trades operational cost for control. Which rung is right follows from the sensitivity of what the tools will see, not from model quality, since the same or comparable models increasingly appear on every rung.</p>
+
+  <figure style="margin:24px 0 8px;">
+    <svg viewBox="0 0 700 270" style="max-width:100%;display:block;background:var(--surface);border:1px solid var(--border);border-radius:8px;" role="img" aria-label="Four rungs stacked from consumer SaaS at the bottom to self-hosted at the top. An arrow alongside shows control and operational cost increasing together as you climb." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="adi-a" markerWidth="7" markerHeight="6" refX="6" refY="3" orient="auto"><polygon points="0 0,7 3,0 6" fill="var(--accent)"/></marker>
+      </defs>
+      <g font-family="'IBM Plex Mono',monospace" font-size="10">
+        <rect x="150" y="26" width="300" height="42" rx="5" fill="color-mix(in srgb, var(--accent) 10%, transparent)" stroke="var(--accent)"/>
+        <text x="300" y="52" text-anchor="middle" fill="var(--accent)">Self-hosted</text>
+        <text x="470" y="52" font-size="9" fill="var(--text-faint)">nothing leaves, all ops yours</text>
+        <rect x="150" y="82" width="300" height="42" rx="5" fill="var(--surface-2)" stroke="var(--border)"/>
+        <text x="300" y="108" text-anchor="middle" fill="var(--text-dim)">Your cloud tenant</text>
+        <text x="470" y="108" font-size="9" fill="var(--text-faint)">existing compliance boundary</text>
+        <rect x="150" y="138" width="300" height="42" rx="5" fill="var(--surface-2)" stroke="var(--border)"/>
+        <text x="300" y="164" text-anchor="middle" fill="var(--text-dim)">Enterprise SaaS</text>
+        <text x="470" y="164" font-size="9" fill="var(--text-faint)">DPA, no training, admin + audit</text>
+        <rect x="150" y="194" width="300" height="42" rx="5" fill="var(--surface-2)" stroke="var(--border)"/>
+        <text x="300" y="220" text-anchor="middle" fill="var(--text-dim)">Consumer SaaS</text>
+        <text x="470" y="220" font-size="9" fill="var(--text-faint)">settings-page guarantees</text>
+      </g>
+      <line x1="100" y1="226" x2="100" y2="40" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#adi-a)"/>
+      <text x="60" y="140" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)" transform="rotate(-90 60 140)">more control, more ops cost</text>
+    </svg>
+    <figcaption style="font-size:13px;color:var(--text-dim);margin-top:8px;line-height:1.5;">The deployment ladder. Retention, training, governance, and indemnity answers all change rung by rung, with the consumer-to-enterprise step as the sharpest.</figcaption>
+  </figure>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="retention-training">Retention and Training</h2>
+  <p class="lede">Stored and trained on are different fates, and the difference is contractual.</p>
+
+  <p>Two concepts get conflated in nearly every conversation about AI tooling and data. <strong>Retention</strong> is how long the vendor stores inputs and outputs, typically for abuse handling and support. <strong>Training</strong> is whether the vendor adjusts model weights using them, which is how content can eventually influence what a model produces for other customers. The two vary independently. A vendor can retain for thirty days and never train. Zero-data-retention arrangements, available at the API layer of the major vendors, do neither.</p>
+
+  <p>Walked along the ladder, the pattern is consistent. Consumer tiers drift toward training by default with an opt-out, and the drift is recent enough to catch organizations off guard. Enterprise tiers exclude training in the DPA, which is a different kind of guarantee from a settings toggle. The cloud-tenant rung inherits the tenant's data terms, and self-hosting makes the question moot.</p>
+
+  <div class="callout new">
+    <div class="callout-title">A default worth checking</div>
+    <p>GitHub announced that from April 2026, Copilot's Free and Pro tiers use interaction data, including code context, for model training unless the user opts out, while Business and Enterprise customers remain excluded under their contract terms. Consumer Claude asks users to choose, with multi-year retention on the training path and roughly thirty days otherwise, and team tiers exclude training by default. These are snapshots of a moving surface. Verify the current terms of the tools in use rather than assuming either direction.</p>
+  </div>
+
+  <p>The durable lesson sits underneath the snapshots. The guarantee lives in the contract, not in a settings page or a vendor's current default. A toggle can be reorganized in a product update, and a default can flip with an announcement. A data processing agreement changes when both parties sign. Procurement choices determine technical guarantees, which is why the questions in this article are settled when the tier is chosen, long before anyone writes a prompt.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="secrets">Secrets Hygiene</h2>
+  <p class="lede">The biggest leak is often not the vendor's policy but what the tooling was handed.</p>
+
+  <p>An agent reads what it is given, and repositories are full of things nobody meant to give it. Environment files, local configuration, and credential-bearing scripts sit inside the working directory an agent explores. A <code>.env</code> file in that directory is a credential transmitted to a third party, on every rung of the ladder except the last, regardless of how strong the retention terms are. The vendor's promise not to train on a secret is not the same as the secret never having left.</p>
+
+  <p>The mitigations are unglamorous and effective. The never-touch boundary list that belongs in a <a href="ai-coding-assistants.html#what-belongs">context file</a> extends naturally to never-read patterns for credentials and configuration. Ignore rules keep agent file access away from secret-bearing paths entirely. And prompts deserve a line in the organization's threat model as an exfiltration surface, the same way the <a href="web-security-principles.html">security principles article</a> treats any channel that carries data across a trust boundary. Teams that already handle secrets well have all the habits this needs. The only new fact is that the assistant is one more place secrets can go.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="ownership">Who Owns Generated Code</h2>
+  <p class="lede">The one question the deployment ladder does not answer.</p>
+
+  <p>Ownership is where the frame changes, and it is honest to say so. Every question so far was contractual, answered by tier and terms. Whether generated code can be owned at all is a copyright question, and it comes out the same on every rung.</p>
+
+  <p>The settled part is the principle. The US Copyright Office requires human authorship for copyright protection, and under its current guidance, material generated entirely by a machine does not qualify. What that means for code specifically has not been tested in court, and courts in several jurisdictions are working through the boundary as of 2026.</p>
+
+  <p>The practical part is that real diffs are rarely machine-only. A developer prompts, selects among results, edits, arranges, and integrates, and human contribution of that kind is where protection plausibly attaches. This gives the attribution habit from the <a href="ai-code-review.html#governance">governance decisions</a> a second purpose. A record of which parts were generated and which were human-shaped is also the record an ownership question would turn on later. Where the law is open, the accurate statement is that it is open, and the durable move is keeping the record that any eventual answer will need.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="indemnity">Infringement Risk and Indemnity</h2>
+  <p class="lede">Not what the organization owns, but what it could be accused of copying.</p>
+
+  <p>The risk in the other direction comes from the training data. Litigation over whether training on public code infringes its licenses is live, with Doe v. GitHub as the named example. The case was substantially dismissed on standing grounds in 2024, core claims survive in amended form, and appeals are ongoing as of mid-2026. Nothing about that risk is resolved, which is why vendors sell an answer to it.</p>
+
+  <p>The answer is <strong>indemnification</strong>, a contractual promise that the vendor defends the customer against third-party IP claims arising from the tool's output, and it returns the article to the ladder, because indemnity is a rung feature. Microsoft's Copilot Copyright Commitment is the concrete example. It covers paying enterprise customers, on the condition that the public-code matching filter is enabled and the tool is used as directed. Consumer tiers get no such protection and, under standard terms, agree to indemnify the vendor instead. The direction of the promise reverses at the tier boundary.</p>
+
+  <p>The shape matters more than the current terms. Indemnity is a paid-rung feature with switch-dependent conditions, which means the switches belong on the rollout checklist next to the tier decision. An organization that bought the enterprise tier and never enabled the filter the indemnity depends on has purchased a promise it cannot invoke.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="checklist">The Procurement Checklist</h2>
+  <p class="lede">The decisions in ladder order, made once and revisited on a schedule.</p>
+
+  <p>Classify what the tools will see, because the rung follows from the sensitivity of the material, not from the model on the box. Pick the rung that classification requires, and for most organizations that means the enterprise tier of a SaaS tool or the cloud-tenant route, with self-hosting reserved for material that cannot cross any external boundary. Get training exclusion and retention terms into the DPA rather than trusting a settings page, since the contract is the only guarantee that survives a product update.</p>
+
+  <p>Then wire in what the rung provides. Turn on the filters the indemnity depends on, and record that they are on. Connect the admin, policy, and audit surface to the organization's existing identity provider, so access to AI tooling is governed like access to everything else. Extend ignore rules and context-file boundaries to keep secrets out of what agents read.</p>
+
+  <p>Last, put re-verification on a calendar. The tier mechanics in this article are durable, and every vendor-specific default inside them moves, as the 2026 consumer-tier training shift showed. An annual procurement review that re-reads the DPA, the indemnity conditions, and the current defaults costs an afternoon. Discovering any of them changed by reading about it in an incident report costs considerably more.</p>
+
+</main>
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+
+</body>
+</html>
