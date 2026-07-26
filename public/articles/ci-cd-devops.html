@@ -43,48 +43,48 @@
   <a href="#rollbacks">Rollbacks &amp; Pipeline Health</a>
 
   <div class="sidebar-section">Decision Guide</div>
-  <a href="#maturity">Pipeline Maturity</a>
+  <a href="#maturity">How Much Pipeline to Build</a>
 </nav>
 
 <main>
 
   <div class="eyebrow">Delivery · CI/CD</div>
   <h1>CI/CD and DevOps</h1>
-  <p class="subtitle">How commits become releases, why continuous delivery and continuous deployment aren't the same thing, and the deployment strategies that limit the blast radius of a bad one.</p>
+  <p class="subtitle">How a change moves from integration to release, and how teams control deployment risk along the way.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~14 min read</span>
+    <div class="dot"></div><span>~11 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <section id="intro">
-  <p>"DevOps," "CI/CD," and "the pipeline" get used almost interchangeably in most conversations, which makes it easy to lose track of which one is being discussed. They aren't the same thing. One is an organizational practice, and the other two are the technical machinery that makes that practice possible at any scale beyond a handful of manual deploys.</p>
+  <p>DevOps, CI/CD, and deployment pipelines often appear in the same conversation, but they describe different parts of software delivery. DevOps concerns how people share responsibility for a service. Continuous integration and continuous delivery are engineering practices, while a pipeline is one way to automate them.</p>
 
-  <p>This article works through that distinction first, then builds the mechanics on top of it. First comes what continuous integration automates, and why continuous delivery and continuous deployment get conflated despite meaning different things. From there it turns to what a pipeline's stages do, in the order they run, and how a change reaches production once it clears them. The deployment models come last, GitOps included, covering what happens after a pipeline decides a change is ready to go out.</p>
+  <p>The distinction matters because automation cannot create shared ownership on its own. The sections below begin with the working practices, then follow a change through a pipeline and into production. The final sections cover deployment control, GitOps, infrastructure as code, and the amount of machinery a team may need.</p>
   </section>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="devops-vs-cicd">DevOps vs. CI/CD</h2>
-  <p class="lede">One is a cultural shift. The other is the machinery that makes the shift practical.</p>
+  <p class="lede">DevOps changes who owns an outcome. CI/CD changes how software moves toward that outcome.</p>
 
-  <p><strong>DevOps</strong> is a set of organizational practices built around shared ownership between the people who write software and the people who run it, rather than a wall where one side throws a finished build over to the other. The term emerged in the mid-to-late 2000s as a reaction to a specific, recurring failure mode. Development teams optimized for shipping change quickly. Operations teams optimized for keeping production stable. The two goals pulled against each other constantly. Whenever a release broke something, the two sides had a ready-made argument already loaded: "it works on my machine" from one side, "it broke in production" from the other. Neither statement was false, and that was exactly the problem. DevOps closes that gap by making both sides accountable for the same outcome, a change that actually works once it's live, instead of accountable for two different, competing outcomes.</p>
+  <p><strong>DevOps</strong> is a way of organizing software delivery around shared responsibility for the service in production. Developers, operations specialists, testers, security practitioners, and other contributors work across the delivery path instead of handing a finished build from one silo to another. The goal is to make delivery speed and operational reliability concerns of the same team.</p>
 
-  <p><strong>CI/CD</strong> is what makes that shared accountability practical rather than aspirational. Continuous integration and continuous delivery, or continuous deployment, are the specific technical practices: automated builds, automated tests, automated deploys. Together they let a team move quickly and keep things stable at the same time, instead of treating those as a tradeoff. DevOps is the reason a team wants a pipeline. The pipeline is the reason DevOps is more than a value statement on a wiki page. The rest of this article is entirely about the pipeline, since the cultural side is well covered by that one distinction.</p>
+  <p><strong>CI/CD</strong> covers the technical practices that shorten and stabilize that path. Continuous integration combines frequent integration with automated feedback. Continuous delivery extends the automation far enough that a tested change can be released on demand. Pipelines support these practices, but a pipeline file alone does not establish DevOps. Ownership, feedback, and day-to-day collaboration still have to change.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="continuous-integration">Continuous Integration</h2>
-  <p class="lede">The practice is simple to state and easy to underestimate: merge often, and let automation catch what a human would only notice days later.</p>
+  <p class="lede">Frequent integration keeps the distance between a developer's work and the shared codebase small enough to reason about.</p>
 
-  <p><strong>Continuous integration</strong> (CI) means developers merge small changes into a shared branch frequently, often multiple times a day, and every merge triggers an automated build and test run. The point isn't the automation for its own sake. It's timing. Two developers editing overlapping code will eventually conflict. Resolving that conflict is cheap within hours of a small change, but expensive after weeks of divergent work on separate branches, when neither side remembers exactly what the other one touched. CI forces that reckoning to happen early and often, in change sizes small enough that a failure is quick to diagnose.</p>
+  <p><strong>Continuous integration</strong> (CI) means that every developer integrates with the shared codebase at least daily, and often more frequently. Each integration triggers an automated build and a useful set of tests. The short interval is the essential part. Conflicts and incompatible assumptions surface while the change is still small and fresh in the developer's mind.</p>
 
-  <p>The practice originated within Extreme Programming, Kent Beck's methodology from the late 1990s, and was popularized more broadly by Martin Fowler's writing in the early 2000s. What carries forward from that history isn't the specific practice as it existed then. It's the underlying bet: that frequent, small, automatically verified integrations beat infrequent, large, manually verified ones, at basically any team size.</p>
+  <p>Kent Beck developed continuous integration as an Extreme Programming practice in the 1990s. Its value does not depend on adopting the rest of that methodology. A team can use any branching and review workflow that still permits frequent integration, provided the shared branch remains healthy and failures receive prompt attention.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="delivery-vs-deployment">Continuous Delivery vs. Continuous Deployment</h2>
-  <p class="lede">The distinction most often gotten wrong, and the one worth getting right before anything else in this article.</p>
+  <p class="lede">Both practices keep software releasable. They differ in what happens after a change has proved ready.</p>
 
-  <p><strong>Continuous delivery</strong> means every change that passes the pipeline is release-ready, but a person still decides when it ships. <strong>Continuous deployment</strong> removes that decision entirely: anything that passes the pipeline automatically reaches production, with no one clicking a button in between. Both terms get shortened to "CD" in casual conversation, which is exactly how the distinction gets lost. They describe two different amounts of trust a team is willing to place in its own automation.</p>
+  <p><strong>Continuous delivery</strong> keeps the software in a deployable state and makes production deployment available on demand. A release may still wait for a business decision, a scheduled window, or an explicit approval. <strong>Continuous deployment</strong> goes further by sending every change that satisfies the automated release criteria to production without a manual gate. Both are shortened to “CD,” so the surrounding context has to supply the meaning.</p>
 
   <div class="table-wrap">
     <table>
@@ -92,25 +92,25 @@
         <tr><th></th><th>Continuous integration</th><th>Continuous delivery</th><th>Continuous deployment</th></tr>
       </thead>
       <tbody>
-        <tr><td>What's automated</td><td>Build and test, on every merge</td><td>Build, test, and promoting the artifact through pre-production</td><td>Everything, including the release itself</td></tr>
-        <tr><td>What needs a human</td><td>Fixing a failing build</td><td>Deciding when to release, and pressing go</td><td>Nothing, by design</td></tr>
-        <tr><td>Production after a passing build</td><td>Unchanged; CI doesn't deploy anything</td><td>Unchanged until someone approves the release</td><td>Updated automatically, usually within minutes</td></tr>
-        <tr><td>Risk profile</td><td>Low; nothing reaches users yet</td><td>Lower per release; a human gate catches what the pipeline didn't, at the cost of slower releases waiting on that person</td><td>Higher per release with no human gate, traded for the fastest possible feedback from real production traffic</td></tr>
+        <tr><td>What's automated</td><td>Integration build and tests</td><td>Build, tests, and a repeatable path to production</td><td>The delivery path, including production deployment</td></tr>
+        <tr><td>What needs a human</td><td>Reviewing changes and fixing failures</td><td>Choosing whether or when to release</td><td>Handling exceptions and improving the controls</td></tr>
+        <tr><td>Production after a passing change</td><td>CI makes no promise about deployment</td><td>The change is available for release on demand</td><td>The change is deployed automatically</td></tr>
+        <tr><td>Main control</td><td>Fast feedback on integration</td><td>An explicit release decision</td><td>Automated release criteria and production feedback</td></tr>
       </tbody>
     </table>
   </div>
 
-  <p>Neither column on the right is the "more mature" choice by default. Continuous deployment demands enough confidence in the pipeline's test coverage and monitoring that a bad change is caught by automation before it does real damage, which is a genuinely hard bar to clear. Continuous delivery keeps a human in the loop deliberately, which costs release velocity but adds a check that automation alone doesn't yet earn. Plenty of well-run engineering organizations stay at continuous delivery indefinitely, and that isn't a sign anything is missing.</p>
+  <p>Continuous deployment is not a higher maturity level that every team must reach. It requires automated release criteria, production monitoring, and a recovery path that make unattended deployment acceptable for the service. Continuous delivery leaves the release decision outside the pipeline. That choice can reflect regulation, product coordination, or risk tolerance rather than a weakness in the automation.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="pipeline-anatomy">Anatomy of a Pipeline</h2>
-  <p class="lede">A pipeline is a sequence, and the order of its stages is not arbitrary: each one is a gate the next stage shouldn't run without.</p>
+  <p class="lede">A pipeline arranges feedback so that cheap, fast checks fail before slower or riskier work begins.</p>
 
-  <p>A commit or a merge into the shared branch triggers the sequence. <strong>Build</strong> compiles or packages the change into a single deployable artifact that is a compiled binary, a bundled application, or a container image built and tagged from a Dockerfile. When that artifact is a container image, the specifics are covered in <a href="containers-orchestration.html#images">Containers and Orchestration</a>. <strong>Automated tests</strong> run next, acting as a gate the change can't pass without. Unit tests check individual pieces in isolation, and integration tests check that pieces work together. End-to-end tests check the whole system the way a user would encounter it. Exactly how much of each type a team should write, and where the balance shifts for a given architecture, is discussed in <a href="testing-strategy.html">Testing Strategy</a>. What matters here is only that these tests are what the pipeline checks before letting a change go any further.</p>
+  <p>A commit or merge starts a typical pipeline. The <strong>build</strong> stage compiles or packages the source into a deployable artifact, such as a binary, a web bundle, or a container image. Container image construction is covered in <a href="containers-orchestration.html#images">Containers and Orchestration</a>. Fast automated tests then check the change before the pipeline spends time on broader system tests. <a href="testing-strategy.html">Testing Strategy</a> explains how unit, integration, and end-to-end tests divide that work.</p>
 
-  <p>After tests pass, <strong>static analysis and linting</strong> catch style and correctness issues that a test wouldn't. A <strong>security scan</strong> then checks the artifact and its dependencies for known vulnerabilities, the kind of supply-chain check covered in more depth in <a href="web-security-principles.html#supply-chain">Web Security Principles</a>. Once an artifact clears every gate, it's <strong>published</strong> to a registry, either a container registry or a package repository. There it becomes the fixed, versioned thing every later stage refers to by tag or digest, rather than rebuilding from source again.</p>
+  <p>Static analysis, linting, and security checks can run in parallel when they do not depend on one another. Security checks may inspect source, dependencies, build provenance, or the finished artifact. The wider supply-chain problem belongs to <a href="web-security-principles.html#supply-chain">Web Security Principles</a>. Once the required gates pass, the pipeline publishes the artifact to a registry or repository. Later stages should identify that artifact by an immutable version or digest.</p>
 
-  <p>Then comes <strong>deploy</strong>, and this is the stage most often misread as a single destination. It isn't. For a continuous-delivery pipeline, deploy usually means deploying to staging, or another pre-production environment, and stopping there until a person approves the release. For continuous deployment, that same stage carries on straight to production with no pause in between. The stages before deploy look identical either way; what differs is only what's waiting on the other side of that gate.</p>
+  <p>Deployment is a path through environments rather than one final command. A continuous-delivery pipeline can deploy automatically to test environments and then expose a controlled production action. A continuous-deployment pipeline runs the production step when its release criteria pass. Real pipelines often branch and run work concurrently, so the diagram below shows the logical gates rather than a mandatory serial layout.</p>
 
   <figure style="margin:24px 0 8px;">
     <svg viewBox="0 0 620 366" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pipeline diagram. A continuous integration bracket contains Commit, Build, and Test stages. Below it, a continuous delivery and deployment bracket contains Scan, Publish, and Deploy to Staging, followed by a gate, followed by Deploy to Production. The gate is labeled manual for delivery, automatic for deployment.">
@@ -169,22 +169,22 @@
       <rect x="297" y="296" width="170" height="40" rx="4" fill="var(--surface-2)" stroke="var(--accent)" stroke-width="1.5"/>
       <text x="382" y="320" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" font-weight="600" fill="var(--accent)">Deploy → Production</text>
     </svg>
-    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">CI covers commit through test. Everything after belongs to delivery or deployment, depending only on whether the gate needs a person.</figcaption>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">CI provides the first integration feedback. Delivery extends the path toward production, while deployment automates the production step.</figcaption>
   </figure>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="environments">Environments and Promotion</h2>
-  <p class="lede">The same artifact should move through every environment unchanged. Rebuilding it at each stage reopens a door the pipeline just closed.</p>
+  <p class="lede">Promotion gains its meaning from moving the tested artifact forward without rebuilding it.</p>
 
-  <p>Most teams run at least three environments: development, staging, and production, each a closer approximation of the real thing than the last. The artifact built once, back at the build stage, should be the exact same one promoted through all three, rather than rebuilt fresh at each stage from the same source. Rebuilding reopens a specific, avoidable failure mode: a build tool might resolve a dependency to a slightly different version than it did an hour earlier, even from identical source code. That's exactly the kind of surprise "it worked in staging" is supposed to rule out. Promoting one immutable artifact removes that risk by construction, since there's no second build to diverge from the first.</p>
+  <p>Teams choose environment boundaries according to their product and risk model. A pipeline might use short-lived test environments, a persistent staging environment, production, or some combination of them. Whatever the names, the artifact that passed one stage should move unchanged into the next. Rebuilding from the same source can still resolve a mutable dependency or base image differently, leaving production with bytes that staging never tested.</p>
 
-  <p>What's allowed to differ between environments is configuration, not code, such as environment variables, connection strings, or feature flag defaults, supplied to the artifact at deploy time rather than baked into it at build time. That separation is what makes the same artifact valid in three different environments at once.</p>
+  <p>Runtime configuration may differ across environments. Connection endpoints, credentials, and feature settings belong outside the artifact and are supplied during deployment or startup. Keeping code and environment-specific configuration separate lets one immutable artifact move through the delivery path while preserving the settings each environment needs.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="deployment-strategies">Deployment Strategies</h2>
   <p class="lede">Which strategy fits is a question about acceptable risk and acceptable downtime, not a technical preference.</p>
 
-  <p>A <strong>rolling update</strong> replaces old instances with new ones gradually, a few at a time, so a fixed number stay available throughout and users never see downtime. A <strong>blue-green</strong> deployment runs two full environments side by side, the old one and the new one, and switches traffic from one to the other all at once, which makes a rollback just as instant as the cutover was. A <strong>canary</strong> deployment sends the new version a small slice of real traffic first, and only rolls it out further once that slice looks healthy, which limits how much of the user base a bad change can reach before anyone notices.</p>
+  <p>A <strong>rolling update</strong> replaces old instances in batches while some capacity remains available. It can avoid release downtime when the application supports mixed versions and the rollout settings preserve enough healthy instances. A <strong>blue-green deployment</strong> prepares a second environment and redirects traffic after it has been verified. Switching traffic back can be quick, although state and database changes may complicate recovery. A <strong>canary deployment</strong> exposes the new version to a limited share of traffic first, then expands or stops the rollout according to observed results.</p>
 
   <div class="table-wrap">
     <table>
@@ -192,14 +192,14 @@
         <tr><th>Requirement</th><th>Strategy</th><th>Tradeoff</th></tr>
       </thead>
       <tbody>
-        <tr><td>No downtime during a routine release</td><td>Rolling update</td><td>Simplest to run, but a rollback is just another gradual rollout in reverse, not instant.</td></tr>
-        <tr><td>Rollback needs to be instant</td><td>Blue-green</td><td>Needs two full environments running at once, which costs double the capacity during the switch.</td></tr>
-        <tr><td>Reduce the blast radius of a risky change</td><td>Canary</td><td>Needs traffic-splitting infrastructure capable of sending an exact percentage to the new version.</td></tr>
+        <tr><td>Preserve availability with modest extra capacity</td><td>Rolling update</td><td>Old and new versions coexist during the rollout, and reversal is another rollout.</td></tr>
+        <tr><td>Make traffic cutover easy to reverse</td><td>Blue-green</td><td>Runs two environments during the transition and still needs a plan for incompatible state changes.</td></tr>
+        <tr><td>Limit initial exposure to a risky change</td><td>Canary</td><td>Needs traffic control, health signals, and criteria for continuing or stopping.</td></tr>
       </tbody>
     </table>
   </div>
 
-  <p>These aren't mutually exclusive. A common combination runs a canary slice inside a blue-green pair: the new (green) environment first receives a small percentage of real traffic to verify it's healthy, and only once that canary check passes does the full cutover from blue to green happen. Kubernetes implements all three patterns through its own building blocks, covered in <a href="containers-orchestration.html#deployment-strategies">Containers and Orchestration</a>. This section instead covers the strategies as concepts that apply regardless of what's running the workload.</p>
+  <p>The patterns can be combined. A team might direct a small share of traffic to the green environment before completing a blue-green cutover. Kubernetes supplies useful rollout primitives, but weighted traffic and progressive analysis require additional components. <a href="containers-orchestration.html#deployment-strategies">Containers and Orchestration</a> covers that boundary. The same deployment concepts also apply outside Kubernetes.</p>
 
   <figure style="margin:24px 0 8px;">
     <svg viewBox="0 0 620 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Three deployment strategies side by side. Rolling update shows four instances being replaced one at a time. Blue-green shows two full environments with traffic switching instantly between them. Canary shows most traffic going to a stable version and a small slice going to a new version.">
@@ -219,7 +219,7 @@
       <text x="167" y="99" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">v1</text>
 
       <text x="101" y="130" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">replaced a few at a time,</text>
-      <text x="101" y="141" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">capacity never drops</text>
+      <text x="101" y="141" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">some capacity remains available</text>
 
       <line x1="200" y1="16" x2="200" y2="244" stroke="var(--border)"/>
 
@@ -233,7 +233,7 @@
 
       <path d="M 400 51 C 415 51, 415 99, 400 99" fill="none" stroke="var(--accent2)" stroke-width="1.5" stroke-dasharray="3,2" marker-end="url(#cd-r1)"/>
       <text x="310" y="134" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">traffic switches all at once,</text>
-      <text x="310" y="145" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">rollback is just as instant</text>
+      <text x="310" y="145" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">traffic can switch back quickly</text>
 
       <line x1="420" y1="16" x2="420" y2="244" stroke="var(--border)"/>
 
@@ -246,28 +246,28 @@
       <line x1="500" y1="60" x2="500" y2="76" stroke="var(--gold)" stroke-width="1.5"/>
 
       <rect x="440" y="78" width="176" height="40" rx="4" fill="var(--surface-2)" stroke="var(--text-faint)" stroke-width="1.5"/>
-      <text x="528" y="102" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">Stable (v1) — 90%</text>
+      <text x="528" y="102" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--text-dim)">Stable (v1) — most traffic</text>
 
       <rect x="440" y="126" width="176" height="30" rx="4" fill="color-mix(in srgb, var(--gold) 12%, transparent)" stroke="var(--gold)" stroke-width="1.5"/>
-      <text x="528" y="146" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" font-weight="600" fill="var(--gold)">Canary (v2) — 10%</text>
+      <text x="528" y="146" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" font-weight="600" fill="var(--gold)">Canary (v2) — limited traffic</text>
 
       <text x="528" y="176" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">small slice verified healthy</text>
       <text x="528" y="187" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">before rolling out further</text>
     </svg>
-    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">Three answers to the same question: how much of the change reaches users, and how fast, before anyone can react.</figcaption>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">Each strategy controls the pace of a rollout and the exposure created before operators can react.</figcaption>
   </figure>
 
-  <p>A related but separate technique is the <strong>feature flag</strong>: a runtime switch that decouples deploying code (it's running in production) from releasing it (users can see or reach it). A flag is useful precisely where the three strategies above aren't a great fit on their own, such as rolling a user-facing change out to a specific segment first, or running an A/B test. It grants control over who sees a change independent of where the code has already been deployed.</p>
+  <p>A <strong>feature flag</strong> separates deployment from release. The code can be present in production while the capability remains hidden or limited to a selected audience. Flags support product experiments and staged exposure, but they also create temporary branches in runtime behavior. Each flag therefore needs an owner and a removal plan.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="gitops">GitOps: The Pull-Based Model</h2>
-  <p class="lede">Most pipelines push change outward. GitOps flips that around, and the flip changes what a compromised credential can reach.</p>
+  <h2 id="gitops">GitOps and Pull-Based Reconciliation</h2>
+  <p class="lede">GitOps records desired state in a versioned source and lets software agents reconcile the running system toward it.</p>
 
-  <p>A traditional pipeline works by pushing: the CI system authenticates outward to the target infrastructure and applies the change itself, whether that's calling a cloud provider's API or running a deployment command directly against a cluster. <strong>GitOps</strong> inverts that direction. The desired state of a deployment, such as which version should be running, how many replicas, or what configuration, lives as declarative configuration committed to a Git repository. An agent running inside the target environment continuously watches that repository and reconciles the environment's actual state to match it, rather than waiting for anything to be pushed to it. Argo CD and Flux are the two tools most commonly used to run that agent inside a Kubernetes cluster.</p>
+  <p>In a push-based deployment, the pipeline authenticates to the target environment and applies a change. <strong>GitOps</strong> uses a different control loop. Desired state is expressed declaratively, stored with version history, pulled automatically by an agent, and continuously reconciled with the running system. A Kubernetes deployment repository might declare an image digest, replica count, and configuration. An in-cluster controller such as Argo CD or Flux observes those declarations and applies the required changes.</p>
 
-  <p>The security implication stands apart from the mechanics. Because the agent inside the cluster pulls from Git rather than the CI system pushing outward, the CI system never needs write access to production at all. It only needs write access to a Git repository. If CI credentials are ever compromised, the blast radius stops at "an attacker can commit to a repo," which still has code review and audit history around it, rather than "an attacker has a direct line to production infrastructure."</p>
+  <p>The pull model can remove production credentials from the CI system because the reconciler already runs with the permissions needed inside the target environment. It does not make repository access harmless. A credential that can alter an automatically reconciled production branch may still authorize a production change. Protected branches, review rules, signed commits or artifacts, and narrowly scoped reconciler permissions remain part of the security boundary.</p>
 
-  <p>GitOps works best where the target's state is already expressible as declarative configuration. Kubernetes manifests fit that naturally. A fleet of servers driven by imperative scripts, one command after another, doesn't fit as well. That gap can be narrowed by wrapping an imperative script inside a declarative layer, but doing so is extra tooling in itself. Below a certain amount of that effort, a push-based pipeline remains the simpler fit for infrastructure that isn't already described declaratively.</p>
+  <p>GitOps fits systems whose desired state can be represented declaratively and reconciled repeatedly. Kubernetes resources match that model well. Imperative operations with important intermediate steps need more care because their outcome cannot always be recovered from a final state declaration. In those cases, a conventional deployment job may remain clearer than hiding a sequence of commands behind a declarative wrapper.</p>
 
   <figure style="margin:24px 0 8px;">
     <svg viewBox="0 0 620 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Comparison of push-based and pull-based deployment. In the push model, a CI/CD system pushes changes directly to production infrastructure using write credentials. In the pull model (GitOps), CI commits a new manifest to a Git repository, and an agent running inside the cluster pulls from that repository and reconciles the cluster's actual state to match it.">
@@ -309,38 +309,38 @@
       <text x="380" y="122" font-family="Inter,system-ui,sans-serif" font-size="8" fill="var(--text-faint)">compares</text>
 
       <line x1="514" y1="170" x2="514" y2="210" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#cd-r2)"/>
-      <text x="500" y="192" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8" fill="var(--text-faint)">reconciles</text>
+      <text x="492" y="192" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8" fill="var(--text-faint)">reconciles</text>
 
       <line x1="258" y1="72" x2="362" y2="70" stroke="var(--text-faint)" stroke-width="1.5" stroke-dasharray="3,2" marker-end="url(#cd-r2)"/>
       <text x="310" y="45" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8" fill="var(--text-faint)">commits new manifest</text>
 
-      <text x="467" y="270" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--green)">CI never holds credentials</text>
+      <text x="467" y="270" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--green)">CI can avoid credentials</text>
       <text x="467" y="282" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--green)">to the cluster itself</text>
     </svg>
-    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">Push gives CI a direct line to production. Pull keeps CI's write access limited to a Git repository, and lets an in-cluster agent do the rest.</figcaption>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">A pull model can keep cluster credentials out of CI. Repository permissions then become part of the production security boundary.</figcaption>
   </figure>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="iac">Infrastructure as Code</h2>
-  <p class="lede">The same declarative instinct behind GitOps, applied one layer down, to the infrastructure a deployment runs on.</p>
+  <p class="lede">Infrastructure as code brings version control and repeatable change to the resources beneath an application.</p>
 
-  <p><strong>Infrastructure as code</strong> (IaC) means declaring infrastructure, such as servers, networks, or managed databases, as versioned configuration, rather than changing it by hand through a cloud provider's console. Those building blocks are covered in more depth in <a href="cloud-computing.html">Cloud Computing</a>. Terraform is the most widely used representative tool. The point isn't automation for its own sake. It's that infrastructure changes become reviewable, repeatable, and auditable the same way code changes already are, instead of living only in whoever happened to click through a console last.</p>
+  <p><strong>Infrastructure as code</strong> (IaC) represents resources such as networks, compute instances, and managed databases in versioned files. A tool such as Terraform, OpenTofu, Pulumi, or a cloud-native template system compares that definition with the provider and plans or applies the change. The underlying services are introduced in <a href="cloud-computing.html">Cloud Computing</a>. Code review and change history become possible, although safe operation still depends on state management, access control, and review of the generated plan.</p>
 
-  <p>IaC and GitOps solve adjacent but distinct problems. IaC provisions infrastructure that changes infrequently, including the cluster itself, the network it sits on, the managed database it connects to. GitOps reconciles the application deployment running on top of that already-provisioned infrastructure, which changes far more often. Both describe the desired state and let a tool reach it to two different layers of the stack.</p>
+  <p>IaC and GitOps overlap without being synonyms. IaC often provisions the cluster, network, and managed services. GitOps commonly reconciles application and platform configuration inside that infrastructure. Both use desired-state descriptions, but they may use different controllers, permission models, and change cadences.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="rollbacks">Rollbacks and Pipeline Health</h2>
-  <p class="lede">The deployment strategy that matters most is the one nobody plans for in advance: getting back to the last version that worked.</p>
+  <p class="lede">Recovery works only when the team has preserved a known-good artifact and rehearsed how to restore service.</p>
 
-  <p>Whatever deployment strategy is in use, a fast rollback is the real safety net underneath it. Redeploying the last known-good artifact, something every promotion model in this article already assumes exists in a registry, is almost always faster and safer than trying to debug forward under production pressure while users are actively affected. This is one more reason the same artifact should be promoted rather than rebuilt at each environment, as covered earlier. A rollback is only as fast as finding the exact previous artifact, and a rebuild-per-environment approach means that artifact might not even exist anymore in the form that was running.</p>
+  <p>Redeploying a previous artifact can be the quickest response to a stateless application regression. It is not a universal rollback. Database migrations, external side effects, and incompatible protocols may require a forward fix or a separate recovery procedure. Immutable artifact promotion still helps because it preserves the exact application version that passed through the earlier environments.</p>
 
-  <p>The pipeline itself deserves attention too, not just what it deploys. Build duration creeping upward and a rising flaky-test rate are both signals that a pipeline is starting to slow a team down or, worse, starting to get ignored when it fails. Diagnosing what's happening once something is live, and correlating a symptom back to a specific deployment, belongs to a dedicated observability article covering logs, metrics, and traces together. This section only covers what's specific to keeping the delivery mechanism itself healthy.</p>
+  <p>The pipeline needs its own operational care. Rising execution time delays feedback, while flaky tests train developers to distrust failures. Teams should track queue time, stage duration, failure causes, and the rate of reruns or overrides. Production diagnosis belongs to observability, but the deployment record should still connect each release to its artifact, configuration, and source revision.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="maturity">Pipeline Maturity: Choosing How Much to Build</h2>
+  <h2 id="maturity">Choosing How Much Pipeline to Build</h2>
   <p class="lede">Everything in this article is available to any team. Not all of it is worth building on day one.</p>
 
-  <p>The mature end of this article, such as multi-environment promotion, progressive delivery, and optionally GitOps-managed reconciliation, is a cost, not a default goal. It's worth its complexity once deploy frequency, team size, or the blast radius of a bad release justify it, and premature until then.</p>
+  <p>Multi-environment promotion, progressive delivery, and GitOps reconciliation all carry implementation and maintenance costs. They earn their place when release frequency, coordination needs, or production risk makes the extra control valuable. A smaller service may need only a reliable build, focused tests, and one repeatable deployment path.</p>
 
   <div class="table-wrap">
     <table>
@@ -348,14 +348,14 @@
         <tr><th>Tier</th><th>What it looks like</th><th>Fits</th></tr>
       </thead>
       <tbody>
-        <tr><td>Minimal</td><td>Manual build and deploy, no automated gate</td><td>A single small team shipping rarely, where the coordination cost of a full pipeline outweighs what it would catch.</td></tr>
-        <tr><td>Standard</td><td>Automated build, test, and deploy to one production environment</td><td>Where most teams land, and a reasonable default rather than a compromise.</td></tr>
-        <tr><td>Mature</td><td>Multi-environment promotion, progressive delivery via canary or blue-green, optionally GitOps-managed reconciliation</td><td>Frequent deploys, multiple teams sharing infrastructure, or changes with enough blast radius that a gradual rollout earns its keep.</td></tr>
+        <tr><td>Minimal</td><td>Automated build and focused tests, followed by a documented manual deployment</td><td>A small service released infrequently, while deployment remains simple and low risk.</td></tr>
+        <tr><td>Standard</td><td>Automated build, tests, artifact publication, and a repeatable production deployment</td><td>A useful baseline once releases are regular or more than one person operates the service.</td></tr>
+        <tr><td>Extended</td><td>Environment promotion, progressive delivery, policy checks, and possibly GitOps reconciliation</td><td>Frequent releases, shared platforms, or services whose failures justify finer control and faster containment.</td></tr>
       </tbody>
     </table>
   </div>
 
-  <p>A repository with hundreds of packages and dozens of contributors also runs into a version of this maturity question from a different angle: CI execution time itself starts scaling with the size of the entire codebase rather than the size of what changed. That's a distinct problem from anything covered here, and it's the one <a href="monorepos.html">Monorepos</a> addresses directly, through incremental builds and shared caching. The mistake in either case isn't landing on the wrong tier. It's adopting the mature tier's complexity before anything in the team or the architecture needs what it provides.</p>
+  <p>Large repositories face a related problem when CI work grows with the whole codebase instead of the affected change. <a href="monorepos.html">Monorepos</a> covers incremental builds and shared caching for that case. Pipeline controls should answer an observed cost or risk. Once added, they still need periodic review to confirm that they earn their place.</p>
 
 </main>
 </div><!-- end .shell -->

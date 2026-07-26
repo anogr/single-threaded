@@ -46,25 +46,25 @@
 
   <div class="eyebrow">Networking · Infrastructure Layer</div>
   <h1>Web Application Networking</h1>
-  <p class="subtitle">The infrastructure between a browser and the backend, and what each layer means for security and scalability.</p>
+  <p class="subtitle">How requests pass through edge, routing, security, and service layers before they reach application code.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~15 min read</span>
+    <div class="dot"></div><span>~16 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <section id="intro">
-  <p class="lede">Web applications face three problems at once. The internet is hostile, user demand is unpredictable, and a single server has finite capacity. The infrastructure between a browser and application code exists to address all three.</p>
+  <p class="lede">A public request must reach the right application without exposing more of the system than necessary or concentrating all traffic on one server.</p>
 
-  <p>Traffic from the public internet can come from anyone, so requests need to be filtered for threats before reaching application code, data needs to be encrypted in transit, and services inside the private network need to verify each other's identity rather than assume internal traffic is safe. Demand is a separate problem: load needs to be spread across multiple instances to absorb spikes, and content should be served from locations close to users to keep latency low. Routing is the third concern, directing each request to the right backend and centralizing access control rather than rebuilding it in every service.</p>
+  <p>Public traffic is untrusted, so connections need encryption and requests may need inspection before they reach application code. Internal location is not proof of identity either. Services still need authenticated and authorized connections. Capacity adds a separate constraint because traffic must be distributed across healthy instances, while cacheable content can move closer to users. Routing joins these concerns by sending each permitted request to the correct backend.</p>
 
-  <p>This article works through the infrastructure that handles these concerns, where each component sits in the network, and how the layers relate to each other. It also covers how services communicate securely inside a private network, how different models for persistent browser connections affect infrastructure design, and how to think about which layers a given application actually needs.</p>
+  <p>The request path provides the organizing thread for these components. It begins at the edge, continues through network and application routing, and ends with communication between services. Persistent browser connections add a different traffic shape, so they receive separate treatment before the final architecture guidance.</p>
   </section>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="journey">The Request Path</h2>
-  <p class="lede">The diagram below shows one common production arrangement. How many layers appear in practice depends on scale, security requirements, and use case.</p>
+  <p class="lede">The diagram shows one production arrangement, while scale, security requirements, and use case determine how many layers a deployment needs.</p>
 
   <p>A small application may use only two or three of these layers. A large platform might add more. The figure combines several so each component has a place in the picture before the deep-dives begin.</p>
 
@@ -160,99 +160,105 @@
       <rect x="412" y="442" width="112" height="28" rx="4" fill="var(--surface-2)" stroke="var(--green)" stroke-width="1.5"/>
       <text x="468" y="460" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--green)">Order Svc #2</text>
     </svg>
-    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">One production arrangement. Scale, compliance requirements, and team structure all influence which layers appear and how they are combined.</figcaption>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">This production arrangement shows the layers separately for clarity. Scale, compliance requirements, and team structure influence which responsibilities are combined in one product.</figcaption>
   </figure>
 
-  <p>Take a user opening the application in their browser. Before the request is even sent, the browser performs a <strong>DNS</strong> lookup to resolve the hostname to an IP address, which often belongs to a <strong>CDN edge</strong> node rather than the origin server. The CDN handles TLS and serves cached responses immediately, keeping latency low for the majority of requests. Those that miss the cache reach the <strong>WAF</strong>, which inspects the HTTP content for attack signatures and drops hostile requests before they travel any further. Only clean traffic continues toward the origin.</p>
+  <p>Consider a user opening the application. The browser first uses <strong>DNS</strong> to resolve the hostname. In a CDN-backed deployment, the resulting address routes the connection to a nearby <strong>CDN edge</strong> rather than directly to the origin. The edge terminates the client-facing TLS connection and can answer from cache.</p>
 
-  <p>At the origin, a <strong>perimeter firewall</strong> decides which connections enter the network at all, operating on IP addresses and ports rather than HTTP content. A <strong>reverse proxy</strong> in the public subnet is the first component that understands HTTP: it terminates TLS if this has not already happened at the edge, and routes each request by path to the right destination. API calls continue to an <strong>API gateway</strong>, which handles authentication and rate limiting before passing requests to a <strong>load balancer</strong> that distributes them across a pool of <strong>service instances</strong>.</p>
+  <p>Requests that continue toward the origin pass through the configured <strong>web application firewall</strong> (WAF), which applies HTTP-aware security rules. Traffic allowed by those rules proceeds. The WAF reduces exposure but does not prove that every surviving request is harmless.</p>
 
-  <p>The user sees a page load. The request that produced it crossed the public internet, was checked for threats, passed through a network boundary, and was routed to the right service, each step handled by infrastructure built for a different concern.</p>
+  <p>At the origin boundary, a <strong>perimeter firewall</strong> admits only permitted network connections. A <strong>reverse proxy</strong> can then route HTTP requests by host or path and may terminate another TLS connection from the edge. API traffic may continue through an <strong>API gateway</strong> for policies such as authentication and rate limiting. A <strong>load balancer</strong> finally selects a healthy <strong>service instance</strong>.</p>
+
+  <p>The resulting page load hides that chain from the user. Each layer made a narrower decision than the one before it, moving from global routing and edge policy toward one application instance.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="edge">At the Edge: CDN and WAF</h2>
-  <p class="lede">For most users, geography is the biggest source of latency. A CDN puts the application's front door close to where users actually are.</p>
+  <p class="lede">Because distance adds network latency, a CDN moves the public entry point and cacheable responses closer to users.</p>
 
-  <p>A CDN (Content Delivery Network) is a global network of servers positioned close to users in major population centers. Originally, the purpose was to serve static files (images, stylesheets, scripts) from a server near the user instead of routing every request to a central origin. A user in Stockholm connecting to a CDN point-of-presence in Stockholm gets a cached response in single-digit milliseconds rather than the 150+ milliseconds a round trip to a US data center would take.</p>
+  <p>A <strong>content delivery network</strong> (CDN) operates distributed edge locations that can answer requests on behalf of an origin. Serving a cached image, stylesheet, or script from a nearby edge shortens the network path and removes work from the origin. The latency improvement depends on the user's network, the edge location, and where the origin runs.</p>
 
   <div class="callout info">
     <div class="callout-title">How CDN routing works</div>
-    <p>When a CDN is configured for a domain, the domain's DNS record is pointed at the CDN's infrastructure. The CDN runs its own authoritative nameservers, which respond to each DNS query with the IP address of the nearest edge node, selected by geographic location or network proximity. The browser ends up connecting to a server a few milliseconds away with no awareness that the origin is elsewhere.</p>
+    <p>A domain points clients toward the CDN, but providers route the final connection in different ways. Some return location-dependent addresses through DNS. Others advertise the same anycast address from many locations and let internet routing select a nearby reachable edge. In both designs, the browser connects to the CDN while the origin remains behind it.</p>
   </div>
 
-  <p>Modern CDNs do considerably more than cache files. For dynamic content that cannot be cached, the CDN terminates TLS at the nearest edge node and routes the remaining connection to the origin over the CDN's own high-capacity backbone, reducing latency even when nothing is served from cache. Many providers now offer edge compute (small functions that run at the edge node itself, before the request reaches the origin) as well as on-the-fly image and video optimization such as format conversion and resizing.</p>
+  <p>CDNs can also proxy dynamic requests. The edge terminates the browser's TLS connection, then opens a separate protected connection toward the origin. Some providers route that leg over their own network and offer edge compute or media transformation along the way. Those features vary by provider and do not require the response itself to be cacheable.</p>
 
-  <p>The CDN is also the first security layer many applications have. A <strong>WAF</strong> (Web Application Firewall) positioned at the edge inspects each HTTP request and blocks those that match known attack patterns: SQL injection, XSS payloads, path traversal attempts, and known bot signatures. Blocked requests are answered with a 403 and logged before any traffic reaches the origin. DDoS protection works on the same principle at a larger scale: a volumetric attack large enough to saturate a single data center's network connection is absorbed across the CDN's aggregate capacity in hundreds of edge locations, and the application servers never see the traffic.</p>
+  <p>An edge WAF evaluates HTTP requests against managed and application-specific rules. It can block or challenge traffic that resembles injection, path traversal, abusive automation, or other unwanted behavior. Distributed denial-of-service protection works at a larger scale by absorbing and filtering traffic across the provider's network before allowed requests reach the origin.</p>
 
-  <p>Not all WAFs are CDN-integrated. In on-premises and regulated environments, a WAF is commonly deployed as a dedicated appliance (products like F5 and Imperva) sitting inline in the traffic path between the perimeter firewall and the internal network, independent of any CDN.</p>
+  <p>A WAF does not have to run inside a CDN. It may be a cloud service, a software proxy, or a dedicated appliance placed elsewhere in the request path. Its defining feature is access to HTTP content, not a particular deployment model.</p>
 
   <div class="callout warn">
     <div class="callout-title">Protecting the origin</div>
-    <p>A CDN that provides WAF and DDoS protection is only effective if attackers cannot bypass it by connecting directly to the origin. If the origin's IP address is publicly discoverable, traffic sent directly to it skips the CDN entirely, along with all the security controls at the edge. The fix is to configure the origin's firewall to accept inbound traffic only from the CDN provider's published IP ranges, and to avoid exposing the origin IP in DNS records, error messages, or email headers. Without this, the CDN is security theater.</p>
+    <p>Edge controls can be bypassed when an attacker can connect directly to the origin. Restrict origin ingress to authenticated CDN connections or to the provider's published network ranges, depending on the service. Avoid publishing the origin address through unrelated DNS records or application output. The exact control matters more than hiding the address, since addresses can leak over time.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="load-balancing">Load Balancers and Application Design</h2>
   <p class="lede">Horizontal scaling sounds simple: add more servers and distribute traffic. The complication is state stored in process memory.</p>
 
-  <p>A load balancer <strong>distributes</strong> incoming requests across a pool of application instances. When one instance fails its health check, traffic moves to the remaining healthy ones. When demand grows, new instances join the pool. This is <strong>horizontal scaling</strong>, the standard approach to availability and capacity in modern web applications.</p>
+  <p>A load balancer <strong>distributes</strong> incoming traffic across a pool of application instances. It stops selecting targets that fail health checks and can admit new instances as the pool grows. Adding instances in this way is <strong>horizontal scaling</strong>. It can increase capacity and reduce dependence on any single application process.</p>
 
-  <p>A problem surfaces as soon as user sessions are involved. A user logs in, and server A creates a session record in memory. Their next request goes to server B. Server B has no knowledge of that session. The user appears to be logged out.</p>
+  <p>A problem surfaces as soon as user sessions are involved. A user logs in, and server A creates a session record in memory. Their next request goes to server B, which has no knowledge of that session, so the user appears to be logged out.</p>
 
-  <p>The solution is <strong>stateless application design</strong>. Session data lives in a shared external store (Redis is the most common choice) rather than in process memory. Any server can then handle any request because session state is not tied to a specific instance. The load balancer routes freely, and servers can be added, removed, or restarted without disrupting active sessions.</p>
+  <p>One solution is <strong>stateless application design</strong> at the instance boundary. Session data lives in a shared store or travels in a protected client credential instead of remaining in one process. Any healthy instance can then handle the next request. Sticky sessions are another option, but they couple availability and scaling behavior to the load balancer's affinity rules.</p>
 
   <p>How requests are distributed across instances is controlled by the balancing algorithm.</p>
 
   <div class="callout info">
     <div class="callout-title">Balancing algorithms</div>
     <ul>
-      <li><strong>Round robin</strong> cycles through the instance pool in sequence. It works well when requests are similar in cost. Most cloud load balancers use this as the default.</li>
+      <li><strong>Round robin</strong> cycles through healthy targets in sequence. It works well when targets have similar capacity and requests have similar cost. Several application load balancers use it as their default, but defaults vary by product and load-balancer type.</li>
       <li><strong>Least connections</strong> routes each new request to whichever instance currently has the fewest active connections. This adapts better to variable workloads where some requests take much longer than others.</li>
       <li><strong>IP hashing</strong> uses a hash of the client's IP address to select the destination instance, so the same client consistently reaches the same server. It is not a substitute for stateless design: corporate users behind a NAT gateway all share a single IP, routing the entire office to one instance.</li>
       <li><strong>Weighted balancing</strong> assigns each instance a capacity weight, giving more traffic to instances with more resources. Useful when the pool contains machines of different sizes.</li>
     </ul>
   </div>
 
-  <p>Health checks are the second major capability of a load balancer. The load balancer continuously probes each instance on a dedicated endpoint, and any instance that fails is removed from rotation automatically. A <strong>liveness check</strong> tests whether the process is still running, and a failure triggers a restart. A <strong>readiness check</strong> tests whether the instance is ready to accept traffic, and a failure pulls it from rotation without restarting it. An instance can be live but not ready: it may have started but not yet connected to its database, loaded required configuration, or completed a cache warmup.</p>
+  <p>Health checks let a load balancer avoid targets that cannot serve traffic. Container orchestrators add a useful distinction between readiness and liveness. A <strong>readiness probe</strong> controls whether an instance receives traffic, while a <strong>liveness probe</strong> tells the orchestrator when a container should be restarted.</p>
 
-  <p>Load balancers operate at either Layer 4 (TCP connections) or Layer 7 (HTTP requests). A Layer 4 load balancer distributes connections based on IP address and port without reading HTTP. A Layer 7 load balancer understands HTTP, which enables it to also perform reverse proxy functions such as routing by hostname or path, and TLS termination. Most web application load balancers today operate at Layer 7. AWS Application Load Balancer, GCP Load Balancing, and Azure Application Gateway all work this way.</p>
+  <p>An application can be live but temporarily unready while it starts, warms a cache, or recovers from an overload. The load balancer removes an unhealthy target from rotation. The surrounding platform decides whether that target should be restarted.</p>
+
+  <p>Load balancing can happen at Layer 4 or Layer 7. A Layer 4 device distributes transport connections without interpreting HTTP. A Layer 7 load balancer acts as an HTTP reverse proxy, which enables host and path routing as well as TLS termination. The choice depends on whether the infrastructure needs HTTP awareness, transport-level performance, source-address preservation, or support for non-HTTP protocols.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="tls">TLS Termination</h2>
-  <p class="lede">HTTPS is encrypted from the browser to wherever TLS terminates. That point is usually not the application server, and where it is matters.</p>
+  <p class="lede">HTTPS protects traffic until the client-facing TLS connection ends, and that termination point shapes every downstream security decision.</p>
 
-  <p>TLS is almost always terminated at a reverse proxy or load balancer rather than at the application server itself. After that point, traffic travels as plain HTTP over the internal network. This is practical: certificates are managed in one place, application servers are simpler, and offloading TLS reduces CPU overhead on application instances. The trade-off is that internal traffic is unencrypted. In high-security or regulated environments, re-encrypting before forwarding to application servers removes that exposure, at the cost of higher operational complexity. Three models cover the common configurations:</p>
+  <p>Many deployments terminate the client-facing TLS connection at a CDN, reverse proxy, or load balancer. That centralizes public certificate management and gives the proxy access to HTTP for routing and policy enforcement. The next hop may use plain HTTP inside a controlled network, a new TLS connection to the origin, or mutual TLS between internal services. The choice determines which network segments carry plaintext and which components must manage certificates.</p>
 
   <div class="callout info">
     <div class="callout-title">Termination models</div>
     <ul>
-      <li><strong>Terminate at CDN edge.</strong> TLS ends at the nearest edge node, minimizing handshake latency for users. The leg from CDN to origin may be plain HTTP or re-encrypted depending on configuration.</li>
-      <li><strong>Terminate at load balancer.</strong> The most common setup. Certificates are managed in one place and application servers receive plain HTTP. Acceptable when the internal network is trusted.</li>
-      <li><strong>Re-encrypt to application servers.</strong> Traffic is encrypted at every hop. Required in regulated environments or where the internal network cannot be assumed safe. Higher operational complexity.</li>
+      <li><strong>Termination at the CDN edge</strong> ends the browser-facing TLS connection close to the user. The CDN then uses either HTTP or a separate TLS connection for the origin leg.</li>
+      <li><strong>Termination at the load balancer</strong> centralizes public certificate management at the origin boundary. The backend hop follows the network's threat model and may be encrypted separately.</li>
+      <li><strong>Re-encryption to application servers</strong> protects every network hop at the cost of additional certificate and identity management.</li>
     </ul>
   </div>
 
-  <p>Where TLS terminates creates a key constraint: any component that needs to inspect or modify HTTP content must be the TLS termination point, or must sit downstream of it. A WAF checking for injection patterns, an API gateway enforcing authorization, or an L7 load balancer routing by path all require access to decrypted HTTP. If the traffic arriving at that component is still an encrypted TLS stream, it cannot see inside it. A traditional network firewall is the exception: it operates on IP addresses and port numbers rather than HTTP content, so it can allow or block HTTPS connections without decrypting them.</p>
+  <p>Any component that inspects or modifies HTTP must terminate the incoming TLS connection or receive traffic after another component has decrypted it. WAF rules, gateway authorization, and Layer 7 path routing all depend on access to HTTP content. If a new TLS connection protects the next hop, the receiving component terminates that connection before applying its policy.</p>
+
+  <p>A network firewall does not need to decrypt HTTPS when its rules use only addresses, ports, and transport protocols. Application-aware inspection is different because it must gain controlled access to the plaintext.</p>
 
   <div class="callout warn">
     <div class="callout-title">Client IP address after termination</div>
-    <p>One consequence of reverse proxy termination is that the application server no longer sees the original client IP. It receives only the proxy's address. The proxy injects the client's real IP into an <code>X-Forwarded-For</code> header, which accumulates every address in the chain: <code>X-Forwarded-For: client-ip, proxy-ip</code>. Application code should trust only the rightmost IP added by a proxy the application explicitly trusts, or the proxy should strip all incoming <code>X-Forwarded-For</code> headers and set the value fresh from the real connection. Some setups use a dedicated <code>X-Real-IP</code> header that only the proxy can set, which avoids the chain ambiguity entirely.</p>
+    <p>An HTTP reverse proxy opens its own backend connection, so the application normally sees the proxy as the network peer. Proxies preserve client-address information in a standardized <code>Forwarded</code> field or in conventions such as <code>X-Forwarded-For</code>. Never trust those values directly from the public internet. Configure the proxy to sanitize incoming forwarding fields, and configure the application with the exact trusted proxy hops so it selects the first untrusted address correctly.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="firewall">Firewall</h2>
-  <p>A firewall controls which network connections are permitted. Traditional firewalls operate at the network layer (IP addresses) and transport layer (ports and protocols), allowing or denying traffic based on source address, destination address, port number, and protocol. At this level, a firewall has no knowledge of HTTP or the application's behavior. Modern next-generation firewalls (NGFW) can additionally inspect traffic at the application layer, applying policies based on application type or threat signatures, but the core role is the same: the firewall is a boundary enforcer that decides whether a connection is allowed before any application code runs.</p>
+  <p>A firewall controls which network traffic may cross a boundary. Network and transport rules match properties such as source, destination, protocol, and port without interpreting the application's HTTP behavior. Products described as next-generation firewalls can add application identification and threat inspection. In either case, the firewall enforces network policy before traffic reaches the protected workload.</p>
 
   <p>A firewall enforces rules like "the database accepts connections only from the application servers, not from the internet." Good firewall design follows a <strong>default-deny posture</strong>: everything is blocked unless explicitly permitted. If a connection does not match a permitted rule, it is dropped at the boundary.</p>
 
-  <p>In cloud environments, firewalls are typically implemented as security groups attached to individual instances or subnets rather than as a single perimeter appliance. Each resource carries its own inbound and outbound rules, making firewall policy granular and distributed. The effect is the same: connections that do not match a permitted rule are dropped.</p>
+  <p>Cloud platforms express these controls through constructs such as instance or interface security groups, subnet access-control lists, and managed network firewalls. The attachment point and state model differ between products, but the design goal is the same: expose only the flows that the workload requires.</p>
 
   <h2 id="reverse-proxy">Reverse Proxy</h2>
-  <p>The name makes more sense once a forward proxy is defined. A forward proxy works on behalf of the client: a corporate proxy or VPN sits in front of the user, makes outbound requests on their behalf, and the destination server sees the proxy's address rather than the original client's. A reverse proxy is the mirror image. It works on behalf of the server. Clients connect to the proxy's address, and the actual backend servers are not directly reachable from outside.</p>
+  <p>The name becomes clearer beside a forward proxy. A forward proxy makes outbound requests on behalf of clients, so destination servers communicate with the proxy. A reverse proxy accepts inbound requests on behalf of servers. Clients connect to its public address while it selects and contacts the backend.</p>
 
-  <p>A reverse proxy sits in front of one or more backends, accepting connections on their behalf and forwarding each request to the right backend. The value of this arrangement is that cross-cutting concerns can be handled at the proxy rather than repeated in every backend. TLS can be terminated there, and responses can be cached and compressed. Headers can be rewritten, and requests can be routed to entirely different applications based on the URL path. That last point becomes concrete with an example: a single domain can send <code>/login</code> to an authentication service and <code>/my-account</code> to a profile service, with the proxy directing each request to the right backend. The client sees one address. The proxy decides what runs behind it. These things can also be done within application code, but a reverse proxy centralizes them for all backends without changing the applications themselves.</p>
+  <p>This extra hop creates one place for concerns shared by several backends. The proxy can terminate TLS, compress responses, apply cache policy, and rewrite selected fields. It can also send <code>/login</code> to an authentication service while routing <code>/my-account</code> to a profile service. Clients see one public origin even though several applications handle the traffic behind it.</p>
 
-  <p>Nginx and Caddy are the most common standalone reverse proxies, but in practice these components overlap considerably. An AWS Application Load Balancer is simultaneously a load balancer and a reverse proxy. An Nginx instance can act as reverse proxy, load balancer, and static file server at once. These distinctions are conceptual: they describe a primary job and what a component needs to see to do it. When evaluating a product, the useful question is which of these jobs it covers and how well.</p>
+  <p>Products often combine these roles. Nginx or Caddy can proxy requests, balance traffic, and serve static files. A managed application load balancer is also an HTTP reverse proxy. The labels describe responsibilities rather than mutually exclusive boxes, so an architecture should show which component performs each job.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="api-gateway">API Gateway</h2>
@@ -264,25 +270,25 @@
     <li>Analytics</li>
     <li>Developer-facing features like API key management</li>
   </ul>
-  <p>It can also transform requests and responses, translating between protocols, rewriting headers, or converting payload formats so that backend services and clients can evolve independently. Where a general-purpose reverse proxy is neutral about what flows through it, an API gateway is opinionated about API traffic specifically.</p>
+  <p>It can also transform requests and responses, translating between protocols, rewriting headers, or converting payload formats so that backend services and clients can evolve independently. A general-purpose reverse proxy stays neutral about what flows through it. An API gateway, by contrast, is opinionated about API traffic specifically.</p>
 
-  <p>The practical benefit is that these concerns are handled once at the gateway rather than duplicated across every service. Individual services receive already-authenticated requests and can focus on domain logic. For external developers, the gateway is typically the visible face of the API: the endpoint they connect to, where access is granted and usage is tracked.</p>
+  <p>A gateway gives shared policies one enforcement point and one public API surface. Downstream services can consume verified identity context, but they still enforce authorization for their own resources and should authenticate calls across service boundaries. Centralization reduces duplicated edge logic without turning the internal network into a trust boundary.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="bff">Backend for Frontend (BFF)</h2>
   <p>An API gateway applies one set of policies uniformly to every consumer that calls it. A Backend for Frontend (BFF) takes the opposite approach. It is a server layer built for one specific frontend, shaped around that frontend's data needs rather than around a generic API contract.</p>
 
-  <p>A BFF sits between a single client application and the backend services it depends on. Instead of the client making several calls and assembling the result itself, the BFF aggregates those calls on the server and returns one response already shaped for that screen. It can drop fields the client never uses, rename fields to match how the frontend already models its data, and fold together several backend responses into a single round trip. A product's web frontend and its mobile app often get a BFF each, because the mobile client typically wants a leaner payload over a slower network, while the web app can afford a fuller response.</p>
+  <p>A BFF sits between one frontend and the services it uses. It can aggregate several backend calls and return a response shaped for one screen or interaction. Separate web and mobile BFFs make sense when those clients have genuinely different workflows, release constraints, or data needs. They are unnecessary when both clients would merely repeat the same pass-through layer.</p>
 
   <p>The tradeoff is more infrastructure to run. Each dedicated BFF is another deployable, with its own release cadence and its own team boundary to keep straight. A BFF earns its place when a client's data-shaping needs genuinely diverge from what a shared API already returns, not by default for every frontend a product ships.</p>
 
-  <p>A BFF sits closer to the client than the gateway does. Client applications talk to their BFF, not the gateway, and the BFF is what calls through the gateway to reach backend services. That keeps the gateway's cross-cutting policies in force for BFF traffic too. <a href="oauth-oidc.html#bff-architecture">Keeping authentication tokens off the browser</a> is one common reason to build a BFF this way. Using the BFF pattern to keep the real tokens server-side, the client then holds only an opaque session cookie.</p>
+  <p>The BFF is the frontend-specific API boundary. It may sit in front of a shared gateway, behind one, or call services directly through internal controls. The pattern does not require one fixed ordering. <a href="oauth-oidc.html#bff-architecture">Keeping authentication tokens off the browser</a> is one reason to introduce this layer. In that design, the BFF stores tokens server-side and gives the browser an opaque session cookie.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="zones">Network Zones</h2>
   <p class="lede">Not everything should be reachable from the internet. Placing components in the right zone is one of the most effective security controls available.</p>
 
-  <p>In cloud infrastructure, network segmentation is implemented through subnets within a VPC (Virtual Private Cloud), the customer-carved network boundary covered at a higher level in <a href="cloud-computing.html#networking-data">Cloud Computing Fundamentals</a>. Components are placed in public or private subnets based on whether they need to accept inbound connections from the internet.</p>
+  <p>Cloud networks use subnets, routes, and firewall policy to control reachability inside a <strong>virtual private cloud</strong> (VPC). The broader cloud model is covered in <a href="cloud-computing.html#networking-data">Cloud Computing</a>. A public subnet has a route to an internet gateway. A private subnet does not expose its workloads through that direct inbound path.</p>
 
   <figure style="margin:24px 0 8px;">
     <svg viewBox="0 0 560 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Network zones showing public subnet, private subnet, and isolated data tier" style="max-width:100%;display:block;background:var(--surface);border:1px solid var(--border);border-radius:8px;">
@@ -307,8 +313,6 @@
       <!-- FW gate 1 -->
       <rect x="110" y="51" width="22" height="16" rx="3" fill="color-mix(in srgb, var(--red) 20%, transparent)" stroke="var(--red)"/>
       <text x="121" y="63" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8" font-weight="700" fill="var(--red)">FW</text>
-      <line x1="108" y1="59" x2="109" y2="59" stroke="var(--text-faint)" marker-end="url(#wn-r6)"/>
-      <line x1="133" y1="59" x2="134" y2="59" stroke="var(--text-faint)" marker-end="url(#wn-r6)"/>
 
       <!-- Public subnet -->
       <rect x="134" y="8" width="132" height="244" rx="6" fill="color-mix(in srgb, var(--orange) 5%, transparent)" stroke="color-mix(in srgb, var(--orange) 30%, transparent)"/>
@@ -323,8 +327,6 @@
       <!-- FW gate 2 -->
       <rect x="268" y="51" width="22" height="16" rx="3" fill="color-mix(in srgb, var(--accent) 20%, transparent)" stroke="var(--accent)"/>
       <text x="279" y="63" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8" font-weight="700" fill="var(--accent)">FW</text>
-      <line x1="266" y1="59" x2="267" y2="59" stroke="var(--text-faint)" marker-end="url(#wn-r6)"/>
-      <line x1="291" y1="59" x2="292" y2="59" stroke="var(--text-faint)" marker-end="url(#wn-r6)"/>
 
       <!-- Private subnet -->
       <rect x="294" y="8" width="124" height="244" rx="6" fill="color-mix(in srgb, var(--accent) 4%, transparent)" stroke="color-mix(in srgb, var(--accent) 25%, transparent)"/>
@@ -344,8 +346,6 @@
       <!-- FW gate 3 -->
       <rect x="420" y="51" width="22" height="16" rx="3" fill="color-mix(in srgb, var(--accent2) 20%, transparent)" stroke="var(--accent2)"/>
       <text x="431" y="63" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8" font-weight="700" fill="var(--accent2)">FW</text>
-      <line x1="418" y1="59" x2="419" y2="59" stroke="var(--text-faint)" marker-end="url(#wn-r6)"/>
-      <line x1="443" y1="59" x2="444" y2="59" stroke="var(--text-faint)" marker-end="url(#wn-r6)"/>
 
       <!-- Data tier -->
       <rect x="446" y="8" width="106" height="244" rx="6" fill="color-mix(in srgb, var(--accent2) 4%, transparent)" stroke="color-mix(in srgb, var(--accent2) 25%, transparent)"/>
@@ -367,21 +367,21 @@
     <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">Firewall rules between zones determine which connections are permitted. Application servers in the private subnet have no public IP and cannot be reached directly from the internet.</figcaption>
   </figure>
 
-  <p><strong>Public subnets</strong> hold components that accept inbound internet traffic: load balancers, CDN origin connections, and NAT gateways. These have public IP addresses. <strong>Private subnets</strong> hold application servers and internal services that should only be reachable from inside the network. They have no public IP and are not routable from the internet. The data tier goes further still: databases accept connections only from application servers in the private subnet.</p>
+  <p>A <strong>public subnet</strong> has a route to an internet gateway and can contain internet-facing load balancers or outbound NAT gateways. A route alone does not make every workload reachable because public addressing and firewall policy still apply. <strong>Private subnets</strong> have no direct route for inbound internet traffic and commonly hold application services. A separate data tier can restrict database connections to the specific application identities or network sources that require them.</p>
 
-  <p>In traditional on-premises architecture, this intermediate zone between the internet and the internal network was called a <strong>DMZ</strong> (demilitarized zone). A DMZ sits between two firewalls: one facing the internet, one facing the internal network. Public-facing servers such as web servers and reverse proxies live in the DMZ, isolated from internal systems even if compromised. The cloud VPC model achieves the same thing with public and private subnets and security group rules, but the underlying principle is identical: public-facing components are separated from internal ones by a firewall boundary, and no direct path from the internet to the internal network exists.</p>
+  <p>Traditional on-premises networks often place public services in a <strong>demilitarized zone</strong> (DMZ) between external and internal controls. A compromised public server then faces another policy boundary before it can reach internal systems. Cloud subnets, routes, and security controls can express the same separation without reproducing the physical topology exactly.</p>
 
-  <p>This layering is the network implementation of <strong>defense in depth</strong>. An attacker who compromises a component in the public subnet still faces firewall boundaries before reaching private instances. A misconfigured load balancer does not automatically expose the database. Compromising the database requires compromising an application server first.</p>
+  <p>This separation contributes to <strong>defense in depth</strong>. Compromise of a public component does not automatically grant every internal network path. The remaining controls still need correct identity, authorization, and firewall policy because segmentation limits movement rather than making it impossible.</p>
 
-  <p>Application servers in private subnets still need outbound internet access for third-party API calls, OS package updates, and similar. A NAT gateway in the public subnet provides this: private instances route outbound traffic through it, but inbound connections from the internet cannot traverse NAT. The asymmetry is intentional.</p>
+  <p>Private workloads may still need outbound internet access for external APIs or software updates. A NAT gateway can translate those outbound connections through a public address and allow the corresponding response traffic back. It does not create a route for unsolicited inbound connections. Private endpoints or controlled egress proxies are alternatives when traffic should avoid or tightly govern public internet access.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="internal">Service-to-Service Communication</h2>
   <p class="lede">Traffic between services inside the network has a different character from traffic entering it. It still needs its own security and reliability controls.</p>
 
-  <p>In a single-service application, the only traffic worth thinking about is inbound. In a multi-service architecture, most of the traffic volume is internal: service A calls service B, which calls service C, which writes to a database. This internal traffic is sometimes called east-west, to distinguish it from north-south traffic that crosses the perimeter.</p>
+  <p>A multi-service application adds traffic that never crosses the public perimeter. One service calls another, which may call a third service or a data store. Architects often call this <strong>east-west traffic</strong>, in contrast to north-south traffic entering or leaving the system.</p>
 
-  <p>East-west traffic is often assumed to be safe because it never leaves the private network. That assumption is reasonable in some cases but dangerous in others. An attacker who gains access to one compromised instance inside the perimeter has free movement if there are no controls on internal traffic. <strong>Mutual TLS</strong> (mTLS) is the standard response: every service presents a certificate, and services only accept connections from other services with valid, trusted certificates. Both ends authenticate each other, and traffic is encrypted at every hop.</p>
+  <p>A private network reduces exposure but does not authenticate the caller. Without internal controls, one compromised workload may be able to reach many others. <strong>Mutual TLS</strong> (mTLS) addresses the connection identity problem by requiring both peers to present trusted certificates. It authenticates both ends and encrypts the hop, while application authorization still decides what the authenticated caller may do.</p>
 
   <figure style="margin:24px 0 8px;">
     <svg viewBox="0 0 560 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Service-to-service communication without and with a service mesh" style="max-width:100%;display:block;background:var(--surface);border:1px solid var(--border);border-radius:8px;">
@@ -441,13 +441,13 @@
       <line x1="388" y1="62" x2="447" y2="62" stroke="var(--green)" stroke-width="2" marker-end="url(#wn-g7)"/>
       <text x="418" y="55" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9.5" fill="var(--green)">mTLS</text>
 
-      <!-- Sidecar B: x=448 (flush left of SB), y=44, w=20, h=36 -->
-      <rect x="448" y="44" width="20" height="36" rx="3" fill="color-mix(in srgb, var(--teal) 10%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
-
       <!-- Service B: x=468 (552-14-70), y=44, w=70, h=36, cx=503 — identical margins to left -->
       <rect x="468" y="44" width="70" height="36" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
       <text x="503" y="62" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" font-weight="600" fill="var(--text)">Service B</text>
       <text x="503" y="75" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">payment service</text>
+
+      <!-- Sidecar B: x=448 (flush left of SB), y=44, w=20, h=36 -->
+      <rect x="448" y="44" width="20" height="36" rx="3" fill="color-mix(in srgb, var(--teal) 10%, transparent)" stroke="var(--teal)" stroke-width="1.5"/>
 
       <!-- benefits box: x=294 (284+10), y=104, w=248 (268-20) -->
       <rect x="294" y="104" width="248" height="118" rx="4" fill="color-mix(in srgb, var(--green) 7%, transparent)" stroke="color-mix(in srgb, var(--green) 20%, transparent)"/>
@@ -457,21 +457,21 @@
       <text x="304" y="188" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">&#x2713;  Distributed tracing and traffic metrics</text>
       <text x="304" y="208" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">&#x2713;  Policy enforcement at every service boundary</text>
     </svg>
-    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">A service mesh moves mTLS, retries, and circuit breaking into sidecar proxies, leaving application code to focus on domain logic.</figcaption>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">A sidecar-based service mesh can apply mTLS and traffic policy outside the application process. Retry and circuit-breaker policy still need to match each operation's semantics.</figcaption>
   </figure>
 
-  <p>A <strong>service mesh</strong> handles mTLS and reliability concerns centrally, without touching application code. The mesh takes care of certificates, retries, timeouts, and traffic metrics across all services. The traditional approach injects a sidecar proxy container alongside each service instance to intercept its traffic. A newer model uses eBPF to enforce the same policies at the Linux kernel level, with no sidecar process at all. Whether a service mesh is worth the operational overhead depends on scale. For smaller deployments, applying mTLS at the application level or enforcing it at the network boundary may be sufficient.</p>
+  <p>A <strong>service mesh</strong> provides a shared control layer for service-to-service traffic. Sidecar-based meshes place a proxy beside each workload, while other implementations use node-level proxies and kernel networking facilities. Depending on the product, the mesh can manage mTLS identities, telemetry, timeouts, and selected retry or routing policies. Those features move configuration out of application code but add another distributed system to operate. Direct application libraries or platform-level mTLS may be enough when the service graph is small.</p>
 
   <div class="callout info">
     <div class="callout-title">Circuit breaker</div>
-    <p>A <strong>circuit breaker</strong> is a reliability pattern for services. When a downstream service starts failing or responding slowly, a circuit breaker stops sending it new traffic immediately rather than letting requests queue up waiting for timeouts that will never succeed. After a short recovery window it sends a probe request, and if that succeeds normal traffic resumes. This prevents a single degraded service from causing cascading failures across the system.</p>
+    <p>A <strong>circuit breaker</strong> stops calls to a dependency after failures cross a configured threshold. During the open period, callers fail quickly instead of adding more work to a struggling service. A later probe determines whether normal traffic can resume. The pattern can limit a cascading failure, but its thresholds and fallback behavior must match the operation.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="persistent">Persistent Connections</h2>
   <p class="lede">HTTP's request-response model covers most use cases. When the server needs to push data to the browser unprompted, the model needs to change.</p>
 
-  <p>Standard HTTP is strictly client-initiated. The browser asks. The server answers. This is sufficient for the vast majority of web application interactions. But some patterns require the server to deliver data to the client without waiting for a request: a live dashboard updating in real time, a collaborative document where other users' edits appear instantly, a notification that arrives as it happens rather than when the user next refreshes.</p>
+  <p>An ordinary HTTP exchange begins with a client request and ends with a server response. Repeating that pattern works for most interactions, including polling. Live feeds and collaborative applications need updates to arrive while no new request is being made, so they keep a channel open for server-initiated messages.</p>
 
   <figure style="margin:24px 0 8px;">
     <svg viewBox="0 0 560 392" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Comparison of HTTP, WebSocket, and Server-Sent Events connection models" style="max-width:100%;display:block;background:var(--surface);border:1px solid var(--border);border-radius:8px;">
@@ -495,7 +495,7 @@
       <line x1="104" y1="112" x2="78"  y2="112" stroke="var(--green)" stroke-width="1.5" marker-end="url(#wn-g8)"/>
       <text x="91"   y="128" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">response</text>
       <line x1="18"  y1="138" x2="166" y2="138" stroke="var(--border)" stroke-dasharray="2,3"/>
-      <text x="91"   y="152" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">connection closes</text>
+      <text x="91"   y="152" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">exchange completes</text>
 
       <!-- cycle 2 -->
       <line x1="78"  y1="180" x2="104" y2="180" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#wn-b8)"/>
@@ -503,7 +503,7 @@
       <line x1="104" y1="194" x2="78"  y2="194" stroke="var(--green)" stroke-width="1.5" marker-end="url(#wn-g8)"/>
       <text x="91"   y="210" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="9" fill="var(--text-faint)">response</text>
       <line x1="18"  y1="220" x2="166" y2="220" stroke="var(--border)" stroke-dasharray="2,3"/>
-      <text x="91"   y="234" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">connection closes</text>
+      <text x="91"   y="234" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="8.5" fill="var(--text-faint)">exchange completes</text>
 
       <rect x="18" y="268" width="156" height="108" rx="4" fill="color-mix(in srgb, var(--accent) 5%, transparent)" stroke="color-mix(in srgb, var(--accent) 20%, transparent)"/>
       <text x="96"  y="292" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)" font-weight="600">Request-response</text>
@@ -575,23 +575,23 @@
       <text x="396"  y="340" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-faint)">Built-in auto-reconnect.</text>
       <text x="396"  y="362" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-faint)">Good for feeds and alerts.</text>
     </svg>
-    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">WebSockets support full-duplex communication. SSE is simpler and sufficient when only the server needs to push. Both require specific infrastructure configuration.</figcaption>
+    <figcaption style="font-size:12px;color:var(--text-faint);text-align:center;margin-top:8px;">WebSockets carry messages in both directions, while SSE dedicates one HTTP response to server events. Proxies and load balancers need timeouts and connection handling suited to either long-lived channel.</figcaption>
   </figure>
 
-  <p><strong>WebSockets</strong> upgrade an HTTP connection to a persistent, full-duplex channel. Either side can send messages at any time. The connection stays open for the session's duration, making WebSockets the right choice when the browser also sends frequent messages to the server: live collaboration, real-time gaming, trading interfaces.</p>
+  <p>A <strong>WebSocket</strong> session begins through HTTP and becomes a persistent, full-duplex message channel. Either side can send after the session is established. This fits interactions with frequent traffic in both directions, such as collaborative editing or multiplayer games.</p>
 
-  <p><strong>Server-Sent Events</strong> (SSE) are simpler: a persistent, one-way stream from server to browser over a normal HTTP connection. The browser cannot push over the same channel, but it can make separate HTTP requests. SSE handles many real-time use cases without the added complexity of WebSockets, and the browser's EventSource API includes built-in reconnection logic.</p>
+  <p><strong>Server-Sent Events</strong> (SSE) keep an HTTP response open as a one-way event stream from server to browser. Client actions use separate HTTP requests. The browser's <code>EventSource</code> API reconnects after an interrupted stream, which makes SSE a good fit for feeds, progress, and notifications.</p>
 
   <h2 id="decision">When Each Layer Applies</h2>
   <p class="lede">These layers do not all appear in every architecture. Each one exists to solve a specific problem, and the right set is determined by which of those problems are present.</p>
 
-  <p>A monolithic application with moderate traffic often needs nothing more than Nginx or Caddy acting as a reverse proxy in front of the application: it terminates TLS, compresses responses, and keeps the application server's IP off the public internet. That is enough for many deployments.</p>
+  <p>A modest monolithic application may need only a managed ingress or a reverse proxy in front of the application. That component can terminate TLS, compress responses, and keep the application process off the public network. Additional layers should correspond to an identified routing, scale, or security requirement.</p>
 
-  <p>The moment multiple instances of the same application are needed, a load balancer becomes necessary. The trigger is less about raw traffic volume than about resilience: even at modest load, two instances behind a load balancer means the application survives a single server failure without going down.</p>
+  <p>Multiple interchangeable application instances need some mechanism that selects a healthy target, usually a load balancer or platform service. Capacity is only one reason to add it. Redundancy can also keep traffic flowing during an instance failure, provided that the surrounding data stores and network path do not remain single points of failure.</p>
 
-  <p>An API gateway becomes valuable when authentication, rate limiting, and API versioning turn into cross-cutting concerns shared by multiple services. In a monolith, those concerns live in the application code. In a system with independent services, each team implementing the same authentication logic produces fragility and inconsistency. The gateway enforces these policies once at the entry point, and services downstream receive requests that have already been authenticated and validated.</p>
+  <p>An API gateway becomes useful when several services share public concerns such as authentication, rate limiting, or version routing. Central policy reduces drift between entry points. Services still validate the identity context they receive and enforce resource-level authorization, since the gateway cannot make every domain decision on their behalf.</p>
 
-  <p>Most production systems at scale end up combining layers rather than choosing one. A CDN sits at the edge absorbing cache hits and DDoS traffic. An API gateway handles authentication and routing. Load balancers distribute requests across service instances. In some deployments, a lightweight reverse proxy runs alongside each service for internal TLS and compression. None of these layers is redundant with the others because each one handles a category of problem the others cannot. The layers cooperate rather than compete, and the right architecture is the one that includes exactly the layers whose problems are present.</p>
+  <p>Larger systems often combine several responsibilities in fewer products. A CDN may provide caching, DDoS mitigation, WAF rules, and global routing. A managed gateway may also balance traffic, while a service platform handles internal discovery and TLS. Draw the responsibilities first, then map them to products. That reveals both accidental duplication and gaps more clearly than counting boxes by name.</p>
 
 
 </main>

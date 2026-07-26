@@ -27,7 +27,7 @@
 
   <div class="sidebar-section">The Basics</div>
   <a href="#intro">Introduction</a>
-  <a href="#two-jobs">Two jobs of TLS</a>
+  <a href="#two-jobs">Secure channel and identity</a>
   <a href="#secure-context">Secure contexts</a>
 
   <div class="sidebar-section">How It Works</div>
@@ -47,7 +47,7 @@
 
   <div class="eyebrow">Security · TLS</div>
   <h1>HTTPS and Certificates</h1>
-  <p class="subtitle">The two problems TLS solves, the handshake that sets up an encrypted connection, and the chain of trust behind the padlock.</p>
+  <p class="subtitle">How TLS protects a connection, authenticates a server, and establishes trust in its certificate.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
     <div class="dot"></div><span>~11 min read</span>
@@ -58,40 +58,40 @@
        INTRODUCTION
   ════════════════════════════════════════════════════ -->
   <section id="intro">
-    <p>Encryption keeps the data moving between a browser and a server private. Certificates prove that the server on the other end is who it claims to be. HTTPS bundles both together. The encryption half is mechanical and largely settled, while the identity half is where things get complicated.</p>
-    <p>This article works through both halves. It covers how the TLS handshake sets up an encrypted connection in a handful of round trips, what a certificate contains, and how browsers decide whether to trust one. It closes with where things typically go wrong once internal services and local development environments get involved.</p>
+    <p>TLS protects data while it moves between a browser and a server. Encryption provides confidentiality, while authenticated encryption also detects modification in transit. Certificates let the browser authenticate the server. HTTPS combines that protected TLS connection with HTTP.</p>
+    <p>The TLS handshake establishes encryption and authenticates the server before ordinary application traffic begins. Understanding that sequence makes certificate fields and trust chains easier to reason about. The final sections apply the same model to local development, internal services, and production deployments.</p>
   </section>
 
   <!-- ═══════════════════════════════════════════════════
        TWO JOBS
   ════════════════════════════════════════════════════ -->
-  <h2 id="two-jobs">HTTPS solves two separate problems</h2>
-  <p class="lede">Symmetric and asymmetric encryption are the easier half of this story, and largely a solved problem by this point. The harder half, the one certificates exist to solve, is identity.</p>
+  <h2 id="two-jobs">A protected channel and an authenticated server</h2>
+  <p class="lede">TLS must protect the connection and prove which server is on the other end. A connection that provides only one of those guarantees is not enough.</p>
 
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:20px 0;">
     <div class="card green">
       <div class="card-label">Solved by symmetric + asymmetric crypto</div>
-      <div class="card-title">Encryption</div>
-      <p>Stop anyone on the network (a coffee-shop Wi-Fi, a misconfigured proxy, a curious neighbor on the VPN) from reading the traffic passing between client and server. This is what most people mean when they say "HTTPS."</p>
+      <div class="card-title">Protected channel</div>
+      <p>Authenticated encryption prevents a network observer from reading traffic or changing it without detection. It protects requests and responses as they travel between the two TLS endpoints.</p>
     </div>
     <div class="card blue">
       <div class="card-label">Solved by certificates + a chain of trust</div>
       <div class="card-title">Identity</div>
-      <p>Prove that the server on the other end of a connection is actually the one it claims to be, not something impersonating it. This is the part that gets complicated.</p>
+      <p>The certificate and handshake prove that the server controls a private key for the requested hostname. The browser then connects that certificate to a trusted root.</p>
     </div>
   </div>
 
-  <p>Both problems get solved in a handful of round trips, before a single byte of the page loads. The handshake section further down walks through that sequence.</p>
+  <p>TLS 1.3 establishes both guarantees before the browser sends ordinary HTTP application data. The handshake section below walks through that sequence.</p>
 
   <!-- ═══════════════════════════════════════════════════
        SECURE CONTEXTS
   ════════════════════════════════════════════════════ -->
   <h2 id="secure-context">Why HTTPS matters even with nothing to hide</h2>
-  <p>Browsers don't only use connection security to decide whether to show a warning icon. A long list of capabilities are gated behind what's called a <strong>secure context</strong>, regardless of whether the page handles anything sensitive. They refuse to initialize over plain HTTP. <code>localhost</code> gets an exemption, covered below, but a plain internal hostname over HTTP does not. This is often the real reason an internal tool needs HTTPS in development: not because it's transmitting secrets, but because a feature it depends on won't run without one.</p>
+  <p>Browsers use transport security for more than the connection indicator. Many platform features are exposed only in a <strong>secure context</strong>, even when the application handles no obvious secret. Loopback origins such as <code>http://localhost</code> are treated as potentially trustworthy for development. An ordinary internal hostname over HTTP receives no such exception.</p>
 
   <div class="callout info">
     <div class="callout-title">APIs gated behind a secure context</div>
-    <p>Service Workers, the Clipboard API, camera and microphone access, Geolocation, WebAuthn, and <code>crypto.subtle</code> all refuse to initialize outside a secure context.</p>
+    <p>Service Workers, Geolocation, WebAuthn, Web Crypto, and camera or microphone access are among the features restricted to secure contexts. Some broader APIs, including Clipboard, gate particular methods rather than the entire interface.</p>
   </div>
 
   <!-- ═══════════════════════════════════════════════════
@@ -134,8 +134,7 @@
       <text x="350" y="172" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--text-faint)">Chosen cipher, server random, server's key share (ECDHE)</text>
       <rect x="22" y="182" width="180" height="28" rx="4" fill="color-mix(in srgb, var(--accent) 8%, transparent)" stroke="color-mix(in srgb, var(--accent) 20%, transparent)" stroke-width="1"/>
       <text x="112" y="200" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="var(--accent)">Derive shared secret (ECDHE)</text>
-      <line x1="98" y1="228" x2="602" y2="228" stroke="var(--orange)" stroke-width="1.5" marker-end="url(#tls-r)"/>
-      <line x1="98" y1="228" x2="602" y2="228" stroke="var(--orange)" stroke-width="1.5" marker-end="url(#tls-lo)"/>
+      <line x1="602" y1="228" x2="98" y2="228" stroke="var(--orange)" stroke-width="1.5" marker-end="url(#tls-lo)"/>
       <text x="350" y="224" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--orange)">Certificate + Finished</text>
       <text x="350" y="242" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--text-faint)">Certificate, signature, and Finished sent already encrypted</text>
       <rect x="160" y="252" width="380" height="24" rx="4" fill="color-mix(in srgb, var(--teal) 8%, transparent)" stroke="color-mix(in srgb, var(--teal) 20%, transparent)" stroke-width="1"/>
@@ -166,7 +165,7 @@
         </tr>
         <tr>
           <td>3. Certificate + Finished</td>
-          <td>The server's certificate, its signature, and a Finished message all travel encrypted with keys derived from that shared secret. The browser checks the certificate chain against its trust store and verifies the signature, then replies with its own Finished message.</td>
+          <td>The server's Certificate, CertificateVerify, and Finished messages travel under handshake encryption. The browser validates the certificate chain and hostname, verifies proof of the certificate private key, and checks the Finished message before replying.</td>
           <td><span class="badge badge-blue">certificate verification</span></td>
         </tr>
         <tr>
@@ -182,7 +181,7 @@
        CERTIFICATE ANATOMY
   ════════════════════════════════════════════════════ -->
   <h2 id="anatomy">Anatomy of a certificate</h2>
-  <p class="lede">A small, signed document. Each field below serves a specific purpose.</p>
+  <p class="lede">A certificate is a small, signed document, and each field below serves a specific purpose.</p>
 
   <div class="table-wrap">
     <table>
@@ -191,7 +190,7 @@
       </thead>
       <tbody>
         <tr>
-          <td>Subject (SAN)</td>
+          <td>Subject Alternative Name (SAN)</td>
           <td><code>app.internal.company.com</code></td>
           <td>The identity this certificate vouches for. Modern browsers check the SAN list specifically, not the older Common Name field, even if it's also present.</td>
         </tr>
@@ -202,13 +201,13 @@
         </tr>
         <tr>
           <td>Validity</td>
-          <td>90 days</td>
+          <td><code>notBefore</code> / <code>notAfter</code></td>
           <td>A not-before and not-after date. Expired certificates are treated as fully untrusted. There is no grace period.</td>
         </tr>
         <tr>
           <td>Public key</td>
           <td>EC P-256</td>
-          <td>The server's public key. The matching private key never leaves the server. Proving possession of it is part of how the server proves its identity.</td>
+          <td>The TLS endpoint's public key. The matching private key stays with that endpoint or its managed key service. A CertificateVerify signature proves possession during the handshake.</td>
         </tr>
         <tr>
           <td>Signature</td>
@@ -221,7 +220,7 @@
 
   <div class="callout info">
     <div class="callout-title">How the server knows which certificate to send</div>
-    <p>The table above skips a detail: a single IP address, load balancer, or CDN edge often fronts hundreds of unrelated hostnames, each with its own certificate. The browser tells the server which one it wants through <strong>SNI</strong> (Server Name Indication), a hostname sent in plain text as part of the Client Hello, before any encryption keys exist. That's also why SNI leaks the destination hostname to anyone watching the network, even though everything after the handshake is encrypted. Encrypted Client Hello (ECH) closes that gap by encrypting SNI too, though support across browsers and middleboxes is still inconsistent.</p>
+    <p>A single IP address, load balancer, or CDN edge often serves many hostnames with different certificates. The browser identifies the requested hostname through <strong>Server Name Indication</strong> (SNI) in the Client Hello. Traditional SNI is visible to network observers even though later handshake messages are encrypted. <strong>Encrypted Client Hello</strong> (ECH) can conceal that information when the browser, DNS setup, server, and network path all support it.</p>
   </div>
 
   <!-- ═══════════════════════════════════════════════════
@@ -250,7 +249,7 @@
 
   <div class="callout danger">
     <div class="callout-title">Self-signed certificates break the chain</div>
-    <p>A self-signed certificate is signed by its own private key instead of a CA's. There's no chain to walk and no trusted root at the end of it, so the browser can't verify identity, even though the connection is still encrypted.</p>
+    <p>A self-signed certificate is signed by its own private key instead of a trusted CA's. The connection can still be encrypted, but the browser cannot authenticate the endpoint from that certificate alone. An active attacker could substitute a different self-signed certificate unless the expected certificate was trusted through another channel.</p>
   </div>
 
   <!-- ═══════════════════════════════════════════════════
@@ -259,22 +258,24 @@
   <h2 id="transparency-revocation">Certificate Transparency and revocation</h2>
   <p class="lede">The chain proves who signed a certificate. Two more mechanisms keep the signers honest and deal with certificates that have to be pulled early.</p>
 
-  <p>A CA is trusted to vouch for identities, but nothing in the chain itself stops one from issuing a certificate for a domain it never should have, whether through a mistake or a compromise. <strong>Certificate Transparency</strong> (CT) addresses that by requiring every publicly trusted certificate to be recorded in append-only public logs when it's issued. The CA gets back a signed timestamp proving the certificate was logged, and browsers reject a certificate that doesn't carry them. Chrome and Safari have both enforced this since 2018. The practical payoff is that a domain owner can monitor the logs and spot a certificate for their domain that they never requested, which is often the first sign a CA has been tricked or breached.</p>
+  <p>A valid chain does not reveal whether a certificate was issued by mistake or after a compromise. <strong>Certificate Transparency</strong> (CT) makes publicly trusted issuance observable through append-only logs and signed certificate timestamps. Current Chrome, Safari, and Firefox policies require qualifying publicly trusted certificates to satisfy their CT rules. Domain owners can monitor those logs for certificates they did not request.</p>
 
-  <p>Revocation is the opposite problem: a certificate that was issued correctly but now has to be killed before it expires, because its private key leaked or the domain changed hands. The two traditional mechanisms both disappointed. A <strong>Certificate Revocation List</strong> (CRL) is a CA-published list of revoked certificates, historically too large to download on every connection. The <strong>Online Certificate Status Protocol</strong> (OCSP) let a browser ask the CA about a single certificate in real time. That leaked browsing history to the CA, which learned which site the user was visiting. It was also toothless: browsers treated a failed lookup as success, so an attacker could just block the check. The industry has largely moved on. Let's Encrypt shut down its OCSP responders in 2025, and the CA/Browser Forum has made OCSP optional. Browsers now rely on their own aggregated, compressed revocation sets shipped with updates (Chrome's CRLSets, Firefox's CRLite) rather than querying a CA per connection.</p>
+  <p>Revocation handles certificates that become unsafe before they expire, perhaps because a private key leaked or control of the domain changed. A <strong>Certificate Revocation List</strong> (CRL) publishes revoked serial numbers in batches. The <strong>Online Certificate Status Protocol</strong> (OCSP) instead lets a client ask about one certificate, but direct queries reveal the destination to the CA and browsers have often failed open when a responder is unreachable.</p>
 
-  <p>This is also the real reason certificate lifetimes keep shrinking. If revocation can't be trusted to pull a bad certificate out of circulation quickly, the alternative is to make certificates expire soon enough that a leaked one has little value. That is the logic behind the schedule to cut maximum validity toward 47 days, covered under the pitfalls below. A short lifetime is a revocation mechanism that always works, at the cost of making automated renewal mandatory.</p>
+  <p>Browser vendors reduce those privacy and availability problems with vendor-managed revocation data, stapled status information, and other mechanisms rather than a live CA query for every connection. The exact strategy is browser and CA policy, so revocation does not behave like a single global lookup.</p>
+
+  <p>Shorter certificate lifetimes reduce how long a compromised certificate remains useful and limit reliance on revocation checks. Publicly trusted TLS certificates issued from 15 March 2026 have a maximum validity of 200 days, with further reductions scheduled through 2029. These limits make automated issuance and renewal part of normal certificate operations.</p>
 
   <!-- ═══════════════════════════════════════════════════
        TRUST STORES
   ════════════════════════════════════════════════════ -->
   <h2 id="trust-store">Trust stores, and why internal certs get flagged</h2>
-  <p>About 150 root Certificate Authorities ship preinstalled in most operating systems and browsers. Public CAs like Let's Encrypt chain up to one of these, which is why their certificates "just work" with no warning.</p>
-  <p>Companies often run their own internal certificate authority for services that were never meant to be public. Those certificates are perfectly valid technically, but they're untrusted by browsers and tools like Node.js unless that internal CA's certificate has been explicitly added to the relevant trust store. A device that's never been told to trust it treats the certificate exactly like a self-signed one: same red triangle, same "connection is not private" page.</p>
-  <p>The fix isn't a different kind of certificate. It's distribution. Once an internal root CA's public certificate is installed into the trust store on every device that needs to reach those internal services, typically pushed out once via MDM or group policy, the warnings disappear.</p>
+  <p>Operating systems and browsers ship with trust stores containing root certificates selected under their own policies. Public CAs such as Let's Encrypt issue chains that end at one of those roots, allowing a browser to validate the chain without local setup.</p>
+  <p>Companies often run an internal certificate authority for services that are not public. Its certificates remain untrusted to browsers and tools such as Node.js until the relevant trust store contains that CA's root. Without that trust anchor, certificate validation fails even when the service sent the intended chain.</p>
+  <p>Distribution is therefore part of the design. Device management or group policy can install the internal root certificate on managed clients that need those services. Other clients should continue to reject the chain.</p>
 
-  <h3>Node.js: a second, separate trust store</h3>
-  <p>Getting a CA trusted by the operating system fixes the browser, but Node.js doesn't read that same OS trust store by default. It ships with its own bundled list of root certificates. A Node script, an SSR process, or a test runner calling that same HTTPS endpoint can still fail with <code>UNABLE_TO_VERIFY_LEAF_SIGNATURE</code> or <code>self signed certificate in chain</code>, on a machine where the browser shows no warning at all.</p>
+  <h3>Node.js trust configuration</h3>
+  <p>Node.js normally uses the CA source selected by its build, commonly the bundled Mozilla snapshot. Installing an internal root in the operating-system store may therefore fix a browser without fixing a Node client. Supported Node releases that provide <code>--use-system-ca</code> can add the system store. <code>NODE_EXTRA_CA_CERTS</code> extends the known roots from a PEM file, unless application code explicitly replaces the <code>ca</code> option.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -287,7 +288,7 @@
 
   <div class="callout warn">
     <div class="callout-title">The tempting shortcut</div>
-    <p><code>NODE_TLS_REJECT_UNAUTHORIZED=0</code> disables certificate verification entirely rather than fixing the underlying trust problem. Fine for a five-second debug, risky to leave anywhere near a real environment.</p>
+    <p><code>NODE_TLS_REJECT_UNAUTHORIZED=0</code> disables certificate verification instead of establishing trust. Avoid it even as a temporary fix because it can escape into scripts, shell profiles, or deployment configuration.</p>
   </div>
 
   <!-- ═══════════════════════════════════════════════════
@@ -297,7 +298,7 @@
   <p class="lede">Three different situations, three different answers. Most "why is this cert broken" questions trace back to applying the wrong one.</p>
 
   <h3>Local dev (Vite): make the local machine trusted</h3>
-  <p><code>mkcert</code> creates a tiny local CA, installs it into the local trust store, then issues real certificates for <code>localhost</code> or any other local hostname, with no warnings.</p>
+  <p><code>mkcert</code> creates a local development CA, installs its root into supported local trust stores, and issues locally trusted certificates for names such as <code>localhost</code>. Other devices do not trust that CA unless its root is installed there too.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -312,8 +313,8 @@ mkcert localhost app.local</code></pre>
   <div class="code-block">
     <div class="code-header">
       <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-filename">vite.config.js</span>
-      <span class="code-lang">JavaScript</span>
+      <span class="code-filename">vite.config.ts</span>
+      <span class="code-lang">TS</span>
     </div>
     <pre><code><span class="kw">import</span> fs <span class="kw">from</span> <span class="s">'node:fs'</span>
 
@@ -331,10 +332,10 @@ mkcert localhost app.local</code></pre>
 
   <h3>Shared internal environments: one CA, company-wide</h3>
   <p>Staging, QA, and internal tools shared across teams typically rely on a company-run internal CA, usually managed by a platform or IT team. That CA issues certificates for <code>*.internal.company.com</code>-style domains, and its root certificate gets pushed to every employee device once.</p>
-  <p>If a warning shows up on one machine but not another, it's almost always a device missing that root certificate, not a broken deployment.</p>
+  <p>If a warning appears on one machine but not another, compare their trust stores and the certificate chain before changing the service. A missing internal root is common, but hostname, time, and chain errors can produce similar warnings.</p>
 
   <h3>Production-style services: let the edge handle it</h3>
-  <p>A Node application usually shouldn't terminate TLS itself. A reverse proxy or load balancer placed in front holds the real certificate instead.</p>
+  <p>A reverse proxy or load balancer often terminates public TLS so certificate renewal and policy stay at the edge. The hop from that edge to the application is a separate trust boundary.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -352,7 +353,7 @@ location / {
 }</code></pre>
   </div>
 
-  <p>Node listens on plain HTTP behind it, inside the network boundary the proxy already secured.</p>
+  <p>Plain HTTP on the internal hop is acceptable only when the deployment's network controls and threat model treat that path as trusted. Re-encrypt the hop, or use mutual TLS, when traffic crosses shared infrastructure or requires workload identity.</p>
 
   <!-- ═══════════════════════════════════════════════════
        PITFALLS
@@ -367,11 +368,11 @@ location / {
       <tbody>
         <tr>
           <td>Expiry isn't optional</td>
-          <td>Let's Encrypt has issued 90-day certificates for years, and that's no longer the exception. The CA/Browser Forum's maximum validity for any publicly trusted certificate dropped from 398 to 200 days in March 2026, and is scheduled to keep shrinking to 100 days in 2027 and 47 by 2029. No exceptions for "1 second past expired" either way. Automate renewal or it breaks silently, usually at the worst time.</td>
+          <td>Publicly trusted certificates issued from 15 March 2026 may last at most 200 days. The scheduled maximum falls to 100 days in 2027 and 47 days in 2029. Clients reject certificates outside their validity period, so issuance and renewal need monitoring as well as automation.</td>
         </tr>
         <tr>
           <td>SAN, not CN</td>
-          <td>Modern browsers ignore the old Common Name field entirely. If a hostname isn't listed in the Subject Alternative Name field, the certificate fails validation, even when the CN looks correct.</td>
+          <td>Current browser hostname verification uses the Subject Alternative Name extension. Put every supported DNS name there rather than relying on the legacy Common Name field.</td>
         </tr>
         <tr>
           <td>Mixed content</td>
@@ -379,11 +380,11 @@ location / {
         </tr>
         <tr>
           <td>"Untrusted" ≠ "unencrypted"</td>
-          <td>A self-signed certificate still encrypts the connection fine. The warning is purely about identity verification, not about weaker encryption.</td>
+          <td>A self-signed certificate can negotiate modern encryption, but the client lacks a configured trust path for its identity. A warning can also signal hostname, validity, or algorithm problems, so inspect the actual error.</td>
         </tr>
         <tr>
           <td>localhost gets a free pass</td>
-          <td><code>http://localhost</code> is treated as a secure context automatically by browsers. <code>app.internal.company.com</code> gets no such exemption.</td>
+          <td>Loopback origins such as <code>http://localhost</code> are potentially trustworthy for secure-context checks. <code>http://app.internal.company.com</code> gets no general exemption.</td>
         </tr>
         <tr>
           <td>Check the whole chain</td>
@@ -391,7 +392,7 @@ location / {
         </tr>
         <tr>
           <td>HSTS remembers</td>
-          <td>Once a browser sees a <code>Strict-Transport-Security</code> header for a domain, it refuses plain HTTP for that domain again for the cached duration: no warning, just an automatic redirect or a hard failure. Some entries are even browser-preloaded and effectively permanent.</td>
+          <td>Once a browser records HSTS, it upgrades HTTP before the network request and does not allow bypassing certificate errors for that host. Preload removal is possible but slow, so treat submission as a long-lived operational commitment.</td>
         </tr>
         <tr>
           <td>Certificate Transparency</td>
@@ -404,8 +405,6 @@ location / {
       </tbody>
     </table>
   </div>
-
-  <p>This is a high-level pass by design. For the full detail, running <code>openssl x509 -in cert.pem -noout -text</code> on any real certificate reveals every field described above.</p>
 
 </main>
 </div><!-- end .shell -->

@@ -43,7 +43,7 @@
   <a href="#where-it-works">The Legitimate Cases</a>
 
   <div class="sidebar-section">Failure Modes</div>
-  <a href="#production-failures">When It Reaches Production</a>
+  <a href="#production-failures">The Production Failure Pattern</a>
 
   <div class="sidebar-section">The Alternative</div>
   <a href="#spec-driven">Spec-Driven Development</a>
@@ -60,27 +60,27 @@
 
   <div class="eyebrow">AI · Software Delivery</div>
   <h1>Agentic Coding Workflows</h1>
-  <p class="subtitle">Why letting an agent freewheel through a codebase works for a prototype and fails in production, and what teams do instead.</p>
+  <p class="subtitle">How specifications, tests, context, and guardrails make agentic development safer once code is meant to last.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~16 min read</span>
+    <div class="dot"></div><span>~12 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
-  <p>"Vibe coding" wasn't a compliment when the term first spread. Andrej Karpathy coined it in February 2025 to describe a specific habit. Prompt an AI tool in natural language, accept what comes back, and judge the result by whether it seems to work rather than by reading the code itself. The name stuck because the habit is common, and because it saves real time in the situations where reading every line would be wasted effort.</p>
+  <p>Andrej Karpathy coined “vibe coding” in 2025 for a specific way of working. The developer describes the desired behavior in natural language, accepts the generated code, and judges it by what the program appears to do rather than by reading every line. The phrase quickly broadened into a label for almost any AI-assisted development, but the original distinction still matters. It describes the verification practice around the tool, not the tool itself.</p>
 
-  <p>This article draws the line between where that habit is fine and where it quietly turns into a production incident. It looks at two 2026 cases that show what the difference costs, then walks through spec-driven development, the practice that emerged once teams started asking agents to touch code other people depend on.</p>
+  <p>This article draws the boundary around that practice and explains why the acceptable boundary changes with the cost of failure. It then develops a safer workflow for production work, moving from specifications and executable tests to context management, guardrails, and human approval.</p>
 
   <div class="callout info">
     <div class="callout-title">Building on the previous article</div>
-    <p>This one assumes the assistant/agent distinction covered in <a href="ai-coding-assistants.html">AI Coding Assistants: From Autocomplete to Agent</a>. Vibe coding is something you can do with either an assistant or a fully agentic tool. What sets the risk profile is whether a human looked at anything before it shipped.</p>
+    <p>This article assumes the assistant/agent distinction from <a href="ai-coding-assistants.html">AI Coding Assistants</a>. Vibe coding can happen with either kind of tool. Its risk comes from accepting behavior without understanding or independently verifying the code that produced it.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="vibe-coding">What Vibe Coding Means</h2>
-  <p class="lede">The term names a real, useful pattern, one that turned into an insult only after it started showing up somewhere it didn't belong.</p>
+  <p class="lede">The useful boundary is not whether AI wrote the code, but whether anyone established that the result was safe to rely on.</p>
 
-  <p>Stripped of the baggage the term has picked up, vibe coding means directing an AI tool with natural language and accepting its output based on whether it appears to behave correctly, rather than based on having read and understood the code it produced. That's a legitimate way to work, but by definition it's also a way of working with no verification step built in.</p>
+  <p>Vibe coding means directing an AI tool in natural language and accepting its output because the result appears to work. The developer may run the program and adjust the prompt several times, but does not build an understanding of the generated implementation. That can be a rational shortcut when the code is disposable. It is not a verification method.</p>
 
   <p>The habit layered on top of the tool matters more than the tool itself. Two developers can run the same agent on the same task and be doing very different things. One reads every diff before it merges, catches the parts that don't fit, and rejects or rewrites what's wrong. The other accepts the result once it runs. Both count as "using AI to code," but only one of them is vibe coding in the sense that matters for what follows.</p>
 
@@ -88,41 +88,37 @@
   <h2 id="where-it-works">The Legitimate Cases</h2>
   <p class="lede">Karpathy's own later framing draws the boundary better than most of the discourse that followed his original post.</p>
 
-  <p>Asked about the backlash his own term generated, Karpathy has held a fairly consistent position. Vibe coding is harmless when it's confined to small projects that never reach production or a real user base. A weekend prototype fits that description, as does a personal script, or a throwaway tool built to explore an API before deciding how the real integration should look. What the legitimate cases share isn't the size of the codebase but the blast radius. If the code is wrong, the cost of finding out is small, and the cost of starting over is smaller still.</p>
+  <p>The approach fits work with a deliberately small blast radius. A weekend prototype, a personal script, or a throwaway exploration of an API can all qualify. The codebase does not have to be tiny; the consequence of failure does. If an incorrect result costs little and the artifact can be discarded, understanding every generated line may cost more than it protects.</p>
 
   <p>That calculation flips the moment the same code has to serve anyone other than the person who wrote it. The tool doesn't get worse when the stakes go up. What changes is the price of the missing verification step. Skipping it cost nothing while only the author's own time was on the line. Now it carries the cost of whatever a stranger does with a bug nobody caught.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="production-failures">When It Reaches Production</h2>
-  <p class="lede">Two incidents from 2026 show what "nobody reviewed this" costs, and, just as usefully, what it doesn't.</p>
+  <h2 id="production-failures">The Production Failure Pattern</h2>
+  <p class="lede">Generated code usually fails through ordinary software defects. The workflow makes those defects easier to ship in volume.</p>
 
-  <p>In February 2026, security researchers at Wiz examined Moltbook, a vibe-coded social network built for AI agents to interact with each other. They found a Supabase API key sitting in plain sight in the site's client-side JavaScript, the kind of thing anyone can find by opening browser developer tools. On its own, an exposed public key isn't necessarily a problem. Supabase's model treats it as safe to expose as long as Row Level Security policies restrict what it can reach. Moltbook had no such policies configured. The key granted full read and write access to the production database, exposing more than a million API authentication tokens, tens of thousands of email addresses, and private messages exchanged between agents on the platform. Wiz disclosed the issue immediately and it was patched within hours. But the underlying mistake belongs to a well-known category, exactly the kind of thing the missing review step exists to catch.</p>
+  <p>An agent can produce code that compiles, passes a narrow happy-path test, and still violates an assumption outside the files it inspected. Authorization rules may live in middleware the agent never opened. A database client may require tenant filtering that is conventional rather than type-checked. A retry may be correct for reads but duplicate a payment when copied into a write path. None of these failures is unique to generated code, and each can survive a demonstration that “works.”</p>
 
-  <p>The second incident is messier, and more useful for it. In May 2026, a security-focused rsync release, version 3.4.3, broke incremental backups for a number of users. Digging into the history, people noticed dozens of commits since the previous minor version attributed jointly to project creator Andrew Tridgell and Claude. A bluntly worded GitHub issue objecting to AI-authored changes in critical infrastructure spread quickly to Hacker News and Reddit, and the conversation shifted almost immediately from "this release has a bug" to a referendum on AI-generated code in open source.</p>
-
-  <p>What happened is less dramatic. By Tridgell's own account, the most visible AI-assisted work was a rewrite of rsync's aging shell-script test suite into Python. He designed and scoped the project himself, using several AI tools including Claude for the mechanical parts of the conversion, and reviewed the resulting code afterward. A later data-driven analysis of 36 rsync releases found the Claude-assisted releases statistically indistinguishable from the rest of the project's history. The regression that broke backups traced to the release's security hardening, not to the rewritten test suite, and the release as a whole tracked more closely with the sheer volume of security fixes it shipped than with who or what had written any individual line. The AI attribution in the commit log made an easy villain. The data told a more boring story about what happens when a project ships a large batch of security-driven changes at once.</p>
+  <p>Agentic speed changes the exposure. A developer can now create a large, internally consistent diff before anyone has challenged the premise behind it. Reviewers must understand more code at once, while the polish of the implementation can make the original assumption harder to notice. The resulting risk comes from scale and misplaced confidence rather than from a new species of bug.</p>
 
   <div class="callout warn">
-    <div class="callout-title">Same technology, opposite lessons</div>
-    <p>Moltbook is a case where the absence of any review process led directly to a real, entirely avoidable breach. rsync is a case where review was present the whole time (a human designing the test framework, choosing what to hand off, and reading the output), and the defect had more to do with the nature of a large security release than with who typed the code. In both cases the commit log looked the same, an AI tool's name next to a human's. What differed was everything the commit log doesn't show.</p>
+    <div class="callout-title">Behavior is evidence, not understanding</div>
+    <p>A successful demo establishes that one path worked with one set of inputs. Production confidence also needs the relevant invariants, failure paths, security boundaries, and operational effects to be checked. The amount of checking should follow the cost of being wrong.</p>
   </div>
-
-  <p>The pattern shows up in survey data too. Most developers now use AI coding tools daily, while far fewer say they trust the code those tools produce. That gap isn't irrational. Adoption has outrun the habit of checking the output, and the two cases above help show why the gap exists in the first place.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="spec-driven">Spec-Driven Development</h2>
-  <p class="lede">The practical answer to "how do we get the speed without skipping the part that catches mistakes."</p>
+  <p class="lede">A specification creates an early review point for intent, before implementation detail makes a mistaken premise expensive to unwind.</p>
 
-  <p>The core move in <strong>spec-driven development</strong> is to write down what a change should do before asking an agent for any code. That description lives as an artifact separate from the code itself, and implementation starts only once a person has reviewed it. The specification, the plan, and the task breakdown all become things a human can read and correct before a single file changes, rather than reverse-engineering intent from a finished diff after the fact.</p>
+  <p><strong>Spec-driven development</strong> records what a change should achieve before implementation begins. The specification stays separate from the code, so a reviewer can challenge scope, constraints, and acceptance criteria without first reconstructing intent from a diff. A technical plan and task breakdown can then translate that agreed behavior into implementation steps.</p>
 
-  <p>GitHub's Spec Kit is a concrete, openly available example of the pattern. It structures work into four stages:</p>
+  <p>GitHub's open-source Spec Kit is one implementation of the pattern. Its core workflow moves through four artifacts:</p>
   <ol>
-    <li><code>/specify</code> takes a short prompt and expands it into a full specification.</li>
-    <li><code>/plan</code> turns that specification into a technical implementation plan.</li>
-    <li><code>/tasks</code> breaks the plan into an ordered, dependency-aware checklist.</li>
-    <li>Only then does an agent start implementing.</li>
+    <li><code>/speckit.specify</code> develops the feature specification.</li>
+    <li><code>/speckit.plan</code> records the technical approach.</li>
+    <li><code>/speckit.tasks</code> produces an ordered implementation list.</li>
+    <li><code>/speckit.implement</code> executes those tasks.</li>
   </ol>
-  <p>Nor is it tied to one vendor's tools. The same workflow runs against Copilot, Claude, Gemini, and others.</p>
+  <p>The toolkit supports integrations with several coding agents, but the sequence does not depend on Spec Kit. A team can use the same review points with ordinary Markdown artifacts and its existing development process.</p>
 
   <p>A fragment of what a generated specification looks like in practice, before any plan or code exists:</p>
 
@@ -151,17 +147,17 @@ contacting support.
   <h2 id="tests-from-specs">Tests as the Executable Spec</h2>
   <p class="lede">A well-written acceptance criterion isn't just readable by a person. It's close enough to a test case that turning one into the other is barely a translation.</p>
 
-  <p>The password reset fragment above already leans on a pattern called <strong>EARS</strong>, the Easy Approach to Requirements Syntax. It's a small set of sentence shapes originally developed for requirements engineering at Rolls-Royce and now the de facto convention most spec-driven tools converge on. A handful of forms cover most requirements worth writing down, such as "when X happens, the system shall Y," "while in state X, the system shall Y," and "if X occurs, then the system shall Y." The constraint is the point. A criterion phrased that way reads naturally to a person and parses unambiguously for a model. Because it names a trigger and a required response rather than a vague intention, it maps onto a test case almost without translation.</p>
+  <p>The password-reset example resembles <strong>Easy Approach to Requirements Syntax</strong> (EARS), a set of patterns developed at Rolls-Royce for writing constrained natural-language requirements. Forms such as “when X happens, the system shall Y” make the trigger and required response explicit. The result is easier for a person to review and easier to translate into test cases, although a consistent sentence shape cannot by itself make a requirement complete or unambiguous.</p>
 
   <p>That's also the cleanest way to see how spec-driven development differs from two older practices it keeps getting compared to. Test-driven development says write the failing test first. Behavior-driven development says write the behavior first, in language a non-engineer on the team can still read, then derive the test from it. Spec-driven development pushes the artifact up one more level. Write the whole spec, with behavior, constraints, and edge cases together, and let an agent generate the code, the tests, and often a first pass at documentation from that single source. Each of the three chooses a different artifact as the one everything else follows from.</p>
 
-  <p>Letting an agent generate the tests too raises an obvious question. What stops it from writing a test that passes trivially without checking anything real? The honest answer is that test-generating agents split into different jobs with different failure modes, and each needs a different kind of check before its output is trusted. An agent writing new tests to cover a new code path is the easiest case to verify mechanically. Run mutation testing against the result, deliberately introducing small bugs into the code and confirming the new tests fail when they should. A suite that doesn't catch the mutations is evidence the tests are hollow, not that the code is fine. An agent asked to fix a failing test suite is the harder case. A test edited until it passes again is one small step away from a test edited until it stops checking the thing it was written to check. That path stays behind a human approval gate rather than a mechanical one, for the same reason a diff that quietly deletes an assertion deserves a closer look than one that adds a new file.</p>
+  <p>Generated tests need their own verification because an agent can satisfy a test task with assertions that prove very little. Mutation testing provides one mechanical check: it introduces small changes into the implementation and measures whether the tests detect them. Surviving mutations can reveal behavior the suite did not protect. Some mutations are equivalent to the original behavior, so the report still needs interpretation. Editing an existing failing test is riskier, because removing or weakening an assertion can make the suite green while discarding the requirement. Such edits need a reviewer to confirm that the test still expresses the intended behavior.</p>
 
   <div class="concept-grid">
     <div class="card teal">
       <div class="card-label">Generating new tests</div>
-      <div class="card-title">Mutation-score gate</div>
-      <p>Coverage of a new code path is verified mechanically, by mutating the code and confirming the new tests fail on the mutants. A suite that survives mutation without noticing is a hollow suite, whatever its coverage number says.</p>
+      <div class="card-title">Mutation analysis</div>
+      <p>Mutation testing changes the implementation and checks whether the tests notice. A high mutation score is stronger evidence than line coverage alone, but surviving mutants still need review because some are equivalent or irrelevant.</p>
     </div>
     <div class="card orange">
       <div class="card-label">Editing existing tests</div>
@@ -172,49 +168,49 @@ contacting support.
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="context-engineering">Context Engineering</h2>
-  <p class="lede">The skill that quietly replaced prompt writing as the thing worth getting good at.</p>
+  <p class="lede">Prompt wording shapes one request; context engineering shapes the information available throughout the task.</p>
 
-  <p>Prompt engineering was about phrasing, about finding the wording that got a single request to land correctly. <strong>Context engineering</strong> is a broader job. It means deciding what an agent can see across an entire session, not just in one message. The thing being managed is the finite token budget described in <a href="how-llms-work.html#context-window">how large language models work</a>. Done well, it keeps the specification written in step one in front of the agent through step four, rather than becoming something it half-remembers or never loaded.</p>
+  <p><strong>Context engineering</strong> is the work of deciding what an agent can see and when it sees it. The managed resource is the finite <a href="how-llms-work.html#context-window">context window</a>, not only the wording of the latest prompt. In a spec-driven workflow, the specification and relevant plan must remain available during implementation without being buried under unrelated tool output.</p>
 
-  <p>The context files covered in the previous article are one piece of this, the stable, rarely-changing part of what an agent should always know about a project. Spec-driven development adds a second, session-specific layer on top. The specification and plan generated for this particular task become part of what the agent references while implementing it, effectively acting as working memory for that one piece of work. <a href="ai-coding-assistants.html#beyond-context-files">Subagents</a> are a third lever on the same problem from the opposite direction, keeping a large exploratory side-task from ever entering the main session's context in the first place rather than managing what's already there. Getting this right is less about any single clever instruction and more about making sure the right documents are in front of the model at the moment they're needed.</p>
+  <p>The context files covered in the previous article are one piece of this, the stable, rarely-changing part of what an agent should always know about a project. Spec-driven development adds a second, session-specific layer on top. The specification and plan generated for this particular task become part of what the agent references while implementing it, effectively acting as working memory for that one piece of work. <a href="ai-coding-assistants.html#beyond-context-files">Subagents</a> approach the problem from the other direction. They keep a large exploratory side-task out of the main session by returning findings instead of every file and dead end. Getting this right is less about any single clever instruction and more about making sure the right documents are in front of the model at the moment they're needed.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="harness-engineering">Harness Engineering</h2>
   <p class="lede">Context engineering asks what the model can see this session. The discipline that has absorbed it asks what stops the same mistake from recurring next session too.</p>
 
-  <p>The short history matters, because each step displaced the one before it rather than adding a buzzword on top. Prompt engineering, roughly 2023 into 2024, was about wording a single request well. Context engineering, covered just above, argued that phrasing was rarely the bottleneck and shifted the effort toward curating what fills the window, such as specs, project rules, and prior decisions, for the length of a session. The layer that has since taken over as the focus of engineering effort is <strong>harness engineering</strong>. The name comes from a shorthand blunt enough to be useful: agent equals model plus harness.</p>
+  <p><strong>Harness engineering</strong> moves one level beyond the context of a particular session. The harness is the standing software and policy around the model: tool access, permission checks, feedback loops, isolation, observability, and approval gates. Prompt and context design remain part of the system, but the harness determines which mistakes are possible and which are caught automatically.</p>
 
-  <p>The harness is everything standing around the agent that isn't the model itself and isn't any single session's context. It covers which tools the agent is permitted to reach, and which guardrails stop it from taking an irreversible action on its own. It also covers the feedback loop that lets the agent notice a mistake and correct course mid-task rather than confidently finishing a wrong approach, plus whatever observability a human watching from outside gets. The premise driving the shift is specific. A better-worded prompt or a better-curated context fixes one occurrence, this task, this session. A harness change fixes the whole class of mistake going forward. If an agent keeps treating a database migration as safe to run unsupervised, the durable fix isn't a stronger warning worded into the next prompt. It's a permission the harness never grants, so that particular mistake stops being possible rather than merely discouraged.</p>
+  <p>A repository instruction can tell an agent not to run a production migration, but the model may misunderstand or overlook the instruction. A harness can withhold the production credential or require an approval before the command executes. The latter control applies to every session and does not depend on the model choosing correctly. This is the central value of the harness: recurring risks become properties of the surrounding system instead of reminders embedded in prose.</p>
 
-  <p>A few tools now market themselves explicitly as harnesses rather than as assistants, and they make the tradeoff concrete. Gas Town, an open-source workspace manager built by Steve Yegge, sits at the heavy end of that range. A persistent coordinating process keeps git-backed memory across sessions and hands work between dozens of parallel agents, so a restart doesn't erase what the previous session already figured out. Claude Squad sits at the lighter end of the same idea. It isolates a handful of parallel sessions in tmux panes backed by git worktrees, with no standing coordination process at all. Neither is the right amount of harness in general. The choice is how much standing infrastructure a team wants to run in exchange for how much coordination its work needs. How those agent teams are structured, and why their failures look like distributed systems, is the subject of <a href="multi-agent-systems.html">multi-agent systems</a>.</p>
+  <p>A harness can be small. A permission policy, an isolated worktree, deterministic tests, and a log of tool calls already provide meaningful control around one agent. Larger systems add persistent task state and coordination across several agents. That expansion introduces a separate set of tradeoffs, covered in <a href="multi-agent-systems.html">multi-agent systems</a>, and should follow a real need for parallel work rather than the availability of more agents.</p>
 
   <div class="concept-grid cols-3">
     <div class="card blue">
-      <div class="card-label">2023–2024</div>
+      <div class="card-label">One request</div>
       <div class="card-title">Prompt Engineering</div>
       <p>Getting a single request phrased well, one exchange at a time, through the wording, the examples, and the structure.</p>
     </div>
     <div class="card teal">
-      <div class="card-label">2024–2025</div>
+      <div class="card-label">One session</div>
       <div class="card-title">Context Engineering</div>
       <p>Curating what fills the window for a session, such as specs, rules, and prior decisions, so a good prompt has the right material behind it.</p>
     </div>
     <div class="card orange">
-      <div class="card-label">2026</div>
+      <div class="card-label">Every session</div>
       <div class="card-title">Harness Engineering</div>
       <p>Building the standing infrastructure around the agent, such as tool permissions, guardrails, feedback loops, and observability, so a whole class of mistake can't recur.</p>
     </div>
   </div>
 
-  <p>Read the rest of this article again with that lens and most of what's already been covered turns out to be harness engineering under an older name. The grounding step described next, under context blindness, is a feedback loop that catches a stale plan before it executes rather than after. The mutation-testing gate from the earlier section on generated tests is a guardrail deciding which of an agent's own outputs get trusted without a human looking first. The plan-before-code checkpoint at the center of spec-driven development is a constraint on what the agent is allowed to do before a human has seen it. None of these were designed against a shared blueprint labeled "harness" at the time. They converged on the same shape because an agent that's fast, confident, and occasionally wrong keeps demanding the same kind of answer. The answer isn't a smarter single request, but a system around the agent that assumes it will sometimes be wrong and is built to catch that in advance.</p>
+  <p>The earlier controls fit naturally into this layer. Mutation testing gives the agent deterministic feedback about weak tests. A plan checkpoint prevents implementation before a person has approved the intended change. The grounding step in the next section checks whether that plan still matches the repository. Each control assumes that plausible output may be wrong, then catches a different failure before it reaches production.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="context-blindness">Context Blindness</h2>
   <p class="lede">A spec can be perfectly well written and still describe a repository that no longer exists.</p>
 
-  <p><strong>Context blindness</strong> names a specific way spec-driven workflows still go wrong. The specification and plan are internally consistent, making sense on their own terms, while being quietly incompatible with the current state of the codebase. A plan might reference a function signature that got refactored last week, assume a file lives somewhere it was moved from months ago, or describe a data model that a migration already changed. None of that shows up by reading the plan in isolation. It only shows up once an agent tries to execute it against the repository as it really is.</p>
+  <p><strong>Context blindness</strong> occurs when an internally consistent plan no longer matches the repository. It may rely on an old function signature, a moved file, or a data model changed by a later migration. Reading the plan alone will not reveal the mismatch because every statement can still fit the plan's own assumptions. The conflict appears only when those assumptions are checked against the current code.</p>
 
-  <p>The mitigation taking shape across newer agentic frameworks is a grounding step. Before implementation starts, the agent (or a separate checking pass) verifies specific claims in the plan against the live repository rather than trusting the plan at face value. It confirms that a referenced function still has the signature the plan assumes, or that a file path exists. The exact mechanism varies by framework, and this corner of the tooling is still settling. The underlying idea holds regardless. A plan is only as good as its last contact with the real codebase, and that contact needs to happen right before execution, not just once during the original review.</p>
+  <p>A grounding step checks the plan against the live repository before implementation. It can verify that referenced paths exist, inspect the current function signatures, and compare data-model assumptions with the latest migrations. The check may be performed by the implementing agent or by a separate read-only pass. Either way, the plan is corrected while it is still cheap to change.</p>
 
   <div class="concept-grid">
     <div class="card orange">
@@ -235,7 +231,7 @@ contacting support.
 
   <p>Pure vibe coding has no gate at all, which is what makes it fast for a throwaway script and dangerous for anything else. A well-run spec-driven workflow has an obvious place to put one, right after the plan and task list are generated and before any file has changed. A wrong plan takes a few minutes to read and correct. A wrong forty-file diff built from that same wrong plan takes much longer to review. A subtle gap, like the missing rate limit in the earlier example, is far easier to let slip past a diff review than past someone reading four acceptance criteria.</p>
 
-  <p>This doesn't replace reviewing the final diff, but adds a cheaper check earlier in the process, one that catches mistakes obvious in a plan and expensive to spot once they're spread across dozens of files. What that final diff review should look for, and which tools help with it, is enough of its own subject to earn separate treatment. So is the question of how an agent gets safe, governed access to systems beyond the repository it's editing, which is where a lot of the production risk in this space lives.</p>
+  <p>Plan review does not replace review of the final diff. It catches errors in intent before they become implementation, while diff review checks whether the approved plan was carried out safely. The next article develops that merge-time review. The <a href="mcp-ai-integration.html">MCP article</a> covers the separate problem of governing access when an agent can reach systems beyond the repository.</p>
 
 </main>
 </div><!-- end .shell -->

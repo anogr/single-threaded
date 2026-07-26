@@ -74,17 +74,17 @@
 
   <div class="sidebar-section">Wrap-up</div>
   <a href="#fail-fast">Fail Fast</a>
-  <a href="#tension">Where principles pull against each other</a>
+  <a href="#tension">Balancing the principles</a>
 </nav>
 
 <main>
 
   <div class="eyebrow">Code Architecture · Principles</div>
   <h1>Software Design Principles</h1>
-  <p class="subtitle">Why the same handful of rules for structuring code and dependencies keep reappearing across languages and decades, and when to bend them.</p>
+  <p class="subtitle">How recurring problems in code structure led to familiar rules, and how to tell when those rules stop helping.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~34 min read</span>
+    <div class="dot"></div><span>~22 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
@@ -92,8 +92,8 @@
        INTRODUCTION
   ════════════════════════════════════════════════════ -->
   <section id="intro">
-    <p>A <strong>design principle</strong> is a rule of thumb for shaping code and the dependencies between its parts. It emerges from repeated observations of the same kind of mistake across many projects. A principle isn't enforced by the compiler, nor is it universally correct. Instead, it's a trade-off that pays off in a particular context. Understanding when to apply it is just as important as understanding the principle itself. This article explores the most enduring design principles, not as a checklist to apply everywhere, but as tools for solving recurring problems in real codebases.</p>
-    <p>A codebase that ignores these principles doesn't fail loudly. A one-line fix in a payment method breaks checkout, because two features were quietly sharing state neither owner knew about. A new hire spends a full day tracing what a single function does before daring to touch it, because it does five unrelated things under one name. A test can't run without spinning up a database, a mail server, and half the application, because nothing in the code was built to run in isolation. Each of these traces back to the same handful of recurring issues:</p>
+    <p>A <strong>design principle</strong> is a rule of thumb for shaping code and the dependencies between its parts. Each principle captures a problem that has appeared in many systems, but none is a compiler rule or a universal prescription. Applying one exchanges one kind of cost for another, so its value depends on the problem at hand and whether that exchange still pays off.</p>
+    <p>Structural problems rarely announce themselves with the name of a principle. They appear as ordinary friction. A checkout fix breaks another payment method because both depend on hidden state. A function is difficult to trace because several unrelated jobs sit behind one name. A small test pulls in a database and half the application because the code cannot run in isolation. These recurring costs are more useful to recognize than the labels:</p>
     <ul>
       <li><strong>Understanding gets harder</strong>, because behavior that looks self-contained turns out to depend on something two files away that nobody documented.</li>
       <li><strong>Changing gets riskier</strong>, because a fix in one place can break a feature that was silently relying on it.</li>
@@ -101,16 +101,16 @@
       <li><strong>Extending gets more fragile</strong>, because new behavior has to be wedged into a structure that wasn't built to expect it.</li>
     </ul>
     <p>
-      Every principle in this article addresses one or more of these costs. Pushed past the problem it was meant to solve, though, most start adding costs of their own back into the system. Many other concerns, such as correctness and security, also benefit indirectly when a system is easier to understand, change, test, and extend.
+      Every principle in this article addresses one or more of these costs. Once applied beyond the problem it solves, the principle can add back the complexity it removed elsewhere. Code that is easier to understand and test often supports correctness and security, although neither follows from good structure alone.
     </p>
     <p>
-      This article groups the structural principles into four branches, based on the kind of decision each one governs.
+      The structural principles fall into four groups according to the decision each one helps make.
     </p>
     <ul>
-      <li><strong>Build less</strong> principles decide whether a piece of code should exist at all, before anything gets organized.</li>
-      <li><strong>Organize code well</strong> principles decide where a responsibility lives once it does exist, and what it's allowed to know about its neighbors.</li>
-      <li><strong>Depend safely</strong> principles decide how one piece of code is allowed to rely on another without the two becoming impossible to change independently.</li>
-      <li><strong>Communicate cleanly</strong> principles decide what an object should expose about itself, and who gets to make decisions based on it.</li>
+      <li><strong>Build less</strong> asks whether a capability should exist before deciding how to organize it.</li>
+      <li><strong>Organize code well</strong> asks where a responsibility belongs and what it needs to know about neighboring code.</li>
+      <li><strong>Depend safely</strong> asks how two parts can collaborate without becoming needlessly difficult to change independently.</li>
+      <li><strong>Communicate cleanly</strong> asks what an object should expose and where decisions about its state should live.</li>
     </ul>
 
     <div class="figure-wrap">
@@ -161,25 +161,25 @@
           <text x="605" y="206" text-anchor="middle" font-size="9.5" fill="var(--text-dim)">Command query sep.</text>
         </g>
       </svg>
-      <figcaption>Grouped by the problem each principle actually solves rather than by acronym. Fail fast sits outside this tree, covered in its own closing section.</figcaption>
+      <figcaption>The groups follow the problem each principle addresses rather than a familiar acronym. Fail fast sits outside the tree because it governs runtime behavior.</figcaption>
     </div>
 
     <p>
-      Fail fast sits outside all four, since it's a runtime discipline about how quickly a problem surfaces, not a structural rule about how code is arranged.
+      Fail fast sits outside these groups because it governs how quickly a runtime problem surfaces rather than how code is arranged.
     </p>
   </section>
 
   <h2 id="history">History</h2>
     <p>
-      These ideas didn't arrive from one place. Some emerged in isolation, out of unrelated fields entirely. An aircraft engineer working under military contract popularized one in the 1960s, a researcher studying how to decompose large software systems into independent modules described another in 1972, and a research team at Northeastern arrived at a third in 1987 as a byproduct of an unrelated project on adaptive and aspect-oriented programming. Other ideas share more of a common thread. Liskov, Meyer, and Lieberherr were all working inside the same academic object-oriented research community in the late 1980s, and their principles arrived within a year of each other. What both groups have in common is the absence of any coordinated effort. Nobody sat down to build a unified theory of software design, and each was simply staring at a different kind of mess, reaching for whatever fixed it.
+      These ideas did not arrive as one method. Information hiding grew from research into modular decomposition. The Law of Demeter emerged from the Demeter project, and Liskov's work on data abstraction clarified the obligations of a subtype. Other rules came from engineering practice or received names after authors recognized the same lesson across many projects.
     </p>
     <p>
-      That's why these principles keep resurfacing under different names in different decades.
+      The shared vocabulary arrived after the underlying problems were already familiar. That history helps explain why some principles overlap and why their wording varies between authors.
     </p>
 
     <div class="callout info">
       <div class="callout-title">Older than the acronym</div>
-      <p>These principles span roughly sixty years and several unrelated fields, not one software-methodology moment.</p>
+      <p>The principles came from several decades of research and engineering practice rather than from one software methodology.</p>
       <div class="table-wrap" style="margin-top:10px;">
         <table>
           <thead>
@@ -193,37 +193,37 @@
           </tbody>
         </table>
       </div>
-      <p style="margin-top:10px;">Several of the principles bundled into "SOLID" (Open/Closed, Liskov Substitution) and Command Query Separation predate the acronym by more than a decade. SOLID branded existing ideas rather than inventing them.</p>
+      <p style="margin-top:10px;">Open/Closed and Liskov Substitution were already established before the SOLID acronym grouped them with three of Robert C. Martin's principles. The acronym organized existing ideas under a memorable name.</p>
     </div>
 
   <!-- ═══════════════════════════════════════════════════
        1. BUILD LESS
   ════════════════════════════════════════════════════ -->
   <h2 id="build-less">Build less</h2>
-  <p class="lede">The cheapest code to maintain is the code that was never written, so this branch comes first. It decides what shouldn't exist before the next branch worries about how to organize what does.</p>
+  <p class="lede">Before organizing code, decide whether the capability is needed and whether its complexity has earned a place in the system.</p>
 
   <h3 id="yagni">YAGNI</h3>
   <p>
-    A configuration flag gets added for a use case that seems inevitable. A parameter accepts three strategies even though the product only has one today. Six months later the flag has one value in every environment that has ever run the service, and nobody remembers why the branch exists. That's the failure <strong>YAGNI</strong> (You Aren't Gonna Need It) names. Capability built for a need that may never arrive gets paid for immediately, in code that has to be read, tested, and kept working, against a benefit that may never materialize. The principle comes out of Extreme Programming in the late 1990s, and its instruction is blunt. Don't build it until something in front of you actually requires it.
+    A configuration flag is added for a use case that seems inevitable. A parameter accepts several strategies even though the product has one. Months later, every environment uses the same value and nobody remembers why the branch exists. <strong>YAGNI</strong> (You Aren't Gonna Need It) names the cost of that speculation. An unused capability must still be understood, tested, and maintained before it provides any benefit. The rule, associated with Extreme Programming, is to build a capability when a real requirement calls for it rather than when a future use merely seems plausible.
   </p>
   <p>
-    The most common misreading of YAGNI is "never plan ahead." That's not what it says. YAGNI is about refusing to build speculative <em>capability</em>, not about refusing an obvious, cheap structural choice that's already in front of you. Naming a variable clearly, or putting a data-access call behind a small function instead of scattering it across a component, costs nothing extra today and isn't what YAGNI is warning against. The principle targets the flag nobody asked for, the abstraction layer built for a second implementation that never gets written, and the plugin system for one plugin.
+    YAGNI does not rule out planning. It separates choices that keep today's design easy to change from speculative <em>capabilities</em> that must be carried until a possible future arrives. Clear names and a small boundary around data access solve present problems. A flag with no current use or a plugin system with one plugin usually does not.
   </p>
 
   <h3 id="kiss">KISS</h3>
   <p>
-    <strong>KISS</strong> (Keep It Simple, Stupid) traces to a mid-century engineering culture, U.S. Navy and aerospace teams reacting to systems whose complexity had outgrown the people maintaining them. In software it means the same thing it meant to them. Complexity is a cost, not a sign of sophistication, and it should only exist where the problem actually requires it. KISS in practice looks like a conditional inverted to remove nesting, an early return that collapses three branches into one, or a function that does one thing instead of five under one name. The test is whether a reader can hold the logic in their head, not whether the code looks impressive.
+    <strong>KISS</strong> (Keep It Simple, Stupid) came into software from a broader engineering maxim. It treats complexity as a cost that the problem must justify. In code, simplicity may come from a direct data flow or from separating unrelated work that was hidden inside one function. The relevant test is whether the simplest correct design remains clear when someone needs to change it.
   </p>
   <p>
-    Overused, KISS becomes an excuse to hide complexity instead of removing it. Collapsing three genuinely distinct cases into one branch that "mostly" handles all of them isn't simplification. It's a bug waiting for the input that exposes the case that got merged away. Real simplicity reduces the number of things a reader has to track without reducing the number of things the code correctly handles.
+    KISS becomes harmful when it hides complexity instead of removing it. Collapsing several distinct cases into one branch that handles most of them leaves the missing distinctions to surface as bugs. A simpler design reduces what a reader must track while still representing every case the software needs to handle.
   </p>
 
   <h3 id="rule-of-three">Rule of Three</h3>
   <p>
-    Extracting an abstraction from one example is a guess. The <strong>Rule of Three</strong>, associated with Don Roberts and Ralph Johnson's research and popularized through Martin Fowler's <em>Refactoring</em> (1999), gives that guess a deadline. Wait for a third occurrence of a pattern before generalizing it. The first occurrence is just code. The second might be coincidence, two things that happen to look similar today for unrelated reasons. Only the third gives enough evidence that the shape is real rather than a resemblance that will diverge the moment either call site changes for its own reason.
+    Extracting an abstraction from one example requires guessing which details will remain stable. The <strong>Rule of Three</strong>, popularized in Martin Fowler's <em>Refactoring</em>, suggests tolerating two similar implementations and considering an extraction when a third appears. The extra examples make the common shape easier to see, although they do not prove that all three cases represent one concept.
   </p>
   <p>
-    The rule cuts both ways. Extracting after the second occurrence risks generalizing from a coincidence, building an abstraction shaped by two examples that happen to look alike today for unrelated reasons. Waiting past the third occurrence has its own cost. Every call site that should have shared logic keeps drifting further from the others until unifying them means reconciling three or four subtly different implementations instead of two. There's no fixed count that's correct for every case. Three is a reasonable default because it's the point where a real pattern is more likely than a coincidence, not a guarantee.
+    Waiting carries its own cost because similar implementations can drift into subtly different versions. Three is therefore a timing heuristic, not a threshold that makes an abstraction correct. Extract earlier when the duplicated knowledge is already clear and costly. Wait longer when the resemblance may disappear as the cases evolve.
   </p>
 
   <div class="figure-wrap">
@@ -262,12 +262,12 @@
       <line x1="460" y1="175" x2="495" y2="175" stroke="var(--text-faint)" stroke-width="1" stroke-dasharray="3,3" marker-end="url(#roft-arrow)"/>
       <text x="478" y="167" text-anchor="middle" font-family="var(--font-mono)" font-size="8.5" fill="var(--text-faint)">wait</text>
     </svg>
-    <figcaption>The Rule of Three is the timing rule that keeps DRY and YAGNI from fighting each other. Extract too early and you're guessing at a shape with only one data point. Wait too long and knowledge stays duplicated across call sites.</figcaption>
+    <figcaption>The Rule of Three offers a practical balance between DRY and YAGNI. An early extraction guesses at a common shape, while a late one leaves knowledge duplicated across call sites.</figcaption>
   </div>
 
   <h3 id="dry">DRY</h3>
   <p>
-    <strong>DRY</strong> (Don't Repeat Yourself) is about a single source of truth for a piece of <em>knowledge</em>, not a rule against two code blocks looking similar. Andrew Hunt and David Thomas stated it precisely in <em>The Pragmatic Programmer</em> (1999). Every piece of knowledge must have a single, unambiguous, authoritative representation. The failure it targets is a business rule that changes in one place a developer remembers to update, while an identical rule sitting somewhere else quietly goes stale.
+    <strong>DRY</strong> (Don't Repeat Yourself) concerns duplicated <em>knowledge</em> rather than code that merely looks similar. Andrew Hunt and David Thomas framed the principle around giving each piece of knowledge one authoritative representation. It matters when the same business rule must be updated in several places because any missed copy can quietly become stale.
   </p>
 
   <div class="code-block">
@@ -286,53 +286,53 @@
   </div>
 
   <p>
-    Two things had to be true for the extraction above to be sound. The check had to appear a third time, per the Rule of Three, and it had to represent the same piece of knowledge each time, not three rules that merely resembled each other today. That second condition is where DRY is most often misapplied. Merging two things that only <em>look</em> alike into one shared abstraction feels productive in the moment. It stops feeling productive once they diverge for unrelated reasons. The shared function grows an <code>if (isSpecialCase)</code> branch to keep serving both, until the abstraction is harder to read than the duplication it replaced. A wrong abstraction costs more than the duplication it was meant to remove.
+    The extraction above is sound only if every call site represents the same rule, and occurrence counts cannot establish that. Similar code may belong to different concepts that later diverge. A shared function then accumulates special cases, obscuring both rules until the abstraction costs more than the original duplication.
   </p>
 
   <!-- ═══════════════════════════════════════════════════
        2. ORGANIZE CODE WELL
   ════════════════════════════════════════════════════ -->
   <h2 id="organize-code-well">Organize code well</h2>
-  <p class="lede">Once a piece of behavior earns its place in the codebase, the next question is where it lives and what it's allowed to know about its neighbors. Get that right, and the same code becomes easier to find, easier to reason about, and easier to test on its own.</p>
+  <p class="lede">Once behavior earns its place in the codebase, its location and boundaries determine how easily people can find, understand, and test it.</p>
 
   <h3 id="encapsulation">Encapsulation and information hiding</h3>
   <p>
-    David Parnas's 1972 paper "On the Criteria to Be Used in Decomposing Systems into Modules" made an argument that still holds. A module should hide an implementation decision behind a stable interface, so that changing the decision later doesn't require changing everything that depends on the module. Parnas called this <strong>information hiding</strong>. <strong>Encapsulation</strong> is the practice that follows from it in most languages today. Expose a method that performs an operation, not the internal data structure that operation happens to use today. A queue class exposing <code>enqueue()</code> and <code>dequeue()</code> can switch its internal storage from an array to a linked list without a single caller noticing. A queue class that exposes its backing array directly can't.
+    David Parnas's 1972 paper "On the Criteria to Be Used in Decomposing Systems into Modules" argued that modules should hide design decisions likely to change. <strong>Information hiding</strong> keeps the effects of those changes behind a stable interface. <strong>Encapsulation</strong> provides the code boundary that enforces that separation. A queue exposing <code>enqueue()</code> and <code>dequeue()</code>, for example, can change its storage without forcing callers to change with it.
   </p>
   <p>
-    This is the oldest of the organizational principles here, predating separation of concerns by two years. The two principles that follow in this section overlap heavily with encapsulation applied at a specific scale, though neither reduces to it completely. Single responsibility is partly encapsulation at the level of a module, and partly a claim about cohesion, keeping together the code that changes for one reason. Interface segregation is partly encapsulation at the level of an interface, and partly about limiting how much of an interface's volatility a caller is exposed to. Overdone, encapsulation turns defensive. Every field gets a getter and a setter that exposes it right back out, hiding nothing. A legitimate configuration need might instead route through three layers of indirection, because nothing was left adjustable. Hiding a decision is only valuable when the decision might actually change. That's also why a plain, immutable value object, a coordinate pair or a date range, is usually better off exposing its fields directly. There's no implementation decision underneath a value object like that to protect, so a method wrapped around the field would just be encapsulation with nothing to hide.
+    The next principles apply related boundaries at different scales. Single responsibility groups behavior that changes for the same reason, while interface segregation limits the surface a caller depends on. Neither principle requires accessors around every field. A getter and setter that expose an unchanged value hide no design decision. Plain immutable values, such as coordinates or date ranges, may gain nothing from a method around each field.
   </p>
 
   <h3 id="separation-of-concerns">Separation of concerns</h3>
   <p>
-    Edsger Dijkstra used the phrase "<strong>separation of concerns</strong>" in a 1974 essay on the discipline of programming, describing it as a way of thinking rather than a way of organizing folders. A concern is a distinct area of responsibility, such as what the user sees, what the business rule says should happen, or how the data gets stored. When one piece of code handles more than one concern, a change to one risks breaking the other, because they were never truly separate, only sitting in the same function.
+    Edsger Dijkstra described <strong>separation of concerns</strong> as a way of reasoning about a program rather than a prescription for organizing folders. A concern is a distinct area of responsibility. Presentation, business policy, and persistence are common examples. When one piece of code handles unrelated concerns, a change to one can disturb another because the implementation ties them together.
   </p>
   <p>
-    Separation of concerns is often read as a statement about file structure, such as a UI folder and a services folder. That's a side effect, not the point. Two functions can live in the same file and still be properly separated if one only computes a value and the other only renders it. Two functions can live in different folders and still violate the principle if the rendering function reaches back to recompute business logic on its own.
+    Folder structure can reflect separate concerns, but it cannot create the separation by itself. Two functions in one file may remain independent when one computes a value and the other renders it. Functions in different folders remain coupled when the rendering code reimplements business logic.
   </p>
   <p>
-    Overapplied, separation of concerns produces layers that don't correspond to anything real. A single, genuinely cohesive piece of logic gets split into a controller, a service, and a repository, each doing almost nothing on its own. A change to that one concern now means editing three files that were only ever separated on paper. Splitting pays off when the pieces can plausibly change for different reasons and at different rates. It doesn't pay off just because a template exists for a three-layer folder structure.
+    Overapplication produces layers that do not correspond to distinct responsibilities. One cohesive operation gets split across a controller, service, and repository that each do almost nothing alone. A change then crosses three files whose separation exists only on paper. Splitting pays off when the pieces can plausibly change for different reasons or at different rates, not because a project template provides three folders.
   </p>
 
   <h3 id="srp">Single Responsibility Principle</h3>
   <p>
-    Robert C. Martin's phrasing for the <strong>Single Responsibility Principle</strong> (SRP) is "a module should have one, and only one, reason to change." The word doing the real work in that sentence is "reason," not "method." A module that validates a form, persists it to a database, and sends a confirmation email is doing three jobs. Each job changes for a different business reason, such as a new validation rule, a new storage backend, or a new email provider. Any one of those changes forces an edit to code that has nothing to do with the actual reason for the change, and risks breaking the two unrelated responsibilities sitting next to it.
+    The classic phrasing of the <strong>Single Responsibility Principle</strong> (SRP) says that a module should have one reason to change. Robert C. Martin later related that reason to the people or roles requesting the change. Form validation, persistence, and email delivery answer to different concerns even when they occur in one workflow. A change to validation policy should not put storage or delivery logic at risk.
   </p>
   <p>
-    SRP is the principle most often taken too literally. Reading "one reason to change" as "one method per class" produces the opposite of the intended result. The class count balloons into dozens of one-line classes, each trivially simple on its own. The actual logic ends up scattered so thin across them that understanding one piece of business behavior means opening ten files instead of one. A responsibility is a reason a stakeholder would ask for a change, not a count of lines.
+    Reading "one reason to change" as "one method per class" produces the opposite of the intended result. Dozens of tiny classes may look simple in isolation while scattering one business operation across many files. A responsibility describes a coherent source of change, not a line or method count.
   </p>
 
   <h3 id="isp">Interface Segregation Principle</h3>
   <p>
-    The <strong>Interface Segregation Principle</strong> (ISP) applies the same idea to interfaces instead of modules. A caller shouldn't be forced to depend on methods it never uses. A single <code>Machine</code> interface requiring <code>print()</code>, <code>scan()</code>, and <code>fax()</code> forces a print-only device to implement two methods it can't support. It also couples every caller of <code>print()</code> to changes made to the scanning method it never touches. Splitting that one interface into <code>Printer</code>, <code>Scanner</code>, and <code>Fax</code> lets a caller depend on exactly the capability it needs and nothing else. That's what makes the principle a form of encapsulation applied at the interface boundary rather than the module boundary.
+    The <strong>Interface Segregation Principle</strong> (ISP) applies a similar idea to the contracts seen by callers. A caller should not depend on methods it never uses. A <code>Machine</code> interface that requires <code>print()</code>, <code>scan()</code>, and <code>fax()</code> forces a print-only device to pretend it supports two irrelevant operations. Separate capability interfaces let each caller depend only on the operation it needs.
   </p>
   <p>
-    Taken too far, ISP produces an interface for every single method, such as a <code>Printable</code>, a <code>Scannable</code>, or a <code>Faxable</code>, each with exactly one member. A class that genuinely needs all three now implements three interfaces to do the job one interface could have described. A reader has to open three files to see the full shape of what the class does. The split is worth making when callers actually differ in which capability they need. It isn't worth making just to keep interfaces small for their own sake.
+    Taken too far, ISP produces one interface per method even when every caller needs the same complete capability. The extra names and files then obscure a contract that one interface could have expressed clearly. A split earns its place when callers genuinely need different subsets of behavior, not merely because smaller interfaces look cleaner.
   </p>
 
   <h3 id="cohesion-coupling">High cohesion, low coupling</h3>
   <p>
-    <strong>Cohesion</strong> and <strong>coupling</strong> are the clearest lens for what the four principles above have in common, though not a complete account of what each one does on its own. Cohesion describes how closely the responsibilities within a module belong together, and high cohesion means those responsibilities naturally fit. Encapsulation and the Single Responsibility Principle (SRP), when applied well, tend to promote high cohesion, and both also make a module easier to test in isolation. Coupling describes the dependencies between modules instead, where low coupling means each one depends as little as possible on the others. Separation of concerns and the Interface Segregation Principle (ISP), applied well, help reduce that coupling, and ISP's narrower interfaces carry the added benefit of making it easier to discover which capability a caller actually needs.
+    <strong>Cohesion</strong> describes how closely the responsibilities inside a module belong together. <strong>Coupling</strong> describes how much one module depends on others and how readily a change can propagate between them. A cohesive module has a recognizable purpose, while a loosely coupled one makes few narrow assumptions about its collaborators. Encapsulation, separation of concerns, SRP, and ISP pursue those qualities from different directions without guaranteeing them.
   </p>
 
   <div class="figure-wrap">
@@ -372,18 +372,18 @@
       <line x1="567" y1="80" x2="590" y2="185" stroke="var(--red)" stroke-width="1.2"/>
       <line x1="460" y1="92" x2="655" y2="130" stroke="var(--red)" stroke-width="1.2"/>
     </svg>
-    <figcaption>Cohesion measures how tightly what's inside one module belongs together. Coupling measures how tangled one module is with another. The two are independent. A module can be internally messy but loosely connected, or internally tidy but wired into everything around it. The goal is high on the first, low on the second.</figcaption>
+    <figcaption>Cohesion concerns the relationships inside a module. Coupling concerns its dependencies on other modules. A module can be cohesive yet widely coupled, or internally scattered while depending on little else.</figcaption>
   </div>
 
   <!-- ═══════════════════════════════════════════════════
        3. DEPEND SAFELY
   ════════════════════════════════════════════════════ -->
   <h2 id="depend-safely">Depend safely</h2>
-  <p class="lede">Organizing code well decides where a responsibility lives, and lowers coupling by shaping what's inside each module. This branch reduces the same coupling from a different angle. It decides how one piece of code is allowed to depend on another, without the two becoming impossible to change independently.</p>
+  <p class="lede">Module boundaries organize responsibilities, while dependency rules determine how those modules can collaborate without tying their evolution together.</p>
 
   <h3 id="ocp">Open/Closed Principle</h3>
   <p>
-    Bertrand Meyer stated the <strong>Open/Closed Principle</strong> (OCP) in <em>Object-Oriented Software Construction</em> (1988). A module should be open for extension but closed for modification. In practice this shows up as a growing chain of conditionals. A <code>charge()</code> function with a branch per payment method works fine until the fifth payment method needs to be added. At that point every new case is a new edit to a function that every existing case already depends on. A mistake in the new branch can break a payment method that had nothing to do with the change.
+    Bertrand Meyer stated the <strong>Open/Closed Principle</strong> (OCP) in <em>Object-Oriented Software Construction</em> (1988). A module should allow new behavior to be added without repeatedly changing stable code. Consider a <code>charge()</code> function with one branch per payment method. Every new method edits control flow shared by the existing ones, so a local addition can disturb unrelated behavior.
   </p>
 
   <div class="code-block">
@@ -417,19 +417,19 @@
   </div>
 
   <p>
-    The map itself still gets a new line for every payment method. That's not the textbook form of OCP, where a new class is added in a new file and nothing existing is touched at all. What it does close off is the risk that used to matter most. A new case can no longer break an existing one, because adding <code>chargeWallet</code>'s entry can't alter what <code>chargeCard</code>'s entry does. A plugin registry or a common interface implemented by a new class gets closer to the classic form, but reaching for that heavier structure before it's earned is its own mistake.
+    The map still gains an entry for each payment method, so the module is not literally closed to edits. The useful change is narrower: adding a handler no longer alters the control flow used by existing handlers. A plugin registry could move registration outside the module, but that machinery is justified only when independent registration is a real requirement.
   </p>
 
   <p>
-    Building a registration table, a plugin loader, or a strategy interface for a case that has exactly one implementation and no realistic second one adds a layer of indirection. That costs a reader time to trace, in exchange for flexibility nothing will ever use. The branch chain earlier in this section was worth replacing because payment methods actually multiply. A function with one permanently fixed behavior doesn't need the same treatment.
+    Registration tables, plugin loaders, and strategy interfaces all add indirection. That cost can pay off when implementations multiply or register independently. A function with one stable behavior has no such pressure. Extension points should follow observed variation rather than the familiarity of a pattern.
   </p>
 
   <h3 id="lsp">Liskov Substitution Principle</h3>
   <p>
-    Barbara Liskov introduced what became known as the <strong>Liskov Substitution Principle</strong> (LSP) in a 1987 OOPSLA keynote, later formalized with Jeannette Wing. The idea: if <code>S</code> is a subtype of <code>T</code>, a program built to work with objects of type <code>T</code> should keep working correctly when handed an object of type <code>S</code> instead. The textbook illustration is a <code>Square</code> that extends <code>Rectangle</code> and overrides <code>setWidth()</code> to also change the height. It compiles cleanly, but it breaks any code that set a rectangle's width and height independently and expected the two to stay that way.
+    Barbara Liskov introduced the substitution idea behind the <strong>Liskov Substitution Principle</strong> (LSP) in a 1987 OOPSLA keynote. Later work with Jeannette Wing formalized behavioral subtyping. A subtype must preserve the promises on which clients of its base type rely. The familiar <code>Square</code> and <code>Rectangle</code> example fails when clients may set a rectangle's width and height independently but a square cannot honor that contract.
   </p>
   <p>
-    A more realistic version of the same failure shows up whenever a subclass narrows what its base type promised rather than fully supporting it. A caching repository that extends a general-purpose <code>Repository</code> class but backs onto a read-only cache is a natural thing to write and technically compiles.
+    The same failure appears whenever a subtype accepts fewer valid operations or provides weaker guarantees than its contract promises. A read-only cache may compile as a subclass of a writable <code>Repository</code>, yet it cannot honor the inherited write operation.
   </p>
 
   <div class="code-block">
@@ -453,12 +453,12 @@
   </div>
 
   <p>
-    Any caller written against <code>Repository</code>, unaware that this particular subtype throws on <code>write()</code>, breaks the moment it receives a <code>CachingRepository</code> instead. The usual instinct when this surfaces is to add an <code>instanceof</code> check at every call site that might receive the subtype. That papers over one violation while creating a second problem. Every caller now has to know about every subtype's quirks, which is exactly the coupling encapsulation was supposed to prevent. The actual fix is to stop modeling the relationship as inheritance in the first place.
+    A caller written against <code>Repository</code> is entitled to use <code>write()</code>. A subtype that throws because writing is unsupported breaks that expectation. Adding <code>instanceof</code> checks only spreads knowledge of the broken contract into every caller. The model should separate readable and writable capabilities, or treat the cache as a collaborator instead of a substitute.
   </p>
 
   <h3 id="composition">Composition over inheritance</h3>
   <p>
-    The LSP violation above is a symptom of modeling "is-a" where the real relationship is "has-a." A caching repository isn't a kind of repository that happens to reject writes. It's a thing that <em>holds</em> a cache and a repository and coordinates between them. <strong>Composition over inheritance</strong> means building behavior this way by default. Assemble an object out of smaller collaborators with their own clear contracts, rather than extending a base class and hoping every method it exposes makes sense for the new case.
+    The violation above treats a coordination role as a subtype. A cache-backed reader can instead hold a cache and a source, choosing which one answers each read. <strong>Composition over inheritance</strong> favors assembling behavior from collaborators with explicit contracts. Inheritance remains useful when a subtype can preserve its parent's complete behavioral contract.
   </p>
 
   <div class="code-block">
@@ -478,20 +478,20 @@
   </div>
 
   <p>
-    Rebuilt this way, <code>CachingRepository</code> never claims to be a full <code>Repository</code>, so there's no promise to break. Composition solves the substitution problem directly instead of working around it. The failure mode at this end of the spectrum is the opposite of inheritance's. Compose too many small, single-purpose collaborators, and following one request through the system means opening ten files to find where anything actually happens.
+    Rebuilt this way, <code>CachingRepository</code> no longer promises write support. Composition removes the invalid contract instead of working around it. The approach can still be overused. Turning every step into a separate collaborator may leave one request scattered across a long chain of tiny files.
   </p>
 
   <h3 id="dip">Dependency Inversion Principle</h3>
   <p>
-    A high-level policy, "send a welcome email on signup," hard-wired to a low-level detail, a specific SMTP client, means changing the detail requires editing the policy. The <strong>Dependency Inversion Principle</strong> (DIP), from Robert C. Martin, is the fix stated abstractly. Depend on abstractions, not concretions. High-level modules and low-level modules should both depend on an interface between them, rather than the high-level module depending directly on the low-level module's implementation.
+    A signup policy that constructs a specific SMTP client mixes its purpose with one delivery mechanism. The <strong>Dependency Inversion Principle</strong> (DIP), formulated by Robert C. Martin, introduces a stable boundary between them. The policy depends on the capability to send a message, and the SMTP adapter implements that capability. The policy no longer imports the adapter's concrete type.
   </p>
   <p>
-    DIP is a principle, not a technique. The difference matters because it gets conflated constantly with the pattern that follows it. Dependency inversion says what should be true of the relationship between two modules. Dependency injection, next, is one way of making it true in code, not a synonym for it.
+    DIP describes the desired relationship between modules. Dependency injection, covered next, is one technique that can help create that relationship. The terms are related but not interchangeable.
   </p>
 
   <h3 id="di">Dependency Injection</h3>
   <p>
-    <strong>Dependency Injection</strong> (DI) satisfies DIP concretely. A class receives its dependency from outside instead of constructing it internally. Martin Fowler's 2004 article on inversion of control containers gave the pattern its modern name. It also gave it a now-standard justification. A class built this way can be tested against a fake dependency and swapped onto a different implementation without its own code changing.
+    <strong>Dependency Injection</strong> (DI) supplies an object's collaborators from outside instead of constructing them inside the object. Martin Fowler's 2004 article distinguished constructor, setter, and interface injection under that name. DI supports DIP when the injected dependency is expressed through an appropriate abstraction. Injecting a concrete type still separates construction from use, but it does not invert a source-code dependency by itself.
   </p>
 
   <div class="code-block">
@@ -515,18 +515,18 @@
   </div>
 
   <p>
-    Overused, DI produces an interface and an injected dependency for something with exactly one implementation and no realistic second one, ever. That's DIP's ceremony without DIP's benefit. The layer of indirection exists because the pattern is familiar, not because two independently changeable modules actually needed to be decoupled.
+    DI becomes ceremony when a stable implementation is hidden behind an interface that no caller needs to replace or isolate. The extra boundary makes the code harder to trace without protecting a meaningful source of change. Injection earns its place when separating construction, substitution, or testing provides a concrete benefit.
   </p>
 
   <h3 id="ioc">Inversion of Control</h3>
   <p>
-    Code that drives its own control flow can only be reused inside that same flow. A function that calls its own dependencies directly, in the order it chooses, can't easily be run inside a test harness, a UI framework's render cycle, or a plugin host. All of those need to be the one calling the shots. <strong>Inversion of Control</strong> (IoC), sometimes called the Hollywood principle after "don't call us, we'll call you," inverts that. The framework or container calls your code, instead of your code calling the framework.
+    A framework often owns the main control flow and invokes application code at defined extension points. <strong>Inversion of Control</strong> (IoC) names that arrangement. Event handlers, test functions, and plugin callbacks all run because a host calls them. Application code supplies the behavior, while the host controls when it runs.
   </p>
   <p>
-    An event listener is IoC in its simplest form. The browser decides when <code>onClick</code> runs, not the code that defines it. A test framework invoking every function named like a test is the same shape at a larger scale. Dependency injection is frequently the mechanism IoC uses to hand control over. A container builds an object graph and calls into it, rather than the object graph reaching out to build itself.
+    An event listener is a small example because the browser decides when its handler runs. A test runner does the same for registered tests. Dependency injection applies the broader idea to object construction. A container may perform the injection, although ordinary construction code can also pass dependencies explicitly.
   </p>
   <p>
-    The same inversion that makes code reusable also makes it harder to trace. Once a container decides when and with what to call a piece of code, tracing that call means reading the container's wiring, not just reading the code in order. A new developer can't always answer "who calls this?" just by reading the codebase, because the call happens through configuration or a naming convention, not a direct reference. IoC is worth the cost when a framework, a test runner, or a plugin host genuinely needs to own the call. A small script or a linear pipeline with one obvious caller doesn't need a container standing in the middle.
+    Inversion can make call paths harder to trace because a container or framework may connect code through configuration, registration, or convention. Answering “who calls this?” then requires reading the host's wiring as well as the function. The cost is justified when the host needs to own the lifecycle. A small linear script with one obvious caller gains little from a container.
   </p>
 
   <div class="figure-wrap">
@@ -552,34 +552,34 @@
       <line x1="545" y1="175" x2="545" y2="190" stroke="var(--accent)" stroke-width="1.2" marker-end="url(#roft-arrow)"/>
       <text x="545" y="205" text-anchor="middle" font-family="var(--font-mono)" font-size="9.5" fill="var(--text-dim)">mailer: Mailer (injected)</text>
     </svg>
-    <figcaption>Inversion of control makes the direction of the arrow the whole point. Control moves from the class constructing what it needs, to an external container handing the class what it needs.</figcaption>
+    <figcaption>Control moves from a class constructing its collaborator to external code supplying that collaborator.</figcaption>
   </div>
 
   <div class="callout info">
     <div class="callout-title">DIP, DI, and IoC are not the same thing</div>
-    <p>These three get used interchangeably in conversation, but each names something different.</p>
+    <p>The three terms are often mixed together, although each describes a different part of the design.</p>
     <ul>
-      <li><strong>Dependency Inversion Principle</strong> is the rule itself, that two modules should depend on a shared abstraction rather than one depending on the other's concrete implementation.</li>
-      <li><strong>Dependency Injection</strong> is one concrete technique for satisfying it, where a class receives its dependencies from outside instead of constructing them itself.</li>
-      <li><strong>Inversion of Control</strong> is the broader pattern behind dependency injection, where a framework or container calls your code instead of your code calling it.</li>
+      <li><strong>Dependency Inversion Principle</strong> concerns the direction of source-code dependencies across a boundary.</li>
+      <li><strong>Dependency Injection</strong> supplies an object with collaborators that were created elsewhere.</li>
+      <li><strong>Inversion of Control</strong> is the broader arrangement in which a host controls part of the program's flow.</li>
     </ul>
-    <p style="margin-top:10px;">DIP states the goal, DI is one way to reach it in code, and IoC is the shift in control that makes DI possible.</p>
+    <p style="margin-top:10px;">DI can support DIP, and dependency injection containers are one example of IoC. Neither relationship makes the terms synonyms.</p>
   </div>
 
   <div class="callout new">
     <div class="callout-title">Where SOLID fits</div>
-    <p>Single Responsibility and Interface Segregation from the previous section, plus Open/Closed, Liskov Substitution, and Dependency Inversion from this one, are the five principles bundled historically as SOLID (see the <a href="#history">history</a>). They're grouped in this article by what they actually govern, responsibility placement versus dependency safety, rather than by acronym position, but the acronym isn't lost. It's just not the organizing structure.</p>
+    <p>SOLID groups Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, and Dependency Inversion. This article places them beside related ideas according to the decisions they govern. The <a href="#history">history</a> explains how principles with different origins came to share the label.</p>
   </div>
 
   <!-- ═══════════════════════════════════════════════════
        4. COMMUNICATE CLEANLY
   ════════════════════════════════════════════════════ -->
   <h2 id="communicate-cleanly">Communicate cleanly</h2>
-  <p class="lede">The last branch asks a narrower question than the first three. Once an object exists and owns its own state, what should it expose, and who gets to decide based on it? Get it wrong, and a change three objects away ripples into code that never asked to know about it.</p>
+  <p class="lede">An object's public surface determines how much of its state and internal structure the rest of the system must understand.</p>
 
   <h3 id="law-of-demeter">Law of Demeter</h3>
   <p>
-    The <strong>Law of Demeter</strong> (LoD) came out of Karl Lieberherr and Ian Holland's Demeter project at Northeastern University in 1987, and its informal statement is "only talk to your immediate friends." A method should call methods on objects it directly holds, not reach through one object to get a second object and then call a method on that.
+    The <strong>Law of Demeter</strong> (LoD) came from the Demeter project led by Karl Lieberherr and Ian Holland at Northeastern University. Its informal wording is "only talk to your immediate friends." A method should collaborate with objects it receives or directly holds instead of reaching through them to traverse a wider object graph.
   </p>
 
   <div class="code-block">
@@ -596,15 +596,15 @@
   </div>
 
   <p>
-    The first version chains through three classes' internal structure at once, touching <code>Order</code>, <code>Customer</code>, and <code>Address</code> in a single expression. If <code>Customer</code> ever stores a shipping address and a billing address separately instead of one <code>address</code> field, every chain like this one breaks, scattered across however many call sites reach into the object graph. The delegating method on the second line is the same coupling problem section two named for modules, applied to a single call chain.
+    The first version exposes the path from <code>Order</code> through <code>Customer</code> to <code>Address</code>. If the customer model later separates shipping and billing addresses, every call site that knows the old path may need to change. The delegating method gives callers the information they need without exposing that route through the object graph.
   </p>
   <p>
-    Overused, the Law of Demeter turns into a rule about syntax instead of dependencies. Every class in the chain grows a one-line wrapper method whose only job is forwarding a call to the next collaborator, and the codebase fills with wrapper-method bloat like <code>getBillingCity()</code> that exists purely to satisfy the rule. That's worth doing when <code>Customer</code>'s internal structure is genuinely likely to change. It's wasted ceremony when it isn't: an extra method to read, test, and maintain, for a structure that was never going anywhere. The rule is about not depending on another object's internal structure, not about refusing to chain method calls. A chain over immutable value objects, such as a fluent builder, is harmless, because there's no changeable internal structure to leak in the first place.
+    Used as a syntax ban, the Law of Demeter produces forwarding methods with no useful boundary behind them. A method such as <code>getBillingCity()</code> earns its place when it hides how an order finds its billing address. It adds noise when it only renames a stable public operation. The principle concerns knowledge of another object's structure, not the number of dots in an expression. A fluent API can therefore use a call chain without violating the underlying idea.
   </p>
 
   <h3 id="tell-dont-ask">Tell, Don't Ask</h3>
   <p>
-    Pulling an object's internal state out to make a decision about it externally duplicates logic that belongs with the data, and it breaks the same encapsulation boundary the Law of Demeter protects. <strong>Tell, Don't Ask</strong> is the corrective habit. Instead of reading a flag and branching on it outside the object, tell the object what outcome is wanted. Let it decide how, using only the state it needs to see. A shopping cart shouldn't expose its item count so calling code can decide whether it's empty. It should expose a method that answers that question itself.
+    Reading an object's internal state and interpreting it elsewhere can duplicate logic that belongs with the data. <strong>Tell, Don't Ask</strong> keeps that local decision behind the object's boundary. Instead of exposing an item count so every caller can decide whether a cart is empty, the cart can answer <code>hasItems()</code> itself.
   </p>
 
   <div class="code-block">
@@ -631,12 +631,12 @@
   </div>
 
   <p>
-    The <code>hasItems</code> method draws a deliberate line. It answers for the cart's own state and nothing else. Pushed too far, Tell Don't Ask pulls decisions into an object that has no business making them. A shopping cart can reasonably decide whether it's empty. It can't reasonably decide whether checkout is allowed today, because that depends on inventory, the user's account standing, and a promotion schedule the cart has never heard of. Forcing that decision inside the cart means either injecting every collaborator it might ever need an answer from, or duplicating their logic locally to avoid asking. Some decisions genuinely belong to a caller with a wider view, and asking a few objects for their state is more honest than pretending one of them can decide alone.
+    The <code>hasItems()</code> method draws a boundary around the cart's own state. Checkout eligibility crosses several boundaries because it may also depend on inventory, account status, or commercial policy. Forcing that broader decision into the cart would give it unrelated dependencies. Local decisions belong with their data, while coordination across several owners belongs in code with the necessary view.
   </p>
 
   <h3 id="cqs">Command Query Separation</h3>
   <p>
-    Bertrand Meyer's <strong>Command Query Separation</strong> (CQS), also from <em>Object-Oriented Software Construction</em>, draws a line between two kinds of methods. A command does something and returns nothing. A query answers something and changes nothing. A method that does both is unsafe to call from a place that only meant to observe, a log statement or a debugger watch expression, because observing it also changes state.
+    Bertrand Meyer's <strong>Command Query Separation</strong> (CQS), also from <em>Object-Oriented Software Construction</em>, distinguishes commands from queries. A command changes state, while a query returns information without changing observable state. Combining both roles can surprise code that meant only to observe, including logging and debugger expressions.
   </p>
 
   <div class="code-block">
@@ -657,23 +657,23 @@
   </div>
 
   <p>
-    CQS is a guideline, not a hard constraint, and plenty of well-established methods break it on purpose. <code>Array.prototype.pop()</code> removes the last element and returns it in one call, and nobody considers that a design flaw. An auto-incrementing counter that returns the new value on every call does the same thing, and so does a SQL <code>INSERT</code> that returns the generated id from the same statement that created the row. Splitting either into a separate command and query would mean an extra round trip, or a second read that could see a different answer than the write just produced. The real line is narrower than "never combine." A method that returns state while changing it is fine when the return value is simply the result the write just produced, inseparable from the change itself. It's a problem when the return value is incidental, and calling the method for its side effect alone becomes a trap for the next person to read it.
+    CQS is a guideline rather than a hard constraint. <code>Array.prototype.pop()</code> removes and returns the same element in one operation. A database insert may likewise return its generated identifier because a separate read would add another operation and could observe a different state. Combining the roles is clearest when the return value is the direct result of the command. The risky case is hidden mutation during an operation that appears to be an observation.
   </p>
 
   <p>
-    Law of Demeter, Tell Don't Ask, and Command Query Separation all circle back to the same underlying question, what an object should expose and who decides based on it. Each approaches it from a different angle, one about traversal, one about control flow, one about method shape. That's why they're grouped together here rather than scattered across other sections.
+    These three principles govern the same boundary from different angles. The Law of Demeter limits traversal into collaborators. Tell, Don't Ask keeps local decisions with the object that owns the relevant state. Command Query Separation makes observation and mutation easier to distinguish at the method boundary.
   </p>
 
   <!-- ═══════════════════════════════════════════════════
        5. FAIL FAST
   ════════════════════════════════════════════════════ -->
   <h2 id="fail-fast">Fail fast</h2>
-  <p class="lede">Every principle so far is about how code is arranged. This one is about how quickly a program admits something is wrong, which is why it sits outside the tree above rather than inside one of its branches.</p>
+  <p class="lede">Structural principles shape the code, whereas fail-fast behavior shortens the distance between an invalid condition and the point where it becomes visible.</p>
   <p>
-    Invalid state discovered far from where it was introduced is expensive to debug. The error message points at the symptom, not the cause, and tracing backward through however many function calls separate them takes real time. <strong>Fail fast</strong> is the discipline of surfacing a problem at its source instead of letting it propagate. In practice that's a guard clause at a function's boundary that throws immediately on an invalid argument, rather than passing it through and letting it corrupt something three calls later.
+    Invalid state becomes harder to diagnose after it has travelled through the system. The eventual error points to a symptom, while the cause sits several calls earlier. <strong>Fail fast</strong> means rejecting invalid state near the boundary where it enters. Guard clauses are one form, but parsers, type checks, and explicit validation results can enforce the same discipline without relying on exceptions.
   </p>
   <p>
-    A quieter version of the same mistake is a function that can't do what it was asked to do, and returns as if it had anyway. A save that silently drops a write on a duplicate key hides the failure. So does an update that returns without changing anything because the record it was supposed to update doesn't exist. Both look like they succeeded from the caller's side. The caller has no way to tell "done" from "silently skipped," and the bug surfaces later as whatever code assumes work that never actually ran.
+    A normal return can also hide failure. An update that ignores a missing record appears successful, so later code proceeds as though the change occurred. The operation should return an explicit result or raise an error according to its contract, allowing the caller to distinguish success from rejection.
   </p>
 
   <div class="code-block">
@@ -700,7 +700,7 @@
   </div>
 
   <p>
-    The exception is a function whose job is to reach a state rather than perform an action. Deleting a record that's already gone is the clearest case. The caller wanted the record gone, and it already is. Returning as if the delete succeeded is accurate, not a swallowed failure. The same reasoning covers a create-if-missing call, or cancelling a subscription that's already cancelled. What makes the silent return acceptable here is that the desired end state already holds. Nothing was skipped that the caller was depending on.
+    Some operations promise an end state rather than a particular action. Deleting a record that is already absent can succeed because the requested state already holds. The same reasoning may apply to create-if-missing or cancelling an already cancelled subscription. A quiet return is appropriate only when the contract promises the state and the caller does not depend on whether a transition occurred.
   </p>
 
   <div class="code-block">
@@ -717,17 +717,17 @@
   </div>
 
   <p>
-    In a modern TypeScript codebase, fail fast increasingly happens before the program even runs. Strict mode turns a value that might be <code>undefined</code> into a compile error at the point it's used, not a runtime crash the first time a user hits the missing case. An exhaustive <code>switch</code> over a union type, checked with a <code>never</code> assertion in the default branch, fails to compile the moment a new case is added to the union without a matching branch. That catches the gap before the code ships rather than after. Static typing enforced this way is fail fast moved one step earlier, from the first bad input to the first bad line.
+    TypeScript can move some failures into development. With strict null checking, a value that may be <code>undefined</code> must be narrowed before code uses it as a definite value. A <code>never</code> check can make an unhandled union member fail type checking in an exhaustive <code>switch</code>. These techniques do not replace runtime validation at external boundaries, but they expose some inconsistencies earlier.
   </p>
   <p>
-    The failure mode is treating every unexpected input as a hard crash. Code that calls a service which occasionally times out, and which the caller can reasonably retry or fall back from, shouldn't throw an unrecoverable error at the first sign of trouble. Fail fast is for state that's actually invalid and shouldn't be allowed to continue, not for every condition a caller might reasonably want to handle itself.
+    Failing fast does not require every unexpected condition to crash the process. A service timeout may be handled through retry, fallback, or an explicit error returned to the caller. The principle applies when continuing would hide the cause or allow invalid state to corrupt later work. Recoverable failures still need a contract that lets the caller respond.
   </p>
 
   <!-- ═══════════════════════════════════════════════════
        6. WHERE THESE PRINCIPLES PULL AGAINST EACH OTHER
   ════════════════════════════════════════════════════ -->
-  <h2 id="tension">Where these principles pull against each other</h2>
-  <p class="lede">Return to the opening claim. Every principle reduces one of four costs, namely understanding, changing, testing, or extending. Every misuse story above is one of those same four costs being paid back after a different one was reduced.</p>
+  <h2 id="tension">Balancing the principles</h2>
+  <p class="lede">A principle is useful while the cost it removes remains greater than the complexity introduced by applying it.</p>
 
   <div class="table-wrap">
     <table>
@@ -735,7 +735,7 @@
         <tr><th>Principle</th><th>Reduces</th><th>Overused becomes</th><th>Cost that comes back</th></tr>
       </thead>
       <tbody>
-        <tr><td>DRY</td><td>Duplicate knowledge</td><td>A wrong shared abstraction forced to cover cases that were never really the same</td><td>Understanding, changing</td></tr>
+        <tr><td>DRY</td><td>Duplicate knowledge</td><td>A wrong shared abstraction forced to cover cases that represent different concepts</td><td>Understanding, changing</td></tr>
         <tr><td>SRP</td><td>Mixed responsibilities</td><td>Hundreds of tiny classes, logic scattered thin across all of them</td><td>Understanding</td></tr>
         <tr><td>OCP</td><td>Modification risk</td><td>A plugin or strategy architecture for a case that will never have a second variant</td><td>Understanding, extending</td></tr>
         <tr><td>DIP / DI</td><td>Hard-wired concretions</td><td>An interface with exactly one implementation, forever</td><td>Understanding</td></tr>
@@ -746,7 +746,7 @@
   </div>
 
   <p>
-    The pattern in that table is the whole argument of this article compressed into one shape. Nothing on this list is free, and nothing on this list is free of a stopping point. DRY removes duplicated knowledge until the abstraction it creates has to serve two things that were never actually the same thing. OCP removes the risk of editing working code until the extension point it adds is speculation dressed up as architecture. The practical heuristic that falls out of all seventeen principles is the same one. Apply a principle when it removes a cost you can already point to in the code in front of you, a specific change that's hard to make, a specific concept that's hard to follow, or a specific case that's hard to test. Don't apply it because the principle is well known, and don't apply it preemptively, before that cost has actually shown up.
+    Apply a principle when it addresses a cost visible in the code. The evidence might be a change that spreads too far, a concept that is difficult to follow, or a dependency that blocks a useful test. Then account for the complexity introduced by the solution. DRY stops helping when unrelated concepts are forced behind one abstraction. OCP stops helping when an extension point serves only imagined variants. A familiar name alone is not evidence that the trade is worthwhile.
   </p>
 
 </main>

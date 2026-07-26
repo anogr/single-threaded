@@ -8,17 +8,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="articles.css">
 <style>
-  /* ── Section mark on h2 ── */
-  h2::before {
-    content: '§';
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    color: var(--accent);
-    margin-right: 0.5rem;
-    vertical-align: middle;
-    opacity: 0.5;
-  }
-
   /* ── Full-source appendix: collapsible file groups with tabs ── */
   .file-appendix {
     max-width: var(--content-w);
@@ -104,7 +93,7 @@
   <div class="sidebar-section">React Wrapper</div>
   <a href="#react-wrapper">React 19 and custom elements</a>
   <a href="#ts-types">TypeScript declarations</a>
-  <a href="#hooks">Helper hooks</a>
+  <a href="#hooks">Custom-event bridge</a>
   <a href="#wrapper-component">Wrapper component</a>
   <div class="sidebar-section">Reference</div>
   <a href="#full-source">Full source</a>
@@ -114,10 +103,10 @@
 <main>
   <div class="eyebrow">React · Interop</div>
   <h1>Wrapping Web Components in React</h1>
-  <p class="subtitle">How to wrap a custom element in a first-class React component, with TypeScript types, a forwarded ref, and a typed custom event callback.</p>
+  <p class="subtitle">A thin typed wrapper for a custom element, including React 19 properties, refs, and custom events.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~10 min read</span>
+    <div class="dot"></div><span>~5 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
@@ -126,13 +115,13 @@
   ════════════════════════════════════════════════════ -->
   <section id="intro">
     <p>
-      The <a href="web-components.html">companion article</a> built <code>BaseButton</code> from scratch: a custom element with an encapsulated shadow DOM, a shared stylesheet, typed properties, and a custom click event. That component runs anywhere custom elements are supported. No React required.
+      The <a href="web-components.html">companion article</a> builds <code>BaseButton</code> as a custom element with shadow DOM, reflected properties, and a custom event. Its public contract is the DOM, so React can render it without a framework-specific implementation.
     </p>
     <p>
-      Dropping it into a React codebase as-is already works, but a thin wrapper is still worth writing for a design system: typed props, a forwarded ref, and a callback mapped to the right event detail type. The gap being bridged is the one <a href="web-components.html#vs-react">covered previously</a>: React manages a virtual DOM, while a custom element is real DOM that the browser manages directly, so React only ever sees it as an opaque node.
+      React 19 handles custom-element properties and events directly. A wrapper is therefore an API choice rather than a runtime requirement. It can present familiar React prop names, translate a custom event into a typed callback, and expose the element instance through <code>ref</code>.
     </p>
     <p>
-      This article writes that wrapper: three small generic hooks and one thin component, with full TypeScript safety.
+      The example keeps the wrapper narrow. TypeScript describes the intrinsic element, one hook bridges the namespaced custom event, and the component passes ordinary properties straight through.
     </p>
   </section>
 
@@ -142,26 +131,26 @@
   <h2 id="react-wrapper">React 19 and custom elements</h2>
 
   <p>
-    React 19 (released December 2024) brought long-overdue improvements to custom element support. On the client, React now checks whether a prop name matches a property on the custom element instance, and if so, sets it as a JavaScript property rather than an HTML attribute. It also added declarative event listener support: passing <code>on</code> + the event name as a JSX prop makes React call <code>addEventListener</code> automatically. These two changes mean that for simple use cases, dropping a custom element into a React tree <em>just works</em>.
+    React 19 added full custom-element support. During client rendering, a prop is assigned as a property when that name exists on the element instance; otherwise React writes an attribute. Custom events can be subscribed to with an <code>on</code>-prefixed JSX prop, preserving the event's case and dashes.
   </p>
 
   <div class="callout info">
     <div class="callout-title">React 19 property/attribute strategy</div>
-    <p>On the client, props matching a property on the custom element instance are set as JS properties. The rest become attributes. On the server (SSR), primitive props (<code>string</code>, <code>number</code>, <code>true</code>) render as attributes, but non-primitive props are omitted to avoid hydration mismatches. This means complex props like objects still require the imperative ref approach when SSR is involved.</p>
+    <p>During SSR, strings, numbers, and <code>true</code> render as attributes. React omits non-primitive values and <code>false</code> from the HTML. On the client, complex values work when the custom element exposes a matching property during construction. The element should also define sensible attribute behaviour for primitive values emitted by SSR.</p>
   </div>
 
   <p>
-    Despite these improvements, a typed wrapper component is still the right call for a design system. Using <code>&lt;base-button&gt;</code> bare in JSX provides no TypeScript safety on props, no <code>onButtonClick</code> callback mapped to the right detail type, and no forwarded ref for the consumer to rely on. The wrapper layer is thin, but it converts a loosely-typed DOM element into a properly-typed React component.
+    TypeScript does not infer a project's custom tags from the browser registry. A declaration is needed before <code>&lt;base-button&gt;</code> receives project-specific prop types in JSX. A wrapper can then add a conventional <code>onButtonClick</code> callback and centralise any compatibility policy.
   </p>
   <p>
-    In React 19, <code>forwardRef</code> is deprecated. <code>ref</code> is now a plain prop on function components, so the wrapper is written accordingly.
+    React 19 lets function components receive <code>ref</code> as a prop, so new wrappers no longer need <code>forwardRef</code>. The API remains available and is scheduled for deprecation in a future React release.
   </p>
 
   <!-- TS TYPES -->
   <h3 id="ts-types">TypeScript global declarations</h3>
 
   <p>
-    Before writing the component, register the custom element with TypeScript so that <code>document.querySelector('base-button')</code> returns a typed <code>BaseButton</code> instance, and so JSX knows what props the bare tag accepts.
+    Register the tag in <code>HTMLElementTagNameMap</code> for typed DOM queries. Augment <code>React.JSX.IntrinsicElements</code> so TypeScript can validate the same tag in JSX.
   </p>
 
   <div class="code-block">
@@ -178,12 +167,14 @@
     <span class="s">'base-button'</span>: <span class="t">BaseButton</span>;
   }
 
-  <span class="c">// Allows JSX: &lt;base-button ...&gt;. Use React.HTMLAttributes as the base,</span>
-  <span class="c">// then add the element's own props. 'ref' is handled by React itself.</span>
+    <span class="c">// Adds standard HTML props and ref, then the element's own properties.</span>
   <span class="kw">namespace</span> <span class="t">React</span> {
     <span class="kw">namespace</span> <span class="t">JSX</span> {
       <span class="kw">interface</span> <span class="t">IntrinsicElements</span> {
-        <span class="s">'base-button'</span>: <span class="t">React</span>.<span class="t">HTMLAttributes</span>&lt;<span class="t">BaseButton</span>&gt; &amp; {
+        <span class="s">'base-button'</span>: <span class="t">React</span>.<span class="t">DetailedHTMLProps</span>&lt;
+          <span class="t">React</span>.<span class="t">HTMLAttributes</span>&lt;<span class="t">BaseButton</span>&gt;,
+          <span class="t">BaseButton</span>
+        &gt; &amp; {
           <span class="n">variant</span>?: <span class="t">BaseButton</span>[<span class="s">'variant'</span>];
           <span class="n">size</span>?: <span class="t">BaseButton</span>[<span class="s">'size'</span>];
           <span class="n">type</span>?: <span class="t">BaseButton</span>[<span class="s">'type'</span>];
@@ -196,43 +187,18 @@
   </div>
 
   <!-- HOOKS -->
-  <h3 id="hooks">Helper hooks</h3>
+  <h3 id="hooks">The custom-event bridge</h3>
 
   <p>
-    Three small hooks do the heavy lifting for the wrapper. They are generic enough to be reused across any custom element in the system.
+    React can subscribe to custom events declaratively, but a namespaced event such as <code>base-button:click</code> is awkward to expose as a conventional React prop. A small hook maps that DOM event to a typed callback.
   </p>
 
   <p>
-    <code>useCustomElementProperty</code> sets a DOM property imperatively whenever its value changes. This is useful for non-primitive props (objects, arrays, complex types) that React 19 would otherwise omit during SSR or fail to set correctly.
+    An imperative property hook is unnecessary for <code>BaseButton</code>. Its properties exist on the constructed instance, so React 19 detects and assigns them. They also reflect to attributes, which matches the primitive values produced during SSR.
   </p>
 
-  <div class="code-block">
-    <div class="code-header">
-      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-filename">useCustomElementProperty.ts</span>
-      <span class="code-lang">TypeScript</span>
-    </div>
-    <pre><code><span class="kw">import</span> { <span class="t">RefObject</span>, useEffect } <span class="kw">from</span> <span class="s">'react'</span>;
-
-<span class="kw">export function</span> <span class="fn">useCustomElementProperty</span>&lt;
-  <span class="t">El</span> <span class="kw">extends</span> <span class="t">HTMLElement</span>,
-  <span class="t">K</span> <span class="kw">extends</span> <span class="kw">keyof</span> <span class="t">El</span>
-&gt;(
-  <span class="n">ref</span>: <span class="t">RefObject</span>&lt;<span class="t">El</span> | <span class="k">null</span>&gt;,
-  <span class="n">property</span>: <span class="t">K</span>,
-  <span class="n">value</span>: <span class="t">El</span>[<span class="t">K</span>]
-): <span class="kw">void</span> {
-  <span class="fn">useEffect</span>(() => {
-    <span class="kw">const</span> <span class="n">el</span> = <span class="n">ref</span>.<span class="n">current</span>;
-    <span class="kw">if</span> (<span class="n">el</span> !== <span class="k">null</span>) {
-      <span class="n">el</span>[<span class="n">property</span>] = <span class="n">value</span>;
-    }
-  }, [<span class="n">ref</span>, <span class="n">property</span>, <span class="n">value</span>]);
-}</code></pre>
-  </div>
-
   <p>
-    <code>useCustomElementEvent</code> subscribes to a DOM custom event on the element and calls a React callback, cleaning up automatically on unmount or when the handler reference changes. Even though React 19 can wire up <code>on</code>-prefixed JSX props to <code>addEventListener</code>, doing so via a hook keeps the event strongly typed against <code>CustomEvent&lt;D&gt;</code> and keeps the wrapper's internal logic explicit.
+    <code>useCustomElementEvent</code> uses the DOM event name internally and gives the wrapper a <code>CustomEvent&lt;D&gt;</code>. It removes the listener whenever the element, event name, or callback changes.
   </p>
 
   <div class="code-block">
@@ -265,7 +231,7 @@
   </div>
 
   <p>
-    <code>useMergedRefs</code> combines multiple refs into a single callback ref. This lets the wrapper hold an internal <code>RefObject</code> for imperative DOM access, while simultaneously forwarding a ref to the consumer, all without either ref interfering with the other. The cast inside the loop targets <code>RefObject</code> rather than the older <code>MutableRefObject</code>: React 19's types deprecated <code>MutableRefObject</code> since <code>RefObject</code> is mutable by default now.
+    The event hook needs an internal ref, while callers may also request the element instance. <code>useMergedRefs</code> assigns the same node to both. React 19's <code>RefObject</code> type exposes a mutable <code>current</code> property, so the older <code>MutableRefObject</code> name is no longer needed here.
   </p>
 
   <div class="code-block">
@@ -297,14 +263,14 @@
 
   <div class="callout new">
     <div class="callout-title">Why useCallback here?</div>
-    <p>React calls a callback ref every render if its function identity changes, triggering unnecessary detach/re-attach cycles. <code>useCallback</code> memoises the merged ref so it only changes when the incoming refs themselves change. Note that the eslint exhaustive-deps rule would flag this. The disable comment is intentional since <code>refs</code> is a rest argument spread, not a stable array reference.</p>
+    <p>When a callback ref changes, React cleans up the previous ref and calls the new one with the node. Memoising the merged callback avoids that cycle while its input refs are unchanged. The dependency list uses the rest-array members directly; the lint suppression is limited to the case the rule cannot verify statically.</p>
   </div>
 
   <!-- WRAPPER COMPONENT -->
   <h3 id="wrapper-component">The wrapper component</h3>
 
   <p>
-    With the hooks in place, the wrapper itself is simple. Since <code>forwardRef</code> is deprecated in React 19, the wrapper accepts <code>ref</code> as a plain prop. The internal <code>useRef</code> is needed to drive the imperative hooks, and <code>useMergedRefs</code> unifies it with whatever the consumer passes.
+    The wrapper accepts <code>ref</code> as a normal React 19 prop. Its internal ref serves the event subscription, and the merged callback exposes the same <code>BaseButton</code> instance to the caller.
   </p>
 
   <div class="code-block">
@@ -315,20 +281,20 @@
     </div>
     <pre><code><span class="kw">export function</span> <span class="fn">Button</span>({
   variant = <span class="s">'primary'</span>,
+  size = <span class="s">'md'</span>,
+  type = <span class="s">'button'</span>,
+  disabled = <span class="kw">false</span>,
   onButtonClick,
   children,
   className,
   style,
   ref: <span class="n">externalRef</span>,
 }: <span class="t">ButtonProps</span>) {
-  <span class="c">// Internal ref for imperative hooks, merged with whatever the consumer passed in</span>
+  <span class="c">// The event hook and the caller both need the same element.</span>
   <span class="kw">const</span> <span class="n">innerRef</span> = <span class="fn">useRef</span>&lt;<span class="t">BaseButton</span> | <span class="k">null</span>&gt;(<span class="k">null</span>);
   <span class="kw">const</span> <span class="n">mergedRef</span> = <span class="fn">useMergedRefs</span>(<span class="n">innerRef</span>, <span class="n">externalRef</span>);
 
-  <span class="c">// Set the DOM property directly. size, type, and disabled work the same way</span>
-  <span class="fn">useCustomElementProperty</span>(<span class="n">innerRef</span>, <span class="s">'variant'</span>, <span class="n">variant</span>);
-
-  <span class="c">// Subscribe to the custom event, strongly typed against its detail payload</span>
+  <span class="c">// Translate the DOM event into the wrapper's callback prop.</span>
   <span class="fn">useCustomElementEvent</span>&lt;<span class="t">BaseButton</span>, <span class="t">BaseButtonClickDetail</span>&gt;(
     <span class="n">innerRef</span>,
     <span class="s">'base-button:click'</span>,
@@ -336,7 +302,15 @@
   );
 
   <span class="kw">return</span> (
-    &lt;<span class="t">base-button</span> <span class="n">ref</span>={<span class="n">mergedRef</span>} <span class="n">class</span>={<span class="n">className</span>} <span class="n">style</span>={<span class="n">style</span>}&gt;
+    &lt;<span class="t">base-button</span>
+      <span class="n">ref</span>={<span class="n">mergedRef</span>}
+      <span class="n">variant</span>={<span class="n">variant</span>}
+      <span class="n">size</span>={<span class="n">size</span>}
+      <span class="n">type</span>={<span class="n">type</span>}
+      <span class="n">disabled</span>={<span class="n">disabled</span>}
+      <span class="n">className</span>={<span class="n">className</span>}
+      <span class="n">style</span>={<span class="n">style</span>}
+    &gt;
       {<span class="n">children</span>}
     &lt;/<span class="t">base-button</span>&gt;
   );
@@ -344,13 +318,13 @@
   </div>
 
   <p>
-    A few things stand out here. The JSX element uses <code>class</code> not <code>className</code>. It is a native element, not a React component, so React's aliasing does not apply. The wrapper still accepts <code>className</code> as a prop and passes it through as <code>class</code> to give consumers the familiar React API.
+    The JSX uses <code>className</code>. Custom elements inherit the <code>className</code> DOM property from <code>HTMLElement</code>, so React 19 can assign it in the same form used for built-in elements.
   </p>
   <p>
-    None of <code>variant</code>, <code>size</code>, <code>type</code>, or <code>disabled</code> appear as props on the JSX element itself. Each one goes through <code>useCustomElementProperty</code> via the ref instead, which sets the DOM property directly and triggers the element's own setters. This sidesteps React 19's SSR/attribute ambiguity entirely and makes the prop-to-DOM mapping explicit and testable. The full <code>ButtonProps</code> interface and all four property calls are in the <a href="#full-source">full source</a> at the end.
+    <code>variant</code>, <code>size</code>, <code>type</code>, and <code>disabled</code> are passed directly to the custom element. The declaration file gives those props their precise types, while the element's reflected properties keep client assignments and server-rendered attributes aligned.
   </p>
   <p>
-    Using the wrapper looks exactly like any other React component:
+    Callers now use the wrapper like any other typed React component.
   </p>
 
   <div class="code-block">
@@ -384,16 +358,16 @@
   </div>
 
   <p>
-    The <code>BaseButton</code> custom element owns rendering and its own lifecycle. The <code>Button</code> React wrapper owns the React integration surface. Neither knows too much about the other: the component's internals (new slots, tweaked styles, additional properties) can evolve without touching the wrapper, and the wrapper's React patterns can be refined without touching the element class.
+    <code>BaseButton</code> owns rendering and DOM behaviour. The wrapper owns React naming, typing, and event translation. Changes to the custom element's public properties or events still require a wrapper update; internal shadow DOM and styling changes do not.
   </p>
 
   <div class="divider"></div>
 
   <p>
-    Web Components are not trying to compete with React. They live at a lower layer, the browser platform, and that is exactly what makes them useful as a foundation for design systems that need to outlast any particular framework. The wrapping pattern built here applies to any custom element: three small generic hooks, one thin wrapper component, and the result is a first-class React citizen with full TypeScript safety.
+    A wrapper earns its place when it improves the consuming API. If the bare tag already has good JSX types and its event names fit the codebase, use it directly. Add a wrapper when the design system needs consistent prop names, defaults, logging, or event translation.
   </p>
   <p>
-    The APIs are stable, the browser support is universal, and the tooling (<a href="https://lit.dev">Lit</a>, FAST, <a href="https://stenciljs.com">Stencil</a>, or the vanilla approach used in the <a href="web-components.html">companion article</a>) is mature. It is a good time to know how they work.
+    Custom elements are widely available across modern browsers, but specific features around them can have different support. Check the requirements of the element and its chosen authoring library. The <a href="web-components.html">companion article</a> covers the platform contract that this wrapper depends on.
   </p>
 
   <div class="divider"></div>
@@ -404,7 +378,7 @@
   <h2 id="full-source">Full source</h2>
 
   <p>
-    Every file referenced above, complete and in one place. Collapsed by default: expand the group and switch between its files with the tabs. The companion article has the matching <code>base-button.ts</code> files.
+    The complete wrapper, event hook, ref helper, and usage example appear below. The companion article contains the matching <code>base-button.ts</code> implementation.
   </p>
 
   <div class="file-appendix">
@@ -412,7 +386,7 @@
       <summary>React wrapper files</summary>
       <div class="file-tab-nav">
         <button class="file-tab-btn active" data-target="rw-button-tsx">Button.tsx</button>
-        <button class="file-tab-btn" data-target="rw-usecep">useCustomElementProperty.ts</button>
+        <button class="file-tab-btn" data-target="rw-types">base-button.d.ts</button>
         <button class="file-tab-btn" data-target="rw-usece">useCustomElementEvent.ts</button>
         <button class="file-tab-btn" data-target="rw-usemerged">useMergedRefs.ts</button>
         <button class="file-tab-btn" data-target="rw-app">App.tsx</button>
@@ -428,7 +402,6 @@
           <pre><code><span class="kw">import</span> { useRef, <span class="t">Ref</span> } <span class="kw">from</span> <span class="s">'react'</span>;
 <span class="kw">import</span> { <span class="t">BaseButton</span>, <span class="t">BaseButtonClickDetail</span> } <span class="kw">from</span> <span class="s">'./base-button'</span>;
 <span class="kw">import</span> { <span class="fn">useCustomElementEvent</span> } <span class="kw">from</span> <span class="s">'./useCustomElementEvent'</span>;
-<span class="kw">import</span> { <span class="fn">useCustomElementProperty</span> } <span class="kw">from</span> <span class="s">'./useCustomElementProperty'</span>;
 <span class="kw">import</span> { <span class="fn">useMergedRefs</span> } <span class="kw">from</span> <span class="s">'./useMergedRefs'</span>;
 
 <span class="kw">export interface</span> <span class="t">ButtonProps</span> {
@@ -440,7 +413,7 @@
   <span class="n">children</span>?: <span class="t">React</span>.<span class="t">ReactNode</span>;
   <span class="n">className</span>?: <span class="t">string</span>;
   <span class="n">style</span>?: <span class="t">React</span>.<span class="t">CSSProperties</span>;
-  <span class="c">// React 19: ref is a plain prop, no forwardRef needed</span>
+  <span class="c">// React 19 accepts ref as a plain function-component prop.</span>
   <span class="n">ref</span>?: <span class="t">Ref</span>&lt;<span class="t">BaseButton</span>&gt;;
 }
 
@@ -455,21 +428,12 @@
   style,
   ref: <span class="n">externalRef</span>,
 }: <span class="t">ButtonProps</span>) {
-  <span class="c">// Internal ref for imperative hooks</span>
+  <span class="c">// The event hook and the caller both need the same element.</span>
   <span class="kw">const</span> <span class="n">innerRef</span> = <span class="fn">useRef</span>&lt;<span class="t">BaseButton</span> | <span class="k">null</span>&gt;(<span class="k">null</span>);
 
-  <span class="c">// Merge the internal ref with any ref the consumer passed in</span>
   <span class="kw">const</span> <span class="n">mergedRef</span> = <span class="fn">useMergedRefs</span>(<span class="n">innerRef</span>, <span class="n">externalRef</span>);
 
-  <span class="c">// Set properties directly on the DOM element.</span>
-  <span class="c">// For primitives React 19 handles this via JSX, but doing it here</span>
-  <span class="c">// is explicit, SSR-safe, and works regardless of React version.</span>
-  <span class="fn">useCustomElementProperty</span>(<span class="n">innerRef</span>, <span class="s">'variant'</span>, <span class="n">variant</span>);
-  <span class="fn">useCustomElementProperty</span>(<span class="n">innerRef</span>, <span class="s">'size'</span>, <span class="n">size</span>);
-  <span class="fn">useCustomElementProperty</span>(<span class="n">innerRef</span>, <span class="s">'type'</span>, <span class="n">type</span>);
-  <span class="fn">useCustomElementProperty</span>(<span class="n">innerRef</span>, <span class="s">'disabled'</span>, <span class="n">disabled</span>);
-
-  <span class="c">// Subscribe to the custom event via the DOM, strongly typed</span>
+  <span class="c">// Translate the namespaced DOM event into a typed callback prop.</span>
   <span class="fn">useCustomElementEvent</span>&lt;<span class="t">BaseButton</span>, <span class="t">BaseButtonClickDetail</span>&gt;(
     <span class="n">innerRef</span>,
     <span class="s">'base-button:click'</span>,
@@ -479,7 +443,11 @@
   <span class="kw">return</span> (
     &lt;<span class="t">base-button</span>
       <span class="n">ref</span>={<span class="n">mergedRef</span>}
-      <span class="n">class</span>={<span class="n">className</span>}
+      <span class="n">variant</span>={<span class="n">variant</span>}
+      <span class="n">size</span>={<span class="n">size</span>}
+      <span class="n">type</span>={<span class="n">type</span>}
+      <span class="n">disabled</span>={<span class="n">disabled</span>}
+      <span class="n">className</span>={<span class="n">className</span>}
       <span class="n">style</span>={<span class="n">style</span>}
     &gt;
       {<span class="n">children</span>}
@@ -489,29 +457,35 @@
         </div>
       </div>
 
-      <div class="file-tab-panel" id="rw-usecep">
+      <div class="file-tab-panel" id="rw-types">
         <div class="code-block">
           <div class="code-header">
             <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-            <span class="code-filename">useCustomElementProperty.ts</span>
+            <span class="code-filename">base-button.d.ts</span>
             <span class="code-lang">TypeScript</span>
           </div>
-          <pre><code><span class="kw">import</span> { <span class="t">RefObject</span>, useEffect } <span class="kw">from</span> <span class="s">'react'</span>;
+          <pre><code><span class="kw">import</span> { <span class="t">BaseButton</span> } <span class="kw">from</span> <span class="s">'./base-button'</span>;
 
-<span class="kw">export function</span> <span class="fn">useCustomElementProperty</span>&lt;
-  <span class="t">El</span> <span class="kw">extends</span> <span class="t">HTMLElement</span>,
-  <span class="t">K</span> <span class="kw">extends</span> <span class="kw">keyof</span> <span class="t">El</span>
-&gt;(
-  <span class="n">ref</span>: <span class="t">RefObject</span>&lt;<span class="t">El</span> | <span class="k">null</span>&gt;,
-  <span class="n">property</span>: <span class="t">K</span>,
-  <span class="n">value</span>: <span class="t">El</span>[<span class="t">K</span>]
-): <span class="kw">void</span> {
-  <span class="fn">useEffect</span>(() => {
-    <span class="kw">const</span> <span class="n">el</span> = <span class="n">ref</span>.<span class="n">current</span>;
-    <span class="kw">if</span> (<span class="n">el</span> !== <span class="k">null</span>) {
-      <span class="n">el</span>[<span class="n">property</span>] = <span class="n">value</span>;
+<span class="kw">declare</span> <span class="k">global</span> {
+  <span class="kw">interface</span> <span class="t">HTMLElementTagNameMap</span> {
+    <span class="s">'base-button'</span>: <span class="t">BaseButton</span>;
+  }
+
+  <span class="kw">namespace</span> <span class="t">React</span> {
+    <span class="kw">namespace</span> <span class="t">JSX</span> {
+      <span class="kw">interface</span> <span class="t">IntrinsicElements</span> {
+        <span class="s">'base-button'</span>: <span class="t">React</span>.<span class="t">DetailedHTMLProps</span>&lt;
+          <span class="t">React</span>.<span class="t">HTMLAttributes</span>&lt;<span class="t">BaseButton</span>&gt;,
+          <span class="t">BaseButton</span>
+        &gt; &amp; {
+          <span class="n">variant</span>?: <span class="t">BaseButton</span>[<span class="s">'variant'</span>];
+          <span class="n">size</span>?: <span class="t">BaseButton</span>[<span class="s">'size'</span>];
+          <span class="n">type</span>?: <span class="t">BaseButton</span>[<span class="s">'type'</span>];
+          <span class="n">disabled</span>?: <span class="t">boolean</span>;
+        };
+      }
     }
-  }, [<span class="n">ref</span>, <span class="n">property</span>, <span class="n">value</span>]);
+  }
 }</code></pre>
         </div>
       </div>

@@ -46,7 +46,7 @@
   <a href="#effects-as-handlers">Effects as event handlers</a>
 
   <div class="sidebar-section">Data fetching</div>
-  <a href="#fetch-in-effect">Fetching inside component effects</a>
+  <a href="#fetch-in-effect">Hand-written effect fetching</a>
   <a href="#waterfalls">Request waterfalls</a>
 
   <div class="sidebar-section">Structure &amp; performance</div>
@@ -61,10 +61,10 @@
 
   <div class="eyebrow">React · Antipatterns</div>
   <h1>React Antipatterns</h1>
-  <p class="subtitle">A field guide to the state, rendering, and data-fetching habits that look fine in one component and turn into architectural debt across a whole app.</p>
+  <p class="subtitle">Eight habits that obscure state ownership, repeat work, or turn a component tree into a request chain.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~17 min read</span>
+    <div class="dot"></div><span>~9 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
@@ -73,10 +73,10 @@
   ════════════════════════════════════════════════════ -->
   <section id="intro">
     <p>
-      How not to structure React components. Antipatterns are built from choices that compile without complaint, look correct inside the one file they're written in, and still turn into real cost once the app is bigger than a page or two. Every example below runs. The problem shows up one level up, in how many components re-render on a single state change, how many network requests fire before anything paints, and how much of the codebase has to understand one component's internal state to stay correct.
+      React antipatterns rarely look broken in isolation. The code renders the right interface and may pass its tests. The cost appears as the component tree grows: unrelated components update together, requests wait on rendering order, and state gains more than one source of truth.
     </p>
     <p>
-      A prop-drilling shortcut or a fetch dropped into <code>useEffect</code> rarely fails code review, because reviewing one component at a time is exactly the vantage point that hides the cost. The cost only becomes visible at the level of the whole tree. A re-render that should have touched one badge touches the entire page. A detail view that should load in one round trip loads in four, one after another. Eight habits follow, grouped by what they actually break: who owns a piece of state, what effects are for, how data gets fetched, and how a component's size compounds over time.
+      Each section asks what larger relationship a local choice creates. Some entries are firm mistakes, such as storing a value that can be calculated during render. Others are warnings whose severity depends on update frequency, framework support, and the size of the tree.
     </p>
   </section>
 
@@ -84,10 +84,13 @@
        CONTEXT AS A GLOBAL STORE
   ════════════════════════════════════════════════════ -->
   <h2 id="context-as-store">Context as a global store</h2>
-  <p class="lede">One provider holding everything isn't a shortcut around prop drilling. It's a subscription list every consumer joins whether it wants the next update or not.</p>
+  <p class="lede">One provider for unrelated, frequently changing values gives every consumer the same subscription boundary.</p>
 
   <p>
-    Prop drilling gets tedious fast, and a single context that holds the current user, the theme, the shopping cart, and a notifications list looks like it solves that in one move. Every component below the provider can reach in and grab whatever it needs. No intermediate component has to forward a prop it doesn't use. It's the same shortcut <a href="design-principles.html#dry">Software Design Principles</a> warns about from the code side, a shared abstraction pulled together because the pieces sat near each other, not because they were ever the same piece of knowledge. The problem is what a context actually is under the hood. It's one value, plus a list of every component that called <code>useContext</code> on it. React doesn't know which field inside that value a given consumer cares about. It only knows the value changed, so every subscriber re-renders, including the one that reads <code>theme</code> when what actually changed was <code>cart</code>.
+    Context removes the need to forward a prop through intermediate components. That convenience can encourage one application-wide value containing the account, theme, cart, and notifications. Those values happen to be available in the same part of the tree, but they do not share a reason to change.
+  </p>
+  <p>
+    A component that reads context subscribes to the complete value. When the provider receives a different value, React updates every consumer of that context. It does not observe that one consumer read <code>theme</code> while another read <code>cart</code>.
   </p>
 
   <div class="code-block">
@@ -121,7 +124,7 @@
   </div>
 
   <p>
-    <code>ThemeToggle</code> only ever reads <code>theme</code>. <code>Avatar</code> only ever reads <code>user</code>. Neither cares about <code>cart</code>, but both are subscribed to the same context object as <code>CartBadge</code>, so adding an item to the cart re-renders all three. On a small page that's invisible. On a real layout with a header, a sidebar, and a dozen widgets all reading from the same provider, one cart update walks the entire subscriber list every time. None of that work shows up as a bug. It shows up as the app feeling slower than its actual amount of changed state should explain.
+    <code>ThemeToggle</code>, <code>Avatar</code>, and <code>CartBadge</code> all subscribe to <code>AppContext</code>. Replacing its value after a cart update therefore schedules all three consumers. The extra work may be irrelevant in a small tree, but it becomes easier to notice when the provider contains fast-changing state and many consumers.
   </p>
 
   <svg viewBox="0 0 700 260" role="img" aria-label="A cart update inside a single shared AppContext re-renders ThemeToggle and Avatar even though neither reads the cart field, because all three are subscribed to the same context value." xmlns="http://www.w3.org/2000/svg">
@@ -153,17 +156,20 @@
 
   <div class="callout danger">
     <div class="callout-title">What this costs</div>
-    <p>The re-render blast radius grows with how many things the context holds, not with how much actually changed. The fix that costs almost nothing is splitting state from the functions that change it, and splitting unrelated concerns into separate contexts entirely, covered in <a href="react-patterns-component-design.html#context-selectors">the context selectors section</a> of the patterns article. Past a certain size, a store library with slice-level subscriptions, covered in <a href="client-state.html">the client state article</a>, replaces context for shared state entirely rather than patching around its all-or-nothing re-render model.</p>
+    <p>Group a context by responsibility and update pattern, not by convenience. The patterns article shows how to <a href="react-patterns-component-design.html#context-selectors">separate state from stable commands</a>. When consumers need slice-level subscriptions across a large shared model, <a href="client-state.html">Client State</a> explains when an external store is the clearer boundary.</p>
   </div>
 
   <!-- ═══════════════════════════════════════════════════
        PREMATURE LIFTING
   ════════════════════════════════════════════════════ -->
   <h2 id="premature-lifting">Lifting state too early</h2>
-  <p class="lede">Moving state up "in case a sibling needs it later" turns a local decision into an architectural one that every future contributor has to route around.</p>
+  <p class="lede">State placed above all of its consumers makes a wider part of the tree depend on each update.</p>
 
   <p>
-    Lifting state to a shared ancestor is the correct move once two siblings genuinely need to read or change the same value. The mistake is doing it by default, keeping a piece of state at the top of whatever component contains the feature, even when nothing outside that feature ever reads it. This is the placement question the <a href="client-state.html#ownership">client state article</a> frames as ownership rather than location: who is allowed to change a value, not which component happens to hold it. A boolean for whether a confirmation modal is open doesn't need to live in the page component that also renders a product gallery and a details panel. It only needs to live next to the button that opens the modal and the modal itself, the two things that actually use it. Placed at the page level anyway, every open and close re-renders the page and everything else the page renders alongside the button. That's not because the architecture required it, but because the state was declared one level higher than the components that use it.
+    Lifting state to the closest shared parent is correct when separate branches need the same value. The antipattern is lifting it before that relationship exists. A confirmation dialog's open state can live beside its trigger if no other branch reads or changes it.
+  </p>
+  <p>
+    Ownership is the useful question, as explained in <a href="client-state.html#ownership">Client State</a>. A page component that owns unrelated modal state renders again whenever the dialog opens. Its child components may render again as a consequence, even though the value is absent from their props.
   </p>
 
   <div class="code-block">
@@ -187,7 +193,7 @@
   </div>
 
   <p>
-    <code>ProductGallery</code> and <code>ProductDetails</code> read nothing from <code>isModalOpen</code>, but both sit under <code>ProductPage</code>, so both re-render every time the modal opens or closes, an image carousel repainting for a state change that has nothing to do with it. Moving the state down into a component that owns just the button and the modal keeps that re-render contained to the one place it actually happens.
+    <code>ProductGallery</code> and <code>ProductDetails</code> do not use <code>isModalOpen</code>, yet the parent calls them again when that state changes. Moving the state into <code>AddToCartButton</code> keeps the update inside the feature that owns it.
   </p>
 
   <div class="code-block">
@@ -219,22 +225,22 @@
   </div>
 
   <p>
-    Neither <code>ProductGallery</code> nor <code>ProductDetails</code> re-renders when the modal opens now, because <code>ProductPage</code> itself never re-renders for that state change. Only <code>AddToCartButton</code> does. The general rule holds up well in practice. State starts as low in the tree as it can, in the smallest component that owns both the state and the thing reading it. It moves up only when a second, currently existing consumer needs it, never in anticipation of one.
+    Opening the dialog now updates <code>AddToCartButton</code> without updating <code>ProductPage</code>. Start state with the smallest owner that can serve its real consumers. Move it when sharing, persistence, or coordination creates a concrete reason.
   </p>
 
-  <div class="callout warn aside">
+  <div class="callout warn">
     <div class="callout-title">The same mistake, one level up</div>
-    <p>The identical trade-off shows up with global stores. Reaching for a shared store the moment two components need to agree on something is the store equivalent of lifting state to the nearest common ancestor. Reaching for it before that need exists, "so it's there when we need it," produces the same speculative coupling, just with a bigger blast radius once it happens.</p>
+    <p>A global store can create the same speculative coupling at a larger scale. Shared state is justified by shared ownership or synchronization requirements, not by the possibility that another component may need the value later.</p>
   </div>
 
   <!-- ═══════════════════════════════════════════════════
        DERIVED STATE
   ════════════════════════════════════════════════════ -->
   <h2 id="derived-state">Derived state stored as state</h2>
-  <p class="lede">If a value's answer is always a formula of state you already have, storing it separately just gives the two copies room to drift.</p>
+  <p class="lede">A value that can be calculated from current props and state does not need a second source of truth.</p>
 
   <p>
-    A filtered list, a computed total, a boolean for whether a form is valid: none of these are facts about the world that need their own slot in state. Each is a pure function of state that already exists elsewhere in the component. Storing it separately, then using an effect to keep it in sync whenever the source state changes, is <strong>derived state</strong> treated as if it were independent state. It's one of the most common ways <code>useEffect</code> gets misused. The dependency array has to list every value the calculation touches, and forgetting one produces a component that renders a stale answer for exactly one render before the effect catches up.
+    Filtered items, totals, and validation results are often <strong>derived values</strong>. Their inputs already contain everything needed to calculate them. Storing the result separately creates another state slot that must be synchronized with those inputs.
   </p>
 
   <div class="code-block">
@@ -256,7 +262,7 @@
   </div>
 
   <p>
-    This renders <code>ProductList</code> twice for every change to <code>query</code>. It renders once with the stale <code>filtered</code> from before the effect ran, then again once <code>setFiltered</code> lands. The fix removes the second state slot entirely and computes the value in the render body, where it can never be out of sync with <code>products</code> and <code>query</code> because it's calculated from them directly, every time.
+    After <code>query</code> changes, the first render still sees the previous <code>filtered</code> value. The effect then updates state and causes another render. Computing the list during render keeps it aligned with <code>products</code> and <code>query</code> in the same pass.
   </p>
 
   <div class="code-block">
@@ -272,17 +278,17 @@
   </div>
 
   <p>
-    No effect, no second render pass, and no dependency array to keep correct by hand. A filter over a short array is cheap enough that wrapping it in <code>useMemo</code> would cost more in dependency-comparison overhead than it saves. The React Compiler now handles memoization automatically for components it can statically analyze, so adding it by hand has become the exception rather than the default. Reaching for <code>useMemo</code> still earns its keep in a few cases. For example, a genuinely expensive computation, a value handed to a third-party library that compares by reference, or a value used as another effect's dependency are still valid cases.
+    The simpler version needs no effect or duplicate state. If the calculation is measurably expensive, <code>useMemo</code> can cache it between renders. Projects using React Compiler can usually rely on its automatic memoization for compiled components and hooks, while retaining manual memoization where identity is part of an external contract.
   </p>
 
   <!-- ═══════════════════════════════════════════════════
        EFFECTS AS EVENT HANDLERS
   ════════════════════════════════════════════════════ -->
   <h2 id="effects-as-handlers">Effects as event handlers</h2>
-  <p class="lede">An effect that only ever fires in response to a click is a click handler wearing a disguise, and it inherits none of the click handler's guarantees about when it runs.</p>
+  <p class="lede">Logic caused by one user action belongs with that action, not in a later synchronization pass.</p>
 
   <p>
-    <code>useEffect</code> exists to synchronize a component with something outside React. For example, a subscription, a DOM measurement, or a connection that needs to open and close as the component mounts and unmounts. It isn't meant to react to a specific user action. In practice, that shows up as a boolean flag set inside an <code>onClick</code> handler, watched by an effect that performs the actual work once the flag flips.
+    Effects synchronize rendered state with an external system. Event handlers perform work caused by a particular interaction. A boolean set in a click handler and observed by an effect separates the cause from the work for no benefit.
   </p>
 
   <div class="code-block">
@@ -307,7 +313,7 @@
   </div>
 
   <p>
-    This adds a full render-and-effect round trip between the click and the tracking call. It also makes <code>submitted</code> a piece of state that exists purely to be reset a moment after it's set. Worse, it quietly re-fires if <code>cart</code> changes for any other reason while <code>submitted</code> happens to still be true. None of that machinery is needed. The click is already an event. Calling <code>trackEvent</code> directly inside the handler runs it exactly once, exactly when the user clicked, with no extra state and no dependency array to get wrong.
+    The flag adds a render before the tracking call and must be reset afterward. Changes to another dependency can also run the effect again while the flag remains true. Calling <code>trackEvent</code> in the click handler keeps the work tied to the interaction that caused it.
   </p>
 
   <div class="code-block">
@@ -325,19 +331,19 @@
 }</code></pre>
   </div>
 
-  <div class="callout ok aside">
+  <div class="callout ok">
     <div class="callout-title">A quick test for any effect</div>
-    <p>Ask what would happen if the effect's dependency array were deleted and it ran on every render instead. If the answer is "it would do the same user-triggered thing over and over for no reason," the logic belongs in a handler, not an effect. If the answer is "it would keep some external system correctly in sync," it's a legitimate effect.</p>
+    <p>Ask why the code runs. If a particular click or submission caused it, keep it in that event path. If the component must stay synchronized while it is displayed, an effect may be appropriate. Data fetching for the current route or query can fit the second case, although a framework or query library often provides a better implementation.</p>
   </div>
 
   <!-- ═══════════════════════════════════════════════════
        FETCH IN EFFECT
   ════════════════════════════════════════════════════ -->
-  <h2 id="fetch-in-effect">Fetching inside component effects</h2>
-  <p class="lede">A fetch dropped into <code>useEffect</code> looks like data loading. Structurally, it's a hidden dependency the component now owns end to end, race conditions, caching, and all.</p>
+  <h2 id="fetch-in-effect">Hand-written fetching in effects</h2>
+  <p class="lede">A request effect is valid, but it also makes the component responsible for races, caching, and server rendering.</p>
 
   <p>
-    Fetching a resource on mount is one of the oldest <code>useEffect</code> habits in React, and it's also the one with the most invisible failure modes. Done properly it needs an ignore flag or an abort controller to stop a slow, stale response from overwriting a newer one if the component's props change and re-trigger the effect before the first request finishes. Done without that guard, a component whose <code>id</code> prop changes quickly, a user clicking through a list of records, for instance, can render the response to an old request after a new one has already started.
+    Fetching in an effect is appropriate when the rendered component must stay synchronized with a remote resource. The small example is incomplete, however. If <code>userId</code> changes before the first request finishes, an older response can arrive last and overwrite the newer result.
   </p>
 
   <div class="code-block">
@@ -361,7 +367,7 @@
   </div>
 
   <p>
-    Even fixed for that race, this version still fetches on every mount with no cache. Navigating away and back re-requests data the component already had, and two sibling components that both need the same user re-request it independently rather than sharing one in-flight request. None of that is specific to this component. It's exactly the job of a query layer, and most apps no longer hand-roll one. A hook from TanStack Query or SWR covers it. Where the framework supports it, fetching in a Server Component or a route loader that runs before the component tree renders works just as well, a pattern covered in <a href="react-server-components.html">the Server Components article</a>.
+    Cleanup can ignore the stale result or abort the obsolete request, but the component still has no shared cache. Remounting requests the same resource again, and separate consumers cannot reuse an in-flight request. A query library can own those concerns. A framework route loader or <a href="react-server-components.html#server-data">Server Component</a> can also fetch before the client component renders.
   </p>
 
   <div class="code-block">
@@ -381,20 +387,20 @@
   </div>
 
   <p>
-    The race condition, the cache, and the request deduplication between two components asking for the same <code>userId</code> all come from the library rather than from hand-written effect code. None of it has to be re-verified per component. <code>useEffect</code> is still the right tool for the cases a query layer doesn't cover, such as subscribing to a WebSocket or a browser API. It's just not the right tool for the specific case of "load this data when the component appears."
+    The query hook centralizes race handling, caching, and deduplication. An effect remains useful when no data layer owns the synchronization, including subscriptions to browser APIs or a WebSocket. The antipattern is rebuilding a partial query system in every component, not the presence of <code>fetch</code> inside an effect by itself.
   </p>
 
   <!-- ═══════════════════════════════════════════════════
        WATERFALLS
   ════════════════════════════════════════════════════ -->
   <h2 id="waterfalls">Request waterfalls</h2>
-  <p class="lede">A tree where every level fetches only after it mounts turns one page load into a relay race, each leg waiting on the one before it.</p>
+  <p class="lede">Requests coupled to nested mounts run in sequence even when their data dependencies do not.</p>
 
   <p>
-    Fetching in effects has a second cost beyond the one above, and it shows up even after caching and race conditions are handled correctly. Picture a parent that fetches a user, waits for it to resolve, and only then renders a child that fetches the user's orders. That child in turn renders a grandchild that fetches order details. The three requests run one after another, even though only the second and third actually depend on data from the one before. This is a <strong>request waterfall</strong>, and it's a structural property of where the fetches sit in the tree, not something a faster network connection fixes.
+    A <strong>request waterfall</strong> appears when a parent waits for data before mounting a child that starts the next request. The child may then gate a grandchild in the same way. Rendering order has become network order, whether or not the requests truly depend on one another.
   </p>
 
-  <svg viewBox="0 0 700 300" role="img" aria-label="Comparison of a sequential request waterfall, where a parent, child, and grandchild each fetch only after the previous one resolves, taking about 900 milliseconds total, against the same three requests issued together, finishing in about 300 milliseconds." xmlns="http://www.w3.org/2000/svg">
+  <svg viewBox="0 0 700 300" role="img" aria-label="Comparison of a sequential request waterfall, where a parent, child, and grandchild fetch one after another, against independent requests that start together." xmlns="http://www.w3.org/2000/svg">
     <text x="20" y="24" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text-dim)">Sequential (each level fetches after it mounts)</text>
     <rect x="40" y="40" width="160" height="26" rx="4" fill="color-mix(in srgb, var(--red) 22%, transparent)" stroke="color-mix(in srgb, var(--red) 50%, transparent)"/>
     <text x="120" y="58" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text)">Parent: user</text>
@@ -402,8 +408,8 @@
     <text x="280" y="94" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text)">Child: orders</text>
     <rect x="360" y="112" width="160" height="26" rx="4" fill="color-mix(in srgb, var(--red) 22%, transparent)" stroke="color-mix(in srgb, var(--red) 50%, transparent)"/>
     <text x="440" y="130" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text)">Grandchild: detail</text>
-    <line x1="520" y1="40" x2="520" y2="140" stroke="var(--red)" stroke-width="1.5" stroke-dasharray="3,3"/>
-    <text x="530" y="94" font-family="'Inter',system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--red)">~900ms total</text>
+    <line x1="550" y1="40" x2="550" y2="140" stroke="var(--red)" stroke-width="1.5" stroke-dasharray="3,3"/>
+    <text x="560" y="94" font-family="'Inter',system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--red)">three waits</text>
 
     <text x="20" y="184" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text-dim)">Requested together (hoisted or fetched in parallel)</text>
     <rect x="40" y="200" width="160" height="26" rx="4" fill="color-mix(in srgb, var(--green) 22%, transparent)" stroke="color-mix(in srgb, var(--green) 50%, transparent)"/>
@@ -413,21 +419,21 @@
     <rect x="40" y="260" width="160" height="26" rx="4" fill="color-mix(in srgb, var(--green) 22%, transparent)" stroke="color-mix(in srgb, var(--green) 50%, transparent)"/>
     <text x="120" y="278" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text)">detail</text>
     <line x1="220" y1="200" x2="220" y2="286" stroke="var(--green)" stroke-width="1.5" stroke-dasharray="3,3"/>
-    <text x="230" y="246" font-family="'Inter',system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--green)">~300ms total</text>
+    <text x="230" y="246" font-family="'Inter',system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--green)">one shared wait</text>
   </svg>
 
   <p>
-    The fix isn't a faster individual request. It's issuing the independent requests together instead of nesting them inside the components that need their results. When <code>orders</code> only needs a <code>userId</code> that's already known before the user record resolves, it can be requested in parallel with <code>Promise.all</code>. Or it can be hoisted to a route loader that starts every request the page needs before rendering any component that depends on the results. Only a request that genuinely can't start without a value from an earlier one, order detail needing an order ID that only exists inside the orders response, has to wait. Everything else waiting is a tree shape problem, not a data dependency.
+    Start independent requests together. If the user and order requests both know their identifiers at route entry, a loader can begin both before rendering their consumers. A detail request that needs an identifier from the order response must remain sequential. The useful distinction is data dependency versus accidental nesting.
   </p>
 
   <!-- ═══════════════════════════════════════════════════
        GOD COMPONENTS
   ════════════════════════════════════════════════════ -->
   <h2 id="god-components">God components</h2>
-  <p class="lede">A component that grew a prop, a hook, and a conditional branch for every case it's ever had to handle is easier to spot from its import list than from its size.</p>
+  <p class="lede">A component becomes difficult to change when unrelated features share one render function and dependency set.</p>
 
   <p>
-    A <strong>god component</strong> is one that has quietly absorbed data fetching, permission checks, layout, and several unrelated feature branches into a single file, usually a few additions at a time, none of which looked wrong in isolation. Nobody sets out to write one. It's what a <code>Dashboard</code> component becomes after eighteen months of "just add one more <code>if</code>" for a new plan tier, a new role, a new widget. The result is a file every reviewer is nervous to touch, because a change meant for one feature can silently affect three others sharing the same render function. It's also a file that's effectively impossible to unit test in isolation, because testing any one branch means standing up everything the whole component depends on.
+    A <strong>god component</strong> accumulates concerns that change for different reasons. Data access, permissions, layout, and unrelated feature branches end up in one function. Its size is a symptom; the deeper problem is that every change shares the same imports, render path, and test setup.
   </p>
 
   <div class="symptom-grid">
@@ -444,26 +450,29 @@
   </div>
 
   <p>
-    The way out is the same set of moves covered in the composition half of this series. Pull data fetching and business logic into a custom hook so the component's job shrinks to rendering. Split visually or behaviorally distinct sub-parts into their own components using <a href="react-patterns-component-design.html#compound-components">the compound component pattern</a> instead of a growing prop list. And treat a new conditional branch as a signal to ask whether this is really the same component anymore, or two components that have been sharing a file.
+    Split by responsibility, not by line count. A feature component can own its data boundary and render states together when they change together. Reusable stateful behavior may belong in a <a href="react-patterns-component-design.html#custom-hooks">custom hook</a>, but moving code into a hook does not reduce coupling by itself. A new branch is a prompt to ask whether the variants still share one responsibility.
   </p>
 
   <!-- ═══════════════════════════════════════════════════
        CARGO-CULT MEMOIZATION
   ════════════════════════════════════════════════════ -->
   <h2 id="cargo-cult-memoization">Cargo-cult memoization</h2>
-  <p class="lede">Wrapping every value in <code>useMemo</code> and every function in <code>useCallback</code> used to be defensive. With the compiler doing that work now, it's mostly noise, and occasionally a bug.</p>
+  <p class="lede">Memoization without a measured goal adds dependencies and can preserve stale closures without improving useful work.</p>
 
   <p>
-    For years, the safe habit on any team worried about performance was to memoize liberally. That meant wrapping expensive-looking calculations in <code>useMemo</code>, wrapping every function passed as a prop in <code>useCallback</code>, and treating both as a kind of insurance. The <strong>React Compiler</strong>, a build-time tool that statically analyzes component code and inserts the equivalent memoization automatically, changes the trade-off. On components it can fully analyze, it already does this work. Doing it by hand on top adds a dependency array to keep correct for no benefit, plus the small but real cost of comparing that array on every render.
+    <code>useMemo</code> caches a calculated value, and <code>useCallback</code> caches a function definition. Neither hook makes its work free. React still evaluates dependencies, and the cached identity only helps when some consumer can use it to skip work or preserve a required reference.
+  </p>
+  <p>
+    <strong>React Compiler</strong> can apply memoization automatically to the components and hooks it compiles. That makes routine defensive memoization less useful in projects that have adopted it. The compiler is a build-time choice, though, rather than behavior every React application receives automatically.
   </p>
 
   <p>
-    Hand memoization can also actively mislead. A <code>useCallback</code> with a stale dependency array doesn't fail loudly. It just hands out an old closure that quietly reads outdated props or state, a bug that's harder to spot than the unnecessary re-render it was meant to prevent. In a codebase leaning on the compiler, treat both hooks as escape hatches, not defaults. Reach for them when integrating with a third-party library that compares props by reference instead of value, when a value feeds another effect's dependency array, or when a calculation is expensive enough that profiling confirms it matters. That holds regardless of the compiler. Profiling comes first, before reaching for either hook. Otherwise, you're just optimizing a number nobody measured.
+    An incomplete dependency list can preserve a closure that reads old props or state. Correct manual memoization still has valid uses, such as stabilizing an effect dependency, serving a memoized child, or caching a calculation that profiling identifies as expensive. State the reason at the call site and verify that the downstream work is actually skipped.
   </p>
 
-  <div class="callout warn aside">
+  <div class="callout warn">
     <div class="callout-title">Not every codebase has the compiler yet</div>
-    <p>Teams on an older React version, or one that hasn't adopted the compiler, still need manual memoization as the working default in hot paths. The direction of travel matters more than the exact cutover date. Treat new manual memoization as something to justify, not something to reach for automatically, and let the compiler take over incrementally as the codebase upgrades.</p>
+    <p>React Compiler supports incremental adoption and can compile applications on React 17, 18, or 19. Existing memoization should not be removed mechanically because doing so can change compiler output or performance. In uncompiled code, profile first and add memoization where it protects a known expensive path or identity contract.</p>
   </div>
 
   <!-- ═══════════════════════════════════════════════════
@@ -472,11 +481,11 @@
   <h2 id="closing">When antipatterns compound</h2>
 
   <p>
-    Any one of the habits above is survivable alone. A single overly broad context costs a handful of unnecessary re-renders. A single derived-state effect costs one extra render pass. Production slowdowns that show up as "the app just feels slow," with no one obvious line of code to blame, are usually several of these stacked on top of each other. A cart update in a shared context re-renders a dozen consumers, each of which happens to compute a derived value in an effect, so each one renders twice. Two of those consumers each independently fetch the same resource in their own effect, because there's no shared cache between them. None of that shows up in a single profiler snapshot as one bug. It shows up as a page that takes a beat too long to feel responsive, for reasons that only become visible by tracing the whole path a state change takes through the tree.
+    These habits become expensive through composition. A broad context can update consumers that each maintain derived state in an effect. Some of those consumers may also request the same resource without a shared cache. No single line explains the delay because the repeated work follows several ownership and subscription boundaries.
   </p>
 
   <p>
-    <a href="react-server-components.html">Server Components</a> and a proper query layer remove entire categories of this by construction. A component that never runs in the browser can't misuse an effect, and a cache-aware query hook can't create a waterfall between two siblings that ask for the same data. Neither removes the need to know who owns a given piece of state and why a specific component re-renders when it changes. That discipline is what every fix in this article actually comes down to, and it's the same discipline the patterns in the companion article are built on top of.
+    Trace the path from a state change or navigation to the work it triggers. React DevTools can reveal repeated renders, while the browser network panel exposes sequential requests and duplicate fetches. A query layer or <a href="react-server-components.html">Server Components</a> can remove some failure modes, but neither decides state ownership or component boundaries. Those remain design decisions.
   </p>
 
 </main>

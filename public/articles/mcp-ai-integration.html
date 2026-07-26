@@ -53,29 +53,29 @@
 
   <div class="eyebrow">AI · Integration &amp; Governance</div>
   <h1>MCP</h1>
-  <p class="subtitle">How the Model Context Protocol lets AI assistants reach internal APIs and data, and what needs to be governed before turning it on.</p>
+  <p class="subtitle">How MCP connects AI applications to external systems, and how authorization and trust boundaries govern that access.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~10 min read</span>
+    <div class="dot"></div><span>~7 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
-  <p>Every assistant covered so far eventually needs to do something beyond editing files in a repository, such as looking up a customer record, querying a production database, or opening a ticket in an internal system. Before the Model Context Protocol (MCP), wiring that up meant a bespoke integration for every pairing of AI tool and data source, the classic N&times;M problem. Multiply that across every AI application and every system it needs to reach, and the number of custom connectors adds up fast. MCP standardizes that connection so it gets built once per system, not once per pairing.</p>
+  <p>An assistant becomes more useful when it can reach systems beyond the repository: an issue tracker, an internal API, or a customer record. Without a shared protocol, every AI application needs its own adapter for each system. The Model Context Protocol (MCP) defines a common way for an AI host to discover context and callable capabilities, reducing the amount of product-specific integration code.</p>
 
-  <p>This article covers what that standardization looks like. It explains the three roles MCP defines, what a server can offer beyond a simple function call, and the authorization model enterprises have converged on for granting agents access at scale. It also covers the gateway pattern that sits in front of it, and the specific security risks that come from letting a model read text it didn't ask for and can't fully trust.</p>
+  <p>The protocol itself is only one layer of the design. This article first separates the host, client, and server roles, then explains tools, resources, and prompts. The later sections cover authorization, gateways, audit trails, and the security consequences of giving untrusted server metadata to a model that can act.</p>
 
   <div class="callout info">
     <div class="callout-title">Same governance as AGENTS.md</div>
-    <p>MCP started as an Anthropic project and was donated to the neutral Agentic AI Foundation, the same body that now governs <code>AGENTS.md</code> from <a href="ai-coding-assistants.html">the first article in this series</a>. That's a pattern rather than a coincidence. The parts of the AI tooling ecosystem meant to work the same way across every vendor keep ending up under the same kind of neutral stewardship.</p>
+    <p>MCP began at Anthropic and later moved under the Agentic AI Foundation. Neutral stewardship matters for a protocol intended to connect products from different vendors, but governance alone does not make individual servers trustworthy. Each deployment still needs its own authorization and security controls.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="problem">The Problem Before MCP</h2>
   <p class="lede">Before a shared protocol existed, every pairing of AI tool and data source needed its own bespoke connector.</p>
 
-  <p>Picture an AI coding assistant that needs to look up a ticket in an issue tracker. Someone has to write the integration, which means authenticating to the tracker's API, translating its data model into something the assistant can use, and exposing that as an action the model can invoke. That's manageable once. The trouble starts when a second AI tool wants the same capability and has to write its own version of the same integration, and a third does the same. Meanwhile the issue tracker would rather expose one well-defined interface than field custom requests from every AI vendor that shows up.</p>
+  <p>Consider a coding assistant that needs to read a ticket from an issue tracker. The integration must authenticate, translate the tracker's API into a model-facing schema, and return the result in a form the host understands. Building that adapter for one assistant is manageable. Repeating it for every assistant creates parallel implementations of the same boundary, each with its own authentication and maintenance work.</p>
 
-  <p>That's an N&times;M problem. The number of integrations needed grows with the number of AI tools multiplied by the number of systems they need to reach, rather than with either number alone. MCP collapses it to N+M. A system exposes one MCP server, once. Any MCP-aware AI application can talk to it without anyone writing tool-specific glue code, the same way any browser can render any website once both sides agree on HTTP. The approach has moved well past the experimental stage. Public MCP servers number in the tens of thousands, spanning everything from small developer tools to deployments inside large enterprises. MCP standardizes the agent-to-tool half of the integration problem. The agent-to-agent half, where agents delegate work to each other across vendors, has a protocol of its own, covered in <a href="multi-agent-systems.html">multi-agent systems</a>.</p>
+  <p>This is the familiar N&times;M integration problem: each of N hosts needs an adapter for each of M systems. MCP aims to move the boundary toward N+M by giving hosts one protocol to implement and systems one server interface to expose. Compatibility still depends on supported protocol versions, capabilities, and authentication, so the reduction is an architectural goal rather than a guarantee of plug-and-play behavior. MCP covers agent-to-tool communication; <a href="multi-agent-systems.html">multi-agent systems</a> covers delegation between agents.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="architecture">Host, Client, and Server</h2>
@@ -83,19 +83,19 @@
 
   <p>The <strong>host</strong> is the user-facing AI application the person opens and talks to, such as Claude Desktop, an IDE extension, or a chat product. The host is the thing making decisions about what to show the user and when to involve a model at all.</p>
 
-  <p>The <strong>client</strong> is the protocol component inside the host that speaks MCP. A host typically runs one client per connected server, and each client holds its own private, stateful session. A client talking to a ticket tracker doesn't know anything about a second client talking to a database, even though both live inside the same host. This isolation is deliberate. A compromised or misbehaving server can't reach into a session it isn't part of.</p>
+  <p>The <strong>client</strong> is the protocol component inside the host that speaks MCP. A host typically runs one client per connected server, and each client holds its own private, stateful session. A client talking to a ticket tracker doesn't know anything about a second client talking to a database, even though both live inside the same host. This separation prevents a server from directly addressing another client's protocol session. It is not complete containment. The host may expose capabilities from several sessions to the same model, so its authorization and approval controls must prevent one server's content from inducing actions through another.</p>
 
-  <p>The <strong>server</strong> is a separate process, often maintained by someone else entirely, that exposes a defined set of capabilities over the protocol. It might run locally as a subprocess on the same machine, the common case for a developer tool using <code>stdio</code> as its transport. Or it runs as a hosted service reached over a network using Streamable HTTP, the transport MCP settled on for remote servers after an earlier, more complicated approach based on HTTP plus server-sent events. Streamable HTTP is the shape almost every enterprise deployment takes, since the servers involved are usually running as shared infrastructure rather than on each user's own machine.</p>
+  <p>The <strong>server</strong> exposes a focused set of capabilities. A local server can run as a subprocess and communicate over standard input and output. A remote server can use Streamable HTTP, which supports ordinary HTTP requests and optional server-sent events for streaming. The transport affects deployment and authentication, but the same MCP data model sits above both.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="primitives">Tools, Resources, and Prompts</h2>
-  <p class="lede">A server doesn't just expose functions. It exposes three different kinds of things, each with its own design implications.</p>
+  <p class="lede">MCP separates callable functions, contextual data, and reusable interaction templates into three primitives.</p>
 
-  <p>A <strong>tool</strong> is a function the model can actively invoke to cause a side effect, such as creating a ticket, running a query, or sending a message. This is the primitive people usually picture when they hear "MCP server," and it's the one that needs the most caution, since invoking it does something rather than only returning something.</p>
+  <p>A <strong>tool</strong> is a callable function exposed to the model. It may read data, perform a computation, or cause a side effect such as creating a ticket. Risk therefore depends on the individual tool and its arguments, not on the primitive alone. Hosts should distinguish read-only operations from destructive or externally visible actions when they decide what requires approval.</p>
 
-  <p>A <strong>resource</strong> is closer to a file handed to the model than an action it takes. It's data the host can read for context, such as a document, a database record, or a configuration file, without the model needing to decide to fetch it through a function call each time. Resources are typically the least risky primitive, since reading data for context doesn't cause a side effect the way invoking a tool does.</p>
+  <p>A <strong>resource</strong> is data the host can read and place into context, such as a document, schema, or record. Reading it does not itself cause the side effects associated with a write tool, but the content may still be sensitive or malicious. Access control and prompt-injection defenses apply before that data reaches the model.</p>
 
-  <p>A <strong>prompt</strong> is a predefined, reusable interaction template a server can offer. Rather than leaving the model to guess how to combine three of its tools to accomplish something the server's author already knows a good pattern for, the server can ship that pattern directly, the same way a library ships a well-tested helper function instead of leaving callers to reinvent one badly.</p>
+  <p>A <strong>prompt</strong> is a reusable interaction template offered by the server for a user to select. It can assemble instructions and arguments for a known workflow, but it remains text supplied across a trust boundary. The host should present its source and contents clearly rather than treating a server-authored template as trusted application code.</p>
 
   <div class="concept-grid">
     <div class="card blue">
@@ -119,20 +119,20 @@
   <h2 id="governance">Enterprise Authorization</h2>
   <p class="lede">Connecting an agent to one more system is easy. Connecting it to forty of them, safely, for every employee at once, is the actual enterprise problem.</p>
 
-  <p>The default authorization model looks a lot like the <a href="oauth-oidc.html">OAuth flows</a> covered in an earlier article. A user connects their AI application to an MCP server, gets redirected to authenticate, and grants consent, one server at a time. That's fine for an individual trying out a tool. It falls apart once an organization has dozens of MCP servers and hundreds of employees, because nobody centrally knows who's connected to what, and revoking access when someone changes roles or leaves means chasing down every individual grant by hand.</p>
+  <p>For remote HTTP servers, MCP defines an authorization flow built on <a href="oauth-oidc.html">OAuth</a>. In the ordinary user-managed pattern, the client obtains an access token for one server on behalf of one user. That preserves individual consent, but it creates administrative friction when an organization needs to provision and revoke access consistently across many servers.</p>
 
-  <p>Enterprise-Managed Authorization (EMA) is the extension that replaces that pattern. Instead of per-user, per-server consent, the organization's identity provider, the same one already behind single sign-on for email and chat, becomes the place MCP server access is granted and revoked. A user gets connected to the servers their role permits the first time they log in, with no separate OAuth flow to click through for each one. The mechanism doing this work under the hood is itself an OAuth extension, the Identity Assertion JWT Authorization Grant (ID-JAG). It lets an MCP client obtain a token asserting the user's identity directly from the organization's identity provider, rather than negotiating a fresh consent flow with each server individually. The shape is the same authorization-server-issues-a-token pattern from the OAuth article, applied here to agent-to-tool access instead of a person logging into a single app.</p>
+  <p><strong>Enterprise-Managed Authorization</strong> (EMA) is an optional extension that makes the organization's identity provider the policy point for server access. During single sign-on, the client can obtain an Identity Assertion JWT Authorization Grant (ID-JAG) and exchange it with the server's authorization server for an audience-restricted access token. Administrators can then grant or revoke access through existing identity policy without asking every employee to complete a separate consent flow for every server.</p>
 
   <div class="callout new">
     <div class="callout-title">Adoption is underway, not universal</div>
-    <p>EMA went stable in June 2026, with client-side support from Anthropic's Claude apps and Visual Studio Code, and server-side support from a first wave that includes Asana, Atlassian, Figma, Linear, and Supabase, with more following. Okta is the identity provider shipping support at launch, though the underlying mechanism is an open extension to OAuth rather than an Okta-specific feature, so other identity providers can add it over time. Check whether a given server and identity provider support it before assuming it's available, and plan a non-EMA fallback in the meantime.</p>
+    <p>The MCP project declared EMA stable in June 2026, but the extension is opt-in and requires support from the client, identity provider, and server authorization stack. It governs access to the server; it does not decide whether a particular tool call is appropriate in the current business context. Per-action authorization still belongs in the server or gateway.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="gateway">The Gateway Pattern</h2>
   <p class="lede">Letting every AI application connect directly to every server it needs turns into an operational mess at exactly the scale where it matters most.</p>
 
-  <p>An MCP gateway sits between AI agents and the servers they call, the same role an <a href="web-networking.html#api-gateway">API gateway</a> plays for ordinary application traffic, applied here to model-initiated tool calls instead. Rather than an N-to-N mesh of every host potentially reaching every server directly, the gateway collapses that into a 1-to-N hub. It becomes the single place to enforce authorization, apply security policy, and log what happened, regardless of which host or which server is involved in a given call.</p>
+  <p>An MCP gateway places a controlled data path between hosts and servers, much as an <a href="web-networking.html#api-gateway">API gateway</a> does for application traffic. It can centralize policy, rate limits, server allowlists, argument inspection, and audit logging. The gateway does not remove the need for server-side authorization, but it gives the organization one place to apply controls that should be consistent across hosts.</p>
 
   <figure style="margin:24px 0 8px;">
     <svg viewBox="0 0 700 232" style="max-width:100%;display:block;background:var(--surface);border:1px solid var(--border);border-radius:8px;" role="img" aria-label="Left: without a gateway, every host connects to every server in a tangled mesh. Right: with a gateway, hosts and servers each connect only to a central hub." xmlns="http://www.w3.org/2000/svg">
@@ -182,22 +182,22 @@
     <figcaption style="font-size:13px;color:var(--text-dim);margin-top:8px;line-height:1.5;">The gateway turns a tangle of direct host-to-server connections into a single hub where authorization, policy, and audit logging live in one place.</figcaption>
   </figure>
 
-  <p>That logging is the part that matters most for anyone running this in production. Every tool invocation passing through the gateway gets recorded, including which agent, acting on behalf of which user, called which tool, with what arguments, and what came back. Without a gateway, that trail either doesn't exist or has to be reconstructed separately by every server, which in practice means it mostly doesn't get built at all. With one, it's a byproduct of the architecture rather than something each team has to remember to add.</p>
+  <p>A useful audit record ties each call to the host, user, server, tool, decision, and outcome. Arguments and results may contain secrets or personal data, so logging them in full can create a second disclosure path. A gateway makes consistent redaction and retention possible, while each server should still keep the application-level record needed for its own actions.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="security">Tool Poisoning and Rug Pulls</h2>
-  <p class="lede">A tool's description is just text the model reads. That makes it exactly as trustworthy as any other text arriving from outside the conversation.</p>
+  <p class="lede">Tool metadata is untrusted text entering a system with authority to act.</p>
 
   <p>The <a href="browser-security.html#xss">browser security article</a>'s treatment of XSS covers the same underlying problem, untrusted input reaching a place that has authority to act on it. There, the untrusted input was attacker-supplied markup reaching a browser that would execute it. Here, the untrusted input is a tool's own description field, and the place with authority is the model deciding what to do next.</p>
 
-  <p>A tool's name and description exist to tell the model what the tool does and when to use it, and that text is rarely shown to the human approving the connection. <strong>Tool poisoning</strong> exploits that gap. Instructions hidden inside a tool's description, invisible in whatever summary a user sees, can direct the model to take extra, unintended actions whenever that tool gets invoked for its ordinary purpose. That can extend to reading and exporting data the user never asked to share. A related variant, the <strong>rug pull</strong>, doesn't even need a malicious description from the start. A tool can behave exactly as advertised when it's first approved, then have its definition quietly changed by the server afterward, and most clients have no mechanism to notice or re-flag a definition that changed after the fact.</p>
+  <p>A tool's name, description, and schema help the model decide when and how to call it. <strong>Tool poisoning</strong> places malicious instructions in that metadata so the model performs work the user did not intend. A <strong>rug pull</strong> changes a previously reviewed definition later. MCP supports notifications when a tool list changes, but the security outcome depends on whether the client detects the change, invalidates prior trust, and asks for a new review.</p>
 
   <div class="callout danger">
     <div class="callout-title">Why this is hard to catch by inspection alone</div>
-    <p>Neither attack requires tricking a user into clicking anything. The victim already approved the tool, for a legitimate-looking reason, before any malicious text was either present or activated. Defenses accordingly focus on the description itself. Open scanning tools exist specifically to check MCP tool definitions for hidden instructions before they ever reach a model. Attestation-based approaches aim to detect a definition changing between the time it was reviewed and the time it's used.</p>
+    <p>Defenses begin by treating server metadata as untrusted input. Clients can display complete definitions, compare them with the last approved version, and require renewed consent after a material change. Allowlists, signed releases, schema validation, least-privilege tokens, and per-call approval for sensitive actions reduce the damage if malicious instructions still reach the model.</p>
   </div>
 
-  <p>None of this is a reason to avoid MCP, any more than XSS risk is a reason to avoid rendering user-supplied content in a browser. It's a reason to treat a tool's description with the same suspicion as any other text arriving from outside the conversation, and to have the authorization and gateway pieces from the previous two sections in place before an agent gets access to anything that matters, not after.</p>
+  <p>These risks do not make MCP unusable. They make server metadata and returned content part of the application's untrusted-input surface. Authorization, least privilege, change detection, per-action checks, and an auditable gateway should be designed before agents receive access to sensitive systems.</p>
 
 </main>
 </div><!-- end .shell -->

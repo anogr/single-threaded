@@ -43,22 +43,22 @@
 
   <div class="eyebrow">AI · Foundations</div>
   <h1>How Large Language Models Work</h1>
-  <p class="subtitle">What tokens, context windows, and sampling are, and why cost, latency, and hallucination follow from the same mechanisms.</p>
+  <p class="subtitle">How token prediction and bounded context shape model behavior, reliability, latency, and cost.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~12 min read</span>
+    <div class="dot"></div><span>~10 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
-  <p>Deciding how much context to hand an agent, whether to trust a fluent answer, or which model tier a pipeline should call are all judgments about machinery. The other articles in this series treat the model as a black box that reads context and produces text or code. That framing works until a decision depends on what the box does inside, and most of the recurring decisions do.</p>
+  <p>Questions about context, trust, latency, and model choice all lead back to the same machinery. The other articles in this series mostly treat a model as a box that reads context and produces text or code. That abstraction is useful, but it stops being enough when an architectural decision depends on why the model behaves as it does.</p>
 
-  <p>This article opens the box to the depth those decisions need, and no further. It walks through how a model splits text into tokens, predicts one token at a time, and chooses among candidate continuations. From there it follows the mechanisms outward, to why models state falsehoods fluently, why long context costs both money and time, and why retrieval exists. Nothing here is about building or training a model. The goal is using one with fewer surprises.</p>
+  <p>This article opens that box only as far as those decisions require. It begins with tokens, next-token prediction, and sampling, then follows those mechanisms into hallucination, long-context behavior, retrieval, cost, and latency. The aim is not to teach model construction. It is to make the behavior of a model less surprising when one becomes part of a system.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="prediction">Next-Token Prediction</h2>
-  <p class="lede">Every capability the model shows emerges from one operation, repeated.</p>
+  <p class="lede">Generation proceeds through one repeated operation: predict the next token from the tokens already present.</p>
 
-  <p>At the core of every <strong>large language model</strong> (LLM) is a simple repeated process. Given a sequence of text, the model estimates the probability of every possible fragment that could come next. These fragments are called <strong>tokens</strong>. One token is then selected, appended to the existing text, and the model repeats the same process using the longer sequence. Text generation is simply this cycle continuing until the model emits a stop token or reaches a predefined length limit. This approach is known as <strong>autoregressive generation</strong>, because each newly generated token becomes part of the input for the next prediction.</p>
+  <p>A generative <strong>large language model</strong> (LLM) receives a sequence of <strong>tokens</strong>, the text units it processes, and assigns a score to every token that could follow it. Those scores become a probability distribution, from which the system chooses one candidate. The chosen token is appended to the sequence, and the model runs again with the longer input. Generation continues until it produces a stopping token or reaches an output limit. This process is called <strong>autoregressive generation</strong> because every generated token becomes input to the next step.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -77,17 +77,17 @@ Candidates:      Paris     0.91
 Pick one, append it, run the step again.</code></pre>
   </div>
 
-  <p>Within each step, those probabilities are produced by a mechanism called <strong>attention</strong>. As the model makes its prediction, every token in the input can take other tokens into account, assigning different levels of importance to different parts of the context. This allows the model to connect a pronoun with a name mentioned several sentences earlier, or relate a variable on line 400 of a program to its declaration on line 12.</p>
+  <p>The model calculates those scores through many layers of learned transformations. One important mechanism is <strong>attention</strong>, which lets the representation of a token draw information from earlier tokens in the sequence. That connection can relate a pronoun to a name several sentences earlier or a variable use to its declaration. The implementation below that level matters when building models, but attention is enough to explain the practical behavior discussed here.</p>
 
-  <p>The model does not execute instructions in the way a traditional program does. Instead, it predicts a likely continuation of the text that contains the instruction. If you ask it to translate a paragraph, there is no hidden <code>translate()</code> function being called. The model generates the kind of text that, based on its training, is most likely to follow a request like that. This explains why small changes in wording can produce different results, why including a few concrete examples often guides the output more effectively than abstract instructions, and why an ambiguous prompt usually leads to an ambiguous response. A prompt is best understood as the beginning of a document, and the model's job is to continue writing it.</p>
+  <p>This loop changes how an instruction should be understood. The model does not call an internal translation function when asked to translate a paragraph. It generates the continuation that its training and post-training make likely after such a request. Wording matters because it changes the sequence being continued, while examples give the model a concrete pattern to follow. An ambiguous prompt leaves several plausible continuations open, so the answer may vary without the model having disobeyed anything.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="tokens">Tokens and Tokenization</h2>
   <p class="lede">The model reads and writes in units that sit between characters and words.</p>
 
-  <p>Before any prediction happens, input text is split into <strong>tokens</strong>, short fragments the model treats as atomic. The splitting is done by a tokenizer built with <strong>byte-pair encoding</strong>, an algorithm that finds the most frequent character sequences in a large corpus and promotes them to single units. Common words end up as one token each. Rare words split into several pieces. As a rule of thumb, a token averages around four characters of English, or about three quarters of a word.</p>
+  <p>Before prediction begins, a tokenizer splits the input into tokens. A token may represent a whole word, part of a word, punctuation, whitespace, or bytes. Many model families use a variant of <strong>byte-pair encoding</strong> or a related subword method that gives frequent sequences their own tokens while dividing rarer text into smaller pieces. English prose often averages fewer tokens than code, identifiers, or text written in some other languages, but the exact ratio depends on the tokenizer and the material.</p>
 
-  <p>Frequency decides the boundaries, and frequency has no sense of meaning. A common year can be a single token while an arbitrary ID number shatters into many. A well-known function name might cost one token while a project-specific identifier costs five. The same text can also tokenize differently across model families, since each vendor trains its own tokenizer on its own corpus.</p>
+  <p>Token boundaries reflect patterns in the tokenizer's training data rather than semantic meaning. A frequent identifier may stay intact while an unfamiliar one splits into several tokens; arbitrary numbers often fragment as well. The same text can therefore produce different token counts across model families, even before either model begins reasoning about it.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -110,7 +110,7 @@ Pick one, append it, run the step again.</code></pre>
 
   <p>A model can only condition its predictions on a bounded stretch of text. That bound is the <strong>context window</strong>, the maximum number of tokens a single request can hold. Everything the model is supposed to consider has to fit inside it together. The system prompt, the task instructions, any files or documents, the conversation so far, and the output of every tool call all draw from the same budget. Whatever falls outside the window does not exist for the model, however important it was two requests ago.</p>
 
-  <p>Windows have grown from a few thousand tokens a few years ago to hundreds of thousands on current models, with some reaching over a million. Growth has not removed the budget. It has moved the point where the budget binds, and raised the cost of filling it, for reasons the cost section explains.</p>
+  <p>Modern context windows can hold far more text than earlier generations, and some models accept hundreds of thousands of tokens or more. A larger limit only moves the boundary. Filling the window still consumes processing time and money, and the model may not use every position equally well.</p>
 
   <p>Position inside the window matters too. Research on long-context behavior repeatedly finds a U-shaped pattern, in which information near the beginning or the end of a long prompt is used more reliably than information buried in the middle. The effect is known as <strong>lost in the middle</strong>. A fact placed at the midpoint of a very long prompt has not left the window, but it competes at a disadvantage. Placement is a decision alongside inclusion.</p>
 
@@ -136,65 +136,66 @@ Pick one, append it, run the step again.</code></pre>
     <figcaption style="font-size:13px;color:var(--text-dim);margin-top:8px;line-height:1.5;">The lost-in-the-middle effect. Content near either edge of a long context is weighed more reliably than content near the center.</figcaption>
   </figure>
 
-  <p>Thus, the model predicts one token at a time, and it only ever sees a finite window of context. Most of the practical behavior of AI tooling follows from that pair, from hallucinated function signatures to invoice-sized token bills.</p>
+  <p>Two constraints now carry the rest of the article. The model generates one token at a time, and each request gives it only a finite amount of context. Together they explain much of the behavior that matters in application design, including fabricated function signatures, uneven long-context recall, latency, and token cost.</p>
 
-  <div class="callout info aside">
+  <div class="callout info">
     <div class="callout-title">Why context files stay small</div>
-    <p>The <a href="ai-coding-assistants.html#context-files">context files</a> covered earlier in the series are spent from this budget on every request, needed or not, which is why the advice there is to keep them narrow. Managing the same budget across a whole session is the job <a href="agentic-coding-workflows.html#context-engineering">context engineering</a> names.</p>
+    <p>The <a href="ai-coding-assistants.html#context-files">context files</a> covered earlier in the series consume part of this budget whenever a tool loads them. Keeping them narrow leaves more room for the task itself. <a href="agentic-coding-workflows.html#context-engineering">Context engineering</a> applies the same budgeting decision across an entire session.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="sampling">Sampling and Temperature</h2>
   <p class="lede">The distribution is computed. Something still has to choose.</p>
 
-  <p>Prediction ends with probabilities, and generation needs a token. The step between them is <strong>sampling</strong>. Always taking the single most likely candidate produces repetitive, oddly flat text, so by default the choice is made at random, weighted by the distribution. A candidate with a probability of 0.9 wins most of the time and loses occasionally.</p>
+  <p>Prediction produces a probability distribution, but generation still needs one token. <strong>Sampling</strong> is the selection step between the two. A system may always choose the highest-probability candidate, or it may choose randomly with probabilities weighted toward the stronger candidates. Random sampling allows several plausible continuations instead of forcing the same locally most likely path every time.</p>
 
-  <p><strong>Temperature</strong> controls how far that randomness spreads. Low values concentrate the choice on the top candidates, and a temperature of zero collapses to always picking the most likely one. High values flatten the distribution so that unlikely tokens get a real chance, which reads as creative on a good day and unhinged on a bad one. A companion setting, top-p, trims the candidate pool to the smallest set of tokens whose probabilities sum past a threshold before sampling among them.</p>
+  <p><strong>Temperature</strong> reshapes the distribution before sampling. Lower values concentrate probability on the leading candidates, while higher values spread more probability across unlikely ones. APIs commonly treat zero as a request for the least random mode, although exact determinism still depends on the provider and serving system. A related setting, top-p, limits sampling to the smallest group of candidates whose combined probability reaches a chosen threshold.</p>
 
-  <p>Sampling explains why the same prompt produces different answers on different runs, and why "it said so yesterday" is weak evidence about today. What temperature does not control is correctness. Lowering it makes output more repeatable, and repeatably wrong is still wrong. If the model's distribution puts its weight on a false continuation, every sample at every temperature draws from that same weight. Temperature is a consistency dial, not a quality dial.</p>
+  <p>Sampling is one reason the same prompt can produce different answers across runs. Temperature changes the amount of variation, not the truth of the underlying candidates. A lower setting may make a false answer more repeatable if the model already assigns it the highest probability. Temperature is therefore useful for controlling variation, but it cannot substitute for verification.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="knowledge">Where the Knowledge Comes From</h2>
-  <p class="lede">The model consults nothing when it answers. It remembers, in a loose and lossy sense of the word.</p>
+  <p class="lede">Without tools or retrieved context, an answer can draw only on the current request and patterns learned during training.</p>
 
-  <p>The probabilities come from training. <strong>Pretraining</strong> exposes the model to a vast corpus of text and adjusts it, over an enormous number of prediction exercises, until it predicts that corpus well. General knowledge, languages, and code patterns all come from this stage. <strong>Fine-tuning</strong> then adapts the pretrained model to a narrower job using a smaller, targeted dataset. A further stage, reinforcement learning from human feedback (RLHF), shapes the model toward responses people rate as helpful. This stage is why a modern assistant answers a question instead of continuing it with three more questions, as raw pretrained models tend to.</p>
+  <p>The probabilities are learned during training. In <strong>pretraining</strong>, the model repeatedly predicts text drawn from a large corpus while its parameters are adjusted to reduce prediction error. That process teaches linguistic patterns, code structures, and associations that later appear as general knowledge. <strong>Post-training</strong> then shapes the pretrained model for instruction following and interaction. Providers use several methods for this stage, including supervised fine-tuning and preference optimization; reinforcement learning from human feedback (RLHF) is one well-known example.</p>
 
-  <p>Training ends on a date, and the model's built-in knowledge ends with it. That date is the knowledge cutoff. A library released after it, a renamed API, or last quarter's incident report are all invisible to the model unless the information arrives through the context window.</p>
+  <p>The training corpus covers a bounded period, which providers usually describe with a knowledge cutoff. The boundary is not a guarantee that every earlier fact was learned, nor that no later fact appears. It does mean that a model cannot be relied on for a newly released library, a renamed API, or a recent incident unless that information is supplied through the request or a tool.</p>
 
-  <p><strong>Hallucination</strong> is a natural consequence of the prediction process that generates every response. The model is designed to continue text by predicting what is most likely to come next, not by verifying facts or checking whether it actually knows the answer. When its training strongly supports the correct information, the most likely continuation is often also the correct one. When that support is weak or missing, the model can still produce a fluent and convincing continuation that matches the surrounding pattern. That might mean inventing a function that seems like it should exist in a software library, creating a citation that looks authentic but is not real, or confidently presenting information that is simply incorrect.</p>
+  <p>A <strong>hallucination</strong> occurs when plausible generation produces an unsupported or false claim. Without a retrieval or tool call, the model is not looking up a fact in a source of record. It is continuing from patterns in its parameters and the current context. Strong support may lead to the correct answer. Thin or conflicting support may instead produce a convincing function name or citation that fits the surrounding pattern but does not exist.</p>
 
-  <p>The delivery is the trap. Fluency signals that a continuation is statistically likely, and people read it as confidence. The model has no channel for certainty. It cannot know whether it is right, and its prose sounds identical in either case. Treating fluent output as verified output is the root of most misplaced trust in these systems, and no amount of prompt wording removes the need to check claims that matter.</p>
-  <p>When an application needs current or verifiable information, it has to provide that information to the model at the time of the request. There are two common ways to do this. <strong>Tools</strong> allow the model to retrieve live data or interact with external systems, with connections often standardized through <a href="mcp-ai-integration.html">MCP</a>. <a href="rag.html">Retrieval</a>, often called retrieval-augmented generation (RAG), searches for relevant documents and adds them to the model's context before it starts generating a response. This retrieval process relies on one more important concept: embeddings.</p>
+  <p>Fluency makes the failure easy to miss because correct and incorrect continuations can arrive in the same assured prose. Some systems can estimate uncertainty or cite supplied sources, but neither feature turns fluent text into verified fact. Claims that matter still need a check outside the generation step.</p>
+
+  <p>A system that depends on current, private, or verifiable facts must provide them at request time. Tools can fetch live records or act on external systems, and <a href="mcp-ai-integration.html">MCP</a> standardizes one way to expose those capabilities. <a href="rag.html">Retrieval</a> selects relevant documents and places them in the context before generation. Semantic retrieval depends on one more concept: embeddings.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="embeddings">Embeddings</h2>
   <p class="lede">A different job from generating text, and the machinery behind searching by meaning.</p>
 
-  <p>An <strong>embedding</strong> does a different job from everything above. Instead of producing text, an embedding model turns a piece of text into a vector, a long list of numbers positioned so that texts with similar meaning land near each other. Similarity becomes distance. "How do I reset my password" and "account recovery steps" sit close together in that space despite sharing no words, and both sit far from a paragraph about database migrations.</p>
+  <p>An <strong>embedding</strong> model turns a piece of text into a vector rather than generating a continuation. Training places related texts near one another in the resulting vector space, according to the relationships the model has learned. A password-reset question may therefore sit near account-recovery instructions even when the two share few words, while remaining distant from a passage about database migrations.</p>
 
-  <p>That property is what makes retrieval by meaning work. Embed every chunk of a corpus once to build an index, embed the query when it arrives, and fetch the nearest neighbors. The semantic repository indexing described in <a href="ai-coding-assistants.html#context-window">the assistants article</a> works this way, embedding a codebase so an agent can find the files relevant to a task by meaning rather than by filename. The same pipeline underlies <a href="rag.html">retrieval-augmented generation</a>, where the fetched chunks are placed into the context window to ground an answer in source material. Vector databases exist to make the nearest-neighbor lookup fast at scale.</p>
+  <p>Semantic retrieval uses that geometry as an index. The system embeds chunks of the corpus ahead of time, embeds each incoming query, then searches for nearby vectors. Repository indexes can use this approach to find code related by meaning rather than filename. <a href="rag.html">Retrieval-augmented generation</a> uses the same basic step before placing the selected chunks into the model's context. Vector-capable databases provide efficient nearest-neighbor search when the index grows large.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="cost">Why Inference Costs Time and Money</h2>
   <p class="lede">Latency and price are the same mechanism observed twice.</p>
 
-  <p>Every token in the window participates in computing every prediction. More context therefore means more computation per step, and the bill for that computation arrives in two currencies, once as waiting and once as money. This is why a long prompt is slow even when the answer is short, and why per-token pricing is the industry's universal unit.</p>
+  <p>Processing more input requires more computation and memory, even though serving systems reuse intermediate work to avoid recalculating the whole prompt for every output token. Longer context therefore tends to increase latency and cost. Providers commonly expose that cost through token-based pricing because token counts closely track the amount of input and output the service processes.</p>
 
-  <p>Output carries a cost that input does not. The tokens of a request are processed together when it arrives, while output tokens are produced one at a time by the generation loop. A long answer costs wall-clock time in a way a long question does not, and output tokens are typically priced higher than input tokens for the same reason.</p>
+  <p>Input and output affect latency differently. A provider can process the prompt in parallel across its token positions, while autoregressive output must be decoded sequentially. Long answers therefore add visible wall-clock time token by token. Many providers also price output tokens above input tokens, although the ratio is a commercial choice rather than a law of the architecture.</p>
 
-  <p>Prices differ by orders of magnitude between model tiers, and have fallen steeply year over year, which makes cost a design variable rather than a constant. The levers follow directly from the mechanism. Send less context. Route easy work to smaller models. Cache what repeats across requests. The <a href="ai-coding-assistants.html#cost">cost section of the assistants article</a> applies these levers to agent workloads, where the token volumes are largest.</p>
+  <p>Model tiers can differ substantially in price, so routing is an architectural decision rather than a billing afterthought. The available levers follow from the mechanism: send only useful context, keep output focused, route bounded work to a suitable smaller model, and cache repeated prompt prefixes where the provider supports it. The <a href="ai-coding-assistants.html#cost">assistants article</a> applies these choices to agent workloads, where repeated repository context can dominate usage.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="decisions">The Decisions That Follow</h2>
-  <p class="lede">Four practical constraints, each leading to a different design decision.</p>
+  <p class="lede">Four constraints, each one paying for a habit.</p>
 
-  <p>Context is finite, so it is best treated as a limited resource rather than a container to fill. Retrieving the most relevant information is usually more effective than including everything that might be useful, improving both reliability and cost. The position of the information within the context window matters. Important details buried in the middle of a long prompt are more likely to be overlooked than information placed near the beginning or end.</p>
+  <p>Because context is finite, it should be budgeted rather than filled by default. Retrieval can improve both cost and reliability when it selects the material a task needs instead of sending everything available. Placement matters as well, especially when important evidence would otherwise be buried inside a long prompt.</p>
 
-  <p>Prediction is statistical, so verification has to come from the system around the model rather than from the model itself. Lowering the temperature can make outputs more consistent, but it does not make them more accurate, and a confident, well-written answer is not evidence that it is correct. The review checkpoints discussed throughout this series, from <a href="agentic-coding-workflows.html#human-gate">plan review</a> to <a href="ai-code-review.html">risk-tiered code review</a>, are practical ways to apply this principle.</p>
+  <p>Statistical generation also means that verification belongs in the surrounding system. A low temperature can reduce variation, but it cannot establish correctness, and fluent wording does not prove a claim. The <a href="agentic-coding-workflows.html#human-gate">plan review</a> and <a href="ai-code-review.html">risk-tiered code review</a> described elsewhere in the series turn that constraint into concrete gates.</p>
 
-  <p>A model's built-in knowledge is limited to what it learned during training, so any application that depends on current, changing, or private information needs a way to provide that information at request time. Tools connect the model to live systems, while retrieval supplies relevant documents. This matters because language models are optimized to continue text, not to decide whether they have enough information to answer. If a model is asked to answer from memory alone, it will still generate a plausible response, even when the required information is unavailable. Systems should therefore provide the information the model needs, rather than rely on it to recognize when it does not know.</p>
+  <p>Systems that depend on current or private facts need a grounding path. Tools suit live records and actions, while retrieval suits a document corpus. The application must also define what happens when neither path supplies enough evidence, rather than assuming the model will decline on its own.</p>
 
-  <p>To summarize, the model generates one token at a time and each prediction depends only on the current context window. Computation scales with the number of tokens processed, making cost and latency architectural concerns rather than operational surprises. Context size, output length, and model selection all influence efficiency long before usage costs appear.</p>
+  <p>Finally, token volume makes cost and latency architectural concerns. Context size, output length, caching, and model routing shape both before the first invoice arrives. The necessary design habits follow from a small set of mechanisms: sequential generation, bounded context, statistical prediction, and external grounding when the system needs facts.</p>
 
 </main>
 </div><!-- end .shell -->

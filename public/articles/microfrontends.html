@@ -45,7 +45,7 @@
 <body>
 
 <header class="mobile-header">
-  <a class="mobile-logo" href="index.html">Single Threaded <span>— Docs</span></a>
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Articles</span></a>
   <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
 </header>
 
@@ -76,7 +76,7 @@
   <a href="#auth">Shared auth context</a>
 
   <div class="sidebar-section">Deciding</div>
-  <a href="#when-worth-it">When it's actually worth it</a>
+  <a href="#when-worth-it">When microfrontends fit</a>
   <a href="#scope-boundaries">Where the boundary sits</a>
 </nav>
 
@@ -84,10 +84,10 @@
 
   <div class="eyebrow">Frontend Architecture · Scaling</div>
   <h1>Microfrontends</h1>
-  <p class="subtitle">Why splitting a frontend across teams creates shared-dependency problems, and the build-time vs. runtime tradeoffs, such as module federation.</p>
+  <p class="subtitle">How independent teams compose one product, and what they trade for separate builds and deployments.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~22 min read</span>
+    <div class="dot"></div><span>~13 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
@@ -95,11 +95,11 @@
        THE PROBLEM
   ════════════════════════════════════════════════════ -->
   <section id="problem">
-    <p>A retailer's frontend starts as one codebase because one team owns it. Two years and four teams later, the checkout flow, the product catalog, and the account settings pages are still living in that same repository, deployed together, tested together, and blocked on each other's release windows. The catalog team wants to ship a search redesign on Tuesday. The checkout team is mid-migration to a new payment provider and can't risk a release until Thursday. Because everything ships as one build, the catalog team waits, or the two teams coordinate a joint release train that neither of them actually wants to be on.</p>
+  <p>A retailer's frontend may begin as one codebase owned by one team. As the product grows, checkout, catalog, and account work can move to separate teams while the application still ships as one build. A release in one area then depends on the readiness of every other area. The technical boundary no longer matches the ownership boundary.</p>
 
-    <p>That's the problem microfrontends exist to solve: independent team ownership and independent deploy cadence, at the point where an organization has grown past the size where one frontend codebase and one release process still fit the teams building it. It's an organizational problem wearing an architectural costume. The technical question, how do several separately built pieces of UI end up as one coherent page in a browser, only matters because the organizational one came first. That the org chart drives the architecture rather than the reverse is the argument the <a href="the-stack-fits-the-team.html">stack fits the team</a> article makes in full.</p>
+  <p><strong>Microfrontends</strong> align parts of the interface with teams that can build and deploy them independently. The architecture is justified by organizational autonomy, not by the size of the repository alone. Once that need exists, the technical problem is how separately produced interfaces form one coherent product. <a href="the-stack-fits-the-team.html">The Stack Fits the Team</a> develops the relationship between team boundaries and system boundaries in full.</p>
 
-    <p>This is a different axis from the two questions the rest of this series has covered. <a href="rendering-strategies.html">Rendering strategy</a> asks when and where a given page's HTML gets built. <a href="react-server-components.html">React Server Components</a> asks which parts of a component tree need to exist on the client at all. Microfrontends ask who owns which piece of the product and how those pieces get stitched together without those teams having to release in lockstep. A single microfrontend remote still picks its own answer to the first two questions entirely on its own, which is one reason this axis stays separate rather than folding into either of the earlier articles.</p>
+  <p>This decision is separate from <a href="rendering-strategies.html">rendering strategy</a> and the <a href="react-server-components.html">Server and Client Component boundary</a>. Those choices determine where markup and JavaScript execute. Microfrontends determine ownership and composition across independently delivered parts of the product. Each remote still chooses its own rendering model.</p>
   </section>
 
   <!-- ═══════════════════════════════════════════════════
@@ -108,31 +108,31 @@
   <h2 id="build-time">Build-Time Composition</h2>
   <p class="lede">The easiest way to combine several teams' code into one frontend is to combine it before anything ships.</p>
 
-  <p>Build-time composition means each team's UI code lives in its own package, often in its own repository, but all of those packages get resolved, compiled, and bundled together into a single deployable artifact before that artifact ever reaches a browser. A monorepo with shared build tooling is the common shape this takes: separate source trees, one build step, one output. Nothing about the browser knows or cares that the code came from three different teams. By the time it's running, it's a single application.</p>
+  <p><strong>Build-time composition</strong> keeps each team's interface in a separate package but resolves those packages into one deployable application. A monorepo often provides this shape through separate source trees and shared tooling. The browser receives one application and has no runtime knowledge of the team boundaries.</p>
 
-  <p>The advantage is real and worth taking seriously before dismissing this approach as the naive option. Because everything is compiled together, there's no possibility of a runtime version mismatch between one team's code and another's. Whatever combination of dependencies and component versions passed the test suite is exactly what ships, because testing and shipping happen against the same resolved build. There's no seam in production where two independently built pieces might turn out to be incompatible in a way nobody caught before users hit it.</p>
+  <p>A shared build resolves dependency versions before release and tests the same combination that will ship. Integration failures are therefore visible before deployment rather than discovered when independently built artifacts meet in a browser. The model is often sufficient when teams need clear source ownership but can still coordinate releases.</p>
 
-  <p>The cost is the one that matters for the problem this article opened with. Combining everything at build time reintroduces the exact coordination the teams were trying to escape: a shared build, a shared release window, one broken package blocking everyone else's deploy. Martin Fowler's framing of this tradeoff has become the standard reference point in the microfrontends literature, and it reads best stated plainly rather than softened. A build-time composed frontend, no matter how cleanly its packages are separated internally, is a modular monolith with better manners. It's genuinely easier to work in day to day than a tangled single codebase, and it's still one release train. Teams that only need cleaner internal boundaries, not independent deploys, should stop here. This approach solves that problem well. Teams whose actual requirement is that the checkout team can ship without waiting on the catalog team need something that composes later than build time.</p>
+  <p>The same shared build also preserves a shared release window. A broken package can block every team, and dependency updates land together. The result is a modular monolith with strong internal boundaries rather than an independently deployed system. It solves source organization well. Teams that need separate production releases must compose later.</p>
 
   <!-- ═══════════════════════════════════════════════════
        RUNTIME COMPOSITION
   ════════════════════════════════════════════════════ -->
   <h2 id="runtime">Runtime Composition</h2>
-  <p class="lede">Composing in the browser, at request time, is what actually decouples the deploys.</p>
+  <p class="lede">Runtime composition lets independently built artifacts meet after deployment.</p>
 
-  <p>Runtime composition means each team ships their own independently built and independently deployed bundle, and those bundles only come together once a browser requests the page. Nobody has to wait for anybody else's build to finish, because there isn't a shared build. The checkout team can deploy Thursday and the catalog team can deploy Tuesday, and the only coordination required between them is agreeing on the contract at the seam where their code meets, not the release calendar.</p>
+  <p><strong>Runtime composition</strong> lets each team build and deploy its own artifact. The host discovers or loads those artifacts when serving or running the application. Release coordination moves from a shared build to explicit contracts at the seams between host and remotes.</p>
 
-  <p>Module Federation, introduced in webpack 5, is the dominant mechanism for this today. The tooling around it has grown considerably, but the core idea hasn't changed: separately built applications can share code with each other at runtime rather than at bundle time. A host application declares which remote modules it needs and where to find them, a remote application declares which of its own modules it's willing to expose, and the actual loading and wiring happens in the browser when the host runs.</p>
+  <p>Module Federation, introduced with webpack 5, implements this model for JavaScript modules. A remote declares modules it exposes, while a host declares how to locate and consume them. The federation runtime loads the remote and negotiates shared dependencies after the applications have been built separately.</p>
 
   <div class="code-block">
     <div class="code-header">
       <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-filename">rspack.config.js (remote: checkout)</span>
-      <span class="code-lang">Module Federation</span>
+      <span class="code-filename">rspack.config.ts (remote: checkout)</span>
+      <span class="code-lang">TypeScript</span>
     </div>
-    <pre><code><span class="kw">const</span> { <span class="cn">ModuleFederationPlugin</span> } = <span class="kw">require</span>(<span class="s">'@module-federation/enhanced/rspack'</span>);
+    <pre><code><span class="kw">import</span> { <span class="cn">ModuleFederationPlugin</span> } <span class="kw">from</span> <span class="s">'@module-federation/enhanced/rspack'</span>;
 
-<span class="kw">module</span>.<span class="n">exports</span> = {
+<span class="kw">export default</span> {
   <span class="n">plugins</span>: [
     <span class="kw">new</span> <span class="fn">ModuleFederationPlugin</span>({
       <span class="n">name</span>: <span class="s">'checkout'</span>,
@@ -146,11 +146,11 @@
 };</code></pre>
   </div>
 
-  <p>The host side is the mirror image: a matching <code>remotes</code> entry pointing at the checkout team's deployed manifest, and an ordinary-looking import in the host's own code, <code>const CartSummary = await import('checkout/CartSummary')</code>, that resolves to code the host never bundled itself. The <code>singleton: true</code> line on <code>react</code> matters enough to earn its own section further down, it's the difference between the host and remote genuinely sharing one React instance and quietly loading two.</p>
+  <p>The host points a <code>remotes</code> entry at the checkout manifest. An import such as <code>await import('checkout/CartSummary')</code> then resolves to code that was not part of the host build. The <code>singleton: true</code> setting asks the federation runtime to use one React instance across that boundary, which is examined later.</p>
 
-  <p>single-spa takes a lighter path to the same runtime-composition goal. Instead of a bundler plugin that rewrites how modules resolve, it relies on browser-native import maps and a small root-level orchestrator that decides which registered application should be active for the current route, then mounts and unmounts applications as the user navigates. Because it doesn't require a specific bundler, it's the more natural choice when the remotes being composed aren't all using the same build tool, or aren't all written in the same framework to begin with, a React shell mounting an Angular settings panel and a Vue reporting widget is squarely single-spa's home turf in a way it isn't Module Federation's.</p>
+  <p>single-spa orchestrates applications rather than federating their module graphs. A root configuration decides which registered application is active for the current route and mounts or unmounts it during navigation. Import maps are a common way to resolve those applications, but single-spa does not require one bundler or framework. That makes it suitable for gradual migrations and deliberately mixed framework estates.</p>
 
-  <p>A third option solves a narrower version of the problem, and it belongs before either of the runtime mechanisms above: Next.js Multi-Zones. A Multi-Zone setup doesn't share components or runtime state between zones at all, it splits an application into several distinct Next.js apps that live under one domain, with routing rules (typically at the reverse proxy or <code>next.config</code> level) deciding which zone serves which URL path. Moving between zones is a genuine full navigation, not a runtime composition. For a team whose actual requirement is "separate builds, separate deploys, separate teams" rather than "share a live component across two apps without a page reload," Multi-Zones solves that without touching Module Federation at all, and it's worth checking whether that's the real requirement before reaching for the heavier runtime-sharing mechanisms.</p>
+  <p>Next.js Multi-Zones solve a narrower problem at the routing layer. Several applications share a domain, while routing rules assign URL paths to zones. Navigation within a zone can remain client-side, but crossing between zones performs a full document navigation. This provides separate builds and deployments without sharing live components or in-memory state.</p>
 
   <div class="figure-wrap">
     <svg viewBox="0 0 700 340" role="img" aria-label="Two-panel diagram. Left panel, Build-time composition, shows three separate team repositories, Team A, Team B, and Team C, each with an arrow converging into a single build step box, which itself has an arrow down into one deployed bundle box, labeled all teams ship together. Right panel, Runtime composition, shows three independently built and deployed remote boxes, Remote A, Remote B, and Remote C, each deployed on its own schedule, with arrows converging not into a shared build but into a host shell box labeled composed in the browser at request time." xmlns="http://www.w3.org/2000/svg">
@@ -216,7 +216,7 @@
 
       <text x="525" y="270" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="var(--text-faint)">each remote deploys independently</text>
     </svg>
-    <figcaption>Build-time composition resolves every team's code into one bundle before deployment, which removes runtime version risk but reintroduces a shared release train. Runtime composition keeps each remote's build and deploy schedule fully independent, at the cost of composing code that was never tested together until it met in a real user's browser.</figcaption>
+  <figcaption>Build-time composition resolves one tested application before deployment. Runtime composition preserves separate release schedules but requires compatibility checks across artifacts that can change independently.</figcaption>
   </div>
 
   <!-- ═══════════════════════════════════════════════════
@@ -225,7 +225,7 @@
   <h2 id="web-components-seam">Web Components as a Composition Boundary</h2>
   <p class="lede">A remote shipped as a native custom element doesn't need the host to know or care what built it.</p>
 
-  <p>Module Federation and single-spa both compose JavaScript modules, which means the host and the remote are, at some level, speaking the same framework's language even when the tooling papers over the difference. <a href="web-components.html#custom-elements">Custom elements</a> offer a third composition boundary that sidesteps that requirement entirely. A team builds their remote as a native custom element, whatever framework they used internally to build it, React, Svelte, plain JavaScript, and ships a single script that registers a tag like <code>&lt;checkout-cart-summary&gt;</code>. The host doesn't import a module, negotiate a shared dependency, or run a bundler plugin aware of the remote's existence. It drops a tag into its markup and the browser does the rest.</p>
+  <p><a href="web-components.html#custom-elements">Custom elements</a> provide a browser-defined composition boundary. A remote registers a tag such as <code>&lt;checkout-cart-summary&gt;</code>, regardless of the framework used inside it. The host loads the registration script and uses the element through attributes, properties, methods, slots, and events. No shared framework runtime is required at the interface.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -242,21 +242,21 @@
 <span class="p">&lt;/section&gt;</span></code></pre>
   </div>
 
-  <p>The tradeoff mirrors the one that shows up everywhere in this article: less coupling in exchange for less sharing. A Web Components remote can't lean on the host's React context, its router, or a shared client-side cache the way a Module Federation remote sometimes can, because it's deliberately opaque to the host beyond its custom element interface and whatever attributes and events that interface exposes. What it buys back is genuine framework independence and a much smaller integration surface, no shared runtime version to negotiate, no bundler plugin both sides need to agree on. For a remote that's meant to be dropped into products the owning team doesn't control at all, a marketing site, a partner's storefront, a component this loosely coupled is often the more realistic choice than one that assumes a matching Module Federation host on the other end.</p>
+  <p>The boundary limits coupling by limiting what can be shared. A custom element does not automatically participate in the host's React context, router, or client cache. Integration must pass through its public element contract. That smaller surface suits remotes embedded in products the owning team does not control, although it requires deliberate API and accessibility design.</p>
 
   <!-- ═══════════════════════════════════════════════════
        STATE SHARING
   ════════════════════════════════════════════════════ -->
   <h2 id="state-sharing">Sharing State Across Remotes</h2>
-  <p class="lede">The default should stay loosely coupled, because the whole point was independent teams.</p>
+  <p class="lede">State exchange should preserve the independence that runtime composition created.</p>
 
-  <p>Once two remotes are running on the same page, something usually needs to pass between them. A user adds an item in the catalog remote and the checkout remote's cart badge needs to update. The default, and the option that keeps remotes genuinely independently deployable, is custom events or a small pub-sub layer sitting outside either remote's own code. The catalog remote dispatches an event describing what happened, the checkout remote listens for it and updates itself, and neither remote imports the other's state shape or knows the other exists beyond the shape of the event contract itself.</p>
+  <p>Remotes on the same page often need to exchange information. A catalog can publish that an item was added, and a checkout badge can react. Custom events or a small external event bus preserve independence when the event payload is versioned as a public contract. Neither remote needs to import the other's internal state shape.</p>
 
   <div class="code-block">
     <div class="code-header">
       <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-filename">catalog remote</span>
-      <span class="code-lang">JavaScript</span>
+      <span class="code-filename">catalog-events.ts</span>
+      <span class="code-lang">TypeScript</span>
     </div>
     <pre><code><span class="n">window</span>.<span class="fn">dispatchEvent</span>(
   <span class="kw">new</span> <span class="fn">CustomEvent</span>(<span class="s">'cart:item-added'</span>, {
@@ -269,27 +269,29 @@
   <div class="code-block">
     <div class="code-header">
       <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-filename">checkout remote</span>
-      <span class="code-lang">JavaScript</span>
+      <span class="code-filename">checkout-events.ts</span>
+      <span class="code-lang">TypeScript</span>
     </div>
-    <pre><code><span class="n">window</span>.<span class="fn">addEventListener</span>(<span class="s">'cart:item-added'</span>, (<span class="n">event</span>) => {
+    <pre><code><span class="kw">type</span> <span class="t">CartItemAddedDetail</span> = { <span class="n">sku</span>: <span class="t">string</span>; <span class="n">quantity</span>: <span class="t">number</span> };
+
+<span class="n">window</span>.<span class="fn">addEventListener</span>(<span class="s">'cart:item-added'</span>, ((<span class="n">event</span>: <span class="t">CustomEvent</span>&lt;<span class="t">CartItemAddedDetail</span>&gt;) => {
   <span class="fn">updateBadgeCount</span>(<span class="n">event</span>.<span class="n">detail</span>.<span class="n">quantity</span>);
-});</code></pre>
+}) <span class="kw">as</span> <span class="t">EventListener</span>);</code></pre>
   </div>
 
-  <p>A shared state library, Zustand and Redux both show up here in practice, is a reasonable choice too, but it comes with a condition: it only makes sense when the remotes sharing that store are tightly co-owned by one team. The moment a shared store is imported by remotes owned by two different teams, the architecture has quietly recoupled exactly what runtime composition was supposed to decouple. Team B can no longer change its half of the store's shape without checking with team A, which is the lockstep-release problem from the build-time composition section showing up again, just at the state layer instead of the build layer.</p>
+  <p>A shared store can work when the participating remotes are deliberately co-owned. Across independent teams, the store becomes a shared implementation detail whose shape must change in coordination. That recreates release coupling at the state layer. <a href="client-state.html">Client State</a> covers the ownership and placement questions behind that choice.</p>
 
-  <p>URL and query parameters cover a third case of their own: cross-remote navigation context that needs to survive a full page load, not just a runtime event. A filter applied in the catalog remote that should still be active if the user bookmarks the page, or shares the link, or reloads the browser, belongs in the URL rather than in an in-memory event or a store, because it's the one state-sharing mechanism here that isn't scoped to a single page session.</p>
+  <p>The URL handles navigation context that must survive a document load or be shareable. A catalog filter that should remain after refresh belongs in path or query state rather than an in-memory event. This also lets routing-layer composition pass context across a hard navigation.</p>
 
   <!-- ═══════════════════════════════════════════════════
        ROUTING
   ════════════════════════════════════════════════════ -->
   <h2 id="routing">Who Owns the Address Bar</h2>
-  <p class="lede">The routing question is really an ownership question in disguise.</p>
+  <p class="lede">Routing determines whether the shell or each application owns navigation.</p>
 
-  <p>Routing-layer composition, Multi-Zones is the clearest current example, gives each remote genuine ownership of whole routes. Moving from <code>/catalog</code> to <code>/checkout</code> is a real navigation: a new document request, a new full page load, handled by whichever zone owns that path. Each team's remote is, from the browser's perspective, simply a separate application that happens to live under a shared domain and shared top-level navigation.</p>
+  <p>Routing-layer composition gives each application ownership of whole paths. In a Multi-Zones setup, moving from <code>/catalog</code> to <code>/checkout</code> crosses an application boundary and loads a new document. The browser sees separate applications under one domain and shared navigation design.</p>
 
-  <p>Client-side shell routing, single-spa's model, works the other way. One shell application owns the URL for the whole page, and remotes are mounted into regions of that page without a full navigation when the shell's router decides a given remote should be active. Moving between two areas of the product can feel instantaneous, because it's not a page load at all, it's the shell unmounting one remote and mounting another into the same DOM region.</p>
+  <p>Shell routing keeps one application in control of the URL. The shell activates remotes for the current route and mounts them into regions of the existing document. Navigation can preserve in-memory shell state, but every remote must follow the shell's routing contract.</p>
 
   <div class="figure-wrap">
     <svg viewBox="0 0 700 300" role="img" aria-label="Two-panel diagram contrasting routing ownership models. Left panel, routing-layer composition, shows an address bar changing from slash catalog to slash checkout with a full navigation arrow between two separate remote boxes, each labeled owns its whole route. Right panel, shell routing, shows one address bar that stays at slash dashboard the whole time, owned by a single shell box, which has dashed mount and unmount arrows into two small region boxes inside it, labeled catalog widget and checkout widget, with no navigation between them." xmlns="http://www.w3.org/2000/svg">
@@ -353,7 +355,7 @@
       <text x="525" y="222" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="var(--text-faint)">one shell mounts remotes into regions,</text>
       <text x="525" y="238" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="var(--text-faint)">no full navigation between them</text>
     </svg>
-    <figcaption>Routing-layer composition gives each remote a real route and a real navigation between them, the URL itself tells you which team's code is running. Shell routing keeps one application in charge of the URL the whole time and mounts remotes into regions of a single page, trading that ownership clarity for a navigation that never has to reload.</figcaption>
+  <figcaption>Routing-layer composition assigns paths to separate applications and crosses boundaries through document navigation. Shell routing keeps one document alive and mounts remotes under a shared router.</figcaption>
   </div>
 
   <!-- ═══════════════════════════════════════════════════
@@ -362,15 +364,15 @@
   <h2 id="tooling">The Current Tooling Landscape <span class="badge-new">2026</span></h2>
   <p class="lede">The practical path depends heavily on what a team is already building with.</p>
 
-  <p>Module Federation 2.0, shipped as <code>@module-federation/enhanced</code>, reached a stable release across the broader bundler ecosystem in early 2026, decoupling the runtime from webpack specifically. The same federation runtime now works across Rspack, Vite, and Rollup, not just webpack, with added TypeScript type sharing across federated boundaries and manifest-based host discovery so a host doesn't need remote URLs hardcoded at build time. For a team with an existing webpack investment, running Module Federation 2.0 on Rspack rather than plain webpack is currently the practical migration path: Rspack's webpack-compatible configuration API means most of an existing setup carries over directly, while builds run something like five to ten times faster.</p>
+  <p>Module Federation 2.0 is stable and supports integrations across webpack, Rspack, Vite, and the Rollup/Rolldown ecosystem. Its runtime and manifest model extend the original webpack feature with remote discovery, runtime plugins, and type-generation support. Rspack is a close fit for existing webpack configurations, while other integrations use their own build plugins.</p>
 
-  <p>Next.js complicates that picture rather than extending it. Turbopack, the default bundler in Next.js 16, does not support Module Federation. It's on the public roadmap and explicitly unshipped, which is a real gap for any team hoping to run Module Federation inside a Turbopack-built Next.js app today. The practical consequence is a growing divergence between Module Federation and Next.js's own architectural direction: teams building microfrontends on Next.js today are more often pointed toward Multi-Zones, single-spa, Astro islands, or a plain monorepo instead, several of which were never solving a genuine runtime-sharing problem to begin with and are better fits for teams whose real need was separate builds and separate teams.</p>
+  <p>Next.js follows a different path. Its Module Federation integration requires webpack, while Turbopack is the default bundler in Next.js 16. Teams that only need independently deployed route groups can use Multi-Zones without federating modules. A team that needs runtime component sharing must evaluate the webpack integration or choose a composition layer outside the default Next.js build.</p>
 
-  <p>Native Federation, maintained by the Angular Architects team, is the framework-agnostic alternative, relevant even outside the Angular ecosystem it originated in. It implements the same composition idea, remotes exposing modules a host can consume at runtime, but over native ECMAScript modules and browser import maps instead of a bundler-specific runtime. That makes it lighter than the webpack-derived Module Federation runtime and usable from any build tool that can emit standard ESM, at the cost of some of the manifest tooling and TypeScript-sharing convenience Module Federation 2.0 has built up around itself.</p>
+  <p>Native Federation uses standard ES modules and import maps to load exposed modules at runtime. Although it originated in the Angular ecosystem, its runtime boundary remains independent of a particular bundler. The tooling model differs from Module Federation's shared scopes and generated type support.</p>
 
-  <p>Zephyr sits a level above both, as a build and hosting layer rather than a federation mechanism of its own. It resolves shared dependencies and dedupes assets across a set of federated remotes even when those remotes were built with different bundlers, Webpack, Vite, Rspack, and Rollup among them, using content-addressed storage to avoid shipping the same dependency twice under two different bundlers' output. For an organization where different teams have already settled on different bundlers, which is common once a company reaches the size where microfrontends make sense at all, that cross-bundler resolution is often the more pressing problem than which single federation library to standardize on.</p>
+  <p>Zephyr adds a deployment and asset-management layer for federated applications. It can publish manifests and coordinate assets produced by different bundlers. Teams with varied build systems can use that layer to create operational consistency above the federation runtime.</p>
 
-  <p>One more piece of the current landscape is where remotes run, not just how they're built. Hosting a remote's bundle from a Cloudflare Workers edge location, the same edge-versus-origin tradeoff covered for <a href="rendering-strategies.html#ssr">edge SSR</a> in the rendering strategies article, buys the same lower cold-start latency for a federated remote's static assets that it buys for a rendered page, worth considering once a remote's origin location starts showing up in latency numbers for users far from wherever it's currently hosted.</p>
+  <p>Remote assets also need an ordinary delivery strategy. A content delivery network can place static bundles closer to users, while server-rendered remotes inherit the data-location tradeoffs described for <a href="rendering-strategies.html#ssr">edge SSR</a>. Federation does not remove HTTP caching, origin, or availability concerns.</p>
 
   <div class="table-wrap">
     <table>
@@ -393,7 +395,7 @@
   <h2 id="css-isolation">CSS Isolation</h2>
   <p class="lede">A global stylesheet from one remote can silently override another remote's button styles, and nothing in the browser stops it by default.</p>
 
-  <p>CSS has no built-in module boundary. A stylesheet loaded by one remote applies to the entire document, not just the DOM nodes that remote rendered, which means an unscoped <code>button { padding: 8px }</code> rule from the catalog remote can quietly restyle the checkout remote's buttons too, with no error, no warning, and no obvious cause when someone finally notices the layout looks wrong. This is the actual failure case that makes CSS isolation worth planning for deliberately rather than discovering the hard way in production.</p>
+  <p>An ordinary stylesheet applies across the document. An unscoped <code>button { padding: 8px }</code> rule from one remote can therefore restyle another remote without producing an error. Runtime independence needs a corresponding styling boundary, or the cascade becomes an undocumented integration surface.</p>
 
   <div class="compare-grid three">
     <div class="card teal">
@@ -404,7 +406,7 @@
     <div class="card blue">
       <div class="card-label">Soft isolation, build-time</div>
       <div class="card-title">CSS Modules / scoped hashing</div>
-      <p>Class names get hashed at build time so two remotes' <code>.button</code> classes can't collide, but a genuinely unscoped global rule still escapes.</p>
+      <p>Class names are rewritten at build time so two remotes' local <code>.button</code> classes cannot collide. An unscoped global rule can still escape.</p>
     </div>
     <div class="card purple">
       <div class="card-label">Soft isolation, runtime</div>
@@ -413,7 +415,7 @@
     </div>
   </div>
 
-  <p>Shadow DOM is the only option on that list enforced by the platform rather than by discipline, which is part of why it pairs naturally with the Web Components composition boundary covered earlier, a remote already living inside a custom element gets shadow-root style isolation close to for free. CSS Modules and CSS-in-JS both depend on every remote actually using the convention consistently. One remote that ships a genuinely global stylesheet, intentionally or by mistake, defeats either approach for everyone sharing the page with it.</p>
+  <p>Shadow DOM provides the strongest browser-enforced selector boundary and pairs naturally with custom elements. CSS Modules and generated classes prevent local name collisions but cannot contain an intentionally global selector. Whichever mechanism is chosen, the shell still needs shared tokens and component contracts to keep the product visually consistent.</p>
 
   <!-- ═══════════════════════════════════════════════════
        SHARED DEPENDENCY PITFALLS
@@ -421,7 +423,7 @@
   <h2 id="shared-deps">Shared Dependency Pitfalls</h2>
   <p class="lede">The React duplication bug is the one every team hits first, and it fails at runtime, not at build time.</p>
 
-  <p>Back in the Module Federation config example earlier, the <code>shared</code> entry for React carried a <code>singleton: true</code> flag. Leave that flag off, or leave it off in just one of the host or remote configs while the other has it, and Module Federation doesn't refuse to build. It builds cleanly, deploys cleanly, and then loads two separate copies of React into the same page at runtime, one bundled with the host and one bundled with the remote. React's hooks depend on a single module-level instance tracking which component is currently rendering, and two React copies means two of those instances, neither aware of the other. The result is usually <code>Invalid hook call</code>, thrown deep inside whichever component happened to call a hook from the "wrong" copy of React, with a stack trace that gives no hint that the actual cause is a missing singleton flag three files away.</p>
+  <p>The earlier federation configuration marked React as a singleton. Without compatible sharing configuration, the host and remote may load separate React instances. A component rendered by one instance can then call hooks from another, producing React's <code>Invalid hook call</code> warning. The build can still succeed because the incompatibility appears only after the independently built artifacts are composed.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -436,9 +438,9 @@ This could happen for one of the following reasons:
 3. You might have more than one copy of React in the same app</span></code></pre>
   </div>
 
-  <p>React is the version of this problem that surfaces loudest, because React happens to fail in a way that names itself in the error message. The underlying issue, dependency hoisting and version negotiation across independently built remotes, isn't specific to React at all. A shared date library, a shared design-system package, any dependency two remotes both import can drift out of sync the same way, sometimes loading two versions side by side, sometimes silently picking whichever version loaded first regardless of which remote actually asked for it. Module Federation's shared-scope negotiation exists specifically to manage this, matching version ranges where it can and falling back to separate instances where it can't, but a fallback to separate instances is exactly the silent-duplication failure above, just for a dependency that doesn't announce itself as loudly as React does.</p>
+  <p>The wider issue is dependency negotiation. Two remotes may request incompatible versions of a date library or design-system package. The federation runtime can satisfy compatible ranges from a shared scope or load separate versions when necessary. Separate copies may be harmless for pure utilities and dangerous for stateful singletons, so the sharing policy must reflect the dependency's semantics.</p>
 
-  <p>Cross-origin requests add a second category of pitfall once remotes are actually served from different domains rather than different paths on the same one. A host on <code>shell.example.com</code> loading a remote's manifest and assets from <code>checkout.example.com</code> is a cross-origin request, subject to the same <a href="http.html#cors">CORS preflight behavior</a> covered in the HTTP article: the remote's server has to return the right <code>Access-Control-Allow-Origin</code> headers or the browser blocks the response before the host ever sees it, and if that remote's calls need to carry cookies or credentials, the CORS configuration has to explicitly allow that too, a plain wildcard origin isn't enough once credentials are involved. This connects directly to the next section, because the same cross-origin boundary that trips up asset loading is exactly where a shared auth session has to survive.</p>
+  <p>Serving remotes from another origin adds browser security rules. Module scripts and API requests must satisfy the relevant <a href="http.html#cors">CORS mechanism</a>. Credentialed requests require an explicit allowed origin and credential policy rather than a wildcard. These constraints affect asset loading and any shared authentication context.</p>
 
   <!-- ═══════════════════════════════════════════════════
        AUTH
@@ -446,28 +448,28 @@ This could happen for one of the following reasons:
   <h2 id="auth">Shared Auth Context</h2>
   <p class="lede">Independently deployed remotes still need to agree on who's logged in.</p>
 
-  <p>A user shouldn't have to authenticate separately to the catalog remote and the checkout remote just because two different teams built and deployed them independently. The common solution is a session cookie scoped to a shared parent domain, <code>example.com</code> rather than <code>checkout.example.com</code> specifically, so every remote served under that domain receives the same session automatically. Where cookies aren't practical, typically because remotes genuinely live on unrelated domains, the shell instead holds the authenticated token and passes it down to each remote it composes, rather than each remote independently running its own login flow against the identity provider. Either way, the underlying token mechanics, what's actually inside that cookie or token and how it gets validated, are the same ones covered in <a href="oauth-oidc.html#tokens">the tokens section of the OAuth and OIDC article</a>, this is a question of where that token lives and how it reaches each remote, not a different authentication model.</p>
+  <p>Authentication should remain a product-level concern even when teams deploy separately. Same-site applications can rely on a server-managed session and appropriately scoped cookies. Cross-origin composition needs a deliberate token-exchange or backend integration rather than passing long-lived credentials through arbitrary remotes. <a href="oauth-oidc.html#tokens">OAuth and OIDC</a> covers the token and session mechanics. The microfrontend concern is preserving one trust boundary across several artifacts.</p>
 
-  <p>One narrow case deserves a specific mention: a remote that needs <code>SharedArrayBuffer</code> or runs WebAssembly requiring cross-origin isolation has to be served with COEP and COOP headers set correctly, and getting those headers wrong is a common way for an otherwise-working cross-origin microfrontend setup to break in a way that has nothing to do with CORS or auth at all. It's a narrow enough case that most microfrontend setups never hit it, but the symptom, isolated features failing silently or refusing to load, points here rather than back at the CORS or cookie configuration.</p>
+  <p>A remote that requires cross-origin isolation, for example to use <code>SharedArrayBuffer</code>, also depends on compatible Cross-Origin-Opener-Policy and Cross-Origin-Embedder-Policy headers across the page. This requirement belongs to the document as a whole, so one incompatible resource can prevent isolation even when CORS and authentication are configured correctly.</p>
 
   <!-- ═══════════════════════════════════════════════════
        WHEN IT'S WORTH IT
   ════════════════════════════════════════════════════ -->
-  <h2 id="when-worth-it">When It's Worth It</h2>
+  <h2 id="when-worth-it">When Microfrontends Fit</h2>
   <p class="lede">The org chart, not the codebase, is what determines whether any of this is worth the cost.</p>
 
-  <p>Team Topologies gives the clearest vocabulary for answering this, and borrowing it directly beats reaching for a vaguer "big org" justification. A stream-aligned team, one organized around a continuous flow of work toward a specific business domain, checkout, catalog, account, rather than around a technical layer, is the org shape microfrontends actually benefit. That team owns its slice end to end, including the decision to deploy it, and runtime composition is what lets that ownership extend all the way to production without waiting on anyone else's release calendar. An organization that hasn't actually organized itself into teams shaped like that doesn't get the benefit just by adopting the architecture, the deploy independence microfrontends promise only shows up if there's a team boundary in the first place for it to align with.</p>
+  <p>Microfrontends fit stream-aligned teams that own business capabilities such as checkout, catalog, or accounts from development through deployment. Runtime composition lets that ownership extend to the release boundary. If teams remain organized around technical layers or share one approval process, the architecture adds runtime seams without creating meaningful autonomy.</p>
 
-  <p>A shared design system is what keeps independently built remotes from drifting into a product that visibly looks like four different products stapled together. It's the contract, not a technical mechanism, that makes runtime composition tolerable at the UI level, consistent spacing, typography, and component behavior across remotes that share nothing else at build time. Skipping it is the single most common way a microfrontend migration produces a worse-looking product than the monolith it replaced, not because the architecture is wrong but because nothing was left to keep the visual language aligned once the teams stopped sharing a codebase.</p>
+  <p>A shared design system provides the visual and behavioral contract across remotes. Tokens, components, accessibility rules, and version policy must remain consistent even when source code and releases do not. Without that governance, technical independence appears to users as inconsistent interaction and visual drift.</p>
 
-  <p>CI/CD is where the operational reality of this tradeoff actually lands. Each remote gets its own pipeline, its own test suite, its own deploy schedule, which is the entire point, but it also means the one giant end-to-end suite that used to catch integration bugs across the whole product no longer has a single build to run against. Contract tests between the shell and each remote, verifying that a remote still exposes what the shell expects at the boundary, whatever that boundary is, a custom element's attributes, a federated module's exports, an event's payload shape, become the replacement. They're narrower than a full end-to-end suite and faster to run, but they only catch what's actually in the contract, which makes writing a contract that covers the seams that matter as important as the testing infrastructure itself.</p>
+  <p>Independent pipelines also change testing. Each remote can verify its own behavior, while contract tests check the exports, element API, or event schema at integration boundaries. A smaller set of end-to-end tests should still exercise deployed combinations because contracts cannot capture every rendering and timing interaction. The test strategy must reflect the fact that no single build now represents the whole product.</p>
 
-  <p>Observability carries its own microfrontend-specific wrinkle: a single user-facing error can originate in a remote that a completely different team owns and monitors, which makes correlated tracing across independently deployed remotes, not just "everyone uses the same APM," the part that actually needs deliberate setup. The full depth of that belongs to a dedicated observability article rather than this one.</p>
+  <p>Observability must identify the remote name, version, and owning team in shared logs and traces. A browser error can cross shell and remote boundaries, so correlation is more valuable than separate dashboards that cannot reconstruct one user journey.</p>
 
   <div class="compare-grid">
     <div class="card green">
       <div class="card-label">Worth it</div>
-      <div class="card-title">Genuinely autonomous stream-aligned teams</div>
+      <div class="card-title">Autonomous stream-aligned teams</div>
       <p>Separate teams that need to deploy on separate schedules, own separate domains end to end, and would otherwise be blocked on each other's release windows.</p>
     </div>
     <div class="card red">
@@ -480,11 +482,11 @@ This could happen for one of the following reasons:
   <!-- ═══════════════════════════════════════════════════
        SCOPE BOUNDARIES
   ════════════════════════════════════════════════════ -->
-  <h2 id="scope-boundaries">Where the Boundary Sits</h2>
+  <h2 id="scope-boundaries">Composition Boundaries</h2>
 
-  <p>Two things to close on, both distinct from material covered in other articles. First, a microfrontend remote still makes its own choice from the full menu in <a href="rendering-strategies.html">the rendering strategies article</a>, SSR, SSG, a plain SPA, whatever fits that team's product, entirely independently of how it gets composed into the larger page. Composition and rendering strategy are orthogonal decisions, and nothing about runtime composition constrains which one a given remote picks.</p>
+  <p>A remote still chooses its own <a href="rendering-strategies.html">rendering strategy</a>. It may use SSG, SSR, or client rendering regardless of whether the product composes at the route, element, application, or federated-module boundary. Composition determines ownership and integration. Rendering determines how one owned part produces its interface.</p>
 
-  <p>Second, the word "island" gets used loosely enough across this series to draw the line explicitly here. <a href="rendering-strategies.html#islands">Astro's islands</a> and a <a href="react-server-components.html#islands">client component inside a server-rendered React tree</a> are both a granularity-of-JavaScript decision made within a single page, by a single team, at build or render time. A federated microfrontend remote is a different unit of composition entirely: a separately built, separately deployed application boundary owned by a different team, composed at runtime rather than embedded in a single render pass. Both get called "islands" informally often enough that the resemblance is real, but they're solving different problems at different organizational scales, and treating them as the same mechanism is where the analogy stops holding.</p>
+  <p>The word “island” can obscure that distinction. <a href="rendering-strategies.html#islands">Astro islands</a> divide client activation within one page, while a <a href="react-server-components.html#islands">Client Component boundary</a> controls which React modules enter the client graph. A federated remote is independently built, deployed, and owned. The boundaries can coexist, but they solve different problems.</p>
 
 </main>
 </div><!-- end .shell -->

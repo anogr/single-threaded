@@ -51,37 +51,37 @@
 
   <div class="eyebrow">Infrastructure · Cloud Platforms</div>
   <h1>Cloud Computing</h1>
-  <p class="subtitle">What cloud computing trades against an internal data center, the service categories every provider shares, and where AWS, Azure, and GCP differ.</p>
+  <p class="subtitle">How renting infrastructure shifts responsibility and cost, the services public clouds provide, and the tradeoffs among AWS, Azure, and Google Cloud.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~17 min read</span>
+      <div class="dot"></div><span>~14 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <section id="intro">
-  <p>Two teams can both say they run "in the cloud" while doing almost nothing alike. One provisions virtual machines and patches them the same way it always has, just on someone else's hardware. The other has never configured a server directly, calling managed services through an API and letting a provider handle everything underneath. Both are accurate uses of the term. That's exactly why the term alone explains so little.</p>
+  <p>Two teams can both say they run “in the cloud” while operating very different systems. One may patch rented virtual machines much as it once patched physical servers. Another may deploy only to managed services and never configure an operating system. The label is accurate in both cases, so it says little about how much responsibility each team has retained.</p>
 
-  <p>This article works outward from that spectrum. It opens with what changes between running infrastructure yourself and renting it, including where cloud costs more rather than less. From there it covers the building blocks that exist across every major provider, working through compute, storage, networking, managed data, messaging, and identity in turn. It closes with the differences between AWS, Azure, and GCP that change an architecture decision, along with the portability tradeoffs a provider choice carries with it.</p>
+  <p>The useful distinction is the boundary between what the provider operates and what the customer still owns. This article begins with that boundary and the tradeoffs between rented and privately operated infrastructure. It then introduces the common building blocks of public clouds before comparing AWS, Azure, and Google Cloud.</p>
   </section>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="what-cloud-means">What "Cloud" Means</h2>
-  <p class="lede">The term spans a range of how much infrastructure responsibility a team keeps. It isn't one technology.</p>
+  <p class="lede">The term describes a range of responsibility boundaries rather than one technology.</p>
 
-  <p><strong>Cloud computing</strong> is on-demand, self-service access to computing resources delivered over the internet. Those resources are provisioned in seconds or minutes and can scale automatically. Provisioning and control both happen through APIs rather than by hand, and that property is what makes automation, infrastructure as code, and continuous delivery pipelines possible in the first place. Billing is typically usage-based, so a team rents the underlying hardware instead of owning it, though many services also support reserved or committed capacity at a lower price once usage becomes predictable. This article contrasts cloud against that alternative throughout. <strong>On-premises</strong> infrastructure means a company buying, racking, and operating its own servers in its own data center.</p>
+  <p><strong>Cloud computing</strong> provides on-demand network access to a shared pool of configurable resources. Customers can provision capacity without waiting for a provider employee, measure its use, and release it again as demand changes. Provider APIs make that lifecycle automatable through infrastructure as code and delivery pipelines. Pricing often follows consumption, although reservations and spending commitments can reduce rates for predictable use. <strong>On-premises</strong> infrastructure places the hardware and its operation under the organization's control, whether the equipment sits in its own facility or a colocation site.</p>
 
-  <p>Cloud doesn't only mean a public provider like the ones this article focuses on for most of its length. Private cloud runs the same self-service, on-demand model on infrastructure dedicated to a single organization. Hybrid cloud deliberately combines the two rather than treating the choice as all-or-nothing, a pattern the next section returns to.</p>
+  <p>Public cloud is only one deployment model. A <strong>private cloud</strong> offers similar self-service provisioning on infrastructure dedicated to one organization. <strong>Hybrid cloud</strong> connects private or on-premises systems with public-cloud services, allowing each workload to use the environment that fits its constraints.</p>
 
-  <p>The <strong>shared responsibility model</strong> is one more idea that comes before anything else. A provider operates and secures the underlying infrastructure below a boundary line, and the customer is responsible for everything above it. That includes their own identity and access policies, network configuration, and encryption choices, along with secrets and application code. Exactly where that line sits shifts by service model. The section right after the on-premises comparison below covers that in detail.</p>
+  <p>The <strong>shared responsibility model</strong> describes how provider and customer duties divide. The provider secures and operates the cloud infrastructure, while the customer remains responsible for its data, identities, configurations, and application code. The exact division changes with the service model, but consuming a managed service never transfers every security or reliability decision to the provider.</p>
 
-  <p>Virtualization made this technically possible, letting one physical machine run many isolated environments at once. Amazon Web Services' 2006 launch then popularized paying for compute by the hour instead of buying a server outright. The specific billing unit has shifted over time, moving from per-second charges to per-request and per-gigabyte pricing. The same idea, paying for what's used instead of what's owned, is still underneath almost every cloud billing model today.</p>
+  <p>Virtualization allowed providers to divide physical machines into isolated computing environments. The 2006 launches of Amazon S3 and EC2 helped turn storage and compute into resources that developers could provision through an API. Cloud pricing has since expanded beyond rented machine time to include requests, data volume, provisioned throughput, and other service-specific units.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="cloud-vs-onprem">Cloud vs. On-Premises</h2>
-  <p class="lede">Elasticity is the headline benefit. It isn't the only line in the ledger.</p>
+  <p class="lede">Elasticity is the headline benefit, but the rest of the cost and control ledger is more mixed.</p>
 
-  <p>The clearest advantage cloud infrastructure has over on-premises hardware is elasticity. Capacity expands and contracts with actual demand instead of sitting fixed at whatever was purchased. An on-premises deployment has to be sized for a projected peak, such as end-of-quarter processing, a product launch, or a seasonal traffic spike. It then carries that full capacity as a fixed cost every day demand sits well below it. A cloud deployment can provision for the peak only while the peak is happening, and scale back down once it passes.</p>
+  <p>Elasticity is the clearest advantage over fixed hardware capacity. Privately operated infrastructure must leave enough headroom for expected peaks or accept that demand can exceed supply. Cloud resources can be added for a peak and released afterward, provided the workload and service have been designed to scale that way. Elasticity is an available capability rather than an automatic property of every deployment.</p>
 
   <figure style="margin:24px 0 8px;">
     <svg viewBox="0 0 620 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Line chart comparing capacity over time. On-premises capacity is a flat line fixed near the top, set well above an actual demand curve that fluctuates below it. Cloud capacity is a second curve that closely tracks the demand curve instead. The large gap between the flat on-premises line and demand is shaded to show idle, paid-for capacity. The much smaller gap between the cloud curve and demand is shaded separately to show cloud's minimal idle capacity.">
@@ -119,28 +119,28 @@
         <tr><th>Dimension</th><th>Cloud</th><th>On-premises</th></tr>
       </thead>
       <tbody>
-        <tr><td>Upfront cost</td><td>None; pay for what's used</td><td>Large capital purchase before anything runs</td></tr>
-        <tr><td>Elasticity</td><td>Scales within minutes to match demand</td><td>Fixed by whatever was purchased, sized for peak</td></tr>
-        <tr><td>Provisioning speed</td><td>New resources in minutes, via API</td><td>Weeks to months for procurement and installation</td></tr>
-        <tr><td>Operational burden</td><td>Provider patches and maintains the hardware and much of the stack above it</td><td>The team owns everything, hardware failures included</td></tr>
+        <tr><td>Upfront cost</td><td>Usually low; charges begin as resources are consumed or committed</td><td>Hardware and facilities require investment before use</td></tr>
+        <tr><td>Elasticity</td><td>Capacity can follow demand when the workload supports scaling</td><td>Capacity is bounded by installed or contracted hardware</td></tr>
+        <tr><td>Provisioning speed</td><td>Standard resources are commonly available through an API within minutes</td><td>New capacity may require procurement and installation</td></tr>
+        <tr><td>Operational burden</td><td>The provider owns the hardware; higher layers depend on the service model</td><td>The organization operates the hardware and software stack</td></tr>
         <tr><td>Control &amp; customization</td><td>Limited to what the provider exposes</td><td>Full control down to the physical hardware</td></tr>
-        <tr><td>Data residency &amp; compliance</td><td>Constrained to the provider's regions, though workable for most compliance regimes</td><td>Physical location and access fully known and controlled</td></tr>
-        <tr><td>Cost at steady, high utilization</td><td>Ongoing usage-based cost can exceed owned hardware over several years</td><td>Often cheaper once utilization is high and constant, and hardware fully depreciates</td></tr>
+        <tr><td>Data residency &amp; compliance</td><td>Depends on service behavior, selected regions, contracts, and configuration</td><td>The organization controls location but must implement the required safeguards</td></tr>
+        <tr><td>Cost at steady, high utilization</td><td>Rental and managed-service premiums continue throughout operation</td><td>Owned capacity can become economical when utilization stays high</td></tr>
       </tbody>
     </table>
   </div>
 
-  <p>That last row is the one most easily overlooked in a conversation that otherwise favors cloud by default. At steady, predictable, high utilization, the ongoing cost of rented capacity can exceed the cost of owned hardware over a multi-year horizon. That's the pattern behind <strong>cloud repatriation</strong>, when a company moves a specific, steady workload back on-premises or to colocation after initially defaulting to the cloud. Repatriation has become common enough that many organizations now evaluate individual workloads for it, rather than treating the cloud direction as fixed. That's evidence the decision runs in both directions, not a case against cloud generally. The workloads that get repatriated are usually the steady, predictable ones that never needed elasticity in the first place. Anything with variable demand tends to stay.</p>
+  <p>Steady utilization changes the cost comparison. A predictable workload may keep rented capacity busy enough that the provider's margin and service premium exceed the cost of operating owned hardware over the same period. <strong>Cloud repatriation</strong> means moving such a workload from a public cloud to privately operated infrastructure or colocation. The calculation must include people, facilities, support, financing, migration, and lost access to managed services, rather than comparing a cloud invoice with server prices alone.</p>
 
-  <p>Many organizations land on a resolution rather than picking a side. That resolution is <strong>hybrid cloud</strong>, which keeps a specific workload on-premises for a reason like compliance or an existing capital investment while running everything else on a public provider. Treated this way, the choice isn't binary at all. It's a workload-by-workload decision informed by the table above, applied separately to each system rather than to an organization as a whole.</p>
+  <p>A hybrid design avoids making one answer serve every workload. An organization might retain a system because of latency, regulation, or an existing investment while placing variable workloads in a public cloud. The relevant unit of comparison is therefore the workload and its dependencies, not the organization as a whole.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="service-models">The Service Model Spectrum</h2>
   <p class="lede">IaaS, PaaS, and SaaS are usually taught as three separate boxes. They read more clearly as one spectrum with a boundary that moves.</p>
 
-  <p><strong>Infrastructure as a service</strong> (IaaS) rents the lowest-level building blocks, virtual machines, storage, and networking, leaving the operating system, runtime, and application entirely to the customer. <strong>Platform as a service</strong> (PaaS) moves the boundary up a layer. The provider also manages the operating system and runtime, and the customer deploys application code onto a managed platform without configuring a server underneath it. <strong>Software as a service</strong> (SaaS) moves the boundary up again. The customer uses finished software, such as an email service or a CRM product, and manages none of the infrastructure or code behind it.</p>
+  <p><strong>Infrastructure as a service</strong> (IaaS) exposes low-level resources such as virtual machines, storage, and networks. The customer manages the guest operating system, runtime, and application. <strong>Platform as a service</strong> (PaaS) also delegates the operating system and runtime, leaving the customer to deploy and configure its application. With <strong>software as a service</strong> (SaaS), the provider operates the application as well, while the customer manages its users, data, and service configuration.</p>
 
-  <p><strong>Serverless</strong> describes an operational model rather than a single product category. The provider manages the underlying servers entirely, and the customer never provisions capacity directly. <strong>Function as a service</strong> (FaaS) is the best-known example, running code only in response to an event and billing per invocation. The same model shows up wherever a provider removes capacity planning from the customer's side. Serverless databases, serverless containers, and serverless messaging all apply the same idea to a different primitive.</p>
+  <p><strong>Serverless</strong> describes services that hide server provisioning and expose a higher-level unit of work or capacity. <strong>Function as a service</strong> (FaaS) runs code in response to events and commonly meters execution or requests. Serverless databases and container platforms use different billing units, and some still expose capacity settings, so the word does not imply identical scaling or pricing behavior.</p>
 
   <p>The shared responsibility model introduced earlier becomes concrete once it's laid out layer by layer.</p>
 
@@ -160,7 +160,7 @@
 
   <p>Networking doesn't appear as a fifth row on purpose. It isn't one point in the stack the way application or storage are, but something configured at every level from IaaS upward. That's why the next major section covers it on its own.</p>
 
-  <p>Two qualifications keep the table honest otherwise. A provider-managed layer narrows the operational work, such as patching, uptime, and scaling, but rarely removes the customer's responsibility for configuring access to it correctly. A misconfigured permission on a fully managed database is still the customer's problem, even though the database itself is entirely the provider's. Exactly where a specific product draws its own line can also vary. The table shows the general pattern, not a guarantee for any one service.</p>
+  <p>A managed layer reduces operational work but leaves important customer decisions in place. The provider may patch a database engine while the customer still controls identities, network exposure, backup policy, and data use. Product boundaries also vary, so the table is a starting model rather than a substitute for a service's own responsibility matrix.</p>
 
   <figure style="margin:24px 0 8px;">
     <svg viewBox="0 0 650 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Four stacked layers, application, operating system and runtime, storage, and compute, repeated across four columns: on-premises, IaaS, PaaS, and SaaS. Each layer is colored customer-managed or provider-managed. On-premises has all four layers customer-managed. IaaS has application and OS customer-managed, storage and compute provider-managed. PaaS has only application customer-managed. SaaS has all four layers provider-managed. A dashed stepped line traces the shifting boundary between customer-managed and provider-managed layers across the four columns.">
@@ -213,17 +213,17 @@
   <h2 id="compute">Compute: VMs, Containers, and Functions</h2>
   <p class="lede">Four common ways to run a workload, each suited to a different shape of problem.</p>
 
-  <p>A <strong>virtual machine</strong> is the IaaS-level compute primitive. It emulates a computer with its own operating system, one the customer configures, patches, and scales directly. Such a machine suits a workload that runs continuously, needs direct control over the operating system, or depends on legacy software built to assume dedicated hardware. That makes it the traditional default, and still a reasonable one for plenty of workloads.</p>
+  <p>A <strong>virtual machine</strong> is the basic IaaS compute unit. It presents an operating system that the customer configures and patches. Virtual machines suit software that needs operating-system control, long-running processes, or compatibility with an existing server-based deployment model.</p>
 
   <p>Managed container platforms sit in the middle, ranging from a simple service that runs a single container up to a fully managed Kubernetes offering. The provider operates the underlying cluster infrastructure. The customer supplies containerized applications and describes how they should run. What a container is, and how an orchestrator like Kubernetes schedules and scales one, is covered in full in <a href="containers-orchestration.html">Containers and Orchestration</a>. This article only needs where managed container platforms sit relative to the other compute options.</p>
 
-  <p>Serverless functions sit at the far end of the spectrum defined in the previous section. No server management happens at all. In exchange, they carry constraints like execution time limits and <strong>cold starts</strong>, the delay when a function spins up from zero after sitting idle. They suit short, event-triggered work, such as resizing an uploaded image or reacting to a queue message, rather than a service that needs to respond instantly at all times.</p>
+  <p>Serverless functions remove guest operating-system and instance management from the customer. They also impose product-specific limits and may introduce a <strong>cold start</strong> while an execution environment initializes. Event-driven tasks fit the model well, although provisioned concurrency and other platform features can also support latency-sensitive endpoints.</p>
 
-  <p>A fourth category has become common enough to name on its own. <strong>Managed machine learning platforms</strong> provide infrastructure for training and serving models without provisioning GPU or TPU hardware directly. It's the compute-level primitive underneath the AI-specific strengths covered later in the provider comparison, not a separate concern from the compute choices above it.</p>
+  <p><strong>Managed machine-learning platforms</strong> combine compute with model training, deployment, and lifecycle tools. Some offerings allocate accelerators on the customer's behalf, while others still ask the customer to choose instance types and capacity. They build on the same compute primitives but present them through a workload-specific control plane.</p>
 
   <div class="callout info">
     <div class="callout-title">Cloud-native, defined</div>
-    <p>Put together, these options define what <strong>cloud-native</strong> architecture means. It means designing around managed services, automation, and elastic, loosely coupled components. It's a different starting point than treating the cloud as a stand-in for a physical server room running the same architecture as before.</p>
+      <p><strong>Cloud-native architecture</strong> uses cloud delivery characteristics as design inputs. It commonly favors automated provisioning, managed services, elastic capacity, and components that can change independently. Moving an unchanged server layout onto virtual machines uses cloud infrastructure, but it captures fewer of those characteristics.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -236,7 +236,7 @@
 
   <p><strong>File storage</strong> provides a shared filesystem that multiple machines can mount and read or write at once. It suits a workload built around shared files, rather than an API or a single attached disk.</p>
 
-  <p>Within object storage specifically, providers typically offer a standard tier priced for data that's read often, and a cheaper archival tier priced for data that's kept for backups or compliance but rarely retrieved. That tradeoff, slower retrieval in exchange for lower storage cost, is a real, common decision rather than a footnote. It's one of the more direct ways a storage choice affects a cloud bill.</p>
+  <p>Object-storage services usually divide data among access tiers. Tiers for infrequently read or archival data reduce storage charges but can add retrieval fees, minimum retention periods, or longer restore times. A lifecycle policy can move objects as their access pattern changes, provided the policy accounts for all of those costs.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="networking-data">Networking and Managed Data</h2>
@@ -252,17 +252,17 @@
   <h2 id="messaging-identity">Messaging and Identity</h2>
   <p class="lede">Who talks to whom, and who's allowed to do what.</p>
 
-  <p>Managed messaging splits into two patterns, distinguished by use case. A <strong>queue</strong> delivers each message to exactly one consumer, suited to distributing work across a pool of workers. A <strong>publish/subscribe</strong> service delivers a copy of each message to every subscriber, suited to broadcasting a single event to several independent systems at once.</p>
+  <p>Managed messaging commonly supports two delivery patterns. A <strong>queue</strong> lets competing consumers claim work so that one of them handles each delivery. The service may redeliver a message after a failure, so consumers often need idempotent processing. A <strong>publish/subscribe</strong> service gives each subscription its own delivery stream, allowing several systems to react independently to the same event.</p>
 
-  <p><strong>Identity and access management</strong> (IAM) attaches permissions to identities, users, applications, or roles, rather than to network location. The principle of least privilege, granting only the access a given identity actually needs, applies here the same way it applies everywhere else. The fewer permissions a compromised credential carries, the less damage it can do. Modern cloud architectures increasingly authenticate a workload using an identity assigned to it directly, rather than a long-lived API key embedded in its configuration. That way, a leaked secret has less it can be used for.</p>
+  <p><strong>Identity and access management</strong> (IAM) grants permissions to users, workloads, groups, and roles. Least privilege limits each identity to the actions and resources it needs. Cloud platforms can assign an identity directly to a workload and issue short-lived credentials when it runs. That approach removes long-lived API keys from application configuration and narrows the value of any credential that is exposed.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="regions-azs">Regions, Availability Zones, and Designing for Failure</h2>
-  <p class="lede">Infrastructure fails. The physical layout of a cloud provider's data centers is built around that fact, not around the hope it doesn't happen.</p>
+  <p class="lede">Cloud regions and zones divide infrastructure into failure domains so workloads can plan for outages.</p>
 
-  <p>A <strong>region</strong> is a geographic location with its own cluster of data centers. An <strong>availability zone</strong> is an isolated failure domain within a region, with its own power and networking, so a failure in one zone doesn't take down another. Resilience isn't the only reason a region gets picked. Proximity to users keeps latency down. Some workloads also have to stay within a specific region for data residency or regulatory reasons, echoing the compliance row from the on-premises comparison earlier in this article.</p>
+  <p>A <strong>region</strong> is a geographic area in which a provider operates one or more data centers. An <strong>availability zone</strong> is a separate failure domain within a region, designed with independent power, cooling, and networking. Deploying across zones reduces exposure to a local failure, but the workload must use zonal or zone-redundant services correctly. Region choice also affects latency, service availability, price, and data-residency obligations.</p>
 
-  <p>Because a zone, or even a region, can fail independently, systems are designed around that reality rather than an assumption of permanent uptime. A few habits follow directly from what a zone is. Instances run redundantly across zones, and services stay stateless so any instance can handle any request. No single component's failure should be able to take down the whole system. None of this is unique to any one provider. It's a consequence of the physical layout every major provider uses.</p>
+  <p>Resilient systems choose a failure scope and duplicate the components that must survive it. Stateless application instances are easier to spread across zones because any healthy instance can accept the next request. Stateful components need replication and a tested failover path. Multi-region designs address a larger failure scope, but they also add data-consistency, latency, cost, and operational tradeoffs.</p>
 
   <figure style="margin:24px 0 8px;">
     <svg viewBox="0 0 620 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A region containing three availability zones, A, B, and C, each with its own compute, storage, and network resources. Zones A and C are shown healthy. Zone B is shown in a failed state, colored red, while A and C remain unaffected.">
@@ -307,11 +307,11 @@
   <h2 id="comparing-providers">Comparing AWS, Azure, and GCP</h2>
   <p class="lede">The only section where a vendor's product name matters.</p>
 
-  <p>AWS has the broadest service catalog and the largest global footprint of any provider, backed by the largest ecosystem of third-party tooling and the largest hiring pool to draw from. That breadth makes it the common default for a greenfield team with no existing platform commitments. The reason is less that any single AWS service is unmatched, and more that whatever a team eventually needs, AWS almost certainly already offers some version of it.</p>
+  <p>AWS offers a broad catalog that spans basic infrastructure and many specialized managed services. Its long market presence has also produced a large ecosystem of tools, partners, and practitioners. Those characteristics make it a reasonable candidate when a team has no existing platform commitment, but they do not make it an automatic default.</p>
 
-  <p>Azure is strongest where an organization already runs Microsoft infrastructure, such as Active Directory (now Entra ID), .NET, Windows Server, or Microsoft 365, since identity and licensing integrate directly rather than needing a separate bridge. It has also become a leading option for enterprise AI adoption through Microsoft Foundry, Microsoft's unified AI platform. A company can reach models from OpenAI and other providers through it, inside Azure's own compliance and security boundary, instead of sending data to a separate vendor.</p>
+  <p>Azure has a natural fit in organizations already using Microsoft Entra ID, Microsoft 365, .NET, or Windows Server. Existing identity, administration, and licensing arrangements can reduce integration work. Microsoft Foundry adds a managed platform for building and governing AI applications with models from Microsoft, OpenAI, and other providers, subject to the terms and boundaries of the selected Azure service.</p>
 
-  <p>GCP's strengths concentrate in large-scale data analytics, led by BigQuery, one of the most influential serverless cloud data warehouse platforms, and in machine learning infrastructure that includes its own custom processors built for that workload. It's a common entry point for data-focused teams even at companies whose core workloads run elsewhere. Its Kubernetes heritage (Google originated the project) is a minor footnote rather than the headline differentiator it once was. GCP's general enterprise penetration still lags AWS and Azure.</p>
+  <p>Google Cloud has a strong data and machine-learning portfolio. BigQuery provides a managed analytical warehouse, while Google offers tensor processing units and managed model-development services for machine-learning workloads. Google also originated Kubernetes, although managed Kubernetes is now available from every major provider. These strengths may justify using Google Cloud for particular workloads even when the rest of an organization runs elsewhere.</p>
 
   <div class="table-wrap">
     <table>
@@ -319,7 +319,7 @@
         <tr><th>Provider</th><th>Primary strength</th><th>Typical fit</th><th>Flagship example</th></tr>
       </thead>
       <tbody>
-        <tr><td>AWS</td><td>Breadth of services and global footprint</td><td>Greenfield teams with no existing platform commitment</td><td>Amazon S3, whose API has become a de facto standard other providers also implement</td></tr>
+        <tr><td>AWS</td><td>Breadth of services and ecosystem</td><td>Teams needing a wide choice of infrastructure and managed services</td><td>Amazon S3</td></tr>
         <tr><td>Azure</td><td>Microsoft-ecosystem integration and enterprise AI</td><td>Organizations already running Active Directory, .NET, or Microsoft 365</td><td>Microsoft Foundry</td></tr>
         <tr><td>GCP</td><td>Data analytics and machine learning infrastructure</td><td>Data-focused teams and AI/ML-centric workloads</td><td>BigQuery</td></tr>
       </tbody>
@@ -330,13 +330,13 @@
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="portability">Portability and Lock-In</h2>
-  <p class="lede">Compute travels between providers reasonably well. Almost nothing else does.</p>
+  <p class="lede">Compute moves between providers more readily than the services and data surrounding it.</p>
 
-  <p>A virtual machine or a container image runs similarly on any provider, which makes compute the most portable layer of a cloud architecture. The deeper lock-in usually comes from a combination of places whose APIs and behavior don't carry over to another provider. Common examples include IAM policy structure, network configuration, observability tooling, event and messaging systems, managed databases, and increasingly provider-specific AI services. Managed databases remain the single deepest source on their own, but rarely the only one anymore. The data itself is a further, separate source once it's large enough. Moving a large dataset out of a provider costs real time and money, an effect sometimes called <strong>data gravity</strong>. That cost applies independent of which specific services touch the data.</p>
+  <p>Virtual machines and container images are relatively portable, but their surrounding configuration rarely moves unchanged. IAM policies, networks, observability, messaging, and managed databases expose provider-specific behavior. Data creates another constraint because moving a large volume takes time and may incur transfer charges. <strong>Data gravity</strong> describes how a growing dataset makes nearby services easier to adopt and the whole system harder to relocate.</p>
 
-  <p>Two abstraction layers offer a partial answer. Infrastructure as code, covered in <a href="ci-cd-devops.html#iac">CI/CD and DevOps</a>, and container orchestration, covered in <a href="containers-orchestration.html">Containers and Orchestration</a>, both describe infrastructure in ways that move between providers more easily than hand-configured resources do. Neither makes a migration free. Both narrow how much of it is manual. Favoring components built on open, non-proprietary interfaces helps too. A managed database that still speaks standard PostgreSQL, or a service that exports telemetry through OpenTelemetry, keeps that portability intact. The interface stays portable even when the infrastructure behind it doesn't.</p>
+  <p>Abstraction can reduce migration work without removing it. <a href="ci-cd-devops.html#iac">Infrastructure as code</a> makes the existing configuration explicit, while <a href="containers-orchestration.html">container orchestration</a> gives compute a similar operating model across providers. Open interfaces help at service boundaries. PostgreSQL compatibility and OpenTelemetry export, for example, preserve useful options even when the managed implementation remains provider-specific.</p>
 
-  <p><strong>Multi-cloud</strong> means deliberately running workloads across more than one provider, to use each for a specific strength from the comparison above. That trades the lock-in risk from the previous paragraph for real operational complexity. Each environment brings its own expertise, its own tooling, and its own failure modes to reason about. It's worth that cost for reasons like regulatory requirements or negotiating leverage. It isn't a default goal for a smaller team without one of those reasons already in hand.</p>
+  <p><strong>Multi-cloud</strong> means operating workloads across more than one public-cloud provider. It can satisfy a regulatory constraint, support an acquisition, or give a workload access to a particular service. It also multiplies identity models, tooling, skills, and failure modes. A team should adopt that complexity for a stated requirement rather than treating provider count as a resilience feature by itself.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="choosing-provider">Choosing a Provider</h2>
@@ -346,7 +346,7 @@
 
   <p>Revisit the comparison from earlier in this article, too, before assuming the answer is a public cloud provider at all. A steady, predictable, high-utilization workload is exactly the case where that assumption breaks down. The right answer for one system inside an architecture doesn't have to be the right answer for every system next to it.</p>
 
-  <p>None of this starts with a provider name, in the end. It starts with the same question the opening section raised. How much infrastructure responsibility should a given system hand off, and to whom? The service models, the building blocks, and the provider comparison in between are all ways of answering that one question more precisely.</p>
+  <p>Provider choice comes after a more basic decision: how much responsibility should this workload hand off, and which responsibilities must the organization retain? Service models and managed products provide different answers. The right combination follows from the workload's constraints and the team's ability to operate what remains.</p>
 
 </main>
 </div><!-- end .shell -->

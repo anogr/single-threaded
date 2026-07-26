@@ -122,7 +122,7 @@
 
   <div class="eyebrow">Networking · HTTP</div>
   <h1>HTTP</h1>
-  <p class="subtitle">How the protocol behind every web interaction works, from methods and status codes to caching, cookies, CORS, and the evolution from HTTP/1.1 to HTTP/3.</p>
+  <p class="subtitle">How requests and responses work, from methods and status codes to caching, cookies, CORS, HTTP/2, and HTTP/3.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
     <div class="dot"></div><span>~24 min read</span>
@@ -133,9 +133,9 @@
   <section id="intro">
   <p class="lede">Every browser request, API call, and webhook delivery travels over the same protocol. Understanding it removes a layer of mystery from almost everything on the web.</p>
 
-  <p>HTTP (Hypertext Transfer Protocol) is the application-layer protocol that powers communication on the web. It operates on a simple model. A <strong>client</strong> sends a <strong>request</strong>, and a <strong>server</strong> sends back a <strong>response</strong>. That's it. Every browser page load, API call, and file download is one or more of these exchanges.</p>
+  <p>HTTP (Hypertext Transfer Protocol) is the application-layer protocol used for communication on the web. It follows a request-response model in which a <strong>client</strong> sends a <strong>request</strong> and a <strong>server</strong> returns a <strong>response</strong>. Page loads, API calls, and file downloads all consist of one or more of these exchanges.</p>
 
-  <p>A request consists of a <strong>method</strong> (what action to perform), a <strong>URL</strong> (which resource), <strong>headers</strong> (metadata), and an optional <strong>body</strong> (data). A response consists of a <strong>status code</strong> (what happened), <strong>headers</strong>, and an optional <strong>body</strong>. In its plaintext form, a basic exchange looks like this.</p>
+  <p>The request carries a <strong>method</strong> that describes the intended action and a <strong>URL</strong> that identifies the target. Its <strong>headers</strong> provide metadata, while an optional <strong>body</strong> carries content. The response has a <strong>status code</strong>, its own headers, and sometimes a body. In the text-based syntax used by HTTP/1.1, a basic exchange looks like this.</p>
 
   <div class="http-block">
     <div><span class="hl-comment"># Request</span></div>
@@ -151,48 +151,48 @@
     <div><span class="hl-comment">&lt;!DOCTYPE html&gt;…</span></div>
   </div>
 
-  <p>HTTP is <strong>stateless</strong>: each request is self-contained. The server has no memory of previous requests from the same client. State that needs to persist across requests (authentication, sessions, preferences) must be carried explicitly, typically in headers or cookies.</p>
+  <p>HTTP is <strong>stateless</strong>, which means that the protocol does not give one request implicit access to the context of an earlier one. Applications may still keep server-side state. They connect a request to that state through information carried with the request, often a session cookie or authorization header.</p>
   </section>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="history">A Brief History</h2>
-  <p class="lede">HTTP has gone through four major versions. Each solved a specific bottleneck of the one before it.</p>
+  <p class="lede">HTTP has evolved in several stages. Each revision addressed limits that became visible as the web grew.</p>
 
   <div class="two-col">
     <div class="card orange">
       <div class="card-label">1991 · 1996</div>
       <div class="card-title">HTTP/0.9 &amp; HTTP/1.0</div>
-      <p>HTTP/0.9 was a single line, just a GET request and plain HTML back. HTTP/1.0 introduced headers, status codes, and support for content types other than HTML. Each request required its own TCP connection, which was expensive.</p>
+      <p>HTTP/0.9 supported a minimal GET exchange that returned HTML. HTTP/1.0 added headers, status codes, and other media types. Connections were normally closed after each response, so loading a page with many resources required repeated connection setup.</p>
     </div>
     <div class="card teal">
       <div class="card-label">1997</div>
       <div class="card-title">HTTP/1.1</div>
-      <p>Added persistent connections (reuse the same TCP connection for multiple requests), chunked transfer encoding, and mandatory <code>Host</code> headers (which enable virtual hosting). HTTP/1.1 ran the web for nearly two decades and remains widely supported.</p>
+      <p>HTTP/1.1 made persistent connections the default, allowing several exchanges to reuse one TCP connection. It also added chunked transfer coding and required the <code>Host</code> header, which lets one server distinguish sites that share an IP address.</p>
     </div>
     <div class="card blue">
       <div class="card-label">2015</div>
       <div class="card-title">HTTP/2</div>
-      <p>Binary framing and multiplexing allow multiple requests over a single connection at the same time, with header compression via HPACK. This eliminated the need for many HTTP/1.1 performance workarounds like domain sharding and inlining assets.</p>
+      <p>HTTP/2 introduced binary framing, multiplexed streams, and HPACK header compression. Several exchanges can share one connection without waiting in an HTTP-level queue, removing much of the rationale for workarounds such as domain sharding.</p>
     </div>
     <div class="card purple">
       <div class="card-label">2022</div>
       <div class="card-title">HTTP/3</div>
-      <p>Replaced TCP with QUIC, a UDP-based transport developed by Google. Eliminates TCP-level head-of-line blocking, supports connection migration across networks, and has faster connection setup with built-in TLS 1.3.</p>
+      <p>HTTP/3 carries HTTP over QUIC instead of TCP. QUIC provides independent streams, integrates TLS 1.3, and can preserve a connection when the client changes networks. Packet loss on one stream no longer stalls every other stream at the transport layer.</p>
     </div>
   </div>
 
-  <p>HTTP/1.1 is still everywhere. HTTP/2 is now the default for most browsers and servers. HTTP/3 adoption is growing rapidly. Today it handles a significant share of web traffic. More on the differences in the <a href="#http2-http3">HTTP/2 &amp; HTTP/3 section</a>.</p>
+  <p>HTTP/1.1, HTTP/2, and HTTP/3 all remain in use. Applications usually rely on clients and infrastructure to negotiate the best option they share. The <a href="#http2-http3">HTTP/2 and HTTP/3 section</a> explains how the two newer versions differ.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="methods">Methods</h2>
-  <p class="lede">A method declares the intended action. Choosing the right one is not just convention, since it affects caching, retry behavior, and how intermediaries treat the request.</p>
+  <p class="lede">A method declares the intended action, giving clients and intermediaries semantics they can use for caching and retries.</p>
 
-  <p>HTTP defines a small set of methods, each with a specified semantic. Two properties matter most. A method is <strong>safe</strong> if it has no side effects (calling it must not change server state). A method is <strong>idempotent</strong> if calling it multiple times produces the same result as calling it once. Safety implies idempotency, but not the reverse.</p>
+  <p>HTTP defines a small set of methods, each with specified semantics. Two properties shape how generic software handles them. A method is <strong>safe</strong> when the client does not request a state change. It is <strong>idempotent</strong> when several identical requests have the same intended effect as one. Every safe method is idempotent, but an idempotent method can still change state.</p>
 
   <div class="card" style="margin: 16px 0; max-width: var(--content-w);">
     <div class="method-row">
       <span class="method method-get">GET</span>
-      <span class="method-desc"><strong>Retrieve a resource.</strong> Safe and idempotent. Must not modify state. Responses may be cached by browsers and intermediaries. The body is ignored by most servers.</span>
+      <span class="method-desc"><strong>Retrieve a representation.</strong> Safe and idempotent, which means the client does not ask for a state change. A GET request has no generally defined meaning for request content, so clients should not send a body without an explicit agreement with the origin.</span>
     </div>
     <div class="method-row">
       <span class="method method-post">POST</span>
@@ -200,7 +200,7 @@
     </div>
     <div class="method-row">
       <span class="method method-put">PUT</span>
-      <span class="method-desc"><strong>Replace a resource entirely.</strong> Idempotent but not safe. The client provides the complete new representation. Repeated calls produce the same result.</span>
+      <span class="method-desc"><strong>Replace a resource entirely.</strong> Idempotent but not safe. The client provides the complete new representation, and repeated identical requests have the same intended effect.</span>
     </div>
     <div class="method-row">
       <span class="method method-patch">PATCH</span>
@@ -224,11 +224,13 @@
     </div>
   </div>
 
-  <p>Why do these properties matter in practice? Caches only store GET and HEAD responses. Browsers and proxies may automatically retry safe and idempotent requests after a network failure, but they will not retry a POST (which could charge a card or create a duplicate order). Middleware, load balancers, and API gateways all make decisions based on the method. Using GET for something that modifies state, or POST for something safe, breaks these assumptions.</p>
+  <p>These properties give clients and intermediaries a basis for decisions about caching and retries. GET and HEAD dominate ordinary HTTP caching, although HTTP also defines narrower caching semantics for POST. An idempotent request may be retried after a connection failure because repeating it has the same intended effect. A client cannot make that assumption for POST unless the application supplies another guarantee, such as an idempotency key.</p>
+
+  <p>Method semantics are therefore part of the contract with infrastructure as well as application code. A GET endpoint that changes state can be triggered by prefetching, crawling, or an automatic retry. Using POST for a read is valid, but it gives up the safety and idempotency guarantees that generic HTTP software understands.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="query">The QUERY Method <span class="badge-new">2026</span></h2>
-  <p class="lede">A method that closes a long-standing gap between GET and POST: a request body with the safety and cacheability guarantees of a read.</p>
+  <p class="lede">QUERY fills the gap between GET and POST by giving a body-bearing request safe, idempotent, and cacheable semantics.</p>
 
   <p>Search and filter operations often need more structure than a URL comfortably holds, such as nested filters, long lists of IDs, or a full-text query alongside facets and pagination. The usual way to express this is a query string.</p>
 
@@ -237,7 +239,7 @@
     <div><span class="hl-header">Host:</span> <span class="hl-value">example.org</span></div>
   </div>
 
-  <p>This works until the query grows past what a URL can carry comfortably. Intermediaries along the path don't all agree on a size limit, so there's no safe upper bound to design around. Structured data is awkward to encode as a flat string of characters. Query strings also end up in server logs, browser history, and bookmarks, which is unwelcome when the query itself contains something sensitive. And every distinct combination of parameters is technically a different URL, which defeats caching strategies that expect a stable set of resources.</p>
+  <p>Query strings work well until the query becomes large or deeply structured. Servers and intermediaries impose different URL-length limits, so applications cannot rely on one universal maximum. Encoding nested data into a flat string also becomes cumbersome. URLs commonly appear in browser history and server logs, which makes them a poor place for sensitive query values.</p>
 
   <p>The common workaround is to send the query as a POST body instead.</p>
 
@@ -249,9 +251,9 @@
     <div><span class="hl-value">q=foo&amp;limit=10&amp;sort=-published</span></div>
   </div>
 
-  <p>This solves the size and encoding problem, but it introduces a new one. Nothing about a POST request tells a cache, proxy, or client library that the operation is actually safe and repeatable. POST is defined as neither safe nor idempotent, so intermediaries won't cache the response or retry it automatically after a dropped connection, even though this particular POST is just a read.</p>
+  <p>A POST body removes the URL constraint, but the method no longer tells generic HTTP software that the operation is safe and repeatable. POST responses can be cached under limited conditions, though most cache implementations do not support that path. Automatic retries are also unsafe unless the client knows more about the operation than the method reveals.</p>
 
-  <p>RFC 10008, published by the IETF in June 2026 as a Proposed Standard, defines a new method to sit in the gap, called QUERY. The request looks almost identical to the POST version above, but the method name tells every intermediary along the way that the operation is safe and idempotent, the same guarantee GET carries.</p>
+  <p>RFC 10008, published on the IETF Standards Track in June 2026, defines the QUERY method for this case. The request resembles the POST version above, but its method explicitly promises safe and idempotent processing.</p>
 
   <div class="http-block">
     <div><span class="hl-method">QUERY</span> <span class="hl-url">/feed</span> <span class="hl-version">HTTP/1.1</span></div>
@@ -264,7 +266,7 @@
     <div><span class="hl-header">Content-Type:</span> <span class="hl-value">application/json</span></div>
   </div>
 
-  <p>The request content and its <code>Content-Type</code> together define the query. A server must reject the request if <code>Content-Type</code> is missing or doesn't match the body, since there's otherwise no way to know how to interpret it. The examples above use <code>application/x-www-form-urlencoded</code> because it's familiar, but QUERY doesn't prescribe a format. A resource can just as well accept <code>application/sql</code>, a GraphQL document, or a JSON body describing filters, as long as client and server agree on what it means.</p>
+  <p>The request content and its <code>Content-Type</code> together describe the query. A server must reject a QUERY request when the media type is missing or inconsistent with the content. The method does not prescribe one format, so a resource may accept form data, JSON, SQL, or another media type whose query semantics it defines.</p>
 
   <div class="table-wrap">
     <table>
@@ -272,32 +274,32 @@
       <tbody>
         <tr><td>Safe</td><td>yes</td><td>yes</td><td>not guaranteed</td></tr>
         <tr><td>Idempotent</td><td>yes</td><td>yes</td><td>not guaranteed</td></tr>
-        <tr><td>Cacheable</td><td>yes</td><td>yes</td><td>only for the resulting GET/HEAD, not the POST itself</td></tr>
+        <tr><td>Cacheable</td><td>yes</td><td>yes</td><td>yes, but only for later GET or HEAD requests</td></tr>
         <tr><td>Body</td><td>no defined meaning</td><td>defines the query</td><td>defines the operation</td></tr>
       </tbody>
     </table>
   </div>
 
-  <p>Because a cache can no longer key purely on the URL (two QUERY requests to the same URL with different bodies are different queries), servers that want QUERY responses cached correctly need to return a <code>Vary</code> header covering the request content, and caches need to support keying on it. This is a bigger change for HTTP cache implementations than it looks, and it's the main reason adoption is expected to be gradual, since the method existing in the spec doesn't mean every proxy, CDN, and client library handles it yet.</p>
+  <p>Two QUERY requests to the same URL may describe different operations, so a cache key must incorporate the request content and the metadata that affects its interpretation. Existing caches were largely designed around URL-keyed GET requests. Supporting QUERY therefore requires implementation work across clients, proxies, and CDNs. Publication of the RFC does not make that support immediate.</p>
 
-  <p>A server can advertise which query formats it accepts with the new <code>Accept-Query</code> response header, similar in spirit to how <code>Allow</code> advertises accepted methods.</p>
+  <p>A server can advertise QUERY support and the accepted media types through the <code>Accept-Query</code> response header. The header plays a role similar to <code>Allow</code>, but describes query formats rather than methods.</p>
 
   <div class="http-block">
     <div><span class="hl-header">Accept-Query:</span> <span class="hl-value">application/x-www-form-urlencoded, application/sql</span></div>
   </div>
 
-  <p>QUERY is a Proposed Standard rather than an established convention. Expect to see it first in API frameworks and HTTP client libraries that add explicit support, with broad browser and intermediary support following over time, the same adoption curve every new method has followed.</p>
+  <p>QUERY entered the standards track in June 2026, so deployment is still at an early stage. An application must confirm support in every client and intermediary on its request path before depending on the method or its caching semantics.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="status-codes">Status Codes</h2>
   <p class="lede">The three-digit status code is the server's top-level answer to the request. The first digit indicates the class of outcome.</p>
 
-  <p>There are five classes. Most of what appears in practice falls into 2xx, 4xx, and 5xx. 3xx matters for redirects and caching. 1xx is mostly invisible, handled by the browser.</p>
+  <p>HTTP defines five classes. Application code encounters 2xx, 4xx, and 5xx most often. The 3xx range controls redirection and participates in caching, while clients commonly handle informational 1xx responses below the application layer.</p>
 
   <p style="font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--green);margin:20px 0 6px;">2xx · Success</p>
   <div class="card" style="max-width:var(--content-w);margin-bottom:12px;">
     <div class="status-row"><span class="status-code s2xx">200</span><span class="status-desc"><strong>OK</strong>: The request succeeded. The response body contains the result.</span></div>
-    <div class="status-row"><span class="status-code s2xx">201</span><span class="status-desc"><strong>Created</strong>: A resource was created. Should include a <code>Location</code> header pointing to it.</span></div>
+    <div class="status-row"><span class="status-code s2xx">201</span><span class="status-desc"><strong>Created</strong>: One or more resources were created. A <code>Location</code> header can identify the primary new resource.</span></div>
     <div class="status-row"><span class="status-code s2xx">202</span><span class="status-desc"><strong>Accepted</strong>: The request was received but processing is not yet complete. Used for async operations.</span></div>
     <div class="status-row"><span class="status-code s2xx">204</span><span class="status-desc"><strong>No Content</strong>: Succeeded with no body to return. Common for DELETE and some PATCH responses.</span></div>
   </div>
@@ -314,19 +316,19 @@
   <p style="font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);margin:20px 0 6px;">4xx · Client Error</p>
   <div class="card" style="max-width:var(--content-w);margin-bottom:12px;">
     <div class="status-row"><span class="status-code s4xx">400</span><span class="status-desc"><strong>Bad Request</strong>: The request is malformed or contains invalid syntax.</span></div>
-    <div class="status-row"><span class="status-code s4xx">401</span><span class="status-desc"><strong>Unauthorized</strong>: Authentication is required but was not provided, or credentials are invalid. Despite the name, this means <em>unauthenticated</em>.</span></div>
-    <div class="status-row"><span class="status-code s4xx">403</span><span class="status-desc"><strong>Forbidden</strong>: The client is authenticated but does not have permission. The distinction from 401 matters: a 403 tells the client that authenticating differently won't help.</span></div>
+    <div class="status-row"><span class="status-code s4xx">401</span><span class="status-desc"><strong>Unauthorized</strong>: The request lacks valid authentication credentials. The response includes a <code>WWW-Authenticate</code> challenge.</span></div>
+    <div class="status-row"><span class="status-code s4xx">403</span><span class="status-desc"><strong>Forbidden</strong>: The server understood the request but refuses to fulfil it. Different credentials may be insufficient, or the resource may be prohibited for another reason.</span></div>
     <div class="status-row"><span class="status-code s4xx">404</span><span class="status-desc"><strong>Not Found</strong>: The resource does not exist at this URL. Sometimes returned intentionally in place of 403 to conceal existence.</span></div>
     <div class="status-row"><span class="status-code s4xx">409</span><span class="status-desc"><strong>Conflict</strong>: The request conflicts with the current resource state, for example, a duplicate creation or a failed optimistic concurrency check.</span></div>
-    <div class="status-row"><span class="status-code s4xx">422</span><span class="status-desc"><strong>Unprocessable Entity</strong>: The request is syntactically valid but semantically incorrect. Typically used for domain validation failures.</span></div>
-    <div class="status-row"><span class="status-code s4xx">429</span><span class="status-desc"><strong>Too Many Requests</strong>: Rate limit exceeded. Should include a <code>Retry-After</code> header.</span></div>
+    <div class="status-row"><span class="status-code s4xx">422</span><span class="status-desc"><strong>Unprocessable Content</strong>: The server understands the content type and syntax but cannot process the instructions. Domain validation failures often use this code.</span></div>
+    <div class="status-row"><span class="status-code s4xx">429</span><span class="status-desc"><strong>Too Many Requests</strong>: The client sent too many requests within a period. <code>Retry-After</code> can tell it when to try again.</span></div>
   </div>
 
   <p style="font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--red);margin:20px 0 6px;">5xx · Server Error</p>
   <div class="card" style="max-width:var(--content-w);margin-bottom:12px;">
     <div class="status-row"><span class="status-code s5xx">500</span><span class="status-desc"><strong>Internal Server Error</strong>: Something went wrong on the server. A catch-all for unhandled failures.</span></div>
-    <div class="status-row"><span class="status-code s5xx">502</span><span class="status-desc"><strong>Bad Gateway</strong>: An upstream server returned an invalid response. Common when a reverse proxy cannot reach the backend.</span></div>
-    <div class="status-row"><span class="status-code s5xx">503</span><span class="status-desc"><strong>Service Unavailable</strong>: The server is temporarily unable to handle requests. Should include a <code>Retry-After</code> header.</span></div>
+    <div class="status-row"><span class="status-code s5xx">502</span><span class="status-desc"><strong>Bad Gateway</strong>: A gateway or proxy received an invalid response from an upstream server.</span></div>
+    <div class="status-row"><span class="status-code s5xx">503</span><span class="status-desc"><strong>Service Unavailable</strong>: The server is temporarily unable to handle requests. It may include <code>Retry-After</code> when the recovery time is known.</span></div>
   </div>
 
   <div class="callout info">
@@ -338,7 +340,7 @@
   <h2 id="headers">Headers</h2>
   <p class="lede">Headers carry metadata about the message, the sender, the content, and the desired behavior. They are the control plane of HTTP.</p>
 
-  <p>Headers are key-value pairs sent before the body in both requests and responses. They control how the message is interpreted, what content is acceptable, how long a response can be cached, and who is allowed to read it. Header names are case-insensitive. Values are case-sensitive where the spec says so.</p>
+  <p>Headers are key-value pairs sent before the body in both requests and responses. They control how the message is interpreted, what content is acceptable, how long a response can be cached, and who is allowed to read it. Header names are case-insensitive, though values are case-sensitive where the spec requires it.</p>
 
   <h3>Content negotiation</h3>
   <p>HTTP has a built-in mechanism for clients and servers to agree on representation format. The client expresses what it can handle in the <code>Accept</code> header. The server responds with the chosen format in <code>Content-Type</code>. The same mechanism applies to encoding (<code>Accept-Encoding</code> / <code>Content-Encoding</code>) and language (<code>Accept-Language</code> / <code>Content-Language</code>).</p>
@@ -389,7 +391,7 @@
   <h2 id="caching">Caching</h2>
   <p class="lede">Caching is one of the most impactful and most misunderstood parts of HTTP. A well-cached API or site is dramatically faster. A badly cached one serves stale data or bypasses caching entirely.</p>
 
-  <p>HTTP caching works by storing responses and serving them without contacting the origin server. There are two kinds of cache to reason about, the <strong>private cache</strong> in the browser (one user's responses) and <strong>shared caches</strong> like CDNs and reverse proxies (responses served to many users). They behave differently and must be controlled independently.</p>
+  <p>HTTP caching stores responses for reuse on later equivalent requests. A <strong>private cache</strong>, such as a browser cache, is dedicated to one user agent. <strong>Shared caches</strong>, including CDN and proxy caches, can reuse responses for several users. A response served from either cache may avoid contacting the origin, but shared reuse requires stricter separation of user-specific content.</p>
 
   <h3>Cache-Control</h3>
   <p>The <code>Cache-Control</code> header is the primary mechanism for controlling caching behavior. It appears in both responses (server instructs caches) and requests (client instructs intermediaries). The most important response directives follow.</p>
@@ -405,7 +407,7 @@
         <tr><td><code>public</code></td><td>Any cache may store this, including CDNs</td></tr>
         <tr><td><code>s-maxage=N</code></td><td>Like <code>max-age</code> but applies only to shared caches</td></tr>
         <tr><td><code>stale-while-revalidate=N</code></td><td>Serve a stale response for up to N seconds while fetching a fresh one in the background</td></tr>
-        <tr><td><code>immutable</code></td><td>The response will never change, skip revalidation even on explicit reload</td></tr>
+        <tr><td><code>immutable</code></td><td>The response will not be updated while fresh, so clients need not revalidate it during that period</td></tr>
       </tbody>
     </table>
   </div>
@@ -415,7 +417,7 @@
     <p><code>Cache-Control: no-cache</code> means "store this, but check with the server before using it." To prevent storage entirely, use <code>no-store</code>. This is one of the most common sources of caching confusion.</p>
   </div>
 
-  <p>A typical pattern for static assets with content-hashed URLs is <code>Cache-Control: public, max-age=31536000, immutable</code>, which caches forever and never revalidates, because the filename changes when content changes. For API responses that vary per user, <code>Cache-Control: private, max-age=60</code> allows short-lived browser caching without exposing data to a shared cache.</p>
+  <p>A common pattern for static assets with content-hashed URLs is <code>Cache-Control: public, max-age=31536000, immutable</code>. The one-year freshness lifetime is safe because changed content receives a new URL. For a user-specific API response, <code>Cache-Control: private, max-age=60</code> permits brief storage in a private cache while excluding shared caches.</p>
 
   <h3>Conditional requests and ETags</h3>
   <p>Once a cached response expires, the client can ask the server whether it has changed rather than fetching the full content again. The server includes an <code>ETag</code> (a version token, a hash or revision number) in the original response. On revalidation, the client sends that token in an <code>If-None-Match</code> header. If the resource hasn't changed, the server returns <code>304 Not Modified</code> with no body, and the client uses its cached copy.</p>
@@ -433,13 +435,13 @@
     <div><span class="hl-status">304 Not Modified</span> <span class="hl-comment">(no body, saves the bandwidth)</span></div>
   </div>
 
-  <p>ETags are also used for optimistic concurrency in APIs. A client that wants to update a resource sends its ETag in an <code>If-Match</code> header, and the server rejects the update with <code>412 Precondition Failed</code> if the resource has changed since the client last fetched it. This prevents last-write-wins data loss when multiple clients edit the same resource.</p>
+  <p>ETags also support optimistic concurrency in APIs. A client sends the version it read through <code>If-Match</code> when updating the resource. If that version is no longer current, the server rejects the update with <code>412 Precondition Failed</code>. The stale client cannot silently overwrite a newer change.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="cookies">Cookies</h2>
   <p class="lede">Cookies are how HTTP bridges its own statelessness. They are the mechanism for sessions, preferences, and authentication state that persists across requests.</p>
 
-  <p>A cookie is a small piece of data the server sends to the browser in a <code>Set-Cookie</code> header. The browser stores it and includes it automatically in every subsequent request to that origin in the <code>Cookie</code> header, with no code required on the page.</p>
+  <p>A cookie is a small piece of data delivered in a <code>Set-Cookie</code> response header. The browser stores it and later includes it in matching requests through the <code>Cookie</code> header. Domain, path, security, expiry, and same-site rules determine which requests match.</p>
 
   <div class="http-block">
     <div><span class="hl-comment"># Server sets a cookie after login</span></div>
@@ -459,26 +461,26 @@
         <tr><td><code>HttpOnly</code></td><td>JavaScript cannot read this cookie. Protects session tokens from XSS attacks, since a script that can't access the token can't steal it.</td></tr>
         <tr><td><code>Secure</code></td><td>The cookie is only sent over HTTPS connections. Required for any cookie carrying sensitive data.</td></tr>
         <tr><td><code>SameSite</code></td><td>Controls when the cookie is sent on cross-site requests (see below).</td></tr>
-        <tr><td><code>Max-Age</code> / <code>Expires</code></td><td>How long the cookie lives. Without these, it is a session cookie, deleted when the browser closes.</td></tr>
+        <tr><td><code>Max-Age</code> / <code>Expires</code></td><td>How long the cookie lives. Without either attribute, it is a session cookie whose lifetime is controlled by the browser session.</td></tr>
         <tr><td><code>Path</code></td><td>Limits the cookie to a URL path prefix. Rarely needs to differ from <code>/</code>.</td></tr>
-        <tr><td><code>Domain</code></td><td>Extends the cookie to subdomains. Omitting it scopes the cookie to exactly the origin that set it.</td></tr>
+        <tr><td><code>Domain</code></td><td>Allows the cookie to match the named domain and its subdomains. Omitting it creates a host-only cookie.</td></tr>
       </tbody>
     </table>
   </div>
 
   <h3>SameSite</h3>
-  <p>Cookies were never covered by the same-origin policy. The browser decides whether to attach a cookie based only on the request's destination, not on who triggered the request or where they triggered it from, which is exactly the gap CSRF exploits. <code>SameSite</code> is what lets a server opt out of that default. It governs whether a cookie is sent when the request originates from a different site, for example, when a user clicks a link from one site that takes them to another, or when JavaScript on one site makes a request to another.</p>
+  <p>Cookie matching is separate from the same-origin policy. Historically, a browser could attach a matching cookie to a cross-site request even though the initiating page could not read the response. That behavior enables cross-site request forgery (CSRF). The <code>SameSite</code> attribute limits when a cookie accompanies a request initiated from another site.</p>
 
   <p>The attribute takes three values:</p>
   <ul>
     <li><strong><code>SameSite=Strict</code>:</strong> the cookie is never sent on cross-site requests, even top-level navigations.</li>
-    <li><strong><code>SameSite=Lax</code></strong> (the browser default since around 2020): sends the cookie on a cross-site request only if it's a top-level navigation using a safe method. Clicking a link is the common case. A cross-site POST, whether it's a form that navigates the page or a request made in the background by JavaScript, an image, or an iframe, doesn't qualify and gets no cookie.</li>
-    <li><strong><code>SameSite=None</code>:</strong> allows the cookie on all cross-site requests, but requires <code>Secure</code>, and it's the only setting that works with CORS requests that include credentials.</li>
+    <li><strong><code>SameSite=Lax</code>:</strong> permits cookies on same-site requests and on cross-site top-level navigations that use a safe method. Browsers commonly apply a Lax-like default when the attribute is omitted.</li>
+    <li><strong><code>SameSite=None</code>:</strong> permits the cookie on cross-site requests and requires <code>Secure</code>. Browser privacy policy may still block the cookie in a third-party context.</li>
   </ul>
 
   <div class="callout info">
     <div class="callout-title">SameSite and CORS credentials</div>
-    <p>If an API relies on cookies for authentication and is called from a different origin, the cookie must be <code>SameSite=None; Secure</code>, the CORS response must include <code>Access-Control-Allow-Credentials: true</code>, and the client must set <code>credentials: 'include'</code> in the <code>fetch</code> call. All three are required.</p>
+    <p>A cross-site API that relies on cookies generally needs <code>SameSite=None; Secure</code>. Its CORS response must allow credentials for the calling origin, and the <code>fetch</code> request must use <code>credentials: 'include'</code>. Cookie rules and CORS rules are evaluated separately, so satisfying only one side is insufficient.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -491,12 +493,12 @@
     <div class="card teal">
       <div class="card-label">Permanent</div>
       <div class="card-title">301 &amp; 308</div>
-      <p><strong>301</strong> is a permanent redirect. The browser may change POST to GET on follow-up. <strong>308</strong> is the same but preserves the method. Both signal that the client should update stored URLs, and both are cached indefinitely by default.</p>
+      <p><strong>301</strong> marks a permanent move and permits a user agent to follow a POST with GET. <strong>308</strong> preserves the method. Both are heuristically cacheable unless cache controls say otherwise.</p>
     </div>
     <div class="card orange">
       <div class="card-label">Temporary</div>
       <div class="card-title">302 &amp; 307</div>
-      <p><strong>302</strong> is a temporary redirect, method may change to GET. <strong>307</strong> preserves the method. Neither is cached by default. The original URL remains valid and should be used next time.</p>
+      <p><strong>302</strong> marks a temporary move and permits POST to become GET. <strong>307</strong> preserves the method. Clients continue using the original URL for later requests. Explicit cache controls should define any temporary caching.</p>
     </div>
   </div>
 
@@ -504,21 +506,21 @@
   <h2 id="reload">Reload &amp; Resubmission</h2>
   <p class="lede">Reloading a page and reissuing its last request are the same thing to a browser. That's fine after a GET, but not always after a POST.</p>
 
-  <p>Reloading a page replays the request that produced it. If the last request was submitting a form, the replayed request will be a POST. Since POST is neither safe nor idempotent (see <a href="#methods">Methods</a> above), replaying one can repeat a side effect like placing a duplicate order. F5 and Ctrl+F5 both re-invoke the same history entry with its original method and body, so either one triggers a "Confirm Form Resubmission" prompt on a POST-loaded page. Hard refresh only changes whether the cache is bypassed, not what gets resent. Enter in the address bar avoids the prompt because it starts a fresh navigation, and a typed navigation is always a GET.</p>
+  <p>Reloading revisits the current history entry, including the method that produced it. If that method was POST, replaying the entry can repeat an effect such as creating an order. Browsers therefore ask for confirmation before resubmitting form data. A cache-bypassing reload changes cache behavior but does not turn the history entry into GET. Starting a fresh navigation from the address bar creates a GET request instead.</p>
 
   <div class="table-wrap">
     <table>
       <thead><tr><th>Action</th><th>Repeats method &amp; body</th><th>Resubmission warning</th></tr></thead>
       <tbody>
-        <tr><td>F5 / Ctrl+R</td><td>yes</td><td>yes, if the entry was a POST</td></tr>
-        <tr><td>Ctrl+F5 / Ctrl+Shift+R</td><td>yes (cache bypassed)</td><td>yes, if the entry was a POST</td></tr>
-        <tr><td>Enter in address bar</td><td>no, always GET</td><td>no</td></tr>
+        <tr><td>Reload current entry</td><td>yes</td><td>browser confirms a form resubmission</td></tr>
+        <tr><td>Reload while bypassing cache</td><td>yes</td><td>browser confirms a form resubmission</td></tr>
+        <tr><td>Start a new address-bar navigation</td><td>no, sends GET</td><td>no resubmission</td></tr>
       </tbody>
     </table>
   </div>
 
   <h3>Post-Redirect-Get</h3>
-  <p>The fix is to never leave a POST as the current history entry. The server processes the POST, then responds with <strong>303 See Other</strong> (see <a href="#redirects">Redirects</a> above) pointing to a result URL. The browser follows it with a GET, and it's that GET, not the POST, that any later reload replays.</p>
+  <p>The <strong>Post-Redirect-Get</strong> pattern avoids leaving a POST as the current history entry. After processing the POST, the server returns <strong>303 See Other</strong> with a result URL. The browser follows that URL with GET, so a later reload revisits the GET result rather than resubmitting the operation.</p>
 
   <div class="http-block">
     <div><span class="hl-method">POST</span> <span class="hl-url">/orders</span>   <span class="hl-comment">→ form submission</span></div>
@@ -531,9 +533,9 @@
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="compression">Compression</h2>
-  <p class="lede">HTTP response bodies are compressed in transit. For text content, this typically reduces payload size by 70–90% with no effort from application code.</p>
+  <p class="lede">Content coding reduces the bytes transferred for compressible response bodies, often without changes to application handlers.</p>
 
-  <p>The client advertises the encodings it supports in the <code>Accept-Encoding</code> request header. The server picks one, compresses the body, and indicates the chosen encoding in the <code>Content-Encoding</code> response header. The client decompresses transparently.</p>
+  <p>The client advertises supported encodings through <code>Accept-Encoding</code>. The server may choose one, compress the body, and name that encoding in <code>Content-Encoding</code>. HTTP clients normally decompress the representation before exposing it to application code.</p>
 
   <div class="http-block">
     <div><span class="hl-header">Accept-Encoding:</span> <span class="hl-value">br, gzip, deflate</span></div>
@@ -541,9 +543,9 @@
     <div><span class="hl-header">Content-Encoding:</span> <span class="hl-value">br</span></div>
   </div>
 
-  <p><strong>Gzip</strong> is universally supported and produces good compression. <strong>Brotli</strong> (<code>br</code>) achieves better compression ratios, typically 15–25% smaller than gzip for text, and is supported by all modern browsers. Servers should prefer Brotli when the client supports it. Compression is most valuable for text (JSON, HTML, CSS, JavaScript) and should generally be skipped for binary formats like images and video, which are already compressed.</p>
+  <p><strong>Gzip</strong> has broad client and server support. <strong>Brotli</strong> (<code>br</code>) can produce smaller text responses, usually at a higher compression cost. The server chooses only an encoding advertised by the client. Compression helps text formats such as JSON, HTML, CSS, and JavaScript, while already-compressed images and video usually gain little.</p>
 
-  <p>In most deployment environments (NGINX, Caddy, cloud load balancers, CDNs), compression is configured at the infrastructure level and requires no application code.</p>
+  <p>Compression is often configured in a reverse proxy, load balancer, or CDN. Central configuration keeps the content-coding policy consistent across application handlers.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="uploads">File Uploads</h2>
@@ -569,7 +571,7 @@
   </div>
 
   <h3>Binary PUT</h3>
-  <p>For APIs that upload a single file, PUT with the raw binary body is simpler and more efficient. There's no multipart overhead, the <code>Content-Type</code> describes the file directly, and the URL identifies where the file should live. This approach is used by object storage APIs like S3.</p>
+  <p>For an API that uploads one file to a known resource URL, PUT with the raw binary body can be simpler. The <code>Content-Type</code> describes the file directly, and no multipart envelope is needed. Object-storage APIs commonly support this shape.</p>
 
   <div class="http-block">
     <div><span class="hl-method">PUT</span> <span class="hl-url">/files/profile-photo.jpg</span></div>
@@ -583,16 +585,18 @@
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="cors">CORS</h2>
-  <p class="lede">Browsers block cross-origin requests by default. CORS is the mechanism that lets servers selectively open that boundary.</p>
+  <p class="lede">The same-origin policy limits what browser code can read across origins, while CORS lets a server grant selected access.</p>
 
   <h3>The same-origin policy</h3>
-  <p>Browsers enforce a <strong>same-origin policy</strong> that prevents JavaScript on one origin to read responses from a different origin. An origin is the combination of scheme, host, and port (<code>https://app.example.com:443</code> is a different origin from <code>https://api.example.com:443</code>, even though they share the same domain). For more information, see the <a href="browser-security.html#same-origin-cors">same-origin policy and CORS section</a> of the browser security article.</p>
+  <p>Browsers enforce a <strong>same-origin policy</strong> that prevents JavaScript on one origin from reading responses returned by a different origin. An origin is the combination of scheme, host, and port (<code>https://app.example.com:443</code> is a different origin from <code>https://api.example.com:443</code>, even though they share the same domain). For more information, see the <a href="browser-security.html#same-origin-cors">same-origin policy and CORS section</a> of the browser security article.</p>
 
   <h3>Relaxing the policy</h3>
-  <p>CORS (Cross-Origin Resource Sharing) is the mechanism a server uses to relax the same-origin policy for a trusted origin so that JavaScript is allowed to read the responses. The mechanism differentiates between simple and non-simple requests. Simple requests are sent directly, with no permission asked in advance. They cover GET, HEAD, or POST with a limited set of content types, such as <code>text/plain</code> or <code>application/x-www-form-urlencoded</code>. The browser sends the request and checks the response headers afterward to decide whether JavaScript may read the result. <code>Content-Type: application/json</code> is not on that list, so a JSON request triggers a preflight instead.</p>
+  <p>CORS (Cross-Origin Resource Sharing) lets a server authorize browser code from another origin to read selected responses. Some requests meet the rules for a <strong>CORS-safelisted request</strong>. They use GET, HEAD, or POST and stay within a limited set of fields and content types, including <code>text/plain</code> and <code>application/x-www-form-urlencoded</code>.</p>
+
+  <p>The browser sends a safelisted request without asking permission first, then checks the response fields before exposing the result to JavaScript. Other requests need a preflight. A request declared as <code>application/json</code>, for example, falls outside the safelist.</p>
 
   <h3>Preflight requests</h3>
-  <p>Anything beyond a simple request (a custom header, a JSON body, a method like <code>PUT</code> or <code>DELETE</code>) requires the browser to check first. It sends an <code>OPTIONS</code> request asking the server whether it allows this origin, method, and headers, and only sends the real request if the response says yes.</p>
+  <p>A request outside the CORS safelist requires the browser to check permission first. Common triggers include a non-safelisted field, JSON content, or a method such as <code>PUT</code> or <code>DELETE</code>. The browser sends an <code>OPTIONS</code> request naming the intended origin, method, and fields. It sends the actual request only when the response grants that combination.</p>
 
   <div class="http-block">
     <div><span class="hl-comment"># Browser asks permission first</span></div>
@@ -613,7 +617,7 @@
     <div><span class="hl-header">Content-Type:</span> <span class="hl-value">application/json</span></div>
   </div>
 
-  <p><code>Access-Control-Max-Age</code> caches the preflight result so the browser doesn't have to repeat it on every request. Set it to a reasonably high value (86400 seconds = 24 hours) for endpoints that don't change.</p>
+  <p><code>Access-Control-Max-Age</code> lets the browser reuse a successful preflight for a period. Browser-specific caps can shorten the configured value. Choose a duration that balances fewer preflights against the time required for a changed CORS policy to take effect.</p>
 
   <figure style="margin:24px 0 8px;">
     <svg viewBox="0 0 700 300" style="max-width:100%;display:block;background:var(--surface);border:1px solid var(--border);border-radius:8px;" role="img" aria-label="CORS preflight two-request exchange sequence diagram between browser and API" xmlns="http://www.w3.org/2000/svg">
@@ -670,11 +674,11 @@
       <line x1="589" y1="272" x2="110" y2="272" stroke="var(--green)" stroke-width="1.5" marker-end="url(#ht-lg)"/>
       <text x="350" y="268" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11.5" font-weight="600" fill="var(--green)">200 OK &#123;data&#125;</text>
     </svg>
-    <figcaption style="font-size:13px;color:var(--text-dim);margin-top:8px;line-height:1.5;">The preflight OPTIONS request is invisible to application code. The browser sends it automatically and only proceeds if the server&#39;s response permits the actual request.</figcaption>
+    <figcaption style="font-size:13px;color:var(--text-dim);margin-top:8px;line-height:1.5;">The browser creates the preflight automatically rather than exposing it to the JavaScript caller. The server still receives and handles OPTIONS before the browser decides whether to send the actual request.</figcaption>
   </figure>
 
   <h3>Credentials</h3>
-  <p>By default, cross-origin requests do not include cookies or the <code>Authorization</code> header. The browser strips them. To send credentials, three things must align:</p>
+  <p>The default <code>fetch</code> credentials mode does not send cookies on cross-origin requests. A script may set an <code>Authorization</code> header separately, subject to the usual CORS preflight and header checks. Cookie-based credentialed requests require three pieces to align:</p>
   <ul>
     <li>The server must respond with <code>Access-Control-Allow-Credentials: true</code>.</li>
     <li>The server must also specify a concrete origin in <code>Access-Control-Allow-Origin</code>, since the wildcard <code>*</code> is not allowed when credentials are involved.</li>
@@ -698,9 +702,9 @@
   <p class="lede">Both versions solve performance problems that HTTP/1.1 couldn't address. They solve different problems at different layers of the network stack.</p>
 
   <h3>HTTP/2: multiplexing over TCP</h3>
-  <p>HTTP/1.1 processes one request at a time per TCP connection. To work around this, browsers open up to six parallel connections per host, a hack that adds overhead and still limits parallelism. HTTP/2 replaces the text-based request/response format with a binary framing layer built around <strong>streams</strong>, multiple logical request/response exchanges multiplexed over a single TCP connection simultaneously. A slow response no longer blocks others in the queue.</p>
+  <p>HTTP/1.1 responses on one connection remain ordered. Browsers work around that constraint by opening several parallel connections to an origin, which adds setup cost and still caps parallelism. HTTP/2 introduces a binary framing layer built around <strong>streams</strong>. Frames from several request-response exchanges can be interleaved on one TCP connection, so one slow response does not hold up an HTTP-level queue.</p>
 
-  <p>HTTP/2 also compresses headers with HPACK, which matters because headers (including cookies) are repeated in full on every HTTP/1.1 request. The result is fewer connections, lower latency, and less need for the bundling and inlining tricks that HTTP/1.1 performance optimization required.</p>
+  <p>HTTP/2 also compresses header fields with HPACK. Repeated fields such as cookies no longer need their full HTTP/1.1 text representation on every request. Fewer connections and multiplexed streams reduce the value of older bundling, inlining, and domain-sharding workarounds.</p>
 
   <p>Server push, where the server could proactively send resources the client hadn't requested yet, was part of HTTP/2 but never saw wide adoption. Chrome removed support for it in 2022.</p>
 
@@ -763,22 +767,22 @@
       <!-- Labels -->
       <text x="525" y="200" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--green)">one connection, parallel streams</text>
     </svg>
-    <figcaption style="font-size:13px;color:var(--text-dim);margin-top:8px;line-height:1.5;">HTTP/2 sends all three requests simultaneously over one connection. HTTP/1.1 must wait for each response before sending the next request (or open separate connections).</figcaption>
+    <figcaption style="font-size:13px;color:var(--text-dim);margin-top:8px;line-height:1.5;">HTTP/2 interleaves all three exchanges on one connection. The HTTP/1.1 side shows a single non-pipelined connection, where each response completes before the next request; browsers historically opened additional connections to gain parallelism.</figcaption>
   </figure>
 
   <h3>HTTP/3: QUIC over UDP</h3>
-  <p>HTTP/2 multiplexing over TCP has a residual problem. TCP is a single ordered byte stream. When a packet is lost, TCP stalls the entire connection while waiting for retransmission, even streams that had no packet loss are blocked. This is TCP-level head-of-line blocking, and multiplexing can't fix it because multiplexing happens above the TCP layer.</p>
+  <p>HTTP/2 multiplexing over TCP has a residual problem. TCP is a single ordered byte stream. When a packet is lost, TCP stalls the entire connection while waiting for retransmission, so even streams that had no packet loss get blocked. This is TCP-level head-of-line blocking, and multiplexing can't fix it because multiplexing happens above the TCP layer.</p>
 
-  <p>HTTP/3 solves this by replacing TCP with <strong>QUIC</strong>, a transport protocol built on UDP that implements reliability and flow control per stream. A lost packet only affects the stream it belongs to. QUIC also bakes in TLS 1.3, enables <strong>connection migration</strong> (a connection survives a network change, such as switching from WiFi to mobile), and supports 0-RTT resumption for known servers.</p>
+  <p>HTTP/3 solves this by replacing TCP with <strong>QUIC</strong>, a transport protocol built on UDP with reliability and flow control for independent streams. Missing data blocks only the streams that depend on it rather than the entire connection. QUIC integrates TLS 1.3, supports <strong>connection migration</strong> across network changes, and can use 0-RTT data when resuming a previous connection.</p>
 
-  <p>HTTP/2 and HTTP/3 are mostly infrastructure concerns. Negotiation happens transparently via TLS ALPN during the handshake. The negotiated version can be inspected in the browser DevTools Network panel, in the Protocol column. Support for HTTP/3 depends on the server software and hosting environment, not the application code.</p>
+  <p>HTTP/2 and HTTP/3 are usually configured in servers, proxies, and hosting platforms rather than application handlers. TLS handshakes use Application-Layer Protocol Negotiation (ALPN) to select a supported protocol. Browser developer tools expose the result in the Network panel, often through a Protocol column.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="tools">Tools</h2>
   <p class="lede">HTTP is easier to understand when it can be seen directly. A good set of tools allows inspecting, replaying, and crafting requests without writing code.</p>
 
   <h3>curl</h3>
-  <p>curl is the universal baseline, present on virtually every system and used in almost every piece of documentation. The most commonly used flags are shown below.</p>
+  <p>curl is a widely available command-line client and a common language for reproducible HTTP examples. The following commands cover the options used most often during inspection and testing.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -807,7 +811,7 @@ curl -X PUT https://api.example.com/files/photo.jpg \
   </div>
 
   <h3>HTTPie</h3>
-  <p>HTTPie is a curl alternative designed to be readable. The default output is syntax-highlighted and formatted. JSON bodies are pretty-printed automatically, useful for quick exploration.</p>
+  <p>HTTPie is a curl alternative designed to be readable. The default output is syntax-highlighted and formatted, and JSON bodies are pretty-printed automatically, which helps for quick exploration.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -825,7 +829,7 @@ http api.example.com/orders Authorization:"Bearer &lt;token&gt;"</code></pre>
   </div>
 
   <h3>Bruno</h3>
-  <p>Bruno is the leading GUI alternative to Postman. Its key difference is that collections are stored as plain files on disk in a readable format, so they can be committed to source control alongside the code they test. There's no mandatory cloud account or sync. The UI resembles VS Code. Bruno is a good default recommendation for teams that want a shared, version-controlled request collection.</p>
+  <p>Bruno is a desktop API client that stores collections as readable files on disk. Teams can commit those files beside the code they exercise and review request changes through the normal source-control workflow. A cloud account is not required for local collections.</p>
 
   <h3>VS Code REST Client</h3>
   <p>The REST Client extension for VS Code allows defining HTTP requests in <code>.http</code> files and running them with a click. Because they're plain text files, they live in the repository next to the code, which is useful for documenting API interactions and sharing reproducible examples with the team.</p>
@@ -851,7 +855,7 @@ http api.example.com/orders Authorization:"Bearer &lt;token&gt;"</code></pre>
   </div>
 
   <h3>Browser DevTools</h3>
-  <p>The Network panel in browser DevTools is indispensable for understanding what's actually happening in a web application. Beyond the request and response headers, a few habits pay off early on:</p>
+  <p>The Network panel in browser developer tools shows what a web application sends and receives. Beyond inspecting request and response headers, several views are useful:</p>
   <ul>
     <li>The Timing tab shows connection setup, time-to-first-byte, and transfer time broken down by phase.</li>
     <li>The Protocol column shows whether HTTP/2 or HTTP/3 was negotiated.</li>
@@ -859,7 +863,7 @@ http api.example.com/orders Authorization:"Bearer &lt;token&gt;"</code></pre>
     <li>"Preserve log" keeps requests visible across navigations, which matters when a redirect or reload would otherwise clear them.</li>
   </ul>
 
-  <p class="wide" style="max-width:700px;margin-top:40px;color:var(--text-dim);font-size:14px;border-top:1px solid var(--border);padding-top:24px;">HTTP underlies nearly everything that crosses the network in a web application, from page loads and API calls to webhooks and service-to-service calls inside a cluster. Methods and status codes, headers and caching, cookies and CORS, and the shift from HTTP/1.1 to HTTP/2 and HTTP/3 account for most of what shows up in a browser's Network panel or a server's access log. The <a href="restful-api-design.html">RESTful API design</a> and <a href="web-networking.html">web application networking</a> articles build directly on these mechanics.</p>
+  <p class="wide" style="max-width:700px;margin-top:40px;color:var(--text-dim);font-size:14px;border-top:1px solid var(--border);padding-top:24px;">The protocol choices in this article explain most entries in a browser's Network panel or a server's access log. The <a href="restful-api-design.html">RESTful API design</a> article applies those semantics to API contracts, while <a href="web-networking.html">web application networking</a> follows requests through the infrastructure around an application.</p>
 
 </main>
 </div><!-- /.shell -->

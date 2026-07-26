@@ -42,38 +42,38 @@
 
   <div class="eyebrow">AI · Product Integration</div>
   <h1>Retrieval-Augmented Generation</h1>
-  <p class="subtitle">How a product feature gives a model knowledge it wasn't trained on, and why the quality is decided in the retrieval layer.</p>
+  <p class="subtitle">How retrieval supplies current or private evidence, and how corpus design and access control determine answer quality.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~9 min read</span>
+    <div class="dot"></div><span>~8 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
-  <p>Sooner or later a product grows a feature that has to answer from material the model was never trained on. A support assistant should answer from the current documentation, a policy search from this year's policies, an internal helper from the company's own runbooks. A model's built-in knowledge is frozen at its training cutoff, as covered in <a href="how-llms-work.html#knowledge">how large language models work</a>, so the material has to reach the model at request time, through the context window.</p>
+  <p>Many product features need answers grounded in material that was not reliably learned during model training. A support assistant should use the current documentation, while an internal helper may need private runbooks or policies. As <a href="how-llms-work.html#knowledge">How Large Language Models Work</a> explains, that material must be supplied at request time when the application needs a current or verifiable answer.</p>
 
-  <p><strong>Retrieval-augmented generation</strong> (RAG) is the standard shape of the answer. Before each response, the system searches a prepared index of the corpus, places the best-matching pieces into the context window, and has the model generate from them. This article treats RAG as a component a product consumes rather than a system to build from scratch. It covers when a feature needs retrieval at all, how the two pipelines behind it work, and where the quality and security of the result are decided.</p>
+  <p><strong>Retrieval-augmented generation</strong> (RAG) searches a prepared corpus before generation and places selected passages into the model's context. The model can then answer from those passages instead of relying only on learned associations. This article treats RAG as a product architecture, covering the request path, the indexing pipeline, access control, ownership, and the diagnostic work behind answer quality.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="when">When a Feature Needs Retrieval</h2>
   <p class="lede">Three alternatives, and each one runs out in a different place.</p>
 
-  <p>The blunt alternative is to put the whole corpus into the prompt. For a small, stable corpus this works, and it should be the default until it stops working. It stops for two reasons the LLM article covers. Every request pays for every token, so a large corpus in every prompt shows up directly on the <a href="how-llms-work.html#cost">bill and the latency</a>. And material buried in the middle of a very long prompt is weighed less dependably than material near its edges, the <a href="how-llms-work.html#context-window">lost-in-the-middle effect</a>, so a bigger prompt is not a proportionally better-informed one.</p>
+  <p>A small and trusted corpus can be placed directly into the prompt. That is often the simplest design because it avoids a search index and makes the supplied evidence easy to inspect. The approach becomes less attractive as the material grows: every request pays to process the full corpus, and important passages may be used less reliably when buried in a long context. Retrieval becomes useful when selection is cheaper and more dependable than repeated inclusion.</p>
 
-  <p>Fine-tuning looks like the second alternative and rarely is, for knowledge. Further training changes how a model behaves, its tone, format discipline, and domain fluency. Facts baked in this way inherit the same staleness as pretraining, because a corpus that changes daily would need retraining daily. Fine-tuning earns its keep for behavior. It is the wrong tool for keeping answers current.</p>
+  <p>Fine-tuning can teach behavior, terminology, and recurring output patterns, and it may also affect factual associations. It does not provide a source that the application can update, inspect, or cite at request time. A changing policy or document collection therefore belongs in context or retrieval rather than in a training cycle.</p>
 
   <p>Live systems are the third case, and they already have their own pattern. An account balance or a ticket status is fetched at request time through a tool call, the connection <a href="mcp-ai-integration.html">MCP</a> standardizes. Tools fit live records and actions. Retrieval fits document knowledge, the material too large for the window and too settled to fetch record by record.</p>
 
-  <p>The honest default falls out of the first alternative. A corpus that fits comfortably in the context window doesn't need RAG yet, and the pipeline below is complexity that can wait until the corpus outgrows the prompt.</p>
+  <p>The simplest viable path follows from these alternatives. Put a small, stable, permission-safe corpus directly in context. Use tools for live records and actions. Introduce retrieval when the document set is too large, too dynamic, or too selectively accessible to send as a whole.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="flow">The Retrieve-Augment-Generate Flow</h2>
-  <p class="lede">One request, five steps, and only the last one involves the language model.</p>
+  <p class="lede">The request path selects evidence first, then asks the generating model to answer from it.</p>
 
-  <p>The request path is short. The user's query is turned into an <a href="how-llms-work.html#embeddings">embedding</a>, a vector that positions its meaning so that similar meanings sit nearby. The index is searched for the chunks of the corpus closest to that position. The best candidates are selected, placed into the context window alongside the user's question, and the model generates an answer grounded in what it was handed, citing the pieces it used.</p>
+  <p>The request begins by converting the query into an <a href="how-llms-work.html#embeddings">embedding</a> when semantic search is used. The retriever searches the index for candidate chunks, applies any permission filters, and selects evidence that fits the context budget. The generating model receives those passages with the user's question and instructions about how to use or cite them. Grounding improves only when the selected passages support the answer; placement in the prompt is not proof by itself.</p>
 
-  <p>Production systems rarely trust semantic similarity alone. <strong>Hybrid search</strong> runs a conventional keyword match alongside the vector search and merges the results, since exact identifiers, product names, and error codes are precisely what similarity-by-meaning is worst at. <strong>Reranking</strong> adds a second, more careful pass that re-scores the merged candidates and keeps the handful that will fit the context budget. Both are quality levers inside the retrieval step, and neither involves the generating model.</p>
+  <p><strong>Hybrid search</strong> combines semantic retrieval with lexical matching. The lexical side preserves exact identifiers, names, and error codes that embedding similarity may rank poorly. <strong>Reranking</strong> then scores a smaller candidate set with a more expensive relevance model before the final passages are chosen. These components may use learned models of their own, but they remain part of retrieval rather than answer generation.</p>
 
-  <p>That is the pattern in miniature. The model appears once, at the end, doing the one thing it is good at, and everything that determines whether it was handed the right material happens earlier, in ordinary search infrastructure. RAG is a search problem wearing an AI costume, and the rest of this article is mostly about the search problem.</p>
+  <p>The distinction between retrieval and generation is the key to operating the feature. Search determines which evidence is available; generation determines how that evidence becomes an answer. A stronger generating model cannot recover a passage that retrieval omitted, while perfect retrieval cannot force the model to represent the passage faithfully. Each layer needs its own evaluation.</p>
 
   <figure style="margin:24px 0 8px;">
     <svg viewBox="0 0 700 310" style="max-width:100%;display:block;background:var(--surface);border:1px solid var(--border);border-radius:8px;" role="img" aria-label="Two pipelines. The online request path runs from query through embedding, index search, and reranking to generation. The offline indexing pipeline runs from documents through parsing, chunking, and embedding into the index the request path searches." xmlns="http://www.w3.org/2000/svg">
@@ -121,21 +121,21 @@
   <h2 id="corpus">The Corpus and the Indexing Pipeline</h2>
   <p class="lede">The retriever can only be as good as the library it searches.</p>
 
-  <p>Before any pipeline runs, someone has to decide what the corpus is, and this is the half that gets skipped. Which documents belong in it, and which get excluded, such as drafts, superseded versions, or another team's half-finished notes? Which source counts as authoritative when two documents disagree, and which version wins when both are still indexed? These are information-architecture questions, and no part of the pipeline downstream can answer them.</p>
+  <p>Before indexing begins, someone must define the corpus. Drafts and superseded documents may need exclusion, while conflicting sources need an explicit order of authority. Ownership and version metadata should be preserved because retrieval cannot decide which policy wins merely by comparing semantic similarity. These are information-architecture decisions made before search quality can be measured.</p>
 
-  <p>They matter because a retriever that surfaces an obsolete document is working as designed. The search found the closest match, and the closest match was wrong, because the corpus contained it. Production teams repeatedly discover that retrieval quality is fine while the corpus disagrees with itself. Curation is therefore a standing editorial job with a named owner, not a one-time task on a launch checklist.</p>
+  <p>A retriever that surfaces an obsolete document may be working exactly as configured. The index contained a close match and lacked a rule that made the newer source authoritative. Corpus curation is therefore ongoing editorial and data-governance work, with a named owner and a process for deletion, supersession, and conflict resolution.</p>
 
-  <p>The mechanical half is a pipeline that runs whenever documents change. Content is ingested and parsed out of whatever formats it lives in. It is then split into <strong>chunks</strong>, the passages that will be individually embedded and retrieved. Chunking quietly dominates retrieval quality, because the chunk is both the unit of search and the unit the model eventually reads. Cut too small, a chunk matches well but arrives without its surrounding meaning. Cut too large, the match gets diluted and the chunk crowds the context budget. Each chunk is embedded and written to the index, and a document change re-runs the whole sequence for the content it touched.</p>
+  <p>The indexing pipeline responds when documents are added or changed. It parses source formats, normalizes useful metadata, and divides content into <strong>chunks</strong> that can be retrieved independently. Small chunks may match a precise phrase while losing the surrounding qualification. Large chunks preserve more context but can dilute relevance and consume the prompt budget. The pipeline embeds or otherwise indexes each chunk, then updates only the affected material when possible.</p>
 
-  <p>Freshness, then, is a property of this pipeline rather than of any model. The gap between a document changing and its chunks re-indexing is the feature's staleness, and it is measured and tuned like any other data pipeline lag. Nothing in this section touched a model, which is the central point. The half of RAG that decides quality is data engineering.</p>
+  <p>Freshness depends on the delay between a source change and a searchable index update. That delay should be measured like any other data-pipeline lag. Failures in parsing, metadata extraction, deletion, or synchronization can all leave the model answering from stale material even when generation works correctly.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="ownership">Who Owns the Pipeline</h2>
   <p class="lede">Managed or self-hosted is less about where the vectors live than about whose opinions run the pipeline.</p>
 
-  <p>A managed retrieval service, the kind every major cloud provider now offers, does not merely store vectors. It owns most of the previous section. Parsing, chunking, embedding, indexing, and synchronization arrive as the vendor's opinions, tuned to work acceptably across most corpora. That is most of the value, since the undifferentiated pipeline work disappears. It is also most of the lock-in, since those opinions are exactly what a team cannot change when its material needs different treatment.</p>
+  <p>A managed retrieval service may provide parsing, chunking, embedding, indexing, and source synchronization rather than only vector storage. Its value lies in removing operational work and supplying sensible defaults. The tradeoff is control: a corpus that needs custom parsing, domain-specific chunk boundaries, or unusual permission logic may not fit the service's extension points.</p>
 
-  <p>Self-hosting means owning every stage. The index itself is the easy part. pgvector adds vector search to a database most stacks already run, and dedicated vector databases serve heavier retrieval loads. The real commitment is operating the pipeline around the index, the parsing, chunking, and re-indexing machinery that the managed service would otherwise absorb.</p>
+  <p>Self-hosting means owning the complete pipeline, including parsing, chunking, synchronization, evaluation, and index operations. PostgreSQL extensions such as pgvector can add vector search to an existing database, while dedicated search systems offer different scaling and filtering characteristics. The index choice matters, but it is only one component of the operational commitment.</p>
 
   <p>The decision axes follow from that framing. Operational load favors managed. Data locality can force self-hosting when the corpus cannot leave a compliance boundary. And control matters when the corpus demands opinions the vendor doesn't offer, such as domain-specific chunking for contracts or code. The general managed-versus-self-hosted tradeoff is one the <a href="cloud-computing.html">cloud computing article</a> already teaches. This is that tradeoff, applied to a search pipeline.</p>
 
@@ -143,7 +143,7 @@
   <h2 id="access-control">Access Control on Retrieved Content</h2>
   <p class="lede">The model will summarize whatever the retriever hands it.</p>
 
-  <p>A RAG feature quietly becomes a search engine over everything in its corpus, and search engines leak whatever they can see. If the corpus contains documents some users must not read, the permission check has to happen inside the retrieval query, as per-user metadata filtering and tenant isolation at the index. Filtering after retrieval risks the content having already entered the context window. Instructing the model to withhold what a user shouldn't see is not access control at all, since the model has no reliable notion of should. The rule is short. Enforce permissions where the search runs, never where the answer is written.</p>
+  <p>A RAG feature is also a search interface over its corpus. If users have different permissions, the retrieval query must enforce those permissions before any passage enters model context. Metadata filters, tenant partitions, or separate indexes can implement that boundary. Filtering the final prose is too late because the unauthorized content has already crossed into the generation step and may influence the answer.</p>
 
   <p>Retrieved content also carries the same trust problem this site keeps meeting in AI systems. A retrieved document is untrusted input placed in front of a model with authority to act on what it reads, the framing the <a href="mcp-ai-integration.html#security">MCP article</a> teaches for tool descriptions. A poisoned document in the corpus, one containing instructions rather than information, is an injection vector that arrives through the front door of the feature. Corpus curation from the previous section is part of the security boundary, not only a quality concern.</p>
 
@@ -151,11 +151,11 @@
   <h2 id="failures">Finding the Failure</h2>
   <p class="lede">A bad answer has three possible causes, and each one has a different fix.</p>
 
-  <p>The first candidate is a retrieval failure. The right material exists in the corpus and never came back from the search, so the model answered without it. No prompt wording fixes this, because the model cannot cite what it never saw. The fix lives in the retrieval step, in the query handling, the hybrid-search balance, or the chunking that made the right passage unmatchable.</p>
+  <p>A <strong>retrieval failure</strong> occurs when the right material exists but is absent from the selected passages. The cause may lie in query rewriting, indexing, filters, lexical and semantic weighting, chunk boundaries, or reranking. Prompt changes at the generation layer cannot restore evidence the model never received.</p>
 
-  <p>The second is a corpus failure. The right chunk came back, and its content is wrong, stale, or contradicted by another document in the index. The retriever and the model both did their jobs. The fix is the curation work from the corpus section, and mistaking this failure for a retrieval problem sends teams tuning search parameters that were never broken.</p>
+  <p>A <strong>corpus failure</strong> occurs when retrieval returns a relevant passage whose content is stale, incorrect, or contradicted by another indexed source. Search tuning cannot repair the source of truth. The fix belongs in curation, versioning, and the indexing pipeline.</p>
 
-  <p>The third is a generation failure. Good chunks arrived and the answer ignores or misstates them. Its characteristic form is hallucination with citations, a fluent answer pointing at retrieved documents that don't support it, wearing the borrowed credibility of its sources. The <a href="how-llms-work.html#knowledge">fluency-is-not-certainty</a> lesson applies with extra force here, because the citations make the fluency look verified.</p>
+  <p>A <strong>generation failure</strong> occurs when the supplied passages support an answer but the model ignores, distorts, or overextends them. Citations can make this failure look authoritative even when the cited text does not support the claim. Evaluation should therefore check both answer correctness and citation entailment.</p>
 
   <p>Debugging a RAG feature is the discipline of asking which layer failed before touching anything. What came back from retrieval is loggable and inspectable, which makes the first two causes cheap to check and the habit worth building into the feature from the start.</p>
 
@@ -163,9 +163,9 @@
   <h2 id="decision-path">The Decision Path</h2>
   <p class="lede">The choices in order, each one owed to a mechanism above.</p>
 
-  <p>A corpus that fits comfortably in the context window goes into the context window, and RAG waits. A feature that needs live records or actions gets tools through MCP rather than an index. Document knowledge at scale gets RAG, managed by default, self-hosted when data locality or the pipeline's opinions demand it. Permissions go into the retrieval query on day one, because retrofitting access control into an index that never recorded ownership is a rebuild. And the corpus gets a named owner, because curation is the maintenance work that outlives the launch.</p>
+  <p>Begin with the source and update pattern. A small, trusted corpus can go directly into context. Live records and actions belong behind tools. A larger document collection may justify RAG once the team can name its owner, authority rules, freshness target, and permission model. Managed services reduce pipeline work; self-hosting earns its cost when locality, control, or retrieval behavior requires it.</p>
 
-  <p>The through-line for all of it is where the improvements come from. Teams reaching for a better model to fix a RAG feature are usually tuning the one component that was already fine. Better search, cleaner chunks, and a corpus that agrees with itself move these features far more often, because RAG is not an AI architecture. It is an information-retrieval architecture with a language model attached.</p>
+  <p>When answer quality falls, inspect the retrieved evidence before changing the generating model. Better source material, permission-aware search, chunking, and reranking often address failures that generation cannot. A RAG feature combines information retrieval with language generation, and its evaluation should preserve that boundary instead of reducing the whole system to one answer score.</p>
 
 </main>
 </div><!-- end .shell -->

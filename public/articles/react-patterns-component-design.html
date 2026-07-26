@@ -38,7 +38,7 @@
   <a href="#intro">Introduction</a>
 
   <div class="sidebar-section">Foundations</div>
-  <a href="#pillars">Three pillars</a>
+  <a href="#pillars">The React model</a>
 
   <div class="sidebar-section">Composition patterns</div>
   <a href="#compound-components">Compound components</a>
@@ -48,7 +48,7 @@
 
   <div class="sidebar-section">Reuse &amp; performance</div>
   <a href="#custom-hooks">Custom hooks</a>
-  <a href="#context-selectors">Context selectors</a>
+  <a href="#context-selectors">Split contexts</a>
 
   <div class="sidebar-section">Wrap-up</div>
   <a href="#closing">Where these patterns stop</a>
@@ -58,10 +58,10 @@
 
   <div class="eyebrow">React · Component Design</div>
   <h1>React Patterns &amp; Component Design</h1>
-  <p class="subtitle">Six recurring patterns for structuring React components, and the three behaviors of the framework itself that make them necessary.</p>
+  <p class="subtitle">Six ways to shape reusable component APIs, grounded in React's rendering and state model.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~16 min read</span>
+    <div class="dot"></div><span>~9 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
@@ -70,28 +70,28 @@
   ════════════════════════════════════════════════════ -->
   <section id="intro">
     <p>
-      React doesn't ship a pattern library. What it ships is a small set of rules about how state and rendering relate to each other, and most of what people call a "React pattern" is really a way of working within those rules instead of around them. Compound components, the state reducer trick from Downshift, headless hooks: none of these are things React tells you to do. They are solutions that kept showing up once enough teams hit the same wall, and eventually the community gave them names.
+      React defines how components render and how state moves through a tree, but it leaves component APIs to the application. The recurring patterns in this article grew out of that open space. Each one solves a problem that appears when a reusable component needs more flexibility than another boolean prop can provide.
     </p>
     <p>
-      This is a field guide to six of them. For each one: the problem it solves, a minimal version of the code, and when reaching for it is the wrong call. Before any of that come the three behaviors of React that make these patterns necessary in the first place, because every pattern below is just a different arrangement of the same three constraints.
+      The first section establishes the parts of React's model that the patterns rely on. The remaining sections show the problem behind each pattern, a small implementation, and the point at which the added abstraction stops paying for itself.
     </p>
   </section>
 
   <!-- ═══════════════════════════════════════════════════
        PILLARS
   ════════════════════════════════════════════════════ -->
-  <h2 id="pillars">Three pillars</h2>
-  <p class="lede">Every pattern in this article is a different arrangement of the same three rules.</p>
+  <h2 id="pillars">The React model underneath the patterns</h2>
+  <p class="lede">The patterns differ in API shape, but they all preserve the same direction of data and control.</p>
 
   <p>
-    The first is <strong>declarative rendering</strong>. A React component describes what the UI should look like for a given state, it doesn't script the sequence of DOM operations that gets it there. Compare this to something like jQuery, where updating a counter meant finding the node and setting its <code>textContent</code> by hand, and every place in the code that touched that node had to know about every other place that touched it. In React, the same counter is a function of one number.
+    <strong>Declarative rendering</strong> means that a component describes the interface for its current props and state. React works out which DOM updates are needed after the component returns. Application code therefore expresses a counter as a button whose label comes from <code>count</code>, rather than as a sequence that finds a node and changes its text.
   </p>
 
   <div class="code-block">
     <div class="code-header">
       <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-filename">counter.jsx</span>
-      <span class="code-lang">JSX</span>
+      <span class="code-filename">counter.tsx</span>
+      <span class="code-lang">TSX</span>
     </div>
     <pre><code><span class="kw">function</span> <span class="fn">Counter</span>() {
   <span class="kw">const</span> [<span class="n">count</span>, <span class="n">setCount</span>] = <span class="fn">useState</span>(<span class="m">0</span>);
@@ -104,18 +104,18 @@
   </div>
 
   <p>
-    Nothing in that component reaches into the DOM. It describes a button whose label is always whatever <code>count</code> currently is, and React figures out on its own which DOM operations, if any, are needed to make that true. That's also what makes the component testable and predictable: the output only ever depends on its inputs.
+    The component does not reach into the DOM. During render, its output depends only on its inputs. Event handlers may update state, and React renders again with the new value.
   </p>
 
   <p>
-    The second is <strong>one-way data flow</strong>. State lives in exactly one component, and it moves down the tree as props. A child never reaches up and changes its parent's state directly, it calls a function the parent handed it, and the parent decides what to do with that. There's no two-way binding where a child input and a parent variable stay magically in sync, the sync is something you write, explicitly, as a callback.
+    <strong>One-way data flow</strong> gives each piece of state an owner. The owner passes values to descendants through props or context. A child requests a change by calling a callback or dispatching an action; it does not mutate its parent's state directly.
   </p>
 
   <div class="code-block">
     <div class="code-header">
       <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-filename">name-input.jsx</span>
-      <span class="code-lang">JSX</span>
+      <span class="code-filename">name-input.tsx</span>
+      <span class="code-lang">TSX</span>
     </div>
     <pre><code><span class="kw">function</span> <span class="fn">Parent</span>() {
   <span class="kw">const</span> [<span class="n">name</span>, <span class="n">setName</span>] = <span class="fn">useState</span>(<span class="s">''</span>);
@@ -133,11 +133,11 @@
   </div>
 
   <p>
-    <code>NameInput</code> never owns <code>name</code>. It receives the current value as a prop and asks the parent to change it by calling <code>onChange</code>, the change flows back up as an event rather than as a direct mutation. Every pattern later in this article, including the ones that look like they're breaking this rule with context or refs, is still built on top of it.
+    <code>NameInput</code> receives the current value and reports edits through <code>onChange</code>. The parent remains the source of truth. Context and custom hooks can hide some of this plumbing, but they do not reverse the flow.
   </p>
 
   <p>
-    The third is that React is <strong>reactive to state change</strong>, specifically. A component re-renders because <code>setState</code> or a reducer's <code>dispatch</code> ran, not because you told it to refresh. There's no <code>render()</code> call scattered through the codebase the way there might be in an imperative UI framework. This sounds like a small distinction, but it's the reason concurrent rendering, batching, and the <code>useSyncExternalStore</code>-style hooks that bridge non-React state into a component all exist. React needs render to stay a pure function of state, so it's free to schedule, interrupt, and retry that function on its own terms.
+    Finally, React schedules rendering after state updates and when a parent renders. Components may also subscribe to context or an external store. Because React can start, pause, or repeat render work, the render phase must remain pure. Effects and event handlers are where synchronization and other side effects belong.
   </p>
 
   <div class="pillar-grid">
@@ -149,12 +149,12 @@
     <div class="card teal">
       <div class="card-label">Pillar</div>
       <div class="card-title">One-way data flow</div>
-      <p>State moves down as props, changes move up as events. No implicit two-way binding.</p>
+      <p>Owners pass values down. Children request changes through callbacks or actions.</p>
     </div>
     <div class="card purple">
       <div class="card-label">Pillar</div>
       <div class="card-title">Reactive to state change</div>
-      <p>Render runs because state changed, never because something called it directly.</p>
+      <p>State, parent renders, context, and external subscriptions can schedule new render work.</p>
     </div>
   </div>
 
@@ -162,17 +162,20 @@
        COMPOUND COMPONENTS
   ════════════════════════════════════════════════════ -->
   <h2 id="compound-components">Compound components</h2>
-  <p class="lede">A parent shares state with its children through context, so the composition reads like markup instead of a config object.</p>
+  <p class="lede">Related component parts share behavior while callers keep control of their arrangement.</p>
 
   <p>
-    A tab component with a handful of options can take a single config prop and be done with it. Once it needs icons on some tabs, a disabled state on others, and a custom badge next to one of them, that config object turns into its own miniature schema, and the component's API stops looking like React at all. The compound component pattern solves this by letting the parent expose several sub-components instead of one prop-driven black box. A shared piece of state, usually which tab is active, lives in the parent and is passed to the children implicitly through context rather than explicitly through props.
+    A small tab component can accept an array of labels. That API becomes awkward when individual tabs need richer content or different behavior. Every new exception expands the configuration schema.
+  </p>
+  <p>
+    <strong>Compound components</strong> expose the parts directly. The parent owns shared state, such as the selected tab, while its children read that state through context. Callers compose ordinary JSX instead of describing the same tree indirectly through data.
   </p>
 
   <div class="code-block">
     <div class="code-header">
       <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-filename">tabs.jsx</span>
-      <span class="code-lang">JSX</span>
+      <span class="code-filename">tabs.tsx</span>
+      <span class="code-lang">TSX</span>
     </div>
     <pre><code><span class="kw">const</span> <span class="n">TabsContext</span> = <span class="fn">createContext</span>(<span class="k">null</span>);
 
@@ -201,14 +204,14 @@
   </div>
 
   <p>
-    The consumer never sees <code>TabsContext</code>. They see <code>Tabs</code> and <code>Tabs.Tab</code>, which read as ordinary nested elements:
+    The context stays private to the implementation. Callers work with <code>Tabs</code> and <code>Tabs.Tab</code>, so the structure remains visible at the call site.
   </p>
 
   <div class="code-block">
     <div class="code-header">
       <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-filename">usage.jsx</span>
-      <span class="code-lang">JSX</span>
+      <span class="code-filename">usage.tsx</span>
+      <span class="code-lang">TSX</span>
     </div>
     <pre><code>&lt;<span class="t">Tabs</span> <span class="n">defaultValue</span>=<span class="s">"profile"</span>&gt;
   &lt;<span class="t">Tabs</span>.<span class="t">Tab</span> <span class="n">value</span>=<span class="s">"profile"</span>&gt;Profile&lt;/<span class="t">Tabs</span>.<span class="t">Tab</span>&gt;
@@ -217,29 +220,32 @@
   </div>
 
   <p>
-    Adding an icon to one tab, or a badge to another, means adding a prop to that one <code>Tabs.Tab</code> instance, not touching a shared config shape used by every tab in the app. This is the pattern underneath most accessible component libraries, Radix and React Aria included, because it lets them ship a set of primitives that compose however the consumer needs without predicting every layout up front. It's also a concrete instance of a broader idea covered in <a href="design-principles.html#composition">Software Design Principles</a>: building behavior out of smaller collaborators with clear contracts, rather than extending a base class and hoping every inherited method still makes sense.
+    Rich content can now be placed in one tab without changing a shared data shape. Libraries such as Radix Primitives and React Aria Components use composition for the same reason: each part keeps a focused contract while the caller controls the final structure. The broader design principle is covered in <a href="design-principles.html#composition">Software Design Principles</a>.
   </p>
 
-  <div class="callout warn aside">
+  <div class="callout warn">
     <div class="callout-title">When not to use it</div>
-    <p>Context requires the children to stay descendants of the provider in the React tree, so a sub-component that needs to render through a portal, or be reordered by something outside the component's control, fights the pattern instead of benefiting from it. And for a component with no real sub-parts, a couple of props is still the simpler and more discoverable API.</p>
+    <p>Use this pattern when the parts form one conceptual control and need shared state. A portal does not break context because it changes DOM placement, not the React parentage. The pattern becomes brittle when required parts must be discovered by inspecting arbitrary children or when a small prop API would express the same control more clearly.</p>
   </div>
 
   <!-- ═══════════════════════════════════════════════════
        STATE REDUCER
   ════════════════════════════════════════════════════ -->
   <h2 id="state-reducer">State reducer</h2>
-  <p class="lede">Compound components fix composition. This fixes control: letting the owner of a component override how its state changes without forking it.</p>
+  <p class="lede">A reusable component proposes its next state, and the caller may refine that decision.</p>
 
   <p>
-    Sooner or later a shared component's default behavior is almost right for a new use case, but not quite. A disclosure widget that should stay open after a selection instead of auto-closing, a combobox that shouldn't clear its input on blur. The obvious fix is a new boolean prop for each variation, and that works until the tenth variation, at which point the prop list has become a config object all over again. The state reducer pattern, popularized by Kent C. Dodds' Downshift library, offers a different way out: the component still owns its state and its <code>useReducer</code>, but the consumer can supply a function that intercepts the reducer's proposed next state and rewrites it before it's applied.
+    Shared controls often need one variation that the original API did not predict. A combobox might keep its menu open after a selection, for example. Adding a boolean for every variation eventually turns the component into a matrix of interacting options.
+  </p>
+  <p>
+    The <strong>state reducer</strong> pattern gives the caller one controlled extension point. The component calculates a proposed state change, then passes it through a caller-supplied reducer before committing it. Downshift exposes this pattern through its <code>stateReducer</code> API.
   </p>
 
   <div class="code-block">
     <div class="code-header">
       <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-filename">use-toggle.js</span>
-      <span class="code-lang">JavaScript</span>
+      <span class="code-filename">use-toggle.ts</span>
+      <span class="code-lang">TS</span>
     </div>
     <pre><code><span class="kw">function</span> <span class="fn">internalReducer</span>(<span class="n">state</span>, <span class="n">action</span>) {
   <span class="kw">switch</span> (<span class="n">action</span>.<span class="n">type</span>) {
@@ -261,14 +267,14 @@
   </div>
 
   <p>
-    By default <code>stateReducer</code> just returns whatever the internal reducer computed, so <code>useToggle()</code> behaves normally with no configuration at all. A consumer who needs different behavior, say a toggle that can only be switched on and never back off, passes their own function that inspects the proposed <code>changes</code> and returns something else instead:
+    The default reducer accepts the proposed change, so the hook needs no configuration for its normal behavior. This caller prevents the toggle from returning to <code>off</code> after it has been enabled.
   </p>
 
   <div class="code-block">
     <div class="code-header">
       <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-filename">usage.jsx</span>
-      <span class="code-lang">JSX</span>
+      <span class="code-filename">usage.tsx</span>
+      <span class="code-lang">TSX</span>
     </div>
     <pre><code><span class="kw">const</span> { <span class="n">on</span>, <span class="n">toggle</span> } = <span class="fn">useToggle</span>({
   <span class="n">stateReducer</span>: (<span class="n">state</span>, <span class="n">action</span>, <span class="n">changes</span>) =&gt;
@@ -277,29 +283,32 @@
   </div>
 
   <p>
-    Nothing about <code>useToggle</code>'s internals changed. The override lives entirely in the consumer's code, which is the point: the component doesn't need to anticipate every variation in advance, it just needs one seam where a consumer can reach in.
+    The component still owns its state machine and public actions. The caller changes one transition without copying the implementation or asking the component to predict that variation.
   </p>
 
-  <div class="callout warn aside">
+  <div class="callout warn">
     <div class="callout-title">When not to use it</div>
-    <p>This pattern makes a component's internal action vocabulary part of its public API, which is real surface area for someone else to learn and for you to keep stable. It earns its cost on a shared design-system primitive that other teams need to customize. For a one-off component with a single consumer, just change the component.</p>
+    <p>The action names and proposed state now form part of the public contract, so they must remain stable. That cost can be worthwhile for a widely reused primitive. A component with one owner is usually clearer when its behavior is changed directly.</p>
   </div>
 
   <!-- ═══════════════════════════════════════════════════
        HEADLESS COMPONENTS
   ════════════════════════════════════════════════════ -->
   <h2 id="headless-components">Headless components</h2>
-  <p class="lede">Split behavior from presentation entirely: a hook owns the logic, the consumer owns every pixel of markup.</p>
+  <p class="lede">Reusable behavior is supplied without prescribing the rendered markup or visual style.</p>
 
   <p>
-    A styled component that ships its own markup and CSS is fast to use and slow to restyle. Every team that wants a different look ends up fighting the shipped styles with overrides, or forking the component outright. The headless pattern sidesteps this by not shipping markup at all. All the interactive logic, the keyboard handling, the ARIA attributes, lives in a hook. The hook returns state and a set of prop getters, and the consumer decides what elements to render and how they look. This is the same idea Downshift introduced for comboboxes, and it's why libraries like TanStack Table and React Aria ship as hooks rather than styled components. A table or a date picker has wildly different visual requirements from one product to the next, but the logic of sorting rows or navigating a calendar with a keyboard barely changes.
+    A styled component is convenient while its markup and appearance match the product. Reuse becomes harder when another product needs a different DOM structure or styling system. A <strong>headless component</strong> moves state and interaction behavior into a hook or unstyled primitive, leaving the caller to render the interface.
+  </p>
+  <p>
+    Prop getters are one common API. They combine the event handlers and accessibility attributes that belong on a particular element. Downshift and the lower-level React Aria hooks use this approach for controls whose behavior is difficult to reproduce correctly.
   </p>
 
   <div class="code-block">
     <div class="code-header">
       <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-filename">use-disclosure.js</span>
-      <span class="code-lang">JavaScript</span>
+      <span class="code-filename">use-disclosure.ts</span>
+      <span class="code-lang">TS</span>
     </div>
     <pre><code><span class="kw">function</span> <span class="fn">useDisclosure</span>(<span class="n">initial</span> = <span class="kw">false</span>) {
   <span class="kw">const</span> [<span class="n">isOpen</span>, <span class="n">setIsOpen</span>] = <span class="fn">useState</span>(<span class="n">initial</span>);
@@ -316,14 +325,14 @@
   </div>
 
   <p>
-    The hook never renders a <code>&lt;button&gt;</code> or a <code>&lt;div&gt;</code>. It hands back plain objects that a consumer spreads onto whatever elements they choose:
+    The hook returns props instead of elements. The caller applies those props to the trigger and panel.
   </p>
 
   <div class="code-block">
     <div class="code-header">
       <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-filename">faq-item.jsx</span>
-      <span class="code-lang">JSX</span>
+      <span class="code-filename">faq-item.tsx</span>
+      <span class="code-lang">TSX</span>
     </div>
     <pre><code><span class="kw">function</span> <span class="fn">FAQItem</span>({ <span class="n">question</span>, <span class="n">answer</span> }) {
   <span class="kw">const</span> { <span class="n">getTriggerProps</span>, <span class="n">getPanelProps</span> } = <span class="fn">useDisclosure</span>();
@@ -337,29 +346,32 @@
   </div>
 
   <p>
-    Two products can use <code>useDisclosure</code> and end up with completely different markup, animation, and styling, while sharing the exact same open and close logic. Nothing about the hook cares what a "trigger" or a "panel" actually is.
+    Callers may choose different surrounding markup and styling while sharing the open-state behavior. The hook still assumes that its trigger props land on an interactive element, so freedom of presentation does not remove semantic requirements.
   </p>
 
-  <div class="callout warn aside">
+  <div class="callout warn">
     <div class="callout-title">When not to use it</div>
-    <p>Headless hooks push accessibility responsibility onto every consumer, they still have to spread the right props onto the right elements, and it's easy to forget one. For an internal tool that nobody is going to re-skin, a plain styled component with sensible defaults ships faster and is harder to misuse.</p>
+    <p>A low-level hook is easy to misuse because callers must place every returned prop on a suitable element. Prefer a higher-level unstyled component when it can preserve the required semantics without blocking customization. A styled component is often enough when the markup and appearance have a single owner.</p>
   </div>
 
   <!-- ═══════════════════════════════════════════════════
        POLYMORPHIC COMPONENTS
   ════════════════════════════════════════════════════ -->
   <h2 id="polymorphic-components">Polymorphic components</h2>
-  <p class="lede">Let a component render as a different element entirely, so callers stop choosing between a dedicated <code>Link</code> prop and an <code>as</code> prop.</p>
+  <p class="lede">Share presentation and behavior while allowing the caller to choose the underlying element.</p>
 
   <p>
-    A design system's <code>Button</code> sometimes needs to be a link styled as a button, navigating instead of firing a click handler. Duplicating all of <code>Button</code>'s styling logic into a separate <code>LinkButton</code> is one option, and it works until the two drift out of sync. An older fix is an <code>as</code> prop that swaps the rendered tag, but that only covers a small, hardcoded list of alternatives, and it still wraps whatever gets passed in a component the caller didn't ask for. The pattern that's become standard, popularized by Radix's <code>Slot</code>, is <code>asChild</code>: instead of rendering a wrapper element, the component merges its own props onto a single child the caller provides.
+    A design system may want a button visual treatment on both actions and links. The semantics still matter: an action belongs on a <code>&lt;button&gt;</code>, while navigation belongs on an <code>&lt;a&gt;</code>. Copying the styles into separate components can make them drift.
+  </p>
+  <p>
+    A <strong>polymorphic component</strong> lets the caller select the element. One version uses an <code>as</code> prop. Radix Primitives uses <code>asChild</code>, which merges a primitive's props and behavior onto one child instead of adding a wrapper.
   </p>
 
   <div class="code-block">
     <div class="code-header">
       <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-filename">button.jsx</span>
-      <span class="code-lang">JSX</span>
+      <span class="code-filename">button.tsx</span>
+      <span class="code-lang">TSX</span>
     </div>
     <pre><code><span class="kw">function</span> <span class="fn">Button</span>({ <span class="n">asChild</span>, <span class="n">className</span>, ...<span class="n">props</span> }) {
   <span class="kw">const</span> <span class="n">Comp</span> = <span class="n">asChild</span> ? <span class="t">Slot</span> : <span class="s">'button'</span>;
@@ -370,8 +382,8 @@
   <div class="code-block">
     <div class="code-header">
       <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-filename">usage.jsx</span>
-      <span class="code-lang">JSX</span>
+      <span class="code-filename">usage.tsx</span>
+      <span class="code-lang">TSX</span>
     </div>
     <pre><code>&lt;<span class="t">Button</span> <span class="n">asChild</span>&gt;
   &lt;<span class="t">a</span> <span class="n">href</span>=<span class="s">"/pricing"</span>&gt;See pricing&lt;/<span class="t">a</span>&gt;
@@ -379,93 +391,91 @@
   </div>
 
   <p>
-    With <code>asChild</code> set, <code>Slot</code> clones the single <code>&lt;a&gt;</code> child and merges <code>Button</code>'s <code>className</code>, event handlers, and ref onto it, rather than rendering a <code>&lt;button&gt;</code> wrapped around an <code>&lt;a&gt;</code>. The DOM stays one valid element, and the anchor keeps its native behavior: right-click to open in a new tab, middle-click, and crawlability all still work, because it's still a real link under the hood rather than a button that fakes navigation with an <code>onClick</code>.
+    With <code>asChild</code>, the anchor remains the only DOM element. It therefore keeps native link behavior, including opening in a new tab and exposing link semantics to assistive technology. The slotted child must spread the received props and accept the ref for the composition to work.
   </p>
 
-  <div class="callout warn aside">
+  <div class="callout warn">
     <div class="callout-title">When not to use it</div>
-    <p><code>asChild</code> needs exactly one valid element as its child, it breaks or behaves unpredictably with fragments, text nodes, or multiple children. Merging props, especially <code>className</code> and event handlers, has to be done carefully or one side silently overwrites the other. If the only requirement is swapping between a small, known list of tags, a plain <code>as</code> prop is simpler and easier to type correctly.</p>
+    <p>Polymorphism transfers semantic responsibility to the caller. A component must not make a heading or link behave like a button by appearance alone. Slot-based APIs also require one compatible child and well-defined rules for merging handlers, classes, and refs. Separate components are clearer when only two known semantic variants exist.</p>
   </div>
 
   <!-- ═══════════════════════════════════════════════════
        CUSTOM HOOKS
   ════════════════════════════════════════════════════ -->
   <h2 id="custom-hooks">Custom hooks</h2>
-  <p class="lede">The pattern that replaced higher-order components and render props for most everyday reuse.</p>
+  <p class="lede">Extract stateful behavior into a function without adding another component to the tree.</p>
 
   <p>
-    Before hooks, sharing stateful logic across components meant one of two things. A higher-order component, a function that took a component and returned a new one with extra props injected, or a render prop, a component whose child was a function it called with some data. Both worked, and both had real costs. Two HOCs wrapping the same component could inject props with the same name and silently collide. A component tree wrapped in three or four HOCs was legitimately hard to read in React DevTools, since every one of them added a layer that had nothing to do with what was on screen. Render props avoided the naming collisions but nested visually in the JSX even though nothing about them was rendering nested DOM.
+    Higher-order components and render props can share stateful behavior, but both add structure around the component that uses them. Injected props may collide, and several wrappers can obscure the useful parts of a tree in development tools. Render props make the data flow explicit, although they also add nesting to the JSX.
   </p>
 
   <p>
-    A custom hook sidesteps both problems. It's a plain function that calls other hooks and returns values directly, no wrapping component, no extra tree depth, and it reads exactly like the built-in hooks it's composed from. A hook that wraps <code>localStorage</code> is a good example of the third pillar in practice: the storage changes outside of any <code>setState</code> call, so the hook needs <code>useSyncExternalStore</code>, not <code>useState</code>, to stay correctly synced with it.
+    A <strong>custom hook</strong> packages calls to other hooks behind a domain-specific function. Each caller still receives its own state unless the hook subscribes to a shared external source. The hook changes how logic is reused; it does not create shared state by itself.
+  </p>
+  <p>
+    Browser connection status is an external source because it can change without a React state update. <code>useSyncExternalStore</code> gives the hook a consistent way to read that value and subscribe to browser events.
   </p>
 
   <div class="code-block">
     <div class="code-header">
       <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-filename">use-local-storage.js</span>
-      <span class="code-lang">JavaScript</span>
+      <span class="code-filename">use-online-status.ts</span>
+      <span class="code-lang">TS</span>
     </div>
-    <pre><code><span class="kw">function</span> <span class="fn">subscribe</span>(<span class="n">callback</span>) {
-  <span class="n">window</span>.<span class="fn">addEventListener</span>(<span class="s">'storage'</span>, <span class="n">callback</span>);
-  <span class="n">window</span>.<span class="fn">addEventListener</span>(<span class="s">'local-storage'</span>, <span class="n">callback</span>);
+    <pre><code><span class="kw">function</span> <span class="fn">subscribe</span>(<span class="n">callback</span>: () =&gt; <span class="kw">void</span>) {
+  <span class="n">window</span>.<span class="fn">addEventListener</span>(<span class="s">'online'</span>, <span class="n">callback</span>);
+  <span class="n">window</span>.<span class="fn">addEventListener</span>(<span class="s">'offline'</span>, <span class="n">callback</span>);
   <span class="kw">return</span> () =&gt; {
-    <span class="n">window</span>.<span class="fn">removeEventListener</span>(<span class="s">'storage'</span>, <span class="n">callback</span>);
-    <span class="n">window</span>.<span class="fn">removeEventListener</span>(<span class="s">'local-storage'</span>, <span class="n">callback</span>);
+    <span class="n">window</span>.<span class="fn">removeEventListener</span>(<span class="s">'online'</span>, <span class="n">callback</span>);
+    <span class="n">window</span>.<span class="fn">removeEventListener</span>(<span class="s">'offline'</span>, <span class="n">callback</span>);
   };
 }
 
-<span class="kw">function</span> <span class="fn">useLocalStorage</span>(<span class="n">key</span>, <span class="n">initialValue</span>) {
-  <span class="kw">const</span> <span class="n">cache</span> = <span class="fn">useRef</span>();
+<span class="kw">function</span> <span class="fn">getSnapshot</span>() {
+  <span class="kw">return</span> <span class="n">navigator</span>.<span class="n">onLine</span>;
+}
 
-  <span class="kw">const</span> <span class="n">getSnapshot</span> = () =&gt; {
-    <span class="kw">const</span> <span class="n">raw</span> = <span class="n">localStorage</span>.<span class="fn">getItem</span>(<span class="n">key</span>);
-    <span class="kw">if</span> (!<span class="n">cache</span>.<span class="n">current</span> || <span class="n">cache</span>.<span class="n">current</span>.<span class="n">raw</span> !== <span class="n">raw</span>) {
-      <span class="n">cache</span>.<span class="n">current</span> = { <span class="n">raw</span>, <span class="n">value</span>: <span class="n">raw</span> ? <span class="t">JSON</span>.<span class="fn">parse</span>(<span class="n">raw</span>) : <span class="n">initialValue</span> };
-    }
-    <span class="kw">return</span> <span class="n">cache</span>.<span class="n">current</span>.<span class="n">value</span>;
-  };
+<span class="kw">function</span> <span class="fn">getServerSnapshot</span>() {
+  <span class="kw">return</span> <span class="kw">true</span>;
+}
 
-  <span class="kw">const</span> <span class="n">value</span> = <span class="fn">useSyncExternalStore</span>(<span class="n">subscribe</span>, <span class="n">getSnapshot</span>);
-
-  <span class="kw">const</span> <span class="n">setValue</span> = (<span class="n">next</span>) =&gt; {
-    <span class="n">localStorage</span>.<span class="fn">setItem</span>(<span class="n">key</span>, <span class="t">JSON</span>.<span class="fn">stringify</span>(<span class="n">next</span>));
-    <span class="n">window</span>.<span class="fn">dispatchEvent</span>(<span class="kw">new</span> <span class="t">Event</span>(<span class="s">'local-storage'</span>));
-  };
-
-  <span class="kw">return</span> [<span class="n">value</span>, <span class="n">setValue</span>];
+<span class="kw">export function</span> <span class="fn">useOnlineStatus</span>() {
+  <span class="kw">return</span> <span class="fn">useSyncExternalStore</span>(
+    <span class="n">subscribe</span>,
+    <span class="n">getSnapshot</span>,
+    <span class="n">getServerSnapshot</span>
+  );
 }</code></pre>
   </div>
 
   <p>
-    Calling <code>const [theme, setTheme] = useLocalStorage('theme', 'dark')</code> still reads exactly like <code>useState</code>, even though nothing inside it is <code>useState</code>. The cache ref exists only to keep <code>getSnapshot</code> returning a stable reference between calls, and the <code>local-storage</code> event covers same-tab updates that the native <code>storage</code> event doesn't fire for. Two components reading the same key, or the same key changing in another tab, stay in sync automatically, something <code>useState</code> and <code>useEffect</code> alone can't guarantee. There's no wrapper component to find in the tree and no injected prop names to remember, which is a large part of why hooks displaced HOCs and render props for most reuse: the API surface is just a function signature.
+    Components call <code>useOnlineStatus()</code> without knowing how the browser subscription works. The third argument supplies a stable value during server rendering and hydration. The hook hides integration details while leaving the returned value and its meaning explicit.
   </p>
 
-  <div class="callout warn aside">
+  <div class="callout warn">
     <div class="callout-title">When not to use it</div>
-    <p>A hook can share logic, but it can't control composition or the shape of rendered output. If the reusable thing needs to arrange children, own markup, or expose sub-components, that's a job for compound components or the headless pattern, not a hook returning a single value.</p>
+    <p>A hook shares behavior, not markup, and each call normally has independent state. Use a component when the abstraction must enforce structure or semantics. Use context or an external store when separate callers must observe the same state.</p>
   </div>
 
   <!-- ═══════════════════════════════════════════════════
        CONTEXT SELECTORS
   ════════════════════════════════════════════════════ -->
-  <h2 id="context-selectors">Context selectors</h2>
-  <p class="lede">A single large context re-renders every consumer on every change. Splitting it is the fix that costs almost nothing.</p>
+  <h2 id="context-selectors">Split contexts by what changes</h2>
+  <p class="lede">Separate stable commands from changing state when consumers need different subscriptions.</p>
 
   <p>
-    React re-renders every component subscribed to a context whenever that context's value changes, whether or not the component reads the part that changed. A common mistake is one large context holding both frequently changing state and the dispatch function used to update it. Every component that only wants to dispatch an action, and never reads the state itself, still re-renders on every update, because it's subscribed to the same context object as everything else.
+    A component that calls <code>useContext</code> subscribes to the whole context value. React compares the previous and next values with <code>Object.is</code>; it does not track which object field the component read. A new value therefore updates every consumer of that context.
   </p>
 
   <p>
-    The fix costs almost nothing: split the state and the dispatch function into two separate contexts. A reducer's <code>dispatch</code> is referentially stable across renders, so a component that only calls <code>useContext</code> on the dispatch context never has a reason to re-render at all.
+    State and dispatch often change at different rates. <code>useReducer</code> keeps the identity of <code>dispatch</code> stable, so placing it in a separate context prevents state changes from notifying components that only dispatch actions.
   </p>
 
   <div class="code-block">
     <div class="code-header">
       <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-filename">count-provider.jsx</span>
-      <span class="code-lang">JSX</span>
+      <span class="code-filename">count-provider.tsx</span>
+      <span class="code-lang">TSX</span>
     </div>
     <pre><code><span class="kw">const</span> <span class="n">CountStateContext</span> = <span class="fn">createContext</span>(<span class="m">0</span>);
 <span class="kw">const</span> <span class="n">CountDispatchContext</span> = <span class="fn">createContext</span>(() =&gt; {});
@@ -487,12 +497,12 @@
   </div>
 
   <p>
-    A component that calls <code>useContext(CountDispatchContext)</code> to dispatch an increment never re-renders when <code>count</code> changes, because it isn't subscribed to <code>CountStateContext</code> at all. When two contexts still isn't granular enough, selector libraries take this a step further and let a component subscribe to a slice of a single context value, but the split above solves the common case without adding a dependency.
+    A dispatch-only consumer is no longer updated by <code>CountStateContext</code>. It can still render for other reasons, such as its own state or a parent render. If consumers need finer subscriptions within one large state object, an external store with selectors may be a better fit. <a href="client-state.html">Client State</a> covers that decision in depth.
   </p>
 
-  <div class="callout warn aside">
+  <div class="callout warn">
     <div class="callout-title">When not to use it</div>
-    <p>Splitting contexts adds real boilerplate, two providers and two hooks instead of one, for a problem that might not exist yet. Profile with React DevTools first. This is a fix for a measured re-render problem, not a default way to structure every context in an app.</p>
+    <p>Two contexts add providers, hooks, and names that callers must learn. Split them when the subscriptions express a real difference in responsibility or when profiling shows useful work being repeated. A small, rarely changing value does not need this machinery.</p>
   </div>
 
   <!-- ═══════════════════════════════════════════════════
@@ -501,11 +511,11 @@
   <h2 id="closing">Where these patterns stop</h2>
 
   <p>
-    None of the six patterns above break the three pillars from the start of this article. Compound components and headless hooks still pass state down and events up, they just move context or a return value into the path instead of a prop. The state reducer pattern still renders declaratively, it only changes who gets to decide what the next state is. Context selectors don't change what triggers a re-render, they just narrow which components are subscribed to it. Every pattern here is a negotiation over where state lives and who's allowed to shape it, never a way around React's own rules.
+    Choose the smallest API that leaves the caller enough control. Props are the clearest starting point. Compound parts help when callers need to arrange a control. A state reducer serves shared primitives with legitimate behavioral variants, while a headless API serves products that need control over markup. Polymorphism is useful only when it preserves native semantics.
   </p>
 
   <p>
-    What's deliberately out of scope is the boundary these patterns all assume: a single component tree running on the client. React Server Components move part of that tree onto the server, and Actions replace the manual loading, error, and data trio with something closer to a native form submission. That's a different set of tradeoffs from anything covered here, and it gets its own treatment separately.
+    These patterns describe component APIs inside a React tree. They do not decide whether state belongs in a local component, context, or an external store; that belongs to <a href="client-state.html">Client State</a>. They also do not define the server/client module boundary, which is covered in <a href="react-server-components.html">React Server Components</a>.
   </p>
 
 </main>

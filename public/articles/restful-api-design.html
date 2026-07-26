@@ -143,16 +143,16 @@
 
   <div class="eyebrow">Networking · REST</div>
   <h1>RESTful API Design</h1>
-  <p class="subtitle">What REST actually specifies, how to apply it correctly, where it fits well, and where other approaches are more appropriate.</p>
+  <p class="subtitle">How REST constrains an API, how to model resources, and when another interaction style fits better.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~20 min read</span>
+    <div class="dot"></div><span>~22 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
-  <p class="wide" style="max-width:700px;">REST is the dominant architectural style for HTTP APIs, but it is frequently misunderstood, inconsistently applied, and sometimes the wrong tool for the job. This article covers what REST actually specifies, how to apply it correctly, where it fits well, and where other approaches are more appropriate.</p>
+  <p class="wide" style="max-width:700px;">REST has shaped the conventions of many HTTP APIs, even when those APIs do not implement the full architectural style. Understanding its constraints makes it easier to separate REST itself from familiar URL and method conventions. It also makes the limits of the resource model clearer.</p>
 
-  <div class="callout info aside">
+  <div class="callout info">
     <p>This article assumes familiarity with HTTP fundamentals. For a grounding in methods, status codes, headers, caching, cookies, and CORS, the <a href="http.html">HTTP article</a> covers those first.</p>
   </div>
 
@@ -160,17 +160,17 @@
   <h2 id="background">Background</h2>
   <p class="lede">REST was defined in a doctoral dissertation. Understanding where it came from explains why it looks the way it does.</p>
 
-  <p>REST (Representational State Transfer) was defined by Roy Fielding in his doctoral dissertation at UC Irvine in 2000. It is an <strong>architectural style</strong>, a set of constraints on how components in a distributed system communicate, not a protocol, specification, or standard. Fielding derived REST by identifying the properties desirable in a large-scale hypermedia system (like the web) and working backward to the constraints that produce them.</p>
-  <p>REST is applied on top of HTTP. HTTP already provides the transport, method semantics, status codes, headers, and caching mechanisms that REST relies on. A RESTful API is one that uses these mechanisms in the way they were intended, rather than tunneling everything through a single endpoint or overloading method semantics.</p>
+  <p>Roy Fielding defined REST (Representational State Transfer) in his 2000 doctoral dissertation at the University of California, Irvine. An <strong>architectural style</strong> coordinates constraints on components and their interactions. REST applies such constraints to the connectors and data of a distributed hypermedia system. It is neither a protocol nor an API specification.</p>
+  <p>REST does not require HTTP, but the web is its defining implementation and most REST APIs use HTTP. HTTP supplies a uniform method vocabulary, representation metadata, status codes, and caching semantics. Following those semantics is necessary for a REST API, although it does not satisfy every REST constraint by itself.</p>
 
   <h3>The Richardson Maturity Model</h3>
-  <p>The Richardson Maturity Model characterizes how RESTful a given API is across four levels:</p>
+  <p>The Richardson Maturity Model describes a progression in how an HTTP API uses resources, methods, and hypermedia. It is a useful teaching model rather than part of Fielding's REST definition.</p>
 
   <div class="maturity-grid">
     <div class="card orange">
       <div class="card-label">Level 0</div>
       <div class="card-title">HTTP as a Tunnel</div>
-      <p>Single endpoint, all operations via POST. HTTP is used purely as a transport mechanism, ignoring its method semantics entirely. SOAP and XML-RPC are the canonical examples.</p>
+      <p>One endpoint receives all operations, commonly through POST. HTTP acts as a transport envelope while the request body carries the application operation.</p>
     </div>
     <div class="card teal">
       <div class="card-label">Level 1</div>
@@ -180,29 +180,29 @@
     <div class="card blue">
       <div class="card-label">Level 2</div>
       <div class="card-title">HTTP Verbs</div>
-      <p>Resources <em>and</em> correct HTTP method semantics. This is what most people mean when they say "REST API." GET retrieves, POST creates, PUT/PATCH updates, DELETE removes.</p>
+      <p>Resource URLs are combined with HTTP method and status semantics. This is the style commonly described as a REST API, even though it stops short of REST's hypermedia constraint.</p>
     </div>
     <div class="card purple">
       <div class="card-label">Level 3</div>
       <div class="card-title">Hypermedia Controls</div>
-      <p>Responses include links to available actions (HATEOAS). Clients discover transitions from the response rather than having them hard-coded. Rarely implemented in practice.</p>
+      <p>Representations include links and controls for the available transitions. Clients follow those controls instead of constructing every interaction from out-of-band URL knowledge.</p>
     </div>
   </div>
 
   <div class="callout info">
-    <div class="callout-title">What to target in practice</div>
-    <p>Most production APIs target Level 2. This document focuses on Level 2 design and notes where Level 3 concepts are relevant. Reaching Level 2 consistently and correctly is harder than it looks. Most "REST APIs" in the wild are actually Level 1 with some GET requests sprinkled in.</p>
+    <div class="callout-title">Scope of this article</div>
+    <p>This article concentrates on the resource and HTTP conventions at Level 2 because they dominate everyday API design. The architectural constraints section still explains hypermedia, since an API without it does not implement REST in Fielding's full sense.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="comparison">REST Compared to Other API Designs</h2>
-  <p class="lede">REST is not the only way to design an HTTP API, and it is not always the best fit.</p>
+  <p class="lede">The resource model works well for many APIs, but operations, queries, and tightly coupled applications can favor other styles.</p>
 
   <p>Understanding the alternatives makes it easier to choose the right tool and to recognize where REST's model imposes unnecessary friction.</p>
 
   <h3>REST vs. RPC (Remote Procedure Call)</h3>
-  <p>RPC-style APIs expose <strong>operations</strong> rather than resources. Rather than <code>POST /orders/42/cancel</code>, an RPC API might expose <code>POST /cancelOrder</code> with <code>{"orderId": 42}</code> in the body. gRPC is a modern, strongly-typed RPC framework that uses Protocol Buffers over HTTP/2.</p>
-  <p>RPC is a natural fit when the domain is operation-heavy rather than resource-heavy: financial transactions, data processing pipelines, internal service-to-service communication where network overhead matters. REST's resource model adds friction in these contexts without a compensating benefit. The practical difference for a frontend developer is that RPC APIs tend to have more predictable, strongly-typed contracts (especially gRPC with generated clients), but less convention. Every API defines its own operation names and structures.</p>
+  <p>Remote procedure call (RPC) APIs expose <strong>operations</strong> rather than a uniform resource interface. An endpoint might accept <code>POST /cancelOrder</code> with <code>{"orderId": 42}</code> in the body. gRPC is one RPC framework. It defines services with Protocol Buffers and normally carries calls over HTTP/2.</p>
+  <p>RPC fits domains where commands are more natural than resource manipulation, including workflow operations and internal service calls. Generated contracts can make calls predictable for consumers, especially with gRPC. The cost is that operation names and behavior come from the service contract rather than from a shared HTTP vocabulary.</p>
 
   <h3>REST vs. GraphQL</h3>
   <p>GraphQL is a query language and runtime developed by Meta and open-sourced in 2015. Rather than multiple resource-specific endpoints, a GraphQL API exposes a single endpoint through which clients issue typed queries and mutations.</p>
@@ -211,20 +211,20 @@
     <div class="card teal">
       <div class="card-label">GraphQL Strengths</div>
       <div class="card-title">Client-specified shape</div>
-      <p>The client declares exactly which fields it wants. This eliminates over-fetching (too much data) and under-fetching (multiple round trips to assemble a view). Strongly typed schema enables build-time validation.</p>
+      <p>The client selects the fields and related objects needed for a view. This can reduce unnecessary data and avoid several resource requests. A typed schema supports validation and client tooling.</p>
     </div>
     <div class="card orange">
       <div class="card-label">GraphQL Tradeoffs</div>
       <div class="card-title">Single endpoint</div>
-      <p>All operations go through one URL (<code>POST /graphql</code>). HTTP caching does not apply naturally. Server complexity is higher, and introspection exposes the full API surface to any consumer.</p>
+      <p>Operations commonly share one URL, so ordinary URL-based HTTP caching is less direct. Servers must also control query cost and field-level authorization. Schema introspection is useful tooling, but access to it may need its own policy.</p>
     </div>
   </div>
 
   <p>GraphQL fits well when the frontend has highly variable data requirements, particularly with multiple clients (web, mobile, third-party) that need different shapes of the same data.</p>
 
   <h3>REST vs. tRPC</h3>
-  <p>tRPC is a TypeScript-first framework that generates end-to-end type-safe APIs without a schema definition step. It is RPC-style: the server defines procedures, and the client calls them with full type inference. It requires both client and server to be TypeScript.</p>
-  <p>tRPC is well-suited to full-stack TypeScript applications where the same team owns both ends. It is not appropriate for public APIs or multi-language environments.</p>
+  <p>tRPC is a TypeScript-first framework that infers a client contract directly from server procedures. It avoids a separate schema language when both sides can share TypeScript types during development.</p>
+  <p>The approach suits applications whose client and server evolve together in one TypeScript codebase. A language-neutral contract such as OpenAPI or Protocol Buffers is easier to consume across organizational and language boundaries.</p>
 
   <h3>Choosing an Approach</h3>
   <div class="table-wrap">
@@ -241,97 +241,89 @@
       <tbody>
         <tr>
           <td>Public API / third-party consumers</td>
-          <td><span class="badge badge-green">✓</span></td>
-          <td><span class="badge badge-green">✓</span></td>
-          <td><span class="badge badge-muted">—</span></td>
-          <td><span class="badge badge-muted">—</span></td>
+          <td>Common</td>
+          <td>Common</td>
+          <td>Possible, generated client</td>
+          <td>Uncommon</td>
         </tr>
         <tr>
           <td>Multiple clients with different data needs</td>
-          <td><span class="badge badge-muted">—</span></td>
-          <td><span class="badge badge-green">✓</span></td>
-          <td><span class="badge badge-muted">—</span></td>
-          <td><span class="badge badge-muted">—</span></td>
+          <td>Server-defined shapes</td>
+          <td>Client-selected shapes</td>
+          <td>Contract-defined messages</td>
+          <td>Closely coupled clients</td>
         </tr>
         <tr>
           <td>HTTP caching</td>
-          <td><span class="badge badge-green">✓</span></td>
-          <td><span class="badge badge-muted">—</span></td>
-          <td><span class="badge badge-muted">—</span></td>
-          <td><span class="badge badge-muted">—</span></td>
+          <td>Direct fit</td>
+          <td>Needs query-aware strategy</td>
+          <td>Not ordinary HTTP caching</td>
+          <td>Transport-dependent</td>
         </tr>
         <tr>
           <td>Strong typing / generated clients</td>
-          <td><span class="badge badge-muted">—</span></td>
-          <td><span class="badge badge-green">✓</span></td>
-          <td><span class="badge badge-green">✓</span></td>
-          <td><span class="badge badge-teal">TS only</span></td>
+          <td>With OpenAPI</td>
+          <td>Schema-based</td>
+          <td>Built in</td>
+          <td>TypeScript inference</td>
         </tr>
         <tr>
           <td>High-throughput internal services</td>
-          <td><span class="badge badge-muted">—</span></td>
-          <td><span class="badge badge-muted">—</span></td>
-          <td><span class="badge badge-green">✓</span></td>
-          <td><span class="badge badge-muted">—</span></td>
+          <td>Possible</td>
+          <td>Less typical</td>
+          <td>Strong fit</td>
+          <td>Possible in TypeScript</td>
         </tr>
         <tr>
           <td>Full-stack TypeScript monorepo</td>
-          <td><span class="badge badge-muted">—</span></td>
-          <td><span class="badge badge-muted">—</span></td>
-          <td><span class="badge badge-muted">—</span></td>
-          <td><span class="badge badge-green">✓</span></td>
-        </tr>
-        <tr>
-          <td>Conventional, widely understood</td>
-          <td><span class="badge badge-green">✓</span></td>
-          <td><span class="badge badge-green">✓</span></td>
-          <td><span class="badge badge-muted">—</span></td>
-          <td><span class="badge badge-muted">—</span></td>
+          <td>Works well</td>
+          <td>Works well</td>
+          <td>Requires code generation</td>
+          <td>Designed for it</td>
         </tr>
       </tbody>
     </table>
   </div>
 
-  <p>REST remains the right default for public-facing APIs, APIs consumed by heterogeneous clients, and situations where HTTP-level caching and tooling compatibility matter. The other approaches solve specific problems that REST handles awkwardly.</p>
+  <p>A resource-oriented HTTP API is a strong option when many independent consumers need familiar semantics and ordinary HTTP caching. GraphQL favors client-selected data graphs. gRPC favors generated contracts and efficient internal calls, while tRPC favors close coupling inside a TypeScript application. The consumer boundary and interaction shape should decide among them.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="constraints">Architectural Constraints</h2>
-  <p class="lede">Fielding defined six constraints. Taken together, they produce scalability, visibility, reliability, and portability.</p>
+  <p class="lede">REST combines six constraints whose benefits and tradeoffs emerge when they are applied as a system.</p>
 
   <h3>Uniform Interface</h3>
-  <p>The uniform interface constraint is what most distinguishes REST from other architectural styles. It requires that all interaction between components happen through a standardized interface: in practice, HTTP with resource-based URLs. It has four sub-constraints:</p>
+  <p>The uniform interface distinguishes REST from styles built around service-specific operations. Although REST prescribes neither HTTP nor a particular URL shape, every REST interface follows four further constraints.</p>
   <ul>
-    <li><strong>Identification of resources:</strong> Every resource is identified by a stable URI. The resource itself (e.g., a database row) is separate from its representation (the JSON response).</li>
+    <li><strong>Identification of resources:</strong> A resource is identified in a representation, commonly through a URI on the web. The underlying resource remains distinct from any JSON, HTML, or image representation transferred to a client.</li>
     <li><strong>Manipulation of resources through representations:</strong> Clients interact with resources by exchanging representations. A client that holds a representation of a resource has enough information to modify or delete it.</li>
-    <li><strong>Self-descriptive messages:</strong> Each message includes enough information to describe how it should be processed. The <code>Content-Type</code> header is the mechanism for this.</li>
-    <li><strong>Hypermedia as the engine of application state (HATEOAS):</strong> Responses include links to available transitions. Rarely implemented at Level 2, but useful to grasp conceptually.</li>
+    <li><strong>Self-descriptive messages:</strong> A recipient can understand how to process a message from its method, metadata, media type, and representation semantics.</li>
+    <li><strong>Hypermedia as the engine of application state (HATEOAS):</strong> Representations carry links and controls that tell the client which transitions are available next.</li>
   </ul>
-  <p>The practical implication is that URLs should identify resources (nouns), not operations (verbs). The operation is expressed by the HTTP method.</p>
+  <p>In an HTTP API, the uniform interface leads naturally to URLs that identify resources while methods carry shared request semantics. The familiar “nouns in URLs” rule is a design heuristic derived from that separation.</p>
 
   <h3>Statelessness</h3>
-  <p>Each request must be self-contained: any server instance must be able to process it without knowledge of prior requests. This is what enables horizontal scaling: requests can be routed to any node without affinity, and individual requests are independently auditable and debuggable.</p>
-  <p>The constraint is often summarized as "the server stores no client state," but what the constraint actually prohibits is implicit server-side tracking of where a client is in an interaction, where the server's behavior depends on context that was not sent in the current request.</p>
+  <p>Each request contains the context needed to understand it without relying on an earlier interaction. Any compatible server component with access to the resource can process that request, so routing does not have to preserve an application session on one instance. A monitor can also understand an interaction from the request itself.</p>
+  <p>The constraint is often misstated as “the server stores no state.” Servers can store resource state. What they cannot do is rely on hidden session context from earlier interactions to understand the current request. Application state belongs in the client's representation of the interaction and must accompany each request when the server needs it.</p>
 
   <h3>Client–Server</h3>
-  <p>The client and server are separate concerns with a well-defined interface between them. The server manages resources and business logic. The client manages the user interface and user state. Neither knows the internal implementation of the other. This separation means the client and server can evolve independently as long as the interface contract is maintained.</p>
+  <p>The client and server are separate concerns with a well-defined interface between them. The server manages resources and business logic, while the client manages the user interface and user state, and neither knows the internal implementation of the other. This separation means the client and server can evolve independently as long as the interface contract is maintained.</p>
 
   <h3>Layered System</h3>
-  <p>A client cannot tell whether it is connected directly to the origin server or to an intermediary (a load balancer, CDN, caching proxy, or API gateway). Intermediaries can be inserted transparently. This constraint is what makes CDN caching, API gateways, and reverse proxies work without changes to clients.</p>
+  <p>A client sees only the component it is connected to and cannot know whether another layer sits beyond it. That boundary allows caches, gateways, and reverse proxies to be inserted without changing the client-facing interface.</p>
 
   <h3>Cacheability</h3>
-  <p>Every response must explicitly declare itself as cacheable or non-cacheable. HTTP provides the mechanisms: <code>Cache-Control</code>, <code>ETag</code>, <code>Last-Modified</code>, <code>Expires</code>, and conditional request headers (<code>If-None-Match</code>, <code>If-Modified-Since</code>). Cacheable responses can be stored and reused by clients, intermediaries, or CDNs, reducing latency and server load.</p>
-  <p>The practical constraint is that responses which vary by user identity cannot be cached by shared intermediaries. A CDN or reverse proxy cannot safely serve one user's response to another. Such responses can only be cached privately, on the client.</p>
-  <p>Responses that are uniform across all users (public product listings, reference data, static content) can be cached aggressively at every layer. Designing with this distinction in mind, and correctly labeling responses with <code>Cache-Control: private</code> or <code>Cache-Control: public</code> accordingly, is more consequential than most other caching decisions.</p>
+  <p>REST requires response data to be labeled, implicitly or explicitly, as cacheable or non-cacheable. HTTP expresses that policy through fields such as <code>Cache-Control</code>, <code>ETag</code>, and <code>Last-Modified</code>. A valid cached response can remove a network round trip and reduce work at the origin.</p>
+  <p>User-specific responses need a policy that prevents one person's data from being reused for another. Marking a response <code>private</code> limits storage to private caches, while <code>no-store</code> prevents storage when the content is too sensitive to retain. Public responses can use shared caches when their cache keys account for every request property that changes the representation.</p>
 
   <h3>Code on Demand <span class="badge badge-muted">Optional</span></h3>
   <p>Servers can extend client functionality by transferring executable code. JavaScript in a browser is the canonical example. This constraint is optional and rarely relevant in API design contexts.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="resource-modeling">Resource Modeling</h2>
-  <p class="lede">Resource modeling is the most consequential design decision in a REST API. Getting it right makes the API predictable.</p>
+  <p class="lede">Resource boundaries shape URLs, representations, and the operations that an API can express cleanly.</p>
 
   <h3>Resources Are Nouns, Not Verbs</h3>
-  <p>A resource is a thing, not an action. URLs identify resources; HTTP methods express the action.</p>
+  <p>A resource-oriented URL identifies a thing, while the HTTP method expresses what the client wants to do with it.</p>
 
   <div class="url-example">
     <div class="comment"># Correct</div>
@@ -358,7 +350,7 @@
     <div><span class="path">/orders/42/items/7</span>      <span class="comment">  # A specific line item</span></div>
   </div>
 
-  <p>Nesting should be kept to two levels in most cases. Deep hierarchies produce long, fragile URLs and often indicate that the resource model is too tightly coupled to a particular access pattern. A resource may be accessible via multiple URLs, but it should have a single canonical URL.</p>
+  <p>Deep nesting produces long URLs and couples resource identity to one access path. Nest only while the parent relationship adds meaning, then give independently addressable resources their own canonical URL. Two levels is a useful warning threshold rather than a protocol rule.</p>
 
   <figure style="margin:24px 0 8px;">
     <svg viewBox="0 0 700 220" style="max-width:100%;display:block;background:var(--surface);border:1px solid var(--border);border-radius:8px;" role="img" aria-label="Resource URL hierarchy tree diagram for orders API showing four levels of nesting" xmlns="http://www.w3.org/2000/svg">
@@ -417,11 +409,11 @@
       <circle cx="130" cy="208" r="5" fill="var(--green)"/>
       <text x="142" y="212" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-faint)">document (single resource)</text>
     </svg>
-    <figcaption style="font-size:13px;color:var(--text-dim);margin-top:8px;line-height:1.5;">Collections group resources (/orders), documents are single instances (/orders/42). Nesting beyond two levels usually signals that the resource model needs rethinking.</figcaption>
+    <figcaption style="font-size:13px;color:var(--text-dim);margin-top:8px;line-height:1.5;">A collection such as /orders groups resources, while /orders/42 identifies one member. Nesting beyond two levels is a useful prompt to reconsider whether every parent belongs in the canonical URL.</figcaption>
   </figure>
 
   <h3>Identifiers</h3>
-  <p>Resource identifiers should be opaque, stable, and not expose internal implementation details. UUIDs or other non-sequential identifiers are preferable to auto-incrementing database IDs, which reveal record counts and are easier to enumerate.</p>
+  <p>Resource identifiers should remain stable for as long as clients may refer to them. Opaque identifiers keep storage choices out of the contract. UUIDs work well when several systems create records independently, while sequential identifiers can be simpler and smaller. Neither choice replaces authorization. Guessing another identifier must not grant a client access.</p>
 
   <div class="url-example">
     <div><span class="path">/orders/a3f9b2c1-4d5e-6f7a-8b9c-0d1e2f3a4b5c</span>  <span class="comment">  # Preferred</span></div>
@@ -433,18 +425,18 @@
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="http-in-rest">HTTP Semantics</h2>
-  <p class="lede">REST is built on top of HTTP and relies on its method and status code semantics. A REST API that ignores those semantics is not REST. It is RPC with URLs.</p>
+  <p class="lede">An HTTP-based REST API depends on the semantics of HTTP methods, status codes, fields, and caching.</p>
 
   <p>For a full treatment of HTTP methods, status codes, headers, caching, and CORS, the <a href="http.html">HTTP article</a> covers all of these in depth. This section focuses on how HTTP semantics apply specifically in the context of REST API design.</p>
 
   <h3>Methods and CRUD</h3>
-  <p>REST maps CRUD operations onto HTTP methods. The mapping is not arbitrary: each method carries guarantees that caches, proxies, and clients rely on. GET is safe (no side effects) and idempotent, so responses may be cached. PUT and DELETE are idempotent: repeating them has the same effect as calling them once. POST is neither safe nor idempotent, which is why duplicate POST requests are dangerous and why idempotency keys exist.</p>
+  <p>Create, read, update, and delete (CRUD) provide a convenient first mapping to HTTP methods, but HTTP semantics are richer than database operations. GET is both safe and idempotent. PUT and DELETE remain idempotent even though they can change state, while POST makes neither guarantee. Those properties guide retry and caching behavior beyond the application handler.</p>
 
-  <p>A second DELETE on an already-deleted resource may return <code>204</code> (treating "already gone" as success) or <code>404</code>. Both are defensible. Pick one and be consistent.</p>
+  <p>A repeated DELETE may return <code>204</code> because the desired state already exists, or <code>404</code> because the resource is no longer present. Either contract can work when the API documents and applies it consistently.</p>
 
   <h3>PATCH formats</h3>
   <p>PATCH semantics require that the request body describe <em>changes</em> to apply, not the full resource. Two standard formats cover most cases.</p>
-  <p><strong>JSON Merge Patch</strong> (RFC 7396) is a simple overlay: fields present overwrite the existing value, fields set to <code>null</code> are deleted, fields absent are unchanged. Use <code>Content-Type: application/merge-patch+json</code>.</p>
+  <p><strong>JSON Merge Patch</strong> (RFC 7396) applies an object-shaped overlay. Present fields replace existing values, absent fields remain unchanged, and <code>null</code> removes a field. Requests use <code>Content-Type: application/merge-patch+json</code>.</p>
   <div class="code-block">
     <div class="code-header">
       <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
@@ -454,31 +446,31 @@
     <pre><code><span class="cm">// Only "status" changes. All other fields are untouched.</span>
 { <span class="json-key">"status"</span>: <span class="json-str">"cancelled"</span>, <span class="json-key">"cancellation_reason"</span>: <span class="json-str">"Customer request"</span> }</code></pre>
   </div>
-  <p>Merge Patch is easy to read and implement, but cannot set a field to <code>null</code> without deleting it. <strong>JSON Patch</strong> (RFC 6902) is an array of typed operations (<code>add</code>, <code>remove</code>, <code>replace</code>, <code>move</code>, <code>copy</code>, <code>test</code>) that can precisely express any mutation, including a <code>test</code> operation that aborts the patch if a precondition fails. Use <code>Content-Type: application/json-patch+json</code>. For most APIs, Merge Patch is sufficient.</p>
+  <p>Merge Patch is easy to read, but it cannot distinguish assigning <code>null</code> from removing a field. <strong>JSON Patch</strong> (RFC 6902) represents changes as an ordered array of operations. Its <code>test</code> operation can make a later change conditional on an expected value. JSON Patch requests use <code>application/json-patch+json</code> and suit cases that Merge Patch cannot express.</p>
 
   <h3>Status codes in REST</h3>
-  <p>Use the most specific applicable status code. The codes that come up most in REST API design:</p>
+  <p>Use the status code that best describes the HTTP result, then put domain-specific detail in the response body. The following codes recur in resource APIs.</p>
   <div class="table-wrap">
     <table>
       <thead><tr><th>Code</th><th>Meaning</th></tr></thead>
       <tbody>
         <tr><td><code>200</code></td><td>Success with a body</td></tr>
-        <tr><td><code>201 Created</code></td><td>Returned with a <code>Location</code> header after creation</td></tr>
+        <tr><td><code>201 Created</code></td><td>One or more resources were created; <code>Location</code> may identify the primary resource</td></tr>
         <tr><td><code>202 Accepted</code></td><td>Async operations</td></tr>
         <tr><td><code>204 No Content</code></td><td>Nothing to return</td></tr>
         <tr><td><code>400</code></td><td>Malformed requests</td></tr>
-        <tr><td><code>401</code> / <code>403</code></td><td>Auth failures (unauthenticated vs. unauthorized)</td></tr>
+        <tr><td><code>401</code> / <code>403</code></td><td>Missing valid credentials versus a request the server refuses to fulfil</td></tr>
         <tr><td><code>404</code></td><td>Resource doesn't exist</td></tr>
-        <tr><td><code>409 Conflict</code></td><td>Concurrency failures</td></tr>
+        <tr><td><code>409 Conflict</code></td><td>The request conflicts with the resource's current state</td></tr>
         <tr><td><code>410 Gone</code></td><td>Intentionally removed resources</td></tr>
-        <tr><td><code>422</code></td><td>Semantic validation errors</td></tr>
+        <tr><td><code>422</code></td><td>Content understood but its instructions could not be processed</td></tr>
         <tr><td><code>429</code></td><td>Rate limiting</td></tr>
       </tbody>
     </table>
   </div>
 
   <h3>Error response format</h3>
-  <p>Inconsistent error formats across an API create unnecessary client-side complexity. RFC 9457 (Problem Details for HTTP APIs) defines a standard JSON format for error bodies. Use <code>Content-Type: application/problem+json</code>.</p>
+  <p>Inconsistent error formats force clients to maintain several parsing paths. RFC 9457 defines Problem Details for HTTP APIs, a shared object format served as <code>application/problem+json</code>.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -497,13 +489,13 @@
   <p>The <code>type</code> URI identifies the error kind and should resolve to documentation. The <code>title</code> is a stable human-readable summary. The <code>detail</code> is specific to this occurrence. An <code>errors</code> array is a common extension for field-level validation failures.</p>
 
   <h3>Rate limiting headers</h3>
-  <p>Send rate limit headers on every response, not only on 429. This lets clients back off proactively. The de facto convention uses <code>X-RateLimit-Limit</code>, <code>X-RateLimit-Remaining</code>, and <code>X-RateLimit-Reset</code>. An IETF draft proposes a standardised <code>RateLimit</code> header, though the X- variants remain more widely deployed. A 429 response should always include <code>Retry-After</code>.</p>
+  <p>Rate-limit information can help a client slow down before it receives a 429 response. Existing APIs use several incompatible <code>X-RateLimit-*</code> conventions. An active IETF draft instead defines structured <code>RateLimit</code> and <code>RateLimit-Policy</code> fields, but it remains a work in progress. A 429 response may include <code>Retry-After</code> to make the wait explicit.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="optimistic-concurrency">Optimistic Concurrency</h2>
   <p class="lede">ETags let multiple clients modify the same resource safely, without locking.</p>
 
-  <p>When multiple clients may update the same resource concurrently, last-write-wins produces silent data loss. Optimistic concurrency detects conflicts without holding locks: the server issues a version token (<code>ETag</code>) with every response, and the client must present that token on modification requests. If the resource has changed since the client last fetched it, the server rejects the update with <code>412 Precondition Failed</code>.</p>
+  <p>Concurrent updates can overwrite one another when the server accepts the last write unconditionally. With optimistic concurrency, the server returns a strong <code>ETag</code> for the resource representation. A client repeats that value in <code>If-Match</code> when modifying the resource. If the representation has changed, the strong comparison fails and the server returns <code>412 Precondition Failed</code>.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -527,13 +519,13 @@
 <span class="cm">&#x2192; 412 Precondition Failed</span></code></pre>
   </div>
 
-  <p>On a 412, the client should re-fetch the resource, present the conflict to the user, and ask them to re-confirm or merge. <code>If-Match: *</code> means "update only if the resource exists at all, regardless of version." The ETag value should be opaque: a hash or row version, not a timestamp, which has resolution and clock-skew issues.</p>
+  <p>After a 412 response, the client can fetch the latest representation and ask the user to reconcile the conflict. <code>If-Match: *</code> means that the operation should proceed only if a current representation exists. The ETag remains opaque because its construction belongs to the server.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="idempotency-keys">Idempotency Keys</h2>
   <p class="lede">POST is not idempotent by definition. Idempotency keys provide that property anyway.</p>
 
-  <p>When a client sends a POST and the connection drops before a response arrives, it cannot know whether the server processed the request. Retrying risks creating a duplicate. Idempotency keys solve this: the client generates a unique token per logical operation and includes it in the request. If the server receives a second request with the same token, it returns the result of the first without re-executing the operation.</p>
+  <p>When a connection drops before a POST response arrives, the client cannot tell whether the operation completed. An immediate retry might create a duplicate. An idempotency key makes the logical operation recognizable across attempts. The client generates the key before its first request, and a server that sees the same key again returns the recorded outcome without repeating completed work.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -547,7 +539,7 @@
 { <span class="json-key">"amount"</span>: <span class="json-num">9900</span>, <span class="json-key">"currency"</span>: <span class="json-str">"SEK"</span>, <span class="json-key">"card_token"</span>: <span class="json-str">"tok_xyz"</span> }</code></pre>
   </div>
 
-  <p>The server stores the key and result for a defined period (commonly 24 hours). Repeated requests with the same key return the cached result immediately. The header name <code>Idempotency-Key</code> is the de facto convention (used by Stripe, Adyen, and most payment providers), though not yet an HTTP standard. Use it for any operation where duplicate execution would be harmful: payments, order creation, and account actions.</p>
+  <p>The server retains enough information to recognize the key for a documented period. A completed retry with the same key and operation receives the original outcome without executing the operation again. <code>Idempotency-Key</code> is a widely implemented convention and the subject of an IETF draft, but it is not yet an HTTP standard. It is useful wherever duplicate execution would be harmful, including payment and order creation.</p>
   <div class="callout warn">
     <div class="callout-title">Keys must be client-generated</div>
     <p>Generate a fresh UUID per logical attempt <em>before</em> sending the request, not from a prior response. If the key comes from the server, the round-trip to fetch it reintroduces the same network-failure problem idempotency keys are meant to solve.</p>
@@ -561,26 +553,26 @@
   <div class="url-example">
     <span class="path">https://api.example.com/v2/orders</span>
   </div>
-  <p>Visible, easy to route at the infrastructure level, and simple to test in a browser or curl. The version is explicit in every request log. The cost is that URLs are no longer "pure" resource identifiers. The version prefix is infrastructure metadata, not part of the resource's identity. <strong>This is the most common approach in practice and is a reasonable default.</strong></p>
+  <p>A path version is visible in URLs, logs, and routing rules. It is also easy to exercise from a browser or command-line client. The tradeoff is that two representations of the same conceptual resource receive different identifiers. Despite that impurity, path versioning is easy for consumers to understand.</p>
 
   <h3>Request Header Versioning</h3>
   <div class="url-example">
     <span class="path">API-Version: 2</span>
   </div>
-  <p>URLs remain clean and canonical. The cost is that the version is invisible in logs that only record URLs, cannot be tested directly in a browser address bar, and infrastructure routing on version requires header inspection.</p>
+  <p>Header versioning keeps one canonical resource URL. Logs and routing rules must capture the header explicitly, and a browser address bar cannot exercise the version on its own.</p>
 
   <h3>Content Negotiation</h3>
   <div class="url-example">
     <span class="path">Accept: application/vnd.example.api+json; version=2</span>
   </div>
-  <p>The most technically correct approach: versioning is about the representation, not the resource, and <code>Accept</code> is the appropriate mechanism for negotiating representations. Also the least commonly adopted, due to tooling support and developer familiarity.</p>
+  <p>This approach treats a version as a choice of representation and negotiates it through <code>Accept</code>. The URL remains stable, but logs, browser testing, cache configuration, and routing all need to account for the header.</p>
 
   <h3>Versioning Considerations</h3>
   <ul>
-    <li>Version the entire API surface, not individual endpoints.</li>
-    <li>Maintain previous versions for a documented deprecation period.</li>
+    <li>Define whether a version covers the whole API or a smaller capability, then apply that scope consistently.</li>
+    <li>Give consumers a documented migration period before retiring a version.</li>
     <li>Communicate deprecation timelines via response headers (<code>Deprecation</code>, <code>Sunset</code>) and documentation.</li>
-    <li>Additive changes (new fields, new optional parameters) generally do not require a version increment under Postel's law: be conservative in what is sent, liberal in what is accepted.</li>
+    <li>Treat additive fields as compatible only when the client contract requires consumers to tolerate unknown fields and enum values.</li>
   </ul>
 
   <h3>Breaking vs non-breaking changes</h3>
@@ -593,7 +585,7 @@
         <tr><td>Add optional request parameter</td><td><span class="badge badge-green">No</span></td><td>Existing clients omit it; behaviour unchanged.</td></tr>
         <tr><td>Relax validation (accept more values)</td><td><span class="badge badge-green">No</span></td><td>Previously valid requests still succeed.</td></tr>
         <tr><td>Remove a response field</td><td><span class="badge badge-red">Yes</span></td><td>Clients reading that field break.</td></tr>
-        <tr><td>Remove or rename an endpoint</td><td><span class="badge badge-red">Yes</span></td><td>Use 301/410 with a migration window.</td></tr>
+        <tr><td>Remove or rename an endpoint</td><td><span class="badge badge-red">Yes</span></td><td>Publish a replacement and keep a documented migration window.</td></tr>
         <tr><td>Add a required request field</td><td><span class="badge badge-red">Yes</span></td><td>Existing clients that omit it get 400.</td></tr>
         <tr><td>Change a field's type</td><td><span class="badge badge-red">Yes</span></td><td>Even if the value is semantically equivalent (e.g. number → string).</td></tr>
         <tr><td>Narrow validation (reject previously valid values)</td><td><span class="badge badge-red">Yes</span></td><td>Previously valid requests now fail.</td></tr>
@@ -605,9 +597,9 @@
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="openapi">OpenAPI</h2>
-  <p class="lede">OpenAPI is the de facto standard for describing REST APIs, and today it shows up in almost every professional API context.</p>
+  <p class="lede">OpenAPI gives HTTP API contracts a machine-readable form that documentation, validation, and code-generation tools can share.</p>
 
-  <p>OpenAPI (formerly Swagger) is a machine-readable specification format for HTTP APIs, written in YAML or JSON. A document describes every endpoint, its parameters, request and response schemas, authentication requirements, and expected status codes. <strong>OpenAPI 3.1</strong> (released 2021) is the current version. It aligns fully with JSON Schema, resolving a long-standing incompatibility in 3.0.</p>
+  <p>OpenAPI, which grew from the Swagger specification, describes HTTP APIs in JSON or YAML. A document can define paths, parameters, request and response schemas, security schemes, and expected status codes. <strong>OpenAPI 3.2</strong>, published in September 2025, is the latest specification line. OpenAPI 3.1 remains common in tooling and uses the JSON Schema 2020-12 vocabulary as its default base.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -637,15 +629,15 @@
         <span class="s">"404"</span>: { <span class="cn">description</span>: Not found }</code></pre>
   </div>
 
-  <h3>What OpenAPI enables</h3>
+  <h3>OpenAPI tooling</h3>
   <div class="table-wrap">
     <table>
       <thead><tr><th>Use case</th><th>Current tools</th></tr></thead>
       <tbody>
         <tr><td>Interactive documentation</td><td>Swagger UI, Redoc, Scalar</td></tr>
         <tr><td>TypeScript client generation</td><td>Hey API, openapi-typescript, openapi-generator</td></tr>
-        <tr><td>Server stub generation</td><td>openapi-generator, fastify-swagger</td></tr>
-        <tr><td>Request/response validation</td><td>zod-openapi, @readme/openapi-parser</td></tr>
+        <tr><td>Server stub generation</td><td>OpenAPI Generator</td></tr>
+        <tr><td>Request/response validation</td><td>Framework integrations and schema validators</td></tr>
         <tr><td>Contract / mock testing</td><td>Prism, Schemathesis</td></tr>
         <tr><td>API linting</td><td>Spectral (with custom rulesets)</td></tr>
       </tbody>
@@ -653,34 +645,34 @@
   </div>
 
   <h3>Design-first vs code-first</h3>
-  <p>In a <strong>design-first</strong> workflow the OpenAPI document is written before implementation. Teams agree on the contract, generate mocks for frontend development, and can spot breaking changes in pull request diffs before any code ships. This is preferable for public or partner-facing APIs.</p>
-  <p>In a <strong>code-first</strong> workflow the spec is generated from the implementation via decorators or runtime introspection. The spec is always in sync but the design is constrained by what was easy to code. This works well for internal APIs where the same team controls both sides.</p>
+  <p>In a <strong>design-first</strong> workflow, the OpenAPI document is reviewed before implementation. Teams can agree on the contract, generate mocks, and detect breaking changes in an ordinary diff. This works well when consumers need to coordinate before the server is ready.</p>
+  <p>In a <strong>code-first</strong> workflow, tooling derives the document from implementation metadata or types. That reduces duplicate authoring, but only if the generated contract is checked for omissions and unintended changes. The better workflow is the one that keeps the reviewed contract authoritative in the team's delivery process.</p>
 
   <div class="callout info">
     <div class="callout-title">TypeScript client generation</div>
-    <p>Tools like <a href="https://heyapi.dev" target="_blank" rel="noopener">Hey API</a> generate fully-typed TypeScript clients directly from an OpenAPI spec (typed parameters, response bodies, and error types), eliminating an entire class of integration bugs without hand-written types or manual sync with the server team.</p>
+    <p>Tools such as <a href="https://heyapi.dev" target="_blank" rel="noopener">Hey API</a> generate TypeScript clients from an OpenAPI document. Generated parameter and response types reduce hand-written contract duplication, but the result is only as accurate as the source document.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="pagination">Pagination, Filtering, and Sorting</h2>
-  <p class="lede">Collections should always be paginated. Returning unbounded result sets creates performance, memory, and timeout issues on both ends.</p>
+  <p class="lede">Collections with unbounded or growing membership need pagination so response cost remains controlled.</p>
 
   <h3>Pagination</h3>
   <p><strong>Offset pagination</strong> uses a numeric offset and limit:</p>
   <div class="url-example">
     <span class="method method-get">GET</span> <span class="path">/orders?offset=40&amp;limit=20</span>
   </div>
-  <p>Simple to implement and allows random access to any page. The failure mode is instability: if items are inserted or deleted between pages, a client paginating sequentially may skip or duplicate records. Also expensive at large offsets: the database must scan and discard all preceding rows.</p>
+  <p>Offset pagination is easy to understand and supports jumping to a numbered page. Concurrent inserts or deletions can shift later offsets, causing a sequential client to skip or repeat records. Large offsets may also become expensive, depending on the data store and query plan.</p>
 
   <p><strong>Cursor pagination</strong> uses an opaque pointer to the last seen item:</p>
   <div class="url-example">
     <span class="method method-get">GET</span> <span class="path">/orders?cursor=eyJpZCI6NDJ9&amp;limit=20</span>
   </div>
-  <p>Stable under insertion and deletion, and performs consistently at any position. The tradeoff is that it does not allow random page access. Clients must paginate sequentially. The cursor should be opaque to the client. Its internal structure is an implementation detail.</p>
+  <p>Cursor pagination continues from a position in a stable ordering. With a unique tie-breaker and a suitable index, it avoids the shifting-page problem and can keep query cost consistent. Clients usually move sequentially rather than jumping to an arbitrary page. The cursor should remain opaque so its encoding can change without breaking consumers.</p>
 
   <div class="callout info">
     <div class="callout-title">Pagination metadata</div>
-    <p>Include at minimum the total count, the cursor or offset for the next page, and whether more results exist. Conveying this via response headers (<code>Link</code> per RFC 5988, <code>X-Total-Count</code>) keeps the response body clean. Embedding it in a response envelope is also common and more explicit.</p>
+    <p>Return the next cursor or offset and indicate whether another page is available. A total count is useful only when the product needs it and the server can compute it economically. Pagination controls may live in a response envelope or in standardized <code>Link</code> fields.</p>
   </div>
 
   <h3>Filtering</h3>
@@ -691,7 +683,7 @@
     <div><span class="method method-get">GET</span> <span class="path">/orders?status=pending,processing</span>          <span class="comment">  # multiple values</span></div>
     <div><span class="method method-get">GET</span> <span class="path">/orders?total_gte=100&amp;total_lte=500</span>        <span class="comment">  # range</span></div>
   </div>
-  <p>Unsupported filter parameters should return a <code>400</code> rather than being silently ignored.</p>
+  <p>The contract should say how unknown filters are handled. Returning <code>400 Bad Request</code> exposes misspellings and unsupported fields instead of silently returning a broader result than the caller expected.</p>
 
   <h3>Sorting</h3>
   <p>Two conventions are common:</p>
@@ -700,7 +692,7 @@
     <div><span class="method method-get">GET</span> <span class="path">/orders?sort=-created_at</span>                   <span class="comment">  # prefix: - for desc, no prefix for asc</span></div>
     <div><span class="method method-get">GET</span> <span class="path">/orders?sort=-created_at,id</span>                <span class="comment">  # multi-field with prefix notation</span></div>
   </div>
-  <p>Sorting on non-indexed fields should be restricted or rate-limited, as it can produce expensive queries.</p>
+  <p>Allowlist sortable fields and support them with indexes where the data store requires them. An unrestricted sort parameter can otherwise expose unexpectedly expensive query plans.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="non-resource">Handling Non-Resource Operations</h2>
@@ -733,7 +725,7 @@
   <p>The sub-resource approach is more expressive when transitions have their own attributes (a cancellation reason, a timestamp) or when a history of transitions needs to be recorded.</p>
 
   <h3>Bulk Operations</h3>
-  <p>No standard convention exists for bulk operations. The common approaches are a batch endpoint that accepts an array of operations, or collection-level operations that match a filter:</p>
+  <p>No single HTTP convention governs bulk operations. APIs commonly use either a batch resource containing several operations or a collection-level request whose filter selects the affected resources.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -754,7 +746,7 @@
   <p>Clarify whether operations are atomic (all succeed or all fail) or non-atomic (partial success is possible), and what the response format looks like for partial failures.</p>
 
   <h3>Asynchronous Operations</h3>
-  <p>For operations that take significant time, respond immediately with <code>202 Accepted</code> and provide a way for the client to check progress:</p>
+  <p>An operation that continues after the response can return <code>202 Accepted</code> and identify a status resource that the client can poll.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -801,20 +793,20 @@
 }</code></pre>
   </div>
 
-  <p>The tradeoff with POST is that it is not cacheable. For read-heavy search APIs where caching is important, encoding the query as a GET parameter (potentially base64-encoded JSON) preserves cacheability at the cost of readability.</p>
+  <p>POST responses are cacheable only under explicit HTTP conditions, and most general-purpose caches do not implement that path. GET remains the interoperable choice for queries that fit comfortably in a URL. The HTTP <a href="http.html#query">QUERY method</a>, standardized in June 2026, gives body-bearing queries safe and cacheable semantics. An API must still verify support throughout its request path before adopting it.</p>
 
   <h3>Real-Time Updates</h3>
-  <p>REST has no native mechanism for server-initiated messages. The appropriate tools are:</p>
+  <p>REST describes request-driven interactions rather than an unsolicited event channel. Applications that need updates initiated by another party usually add one of the following mechanisms.</p>
   <ul>
-    <li><strong>Server-Sent Events (SSE):</strong> unidirectional server-to-client streaming over HTTP. Suitable for live feeds, notifications, and progress updates. Reconnects automatically.</li>
-    <li><strong>WebSockets:</strong> bidirectional connection. Suitable for collaborative editing, chat, and high-frequency two-way communication.</li>
-    <li><strong>Webhooks:</strong> the server pushes events to a client-provided URL. Suitable for asynchronous integration between systems. See security note below.</li>
+    <li><strong>Server-Sent Events (SSE)</strong> stream events from server to browser over HTTP. The browser's <code>EventSource</code> API reconnects automatically, which suits feeds, notifications, and progress updates.</li>
+    <li><strong>WebSockets</strong> provide a bidirectional message channel for interactions such as collaborative editing, chat, and other frequent two-way communication.</li>
+    <li><strong>Webhooks</strong> deliver events to a URL controlled by another system. They suit asynchronous integration and require the verification described below.</li>
   </ul>
   <p>Polling (repeated GET requests) is a valid fallback when real-time infrastructure is not available, particularly with conditional requests (<code>If-None-Match</code>) to minimize response bodies on unchanged resources.</p>
 
   <h3>Webhook security</h3>
-  <p>A webhook receiver is a publicly accessible endpoint that accepts POST requests from a third party. Without verification, any party can POST to it and trigger the receiver's logic. Two properties are required for production webhook integrations.</p>
-  <p><strong>Payload signature verification.</strong> The sender signs each payload with a shared secret using HMAC-SHA256 and includes the signature in a request header (commonly <code>X-Signature-256</code> or <code>Webhook-Signature</code>). The receiver recomputes the signature and rejects the request if it does not match.</p>
+  <p>A webhook receiver accepts requests initiated by another system, often at a public endpoint. Network location alone does not prove who sent a request. Production integrations therefore need sender verification and duplicate handling.</p>
+  <p><strong>Payload signature verification</strong> establishes that a request came from a party holding the expected credential. Many providers sign the raw body with a shared secret and place the result in a provider-specific header. The receiver must follow the documented algorithm, timestamp rules, and encoding exactly. A constant-time comparison avoids leaking information about partial matches.</p>
   <div class="code-block">
     <div class="code-header">
       <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
@@ -825,23 +817,22 @@
 
 <span class="kw">function</span> <span class="fn">verifyWebhook</span>(
   <span class="cn">rawBody</span>: <span class="t">Buffer</span>,
-  <span class="cn">signature</span>: <span class="t">string</span>,   <span class="cm">// from X-Signature-256 header</span>
+  <span class="cn">signature</span>: <span class="t">string</span>,   <span class="cm">// from the provider's signature header</span>
   <span class="cn">secret</span>: <span class="t">string</span>
 ): <span class="t">boolean</span> {
   <span class="kw">const</span> <span class="cn">expected</span> = <span class="fn">createHmac</span>(<span class="s">'sha256'</span>, <span class="cn">secret</span>)
     .<span class="fn">update</span>(<span class="cn">rawBody</span>)
     .<span class="fn">digest</span>(<span class="s">'hex'</span>);
-  <span class="cm">// timingSafeEqual prevents timing-based signature oracles</span>
-  <span class="kw">return</span> <span class="fn">timingSafeEqual</span>(
-    <span class="t">Buffer</span>.<span class="fn">from</span>(<span class="cn">signature</span>),
-    <span class="t">Buffer</span>.<span class="fn">from</span>(<span class="cn">expected</span>)
-  );
+  <span class="kw">const</span> <span class="cn">actualBytes</span> = <span class="t">Buffer</span>.<span class="fn">from</span>(<span class="cn">signature</span>, <span class="s">'hex'</span>);
+  <span class="kw">const</span> <span class="cn">expectedBytes</span> = <span class="t">Buffer</span>.<span class="fn">from</span>(<span class="cn">expected</span>, <span class="s">'hex'</span>);
+  <span class="kw">return</span> <span class="cn">actualBytes</span>.<span class="cn">length</span> === <span class="cn">expectedBytes</span>.<span class="cn">length</span>
+    &amp;&amp; <span class="fn">timingSafeEqual</span>(<span class="cn">actualBytes</span>, <span class="cn">expectedBytes</span>);
 }</code></pre>
   </div>
-  <p><strong>Event idempotency.</strong> Network issues mean a webhook may be delivered more than once. Each event should carry a unique ID. The receiver should record processed event IDs and discard duplicates before acting on them.</p>
+  <p><strong>Event idempotency</strong> protects the receiver when delivery is repeated. The sender should provide a stable event ID, which the receiver records before applying the event's effects. A later delivery with the same ID can then be acknowledged without repeating the work.</p>
   <div class="callout warn">
     <div class="callout-title">Always verify before acting</div>
-    <p>Respond with <code>200 OK</code> immediately after verification, before any processing. Senders typically retry on non-2xx responses, so do expensive work asynchronously to avoid spurious retries from timeouts.</p>
+    <p>Acknowledge the webhook with a successful status only after verification and durable acceptance, such as committing the event to a queue. Perform slower domain work asynchronously when the provider's delivery timeout is shorter than that work. Otherwise a premature success can lose an event that was never safely recorded.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -859,18 +850,18 @@
   <div class="checklist-group">
     <div class="checklist-group-title">HTTP semantics</div>
     <div class="checklist-item"><div class="check-box"></div>HTTP methods are used according to their defined semantics</div>
-    <div class="checklist-item"><div class="check-box"></div>GET requests have no side effects</div>
+    <div class="checklist-item"><div class="check-box"></div>GET requests do not ask the server to change resource state</div>
     <div class="checklist-item"><div class="check-box"></div>PUT and DELETE requests are idempotent</div>
     <div class="checklist-item"><div class="check-box"></div>Status codes are specific and accurate (not generic 200 for everything)</div>
-    <div class="checklist-item"><div class="check-box"></div><code>201 Created</code> responses include a <code>Location</code> header</div>
-    <div class="checklist-item"><div class="check-box"></div><code>202 Accepted</code> responses include a <code>Location</code> pointing to a job resource</div>
+    <div class="checklist-item"><div class="check-box"></div>Creation responses identify the new resource when the client needs its URI</div>
+    <div class="checklist-item"><div class="check-box"></div>Async responses give clients a way to monitor progress</div>
   </div>
 
   <div class="checklist-group">
     <div class="checklist-group-title">Headers and caching</div>
     <div class="checklist-item"><div class="check-box"></div><code>Content-Type</code> is set on all requests and responses with a body</div>
     <div class="checklist-item"><div class="check-box"></div>Cacheable responses include appropriate <code>Cache-Control</code> and <code>ETag</code> headers</div>
-    <div class="checklist-item"><div class="check-box"></div>Non-cacheable responses are explicitly marked <code>Cache-Control: no-store</code></div>
+    <div class="checklist-item"><div class="check-box"></div>Responses that must not be retained are marked <code>Cache-Control: no-store</code></div>
   </div>
 
   <div class="checklist-group">
@@ -884,24 +875,24 @@
   <div class="checklist-group">
     <div class="checklist-group-title">Versioning and evolution</div>
     <div class="checklist-item"><div class="check-box"></div>Versioning strategy is defined and applied consistently</div>
-    <div class="checklist-item"><div class="check-box"></div>Additive changes are non-breaking (no version increment required)</div>
+    <div class="checklist-item"><div class="check-box"></div>Compatibility rules define how clients handle added fields and enum values</div>
     <div class="checklist-item"><div class="check-box"></div>Deprecated endpoints communicate sunset timelines via headers or documentation</div>
   </div>
 
   <div class="checklist-group">
     <div class="checklist-group-title">Pagination and collections</div>
-    <div class="checklist-item"><div class="check-box"></div>All collection endpoints are paginated</div>
+    <div class="checklist-item"><div class="check-box"></div>Unbounded or growing collections are paginated</div>
     <div class="checklist-item"><div class="check-box"></div>Pagination style (offset vs. cursor) is consistent across the API</div>
-    <div class="checklist-item"><div class="check-box"></div>Pagination metadata includes total count and next-page pointer</div>
+    <div class="checklist-item"><div class="check-box"></div>Pagination metadata identifies the next page and whether more results exist</div>
     <div class="checklist-item"><div class="check-box"></div>Filtering and sorting parameters are documented</div>
   </div>
 
   <div class="checklist-group">
     <div class="checklist-group-title">Non-resource operations</div>
     <div class="checklist-item"><div class="check-box"></div>Bulk and async endpoints document atomicity behavior</div>
-    <div class="checklist-item"><div class="check-box"></div>Async operations return <code>202</code> with a <code>Location</code> header</div>
+    <div class="checklist-item"><div class="check-box"></div>Async operations return <code>202</code> and identify a status resource</div>
     <div class="checklist-item"><div class="check-box"></div>Real-time requirements are handled outside REST (SSE, WebSockets, webhooks)</div>
-    <div class="checklist-item"><div class="check-box"></div>Webhooks verify payload signatures (HMAC-SHA256) and handle duplicate events idempotently</div>
+    <div class="checklist-item"><div class="check-box"></div>Webhooks follow the sender's verification scheme and handle duplicate events idempotently</div>
   </div>
 
   <div class="checklist-group">
@@ -913,7 +904,7 @@
 
   <div class="checklist-group">
     <div class="checklist-group-title">Description</div>
-    <div class="checklist-item"><div class="check-box"></div>An OpenAPI 3.1 document describes all endpoints, schemas, and authentication</div>
+    <div class="checklist-item"><div class="check-box"></div>A maintained OpenAPI document describes the public contract</div>
     <div class="checklist-item"><div class="check-box"></div>The spec is linted (e.g. with Spectral) and validated against the implementation</div>
   </div>
 

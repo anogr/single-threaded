@@ -62,8 +62,8 @@
 
   <div class="sidebar-section">The Stack</div>
   <a href="#layers">Organization vs. build infrastructure</a>
-  <a href="#scale">What scale actually means</a>
-  <a href="#history">Where this came from</a>
+  <a href="#scale">Where scale appears</a>
+  <a href="#history">Large-scale precedents</a>
 
   <div class="sidebar-section">Foundations</div>
   <a href="#workspaces">Local package linking: workspaces</a>
@@ -78,7 +78,7 @@
   <a href="#governance">Governance</a>
 
   <div class="sidebar-section">Deciding</div>
-  <a href="#generations">Modern monorepo architectures</a>
+  <a href="#generations">Levels of monorepo infrastructure</a>
   <a href="#comparison">Choosing a repository strategy</a>
 </nav>
 
@@ -89,7 +89,7 @@
   <p class="subtitle">How teams decide between one repository and many, and the workspace, caching, and orchestration layers that keep a large one fast.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~24 min read</span>
+      <div class="dot"></div><span>~18 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
@@ -97,11 +97,11 @@
        INTRO / THE DECISION
   ════════════════════════════════════════════════════ -->
   <section id="intro">
-    <p>A design system team publishes <code>@acme/ui</code> to a private registry. Three product teams depend on it, each in its own repository. When the design system team fixes a spacing bug, they cut a new version, publish it, then wait for pull requests bumping the dependency to land in three unrelated repositories on three unrelated schedules. One team merges the bump the same day. Another sits on the old version for two months because nobody prioritized it. The bug is fixed in exactly one place and unfixed everywhere that hasn't updated yet.</p>
+  <p>A design-system team publishes <code>@acme/ui</code> to a private registry, and three product repositories depend on it. Fixing a spacing bug changes only the published package. Each product team must still upgrade on its own schedule, so the correction reaches consumers at different times. Until then, one source version contains the fix while deployed products continue to show the old behavior.</p>
 
-    <p>That gap between fixing something once and having it actually take effect everywhere is the clearest case for a monorepo. It isn't free. The moment several teams' code sits in one repository, a change to a shared package can reach every consumer atomically. So can everything else, such as one team's broken build, one team's slow test suite, or one team's decision to bump a dependency nobody else wanted yet. The real question an architect is answering isn't whether to use a monorepo. It's whether this organization's shared code, atomic changes, and unified tooling are worth more than the team autonomy, isolated permissions, and independent release schedules that come more easily when repositories stay separate.</p>
+  <p>A monorepo closes that gap by allowing a shared package and its consumers to change in one commit. The shared boundary also connects build failures, slow tests, dependency upgrades, and access decisions that separate repositories would isolate. Repository strategy is therefore an organizational tradeoff. Atomic changes and unified tooling must be valuable enough to offset the autonomy, permission boundaries, and release independence that separate repositories provide.</p>
 
-    <p>Neither side of that tradeoff is free, and the rest of this article works through what actually makes the shared-repository side viable once an organization grows past a handful of packages. That starts by separating what a monorepo is from the tools people reach for to make one work at scale.</p>
+  <p>The distinction between repository layout and build infrastructure comes first. A monorepo describes where code lives; workspaces, orchestrators, caches, and build systems determine whether that arrangement remains usable as it grows.</p>
   </section>
 
   <!-- ═══════════════════════════════════════════════════
@@ -110,9 +110,9 @@
   <h2 id="layers">Repository Organization vs. Build Infrastructure</h2>
   <p class="lede">A monorepo is where code lives. An orchestrator, a build system, and a package manager are separate decisions about how that code gets built.</p>
 
-  <p>Repository organization answers one question: does code for multiple projects live in a single repository, or is it spread across many. That's the whole decision. Nothing about workspaces, caching, or build graphs is implied by it. A team can put every project in one Git repository and still build each one exactly as it would if the projects lived apart. Each package runs its own independent install step and its own independent test command, knowing nothing about its neighbors. That's a monorepo in name only, and it's a real, if uncomfortable, starting point for a lot of organizations.</p>
+  <p>Repository organization answers whether several projects share one version-control repository. It does not imply workspace linking, caching, or a build graph. Projects in one Git repository can still install, build, and test independently with no knowledge of their neighbors. That arrangement is a valid monorepo, although it captures few of the coordination benefits.</p>
 
-  <p>What actually makes a large monorepo pleasant to work in is a stack of separate technologies sitting on top of that repository choice, each one solving a distinct problem.</p>
+  <p>Additional layers solve different problems as the repository grows.</p>
 
   <div class="table-wrap">
     <table>
@@ -128,27 +128,27 @@
     </table>
   </div>
 
-  <p>Each layer is a separate decision, and a repository can stop at any point in that stack depending on how large it actually is. A five-package repository shared by one team probably only needs the first layer, a workspace-aware package manager. A thousand-package repository shared by dozens of teams usually needs all four. Without an orchestrator deciding what actually needs to run, <strong>continuous integration</strong> (CI) time grows with the size of the whole codebase instead of the size of whatever changed. The rest of this article follows that same progression, from workspaces down through the caching and governance layers that keep a large repository usable.</p>
+  <p>Each layer is an independent choice. A small repository may need only a workspace-aware package manager, while a large multi-team repository may justify orchestration, caching, and dedicated build infrastructure. Without selective execution, <strong>continuous integration</strong> (CI) tends to perform work for the whole repository rather than the projects a change can affect. The sections below follow that progression from local linking to governance.</p>
 
   <!-- ═══════════════════════════════════════════════════
        WHAT SCALE ACTUALLY MEANS
   ════════════════════════════════════════════════════ -->
-  <h2 id="scale">What "Scale" Means</h2>
+  <h2 id="scale">Where Scale Appears</h2>
   <p class="lede">The bottleneck in a large repository is almost never Git itself.</p>
 
-  <p>The instinctive worry about combining many projects into one repository is that Git will buckle under the weight. Cloning years of history for ten thousand packages sounds like it should take an hour, with every command crawling after that. In practice, modern Git handles repositories of that size reasonably well. <strong>Partial clone</strong> and <strong>sparse checkout</strong> let a developer fetch only the history and files they actually need instead of the entire tree. Both features exist because a handful of very large organizations hit this problem years ago and pushed fixes upstream. Git's scaling story isn't perfect at the extreme end, but for most organizations considering a monorepo, raw repository size isn't where the pain actually shows up.</p>
+  <p>Repository size can slow cloning, checkout, status, and history operations, but Git provides tools that reduce the local footprint. A <strong>partial clone</strong> can omit selected objects until they are needed. <strong>Sparse checkout</strong> limits the files present in the working tree, and a sparse index can reduce work on excluded paths. These features have tradeoffs and server requirements, so they mitigate repository scale rather than making it disappear.</p>
 
-  <p>The real constraints sit one layer up, in how much work has to happen on every change. A dependency graph with thousands of packages takes real computation just to reason about. The build graph derived from it gets more expensive to compute as that graph grows. CI time climbs if every push rebuilds and retests the whole repository rather than the part a change actually touches. The same problem shows up again in how long the test suite itself takes to run. The slowest-feeling consequence of all of this lands on a developer directly: how long they wait between saving a change and finding out whether it worked. Solving that chain of problems, not Git performance, is what the rest of this article is about.</p>
+  <p>The larger cost often sits above version control. Every change can trigger dependency analysis, builds, tests, and linting across many projects. If the tooling cannot narrow that work, CI duration grows with the repository and local feedback slows with it. Monorepo infrastructure exists mainly to preserve short feedback loops as the project graph expands.</p>
 
   <!-- ═══════════════════════════════════════════════════
        WHERE THIS CAME FROM
   ════════════════════════════════════════════════════ -->
-  <h2 id="history">Where This Came From</h2>
+  <h2 id="history">Large-Scale Precedents</h2>
   <p class="lede">The organizations that pioneered this at scale weren't running Git at all.</p>
 
-  <p>Google's internal repository, known as Piper, holds most of the company's source code and predates any of today's open-source tooling. It runs on Google's own storage infrastructure rather than Git, and the build system that made a repository that size usable, Blaze, was later open-sourced as Bazel. Meta runs a similar setup: a single repository backed by Mercurial and a virtual filesystem called EdenFS, paired with its own build system, Buck, now in its second major version, Buck2. Neither company solved this by choosing a version control system. They solved it by building a custom build system whose entire job was avoiding repeated work, the same idea today's orchestrators are now reimplementing for everyone else.</p>
+  <p>Google's large internal repository uses a proprietary version-control system called Piper and a build system called Blaze; Bazel grew from the same build model. Meta has used Mercurial with EdenFS and developed Buck2 as a build system. These examples are unusual in scale and infrastructure, but they establish a general lesson: version control alone does not make a large shared repository workable. Build graphs, reproducibility, caching, and selective execution do most of that work.</p>
 
-  <p>What changed recently isn't the underlying idea. It's that the surrounding ecosystem finally caught up to it for ordinary organizations. CI got cheap enough to run per package rather than per repository. Cloud-hosted remote caching became a practical default instead of custom infrastructure. And the orchestrators from the table above matured enough to compute what actually changed reliably, without a dedicated platform team hand-tuning it. A monorepo built around those pieces today looks less like a smaller copy of Google's setup and more like a lightweight version of the same principle. It arrived roughly a decade later, because the surrounding infrastructure needed that long to become affordable outside a handful of the largest tech companies.</p>
+  <p>Most organizations do not need those custom systems. Workspace-aware package managers and general-purpose orchestrators now provide local linking, dependency graphs, affected-project analysis, and remote caching as ordinary tools. They apply the same principle at a smaller scale: avoid work whose declared inputs have not changed.</p>
 
   <!-- ═══════════════════════════════════════════════════
        WORKSPACES
@@ -156,9 +156,9 @@
   <h2 id="workspaces">Local Package Linking: Workspaces</h2>
   <p class="lede">Before a repository needs a build graph or a cache, it needs a way for one package to depend on another without publishing it.</p>
 
-  <p>The most basic question a monorepo has to answer is deceptively simple. If <code>app-web</code> and <code>app-mobile</code> both need code from a shared <code>ui</code> package, and all three live in the same repository, how does <code>app-web</code> actually get <code>ui</code>'s code into its build? The naive answer, publish <code>ui</code> to a registry and have <code>app-web</code> install it like any external dependency, defeats the entire point. It reintroduces a publish step for a change sitting a few folders away.</p>
+  <p>Suppose <code>app-web</code> and <code>app-mobile</code> both depend on a local <code>ui</code> package. Publishing <code>ui</code> to a registry after every edit would recreate the coordination delay that the shared repository was meant to remove. Local development needs package resolution to connect consumers directly to the package in the working tree.</p>
 
-  <p><strong>Workspace tooling</strong> solves exactly this. Rather than fetching a package from a registry, a workspace-aware package manager links the package's own folder directly into place. npm, pnpm, and Yarn all support this, so <code>app-web</code> resolves <code>ui</code> to the exact source sitting in the repository, uncommitted changes included. A one-line declaration in the repository's root manifest is usually all it takes to opt every package in a given folder into this linking.</p>
+  <p><strong>Workspace tooling</strong> supplies that connection by letting npm, pnpm, and Yarn recognize several packages in one repository and link local dependencies during installation. The exact configuration and whether a consumer resolves source or built output depend on the package manager and package layout. Uncommitted local changes become available without publishing a registry version first.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -173,19 +173,19 @@
 }</code></pre>
   </div>
 
-  <p>That's the whole mechanism. There's no build step involved yet, no cache, no orchestration, just a dependency resolution rule that treats sibling packages as already-installed local code instead of registry downloads. Everything covered in the rest of this article, the dependency graph, the build graph, incremental caching, sits on top of this one piece of plumbing.</p>
+  <p>Workspace linking resolves packages; it does not decide how to build or test them. Dependency graphs, task ordering, and caching are separate layers built on top of that local package structure.</p>
 
-  <p>The same linking that lets a build resolve <code>ui</code> to real source also changes what a developer sees while working. Jumping to a dependency's definition lands in its actual implementation, not a published package's type declarations or a compiled bundle. Understanding exactly what a shared function does, or why it behaves a certain way, doesn't require finding a separate repository and checking out whatever version happens to be pinned.</p>
+  <p>A shared working tree can also improve code navigation. Editors may lead from a consumer into the local package implementation instead of a published artifact, depending on exports and source maps. Developers can inspect and change both sides of an interface in one checkout.</p>
 
   <!-- ═══════════════════════════════════════════════════
        DEPENDENCY GRAPH VS BUILD GRAPH
   ════════════════════════════════════════════════════ -->
   <h2 id="graphs">Dependency Graph vs. Build Graph</h2>
-  <p class="lede">One graph describes relationships. The other describes what actually has to run, and in what order.</p>
+  <p class="lede">The project graph describes relationships, while the task graph turns those relationships into an execution order.</p>
 
-  <p>Once packages can depend on each other locally, an orchestrator can read every package's manifest and construct a <strong>dependency graph</strong>. <code>app-web</code> depends on <code>ui</code> and <code>api-client</code>, both of which depend on a shared <code>core</code> package, and so on across however many packages the repository holds. That graph describes relationships. It says nothing yet about building anything.</p>
+  <p>An orchestrator can derive a <strong>dependency graph</strong> from package manifests, configuration, and sometimes source analysis. In the example, <code>app-web</code> depends on <code>ui</code> and <code>api-client</code>, which both depend on <code>core</code>. The graph records project relationships but does not yet describe a particular build.</p>
 
-  <p>The <strong>build graph</strong> is what an orchestrator derives from that dependency graph in order to run a build. Because <code>core</code> has no dependencies of its own, it can build first. Because <code>ui</code> and <code>api-client</code> both depend on <code>core</code> but not on each other, they can build in parallel once <code>core</code> finishes. Because <code>app-web</code> and <code>app-mobile</code> depend on both <code>ui</code> and <code>api-client</code>, they wait for both before they can start. The dependency graph says what depends on what. The build graph turns that into a schedule. It determines which stage runs first, which packages run in parallel within a stage, and which packages have to wait.</p>
+  <p>A <strong>task graph</strong> combines those project relationships with the tasks being requested. If consumers build from dependency outputs, <code>core</code> must finish before <code>ui</code> and <code>api-client</code>. Those two can run in parallel because neither depends on the other. The applications can begin after their prerequisites complete. Task configuration matters here because not every repository requires dependencies to build first.</p>
 
   <div class="figure-wrap">
     <svg viewBox="0 0 700 380" role="img" aria-label="Two-panel diagram. Left panel, dependency graph, shows five package boxes, app-web and app-mobile at the top, ui and api-client in the middle, core at the bottom, with arrows drawn from each dependent package down to the package it depends on, showing that both apps depend on both ui and api-client, and both of those depend on core. Right panel, build graph, shows the same five packages reorganized into three execution stages, core in stage one at the top, ui and api-client in stage two, app-web and app-mobile in stage three at the bottom, with arrows now representing execution order flowing downward from core through to the two apps." xmlns="http://www.w3.org/2000/svg">
@@ -262,21 +262,21 @@
     <figcaption>The dependency graph on the left records relationships between packages. The build graph on the right is the same information reorganized into an execution order, with packages that share a stage able to build in parallel once everything they depend on has finished.</figcaption>
   </div>
 
-  <p>This derivation is mechanical enough that an orchestrator can do it correctly for a graph with thousands of packages, which is exactly the point. A human reasoning about build order by hand doesn't scale past a few dozen packages before mistakes creep in. A graph computed from the manifests themselves stays correct as the repository grows, because it's recomputed from each package's current declared dependencies rather than maintained by hand.</p>
+  <p>Computing the graph from declared relationships removes most manual scheduling. Its accuracy still depends on the declarations. Hidden dependencies or incomplete tool configuration can produce an incorrect order or an unsafe cache hit, which is why dependency hygiene matters as much as the orchestrator.</p>
 
   <!-- ═══════════════════════════════════════════════════
        ONLY REBUILD WHAT CHANGED
   ════════════════════════════════════════════════════ -->
   <h2 id="rebuild">Only Rebuild What Changed</h2>
-  <p class="lede">A repository with thousands of packages can still run CI in minutes, as long as a change only touches the part of the graph it actually reaches.</p>
+  <p class="lede">Selective execution keeps a local change from triggering unrelated work elsewhere in the repository.</p>
 
-  <p>The build graph from the previous section answers what order things run in. It doesn't answer whether they need to run at all. The idea that makes a large monorepo fast rather than merely organized is <strong>incremental computation</strong>. If a package's inputs, meaning its source files and the packages it depends on, haven't changed since the last time it was built, there's no reason to rebuild or retest it. The output from last time is still correct.</p>
+  <p>The task graph determines order, but it does not prove that a task needs to run. <strong>Incremental computation</strong> reuses a previous result when every input relevant to that result is unchanged. Safe reuse depends on identifying source files, dependency outputs, configuration, environment, and tool versions that can influence the task.</p>
 
   <p>Making that safe requires a few pieces working together:</p>
   <ul>
-    <li><strong>Task hashing</strong> computes a fingerprint from a package's source files, its dependencies' outputs, and its build configuration, then uses that fingerprint as a cache key.</li>
-    <li><strong>Content-addressable caching</strong> stores build outputs keyed by that same fingerprint, whether on a developer's own machine or in a shared remote cache the whole team and every CI run can read from.</li>
-    <li><strong>Affected-project analysis</strong> walks the dependency graph backward from whatever files a commit actually touched, to work out exactly which packages could possibly be affected.</li>
+      <li><strong>Task hashing</strong> fingerprints declared inputs and uses the result as a cache key.</li>
+      <li><strong>Content-addressable caching</strong> stores task outputs under that fingerprint, locally or in a shared remote cache.</li>
+      <li><strong>Affected-project analysis</strong> combines changed files with the dependency graph to find projects whose results may have changed.</li>
   </ul>
   <p>Change one file inside <code>core</code>, and everything downstream of it needs checking. Change one file inside a leaf package nothing else depends on, and the rest of the graph, however large, can be skipped entirely.</p>
 
@@ -331,21 +331,21 @@
     <figcaption>A change lands inside <code>api-client</code>. Affected-project analysis walks the graph backward and finds app-web and app-mobile both depend on it, so both rebuild. ui and core don't depend on api-client, so both resolve as cache hits and never run.</figcaption>
   </div>
 
-  <p>This is why CI time doesn't have to grow linearly with repository size. A push that only touches a handful of packages only rebuilds and retests that handful. If any of them were already built with the same inputs elsewhere, even that work turns into a cache lookup instead of real computation.</p>
+  <p>These mechanisms decouple CI work from total repository size. A narrow change can run tasks only for the projects it affects, and a matching cache entry can replace execution with artifact retrieval. Changes to widely shared code may still invalidate much of the graph.</p>
 
-  <p>None of this works if a build secretly depends on something it never declared, such as a stray environment variable, a file outside the package's own folder, or a mismatched tool version between two machines. A <strong>hermetic build</strong> is one that depends only on its explicitly declared inputs, the property Bazel is built around and enforces strictly. Hermeticity is what makes a cache key trustworthy in the first place. Without it, a cache hit might quietly reuse output computed against an input the build system never saw, which is a subtler and more dangerous failure than simply rebuilding too often.</p>
+  <p>An undeclared environment variable, external file, or tool version can make the fingerprint incomplete. A <strong>hermetic build</strong> reads only declared inputs and runs with controlled tools and environment. Bazel is designed around that property. Without it, a cache can return an artifact produced under conditions the key did not capture, making an apparently successful hit less trustworthy than a redundant rebuild.</p>
 
   <!-- ═══════════════════════════════════════════════════
        TASK ORCHESTRATORS: NX, TURBOREPO, RUSH
   ════════════════════════════════════════════════════ -->
   <h2 id="orchestrators">Monorepo Tools</h2>
-  <p class="lede">Task hashing, caching, and affected-project analysis are concepts. Monorepo tools are where a JavaScript or TypeScript team actually goes to get them.</p>
+  <p class="lede">Task hashing, caching, and affected-project analysis are concepts. Monorepo tools are where a JavaScript or TypeScript team goes to get them.</p>
 
-  <p><strong>Nx</strong>, built by the company Nrwl, is the most opinionated of the three. It computes the dependency graph covered earlier and renders it as an actual interactive diagram a developer can browse, not just an internal data structure the orchestrator consults. Its caching works locally by default and extends to Nx Cloud for a shared remote cache and distributed task execution across CI machines. What sets Nx apart is its plugin ecosystem. Plugins for React, Angular, Next.js, and other frameworks add code generators that scaffold a new component, library, or app with the repository's own conventions already applied. They also add lint rules that enforce the module boundaries described in the <a href="#governance">governance section</a> above. That depth comes with a learning curve. Adopting Nx fully usually means adopting its configuration format and its way of describing tasks, not just pointing it at an existing repository.</p>
+  <p><strong>Nx</strong> builds project and task graphs, caches task results locally, and can visualize project relationships. Nx Cloud adds managed remote caching and distributed CI execution. Framework plugins can infer tasks, provide generators, and integrate migrations or lint rules. JavaScript and TypeScript repositories can enforce tag-based module boundaries through ESLint. Teams can adopt the task runner incrementally, although deeper plugin use introduces more Nx-specific configuration and conventions.</p>
 
-  <p><strong>Turborepo</strong>, originally an independent project later acquired by Vercel, takes the opposite bet. A single <code>turbo.json</code> file describes each task and what it depends on, and Turborepo handles hashing, local caching, and remote caching from there. Remote caching points at Vercel's infrastructure by default, though it can be pointed elsewhere. There's no generator system and no plugin ecosystem to learn. A team already running plain npm, pnpm, or Yarn workspaces can usually add Turborepo in an afternoon and get most of the caching win covered in the <a href="#rebuild">rebuild section</a> without restructuring anything else. The tradeoff is that Turborepo assumes a team's existing tools already cover code generation and lint enforcement, because it doesn't try to.</p>
+  <p><strong>Turborepo</strong>, maintained by Vercel, focuses on task orchestration and caching for package-manager workspaces. A <code>turbo.json</code> file describes tasks, dependencies, inputs, and outputs. Local caching works without a service, while remote caching requires configuration and can use Vercel's service or a compatible implementation. Turborepo leaves code generation and architectural enforcement to the repository's other tools, which keeps its scope narrow.</p>
 
-  <p><strong>Rush</strong>, built by Microsoft, solves a narrower problem than the other two. It targets very large enterprise repositories where policy matters as much as speed. It pairs tightly with pnpm and enforces rules Nx and Turborepo leave optional. A change that affects a published package must come with a change file describing the version bump. A package also can't import a dependency it never declared in its own manifest, a restriction that catches what's commonly called a <strong>phantom dependency</strong>. That policy layer is also why Rush's independent-versioning approach, mentioned in the versioning section below, comes with more built-in structure than Changesets does. The cost is flexibility. Rush is a heavier commitment upfront, and it shows up mostly in organizations already running dozens of teams through one repository rather than in a five-package startup monorepo.</p>
+  <p><strong>Rush</strong>, maintained by Microsoft, combines monorepo installation and task tooling with release and policy features. Its change-file workflow records version intent for published packages, and its installation model helps prevent a package from relying on dependencies it did not declare. Rush supports large repositories well, but adopting its conventions is a broader commitment than adding a task runner to an existing workspace.</p>
 
   <div class="table-wrap">
     <table>
@@ -360,21 +360,21 @@
     </table>
   </div>
 
-  <p>A newer entrant is <strong>moonrepo</strong>, a Rust-built task runner that applies the same hashing and caching ideas language-agnostically rather than tying itself to the JavaScript ecosystem specifically. It's less established than the three above, but it's often mentioned alongside them in repositories that mix a JavaScript frontend with services written in other languages.</p>
+  <p><strong>moon</strong> applies task graphs and caching across several languages rather than centering the JavaScript package graph. It is one option for repositories that combine frontend packages with services built by other toolchains. Language support and integrations should be checked against the repository's actual stack.</p>
 
   <!-- ═══════════════════════════════════════════════════
        VERSIONING
   ════════════════════════════════════════════════════ -->
   <h2 id="versioning">Versioning</h2>
-  <p class="lede">The most native monorepo answer to versioning is to skip it, and have every consumer simply depend on whatever is currently on the main branch.</p>
+  <p class="lede">Internal source dependencies may follow the repository tip, while published packages still need an explicit release policy.</p>
 
-  <p>Under a <strong>single-version policy</strong>, no internal package is versioned at all. Every consumer simply depends on whatever is currently committed to the main branch. There's no <code>ui@2.3.1</code> to install, because there's no registry step between a change to <code>ui</code> and every app that already uses it. This is close to the model Google's Piper runs on, mentioned earlier. At any moment there's exactly one copy of a given library in existence, because every consumer builds directly from its source rather than from a published artifact.</p>
+  <p>Under an always-at-tip policy, internal consumers build against the library source on the same revision. There is no registry version between a change to <code>ui</code> and applications in the repository. A <strong>single-version policy</strong> goes further by allowing only one active version of a dependency across the codebase. The ideas are related but not identical, because a repository can build from source while still carrying parallel APIs during a migration.</p>
 
-  <p>Single-version policy exists to head off a specific failure mode common in polyrepos, sometimes called <strong>dependency drift</strong>. Updating a dependency competes with a team's own roadmap, and it usually loses, because staying on an old version carries no visible cost until it suddenly does. A team defers the bump through one sprint, then several, while the producing team keeps shipping changes on top of a version nobody else is tracking anymore. By the time the consuming team is finally forced to update, so many changes have accumulated that the migration is no longer a version bump. It's a multi-week project. The producing team has often moved on by then too, so the people who understand why each change happened aren't available to help the team doing the catch-up. A single-version policy removes the deferral option entirely. There's no old version left to sit on. Each update lands in small increments as part of whatever change introduced it, rather than arriving all at once as an overdue migration nobody remembers the reasoning behind.</p>
+  <p>The policy prevents <strong>dependency drift</strong>, in which consumers remain on different releases of a shared package. Deferred upgrades accumulate breaking changes and make later migrations harder to plan. Keeping one active version moves that work to the change that introduced it, while the producing team still has the necessary context.</p>
 
-  <p>Single-version policy has a real cost the moment a change isn't backward compatible. There's no version pinning to shield a consumer from it. A breaking change to <code>core</code> has to update every one of its consumers in the very same commit, even ones owned by a different team. The <a href="#rebuild">affected-project analysis covered earlier</a> is exactly the graph a developer walks by hand to find those consumers. Under the always-latest model, walking that graph isn't just how the orchestrator decides what to retest. It's a manual obligation on whoever is making the breaking change, because merging it without also fixing every caller would leave the main branch broken for every team depending on it.</p>
+  <p>The cost becomes visible when an API breaks. Without version pins, a change to <code>core</code> must either update its consumers in the same revision or preserve the old API during a migration. The dependency graph identifies the affected consumers, but ownership and review boundaries still determine how quickly the change can land.</p>
 
-  <p>Landing every fix in the same commit works when a library has a handful of consumers. It stops being realistic once a core package has hundreds of them, spread across dozens of teams who can't all review and merge a change on the same afternoon. Four techniques cover most of what large single-version monorepos actually do. They aren't mutually exclusive.</p>
+  <p>Atomic updates work best with a small blast radius. Widely used APIs need migration techniques that let many owners move safely without freezing the repository. The four approaches below can be combined.</p>
 
   <div class="compare-grid">
     <div class="card blue">
@@ -399,13 +399,13 @@
     </div>
   </div>
 
-  <p>Which of these applies depends on the size and shape of the change, not on a fixed policy. A one-line signature fix is atomic by default. A repository-wide rename is a job for a codemod. A redesign of a core system's public API is usually a two-phase migration, sometimes developed behind a short-lived feature branch until the new shape is stable enough to expose.</p>
+  <p>The migration approach follows the size and shape of the change. A small signature update may fit one commit, while a mechanical rename suits a codemod. A redesigned shared API usually needs an expand-and-contract migration so consumers can move before the old surface disappears.</p>
 
-  <p>Not every monorepo works this way. Versioning still has to come back the moment a package is meant to be consumed outside that always-latest world. That happens when it's published to a public registry, installed by an external customer, or deliberately meant to let two internal consumers sit on different releases at once.</p>
+  <p>Published packages still need versions because external consumers cannot move atomically with repository source. Some internal consumers may also remain deliberately on different releases. Those boundaries reintroduce compatibility promises and release coordination.</p>
 
-  <p><strong>Lockstep versioning</strong> gives every package in the repository the same version number and ships them together, as one release with one changelog and one version bump across the board. It's simple to reason about, and it's how several well-known monorepos, Babel among them historically, have operated. The cost shows up the moment packages have genuinely different release cadences. A one-line documentation fix in a rarely touched package still forces a version bump, and often a republish, of every other package in the repository, whether or not anything in them actually changed.</p>
+  <p><strong>Lockstep versioning</strong> gives related packages one version and releases them as a set. Compatibility is easy to communicate because matching versions belong together. The cost appears when packages change at different rates, since a small update can advance the version of packages whose contents did not change.</p>
 
-  <p><strong>Independent versioning</strong> lets each package track its own version, so a change to one package doesn't force a bump anywhere else. It's the more common choice than lockstep specifically for monorepos publishing several related packages that don't actually share a release cadence, and Changesets is the tool most associated with it. A contributor drops a small markdown file into the pull request naming which packages changed and whether the change is a patch, a minor, or a major bump. A release step later collects every pending file and works out exactly which packages need a new version and what that version should be. It then opens a single pull request that applies all the bumps and rewrites each package's changelog at once. Merging that pull request is what actually triggers the publish. The tradeoff is that nothing guarantees two independently-versioned packages are compatible when installed together. A consumer has to work that out from the changelogs rather than from a shared version number, which is why some tools default to lockstep instead even though it forces unrelated packages to bump together. Rush takes a similar independent-versioning approach but bundles it with a stricter, built-in policy around what's allowed to ship together.</p>
+  <p><strong>Independent versioning</strong> lets each package advance on its own release cadence. Changesets records the affected packages and intended semantic-version changes in small files committed with the code. Release automation can combine those records into version updates and changelogs. Consumers gain smaller releases but must determine which combinations of related package versions are compatible. Rush change files support a similar workflow within Rush's release policy.</p>
 
   <!-- ═══════════════════════════════════════════════════
        RELEASING
@@ -413,9 +413,9 @@
   <h2 id="releasing">Releasing</h2>
   <p class="lede">Whether or not a package carries a version number, something still has to decide what changed, what ships, and how an already-shipped release keeps getting fixed.</p>
 
-  <p>Versioning only decides the number. Releasing still has to answer which packages actually changed, which of those need publishing somewhere such as a registry, and which already-deployed applications need a fresh build and rollout because a dependency they consume moved. The tool semantic-release automates that last mile by deriving a version and a changelog directly from commit messages, then publishing without a human triggering it. It fits well once affected-project analysis can already answer the underlying question of what changed reliably.</p>
+  <p>Versioning assigns compatibility labels; releasing turns a repository change into published packages or deployed applications. The pipeline must identify affected artifacts, produce them, publish or deploy them, and record the result. Tools such as semantic-release can derive release intent from structured commit messages, while Changesets and Rush use explicit change files.</p>
 
-  <p>That covers shipping forward. Shipping backward, keeping an already-released version alive, is a separate problem. This works cleanly for anything that deploys straight from the main branch, such as a backend service or a website redeployed on every merge. It breaks down for anything with an install base that can't be forced to update on the organization's own schedule. A mobile app already on a user's phone, or a software development kit a customer has pinned to a specific release, are common examples. Supporting a version that's already shipped still needs bug fixes, without dragging in whatever unrelated work has landed on main since it went out. The standard answer is a <strong>release branch</strong>, cut from main at the moment of release and updated only by cherry-picking already-reviewed commits onto it, rather than developing directly on the branch itself.</p>
+  <p>Deployed services can usually move forward from the main branch, but installed software may require support for an older release. Mobile applications and customer-pinned software development kits cannot be upgraded on the producer's schedule. A <strong>release branch</strong> preserves the source for a supported line so selected fixes can be backported without including unrelated work from main. Teams need an explicit policy for which versions receive fixes and how those changes return to other branches.</p>
 
   <!-- ═══════════════════════════════════════════════════
        DIFFERENT SHAPES
@@ -423,7 +423,7 @@
   <h2 id="shapes">Monorepos Come in Different Shapes</h2>
   <p class="lede">A monorepo isn't synonymous with a JavaScript workspace, and what it holds looks different depending on who's using it.</p>
 
-  <p>The shape a repository takes says something about the organization drawing its boundaries, not just about which packages happen to exist.</p>
+  <p>Directory structure often reflects how the organization draws ownership and deployment boundaries.</p>
 
   <div class="compare-grid three">
     <div class="card teal">
@@ -443,7 +443,7 @@
     </div>
   </div>
 
-  <p>None of these shapes is more correct than another. Each reflects how a specific organization has chosen to draw boundaries around ownership, and the same technical stack from earlier in this article, workspaces, a dependency graph, an orchestrator, works underneath any of them.</p>
+  <p>No directory shape is universally correct. Product boundaries, platform responsibilities, languages, and access requirements should determine the layout. Workspace and orchestration tools can operate beneath several of these arrangements.</p>
 
   <!-- ═══════════════════════════════════════════════════
        GOVERNANCE
@@ -451,15 +451,15 @@
   <h2 id="governance">Governance</h2>
   <p class="lede">The advantages of a shared repository disappear quickly if nobody knows who's allowed to change what.</p>
 
-  <p>Putting every team's code in one repository removes the natural boundary a separate repository used to provide for free. Without something replacing it, nothing stops a change in one team's package from quietly reaching into another team's internals, and the module boundaries that were supposed to make refactoring safer end up meaning nothing. Enforcing those boundaries has to become explicit. For example, lint rules or graph-level constraints can reject an import that crosses a line the organization has decided shouldn't be crossed, checked automatically on every pull request rather than relying on someone noticing in review.</p>
+  <p>A shared repository removes repository-level isolation between teams. Architectural boundaries must therefore become explicit in package exports, dependency rules, and automated checks. Lint or graph constraints can reject imports that cross a prohibited boundary before review. These controls protect design boundaries even though every developer may be able to read the surrounding source.</p>
 
-  <p>The organizational side of governance matters just as much and gets discussed far less. That includes ownership files mapping a folder to the team responsible for it, and review requirements on the folders that carry the most risk. It also means a platform team responsible for the shared infrastructure everyone else builds on, plus a lightweight process for reviewing a new shared API before it spreads to a dozen consumers. None of this is an optional extra bolted onto a mature monorepo. It's what makes ownership explicit instead of implicit, arguably the single biggest organizational advantage a well-run monorepo offers over a sprawl of separate repositories where ownership is whatever each repository's access list happens to say.</p>
+  <p>Automated rules still need human owners behind them. Ownership files can request reviews from the responsible team, and protected paths can require approval for high-risk changes. A platform team may own shared build infrastructure, while an API review process prevents accidental contracts from spreading widely. These mechanisms make responsibility visible inside a repository whose physical boundary no longer expresses it.</p>
 
   <!-- ═══════════════════════════════════════════════════
        MODERN MONOREPO ARCHITECTURES
   ════════════════════════════════════════════════════ -->
-  <h2 id="generations">Modern Monorepo Architectures</h2>
-  <p class="lede">There isn't one "monorepo." There are roughly three generations, and most real repositories sit clearly in one of them.</p>
+  <h2 id="generations">Levels of Monorepo Infrastructure</h2>
+  <p class="lede">Repository scale and feedback time determine how much build infrastructure is justified.</p>
 
   <p>Placing a repository on this scale is a useful gut check before reaching for the heaviest tooling by default.</p>
 
@@ -476,15 +476,15 @@
     </table>
   </div>
 
-  <p>Moving from one generation to the next is rarely a rewrite. It's usually adding one layer from the table back in the second section of this article, an orchestrator on top of workspaces, then a proper build system underneath that. The trigger is simply the previous generation's approach no longer being fast enough for the repository's actual size.</p>
+  <p>Moving between levels usually means adding a layer rather than reorganizing every project. An orchestrator can sit above existing workspaces, and stricter build isolation can follow later. Measured feedback time, cache correctness, and platform workload are better triggers than package count alone.</p>
 
   <!-- ═══════════════════════════════════════════════════
        CHOOSING A REPOSITORY STRATEGY
   ════════════════════════════════════════════════════ -->
   <h2 id="comparison">Choosing a Repository Strategy</h2>
-  <p class="lede">The full comparison isn't monorepo against polyrepo. There are at least four real options, and the middle two are where most enterprises actually end up.</p>
+  <p class="lede">Repositories can share code through publication or pinned source without placing every project in one version-control boundary.</p>
 
-  <p>The two extremes usually discussed are a single monorepo on one side and a polyrepo with no required coordination on the other. Two more setups sit between them, and both are common enough in practice that leaving them out misses how most large organizations actually operate. A polyrepo paired with an <strong>internal package registry</strong> keeps every project in its own repository but shares code the ordinary way. One team publishes a versioned package to a private registry the organization runs, and other repositories install it like any external dependency. <strong>Git submodules</strong> reach the same middle ground a different way. One repository embeds a pointer to a specific commit of another repository, checked out into a subdirectory, so pulling in a change means deliberately updating that pointer rather than running an install.</p>
+  <p>A monorepo and fully independent repositories are the endpoints of a wider set of strategies. With an <strong>internal package registry</strong>, projects remain separate and consume versioned packages through the normal dependency workflow. A <strong>Git submodule</strong> instead records a commit from another repository and checks that source out beneath the parent repository. Both preserve repository boundaries, but publication and pointer updates prevent atomic cross-repository changes.</p>
 
   <div class="figure-wrap">
     <svg viewBox="0 0 700 240" role="img" aria-label="Spectrum diagram with four points along a horizontal line, from more shared and coordinated on the left to more independent and isolated on the right. The four points are labeled Monorepo, Polyrepo plus registry, Submodules, and Polyrepo, each with a short description underneath: Monorepo is one repository, one graph, changes land atomically. Polyrepo plus registry is separate repositories with shared code published through an internal registry. Submodules is separate repositories pinned together through git references. Polyrepo is separate repositories with no required coordination." xmlns="http://www.w3.org/2000/svg">
@@ -525,10 +525,10 @@
       <text x="605" y="168" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">separate repos,</text>
       <text x="605" y="181" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">no required coordination</text>
     </svg>
-    <figcaption>The decision isn't a binary. A registry-backed polyrepo and submodules both trade some of a monorepo's coordination for some of a polyrepo's isolation, just through different mechanisms, one a package manager, the other git itself. That middle ground is common in larger enterprises that neither the monorepo nor the plain polyrepo framing usually accounts for.</figcaption>
+    <figcaption>Repository strategy is a spectrum. A registry-backed polyrepo shares versioned packages, while submodules pin source from another repository. Both preserve more isolation than a monorepo and require more deliberate coordination between changes.</figcaption>
   </div>
 
-  <p>The table below expands on that spectrum with the tradeoffs that actually drive the decision.</p>
+  <p>The table below expands on that spectrum with the tradeoffs that drive the decision.</p>
 
   <div class="table-wrap">
     <table>
@@ -561,13 +561,13 @@
     </div>
   </div>
 
-  <p>None of the four options in the table above is the default correct answer. The organizational shape a company already has, not a preference for one tool over another, is what decides which of these actually reduces friction rather than adding a new kind of it.</p>
+  <p>No repository strategy is correct by default. Shared ownership and frequent cross-project changes favor a shared repository. Independent release authority, restricted access, or genuinely separate products favor distinct repositories. Tool preference should follow that boundary decision.</p>
 
   <h3>Which Monorepo, Though</h3>
 
-  <p>Choosing to share a repository is a separate decision from choosing how much infrastructure that repository needs. A five-package repository shared by one team and a thousand-package repository shared by dozens of teams are both monorepos, but almost nothing else about how they operate is the same. The <a href="#generations">generations table</a> earlier in this article maps that range, from simple repositories that stop at workspace linking, to intermediate repositories that add an orchestrator and caching, to large-scale repositories that add hermetic builds and distributed execution. The <a href="#shapes">shapes section</a> covers the organizational side of the same question, how ownership and package boundaries get drawn once several teams share one repository. Between those two, most of what determines whether a monorepo actually works for a given organization is already answered.</p>
+  <p>Repository strategy and infrastructure level remain separate decisions. A one-team workspace and an organization-wide codebase are both monorepos, but they need different controls. The <a href="#generations">infrastructure table</a> relates tooling to scale, while the <a href="#shapes">repository shapes</a> show how ownership affects layout.</p>
 
-  <p>The starting generation matters more than it looks. Adopting the large-scale stack before the repository or the team is anywhere near that size adds every layer from the table in the second section without any of the payoff. None of it earns its cost until CI time or dependency-graph size actually demands it. The safer default is starting at whichever generation the current package count and team count actually justify, and moving up only once that generation measurably stops being fast enough.</p>
+  <p>Begin with the smallest setup that preserves an acceptable feedback loop and clear ownership. Add affected-project analysis when unnecessary work becomes visible, remote caching when repeated work dominates, and hermetic or distributed builds when correctness and scale justify the platform cost. The repository should earn each layer through measured need.</p>
 
 </main>
 </div><!-- end .shell -->

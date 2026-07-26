@@ -44,12 +44,12 @@
 <nav class="sidebar" id="sidebar">
   <a class="sidebar-back" href="index.html">← All articles</a>
 
-  <div class="sidebar-section">The Broken Contract</div>
-  <a href="#intro">What an MPA gave for free</a>
-  <a href="#spa-focus">Client-Side Routing Breaks Focus</a>
+  <div class="sidebar-section">Navigation</div>
+  <a href="#intro">Rendering changes responsibility</a>
+  <a href="#spa-focus">Orientation After Client-Side Navigation</a>
 
   <div class="sidebar-section">Streaming &amp; Hydration</div>
-  <a href="#streaming">Streaming SSR and Server Components</a>
+  <a href="#streaming">Streaming, Reading Order, and Stable Focus</a>
   <a href="#islands">Islands, Resumability, and the Interactive Gap</a>
 
   <div class="sidebar-section">Beyond Navigation</div>
@@ -64,10 +64,10 @@
 
   <div class="eyebrow">Accessibility · Architecture</div>
   <h1>Accessibility and Rendering Architecture</h1>
-  <p class="subtitle">How routing, streaming, and hydration choices quietly remove behavior browsers provide for free, and what it takes to rebuild it.</p>
+  <p class="subtitle">How routing, streaming, and deferred interactivity affect focus, announcements, reading order, and keyboard operation.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~13 min read</span>
+    <div class="dot"></div><span>~11 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
@@ -75,23 +75,23 @@
        INTRO
   ════════════════════════════════════════════════════ -->
   <section id="intro">
-    <p>Every rendering strategy covered in this site's <a href="rendering-strategies.html">rendering strategies article</a> trades away something. Most of those tradeoffs are about speed. One of them is about accessibility, and it's rarely named as a tradeoff at all.</p>
+    <p>Rendering architecture determines more than when pixels appear. It also decides whether navigation creates a new document, when controls become operable, and how much of the page can change while a user is reading or interacting with it. Those effects belong beside performance and caching in any comparison of <a href="rendering-strategies.html">rendering strategies</a>.</p>
 
-    <p>A traditional multi-page app (MPA) gives a specific accessibility contract for free, without anyone on the team writing a line of code for it. Every navigation is a full page load: the browser throws away the old document, requests a new one, and starts over. That reset means focus returns to the top of the document, the page title updates, and a screen reader announces the arrival of a new page automatically. From the browser's perspective, a new page is exactly what happened. None of this is a feature a team built. It's a side effect of how document navigation has always worked.</p>
+    <p>A traditional <strong>multi-page app</strong> (MPA) loads a new document after navigation. The browser replaces the previous document within the current browsing context. A descriptive <code>&lt;title&gt;</code> gives assistive technology a name for that destination, and screen readers commonly announce the new page or its title. Exact focus and announcement behavior varies by browser and assistive technology, but the document transition itself is unambiguous.</p>
 
-    <p>Client-side routing, the mechanism behind every single-page app (SPA) and behind most metaframework apps once their first load has finished, breaks that contract silently. The URL changes, the DOM gets patched with new content, but nothing about a JavaScript-driven route change resembles a real navigation from the browser's point of view. Focus stays wherever it already was, usually on the link that triggered the change. The document title doesn't update unless something explicitly sets it. No announcement happens, because nothing that would normally trigger one occurred. A sighted mouse user sees the new content and moves on without noticing anything unusual. A keyboard or screen reader user gets no signal at all that a navigation happened.</p>
+    <p>A <strong>single-page app</strong> (SPA) can change the URL and replace page content without loading a new document. Unless the router or application adds the missing behavior, keyboard focus may remain on the control that triggered navigation and the document title may remain stale. Assistive technology then receives a series of DOM changes rather than a clear page transition. Sighted users can orient themselves from the visual replacement, while non-visual users may hear little indication that the route changed.</p>
 
-    <p>Every strategy covered in this article follows the same shape. A rendering or hydration decision buys something real, such as faster subsequent navigations, a page that streams instead of blocking, or a component that ships without its own JavaScript. In exchange it quietly removes a piece of behavior the platform used to provide automatically. None of that is a reason to avoid the technique. It's a reason to know exactly which piece of behavior disappeared, so a team can decide to rebuild it on purpose rather than finding out about the gap from a user.</p>
+    <p>Streaming and deferred interactivity create different timing questions, but the architectural lesson is the same. A team must identify which browser behavior still applies, which behavior its framework supplies, and which behavior the application now owns. The rendering technique is rarely the problem by itself. Unexamined transitions between states are where users lose their place or encounter controls that are not ready.</p>
   </section>
 
   <!-- ═══════════════════════════════════════════════════
        SPA FOCUS
   ════════════════════════════════════════════════════ -->
-  <h2 id="spa-focus">Client-Side Routing Breaks Focus</h2>
-  <p class="lede">Restoring what the browser no longer does on navigation is the routing layer's job, whether the router ships it or the team builds it.</p>
+  <h2 id="spa-focus">Orientation After Client-Side Navigation</h2>
+  <p class="lede">A client-side router needs an explicit, tested way to identify the new view and place users at a sensible point within it.</p>
 
   <div class="figure-wrap">
-    <svg viewBox="0 0 700 300" role="img" aria-label="Two sequence diagrams side by side. The left diagram shows MPA navigation: full reload happens, focus resets to the top of the document, the title updates, and a screen reader announces the new page automatically. The right diagram shows SPA client-side navigation: the URL changes, the DOM is patched with new content, but focus stays on the previous link, the title does not update, and there is silence, no announcement occurs. A labeled fix path is added beneath the SPA side: focus moves to the new heading and a live region announces the change." xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 700 300" role="img" aria-label="Two navigation sequences side by side. A multi-page navigation loads a new document with its own title and a clear page transition. A client-side navigation patches the current document, so the application must update the title and provide a tested orientation strategy for focus or announcements." xmlns="http://www.w3.org/2000/svg">
       <text x="175" y="24" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text)">MPA navigation</text>
       <text x="525" y="24" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text)">SPA client-side navigation</text>
 
@@ -99,55 +99,59 @@
       <text x="175" y="57" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text-dim)">Full document reload</text>
       <line x1="175" y1="68" x2="175" y2="82" stroke="var(--border)"/>
       <rect x="30" y="82" width="290" height="30" rx="4" fill="color-mix(in srgb, var(--green) 16%, transparent)" stroke="color-mix(in srgb, var(--green) 40%, transparent)"/>
-      <text x="175" y="101" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--green)">Focus resets to document top</text>
+      <text x="175" y="101" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--green)">New document context</text>
       <line x1="175" y1="112" x2="175" y2="126" stroke="var(--border)"/>
       <rect x="30" y="126" width="290" height="30" rx="4" fill="color-mix(in srgb, var(--green) 16%, transparent)" stroke="color-mix(in srgb, var(--green) 40%, transparent)"/>
       <text x="175" y="145" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--green)">Title updates</text>
       <line x1="175" y1="156" x2="175" y2="170" stroke="var(--border)"/>
       <rect x="30" y="170" width="290" height="30" rx="4" fill="color-mix(in srgb, var(--green) 16%, transparent)" stroke="color-mix(in srgb, var(--green) 40%, transparent)"/>
-      <text x="175" y="189" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--green)">Screen reader announces new page</text>
-      <text x="175" y="216" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">All three happen automatically, for free</text>
+      <text x="175" y="189" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--green)">Page transition is exposed</text>
+      <text x="175" y="216" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--text-faint)">Assistive technology can orient to the new document</text>
 
       <rect x="380" y="38" width="290" height="30" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
       <text x="525" y="57" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text-dim)">URL changes, DOM patched</text>
       <line x1="525" y1="68" x2="525" y2="82" stroke="var(--border)"/>
       <rect x="380" y="82" width="290" height="30" rx="4" fill="color-mix(in srgb, var(--red) 16%, transparent)" stroke="color-mix(in srgb, var(--red) 40%, transparent)"/>
-      <text x="525" y="101" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--red)">Focus stays on the old link</text>
+      <text x="525" y="101" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--red)">Focus may stay on the trigger</text>
       <line x1="525" y1="112" x2="525" y2="126" stroke="var(--border)"/>
       <rect x="380" y="126" width="290" height="30" rx="4" fill="color-mix(in srgb, var(--red) 16%, transparent)" stroke="color-mix(in srgb, var(--red) 40%, transparent)"/>
       <text x="525" y="145" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--red)">Title unchanged</text>
       <line x1="525" y1="156" x2="525" y2="170" stroke="var(--border)"/>
       <rect x="380" y="170" width="290" height="30" rx="4" fill="color-mix(in srgb, var(--red) 16%, transparent)" stroke="color-mix(in srgb, var(--red) 40%, transparent)"/>
-      <text x="525" y="189" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--red)">Silence, nothing announced</text>
+      <text x="525" y="189" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--red)">No page transition is exposed</text>
 
       <line x1="525" y1="200" x2="525" y2="214" stroke="var(--accent)" stroke-dasharray="3,3"/>
       <rect x="380" y="214" width="290" height="44" rx="4" fill="color-mix(in srgb, var(--accent) 16%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
-      <text x="525" y="232" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" font-weight="600" fill="var(--accent)">Fix: move focus to the new heading</text>
-      <text x="525" y="248" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--accent)">and announce the change via a live region</text>
+      <text x="525" y="232" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" font-weight="600" fill="var(--accent)">Application responsibility</text>
+      <text x="525" y="248" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--accent)">Update the title and restore orientation</text>
     </svg>
-    <figcaption>An MPA gives three accessibility behaviors for free on every navigation. Client-side routing gives none of them automatically, which is why a router needs an explicit fix path rather than an assumption that the browser will handle it.</figcaption>
+    <figcaption>A document navigation carries built-in page-transition semantics. A client-side route change remains inside the current document, so the routing layer must restore enough context for users to identify and enter the new view.</figcaption>
   </div>
 
-  <p>The fix is well established and doesn't require much code, only the discipline to apply it on every route change:</p>
+  <p>A routing layer should handle three concerns on every successful route change:</p>
   <ul>
-    <li>Move focus to a sensible landing point, usually the page's own <code>&lt;h1&gt;</code>, made programmatically focusable with <code>tabindex="-1"</code> since headings aren't focusable by default.</li>
-    <li>Update <code>document.title</code> to match the new page.</li>
-    <li>Announce the change through an <code>aria-live="polite"</code> region, which lets a screen reader report the update without requiring focus to physically land inside the region for the announcement to fire.</li>
+    <li>Give every view a unique, descriptive <code>document.title</code>.</li>
+    <li>Choose a focus destination that matches the navigation. A new page may warrant focus on its main heading or main region, while an in-place filter change usually should preserve focus on the control.</li>
+    <li>Provide a concise route announcement when moving focus would be disruptive or insufficient. The live region must exist before its text changes so assistive technology can observe the update.</li>
   </ul>
-  <p>The three pieces work together. Focus gives a keyboard user a sensible place to start reading and interacting, and the live region gives a screen reader user the announcement an MPA would have produced automatically. The title update keeps browser history and screen reader page-summary features accurate on top of that.</p>
+  <p>These are design choices rather than a recipe that always requires both focus movement and a live announcement. Moving focus to an <code>&lt;h1 tabindex="-1"&gt;</code> can identify the destination and place the reading cursor near its content. Adding a route announcement on top may repeat the same information in some combinations. Other interfaces preserve focus and use a polite announcement instead. The appropriate pattern depends on the transition, so teams should test the complete behavior rather than count implemented attributes.</p>
 
-  <p>This is a real evaluation criterion when choosing or building a router. Coverage varies by framework and by version, so check directly against whichever router a project is evaluating rather than assuming. Some routers ship this behavior close to automatically, restoring scroll position and moving focus to a sensible default on route change. Others leave it entirely to application code, treating focus and announcement as a concern for whoever builds each page rather than something the router itself owns. Knowing which camp a router falls into before committing to it saves a retrofit later. <a href="accessibility-foundations.html">Accessibility as an Architecture Decision</a> discusses these kinds of gaps that cost a line of code early and a migration project once a hundred routes have shipped without it.</p>
+  <p>Router behavior must be verified against the version a project plans to use. Next.js, for example, includes a route announcer that chooses text from the document title, the first heading, or the pathname. Another router may leave title updates, focus, scroll restoration, and announcements to application code. The evaluation question is therefore concrete: after each kind of navigation, what receives focus, what is announced, and where does the next Tab press go? <a href="accessibility-foundations.html">Accessibility as an Architecture Decision</a> explains why answering that question in the routing layer is cheaper than repairing every route later.</p>
 
   <!-- ═══════════════════════════════════════════════════
        STREAMING
   ════════════════════════════════════════════════════ -->
-  <h2 id="streaming">Streaming SSR and Server Components</h2>
-  <p class="lede">A newer, narrower version of the same underlying problem shows up wherever content resolves out of document order.</p>
+  <h2 id="streaming">Streaming, Reading Order, and Stable Focus</h2>
+  <p class="lede">Streaming can deliver sections in a different order from the document without changing the final reading order, but replacement and timing still need attention.</p>
 
-  <p>Streaming server-side rendering and React Server Components send a page's markup to the browser in pieces rather than all at once. Independent <code>Suspense</code> boundaries resolve whenever their data happens to be ready, not in the order they appear on the page, a mechanism covered in depth in the <a href="react-server-components.html#streaming">React Server Components article's section on Suspense and arrival order</a>. That's what makes streaming fast: a slow, personalized section of a page doesn't hold up the fast, static parts around it. It's also the source of a specific accessibility risk. A screen reader can announce newly streamed content in the order it arrives rather than the order it reads in the document, so a boundary that resolves last can get announced after content that logically follows it. Focus can be lost the same way. If it was set on an element inside a boundary still showing its loading fallback, that element disappears the moment the boundary resolves, and focus silently lands nowhere. The user is left with no clear sense of where they are on the page.</p>
+  <p>Streaming server-side rendering can send a shell and loading fallbacks before every section is ready. React then replaces each <code>Suspense</code> fallback as its content resolves, a mechanism covered in the <a href="react-server-components.html#streaming">React Server Components article</a>. A lower boundary may arrive before an earlier one, but React inserts each result at its intended position. The final DOM order, rather than network arrival order, determines the normal reading and tab order.</p>
+
+  <p>Arrival alone does not guarantee a spoken announcement. Assistive technology can observe changes to the accessibility tree, but live-region semantics are what tell it which off-focus updates should be presented proactively. Marking every streamed section as live would create a competing series of announcements during page load. Most content should settle into the document and remain available through ordinary navigation. Reserve announcements for status information the user needs before reaching that content.</p>
+
+  <p>Focus creates a separate risk. A fallback may be replaced while it contains the active element, or already revealed content may be hidden when an update suspends. Removing the focused element can leave the document without a useful focus target. React recommends transitions when already revealed content should remain visible during an update. At the component level, keep fallbacks non-interactive where possible and place persistent controls outside boundaries that replace their children.</p>
 
   <div class="figure-wrap">
-    <svg viewBox="0 0 700 260" role="img" aria-label="Diagram of a page with three Suspense boundaries. A user has focused a button inside the second boundary, which is still showing a loading fallback. When that boundary resolves and its fallback is replaced with real content, the focused button is removed from the DOM and focus is lost, landing nowhere. A third boundary below resolves first even though it appears later in the document, so a screen reader announces it out of reading order." xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 700 260" role="img" aria-label="Diagram of three Suspense boundaries in document order. The last boundary resolves first but is inserted in its intended document position. A focused control inside the second boundary's fallback is removed when the real content replaces that fallback, creating a focus risk." xmlns="http://www.w3.org/2000/svg">
       <text x="20" y="24" font-family="'Inter',system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--text-dim)">Document order (top to bottom)</text>
 
       <rect x="20" y="36" width="660" height="46" rx="4" fill="color-mix(in srgb, var(--teal) 16%, transparent)" stroke="color-mix(in srgb, var(--teal) 40%, transparent)"/>
@@ -156,69 +160,71 @@
 
       <rect x="20" y="92" width="660" height="52" rx="4" fill="color-mix(in srgb, var(--red) 16%, transparent)" stroke="color-mix(in srgb, var(--red) 45%, transparent)"/>
       <text x="40" y="112" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--red)">Boundary B: focus was here, on a loading-fallback button</text>
-      <text x="40" y="130" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--red)">Resolves 3rd, replaces the fallback, focus lands nowhere</text>
+      <text x="40" y="130" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--red)">Resolves 3rd, replaces the fallback and removes the focused control</text>
 
       <rect x="20" y="154" width="660" height="46" rx="4" fill="color-mix(in srgb, var(--accent) 16%, transparent)" stroke="color-mix(in srgb, var(--accent) 40%, transparent)"/>
       <text x="40" y="174" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--accent)">Boundary C</text>
-      <text x="40" y="190" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--accent)">Resolves 1st, announced before A or B despite appearing last</text>
+      <text x="40" y="190" font-family="'Inter',system-ui,sans-serif" font-size="9.5" fill="var(--accent)">Resolves 1st, then inserts here in its intended document position</text>
 
-      <text x="20" y="228" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text-dim)">Resolution order (C, then A, then B) doesn't match reading order (A, B, C),</text>
-      <text x="20" y="245" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text-dim)">and Boundary B's resolution silently discards the element that held focus.</text>
+      <text x="20" y="228" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text-dim)">Resolution order (C, then A, then B) can differ from document order (A, B, C).</text>
+      <text x="20" y="245" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text-dim)">The reading order remains structural, while replacement inside B can still disrupt focus.</text>
     </svg>
-    <figcaption>Streaming sends whichever boundary finishes first, not whichever boundary appears first. That's a feature for speed and a hazard for anyone whose focus or listening order depends on the document's actual structure.</figcaption>
+    <figcaption>Out-of-order delivery does not imply out-of-order reading. The more immediate hazard is replacing content that contains focus or changing the structure while someone is navigating it.</figcaption>
   </div>
 
-  <p>Neither failure is unique to React Server Components. Both apply to any streaming SSR implementation, since the underlying mechanism, independently resolving chunks sent as they finish, is the same regardless of framework. What's specific to Server Components is that the pattern encourages wrapping more of a page in independent boundaries than teams typically used with plain streaming SSR. That increases how often a boundary sits near something interactive enough to matter. The practical guidance isn't to avoid streaming. Any boundary near a focusable element, such as a button or a form field, needs a specific manual check. Focus the element, trigger the boundary's resolution, and confirm focus survives or is deliberately redirected somewhere sensible.</p>
+  <p>The test follows directly from the boundary design. Throttle the response, move through the fallback with a keyboard and screen reader, and let the boundary resolve at each point where focus can rest. Confirm that persistent controls remain mounted and that any deliberate focus move leads somewhere meaningful. Also inspect the accessibility tree after each state, since a visually stable fallback can expose a different name, role, or busy state from the content that replaces it.</p>
 
-  <p>A "skip to main content" link, the common pattern that lets a keyboard user bypass repeated navigation and jump straight to a page's primary content, runs into a related version of the same timing question on a streamed page. If the skip link's target is itself inside a boundary that hasn't resolved yet, activating it lands focus on an empty placeholder rather than real content, and the user has to try again once the boundary finishes. It's a small case, but one that only shows up when someone tests the interaction on a slow or throttled connection rather than the fast local network a development environment usually runs on.</p>
+  <p>Stable page structure reduces the number of timing cases. Keep the <code>&lt;main&gt;</code> landmark, the primary heading when its text is known, and the target of a skip link outside replaceable boundaries. A keyboard user can then bypass repeated navigation even while sections inside the main region are still resolving. Streaming controls the arrival of content without making the page's basic navigation depend on that arrival.</p>
 
   <!-- ═══════════════════════════════════════════════════
        ISLANDS
   ════════════════════════════════════════════════════ -->
   <h2 id="islands">Islands, Resumability, and the Interactive Gap</h2>
-  <p class="lede">Partial hydration solves a performance problem and introduces a narrower, timing-shaped accessibility one.</p>
+  <p class="lede">Server-rendered controls may look complete before the JavaScript that implements their custom behavior is ready.</p>
 
-  <p>The <a href="rendering-strategies.html#islands">hydration, islands, and resumability</a> section of the rendering strategies article covers the performance case for partial hydration. A page ships as mostly static HTML, and only the components explicitly marked interactive load and run JavaScript, each hydrating independently instead of the whole page hydrating as one unit. The gap between a component's HTML painting on screen and its JavaScript finishing download and execution is sometimes called partial hydration's <strong>uncanny valley</strong>: the content is visibly present, but nothing about it responds yet. For a purely decorative island, such as a hero animation or a related-articles widget, that gap is invisible to everyone. For an island holding an interactive control, such as a quantity stepper or an add-to-cart button, that gap is not invisible. A keyboard user who tabs to it, or a screen reader user who activates it, gets no response and no explanation why during that window. The failure looks identical to a broken component, because from the user's side, it briefly is one.</p>
+  <p>The <a href="rendering-strategies.html#islands">hydration, islands, and resumability</a> section of the rendering strategies article explains how partial hydration limits JavaScript to interactive parts of a page. Each island can become interactive on its own schedule. During the interval between HTML rendering and hydration, ordinary links and native form behavior may still work because the browser implements them. A control whose action depends entirely on a client-side handler may already be focusable and exposed to assistive technology while activation does nothing.</p>
 
-  <p>Qwik's resumability, also covered in the rendering strategies article, sidesteps this specific gap rather than shrinking it. Because it serializes event listener references into the HTML at build time instead of shipping a component tree to re-execute, there's no hydration pass to wait for at all. The tradeoff is adopting a different framework with a different mental model rather than applying a drop-in optimization. Even so, it's a real point of comparison for pages where above-the-fold interactivity matters enough that even a brief unresponsive window is worth designing around.</p>
+  <p>Qwik uses resumability instead of an eager hydration pass. It serializes application state and listener references so a small loader can intercept an event and load the associated handler. That removes the need to download and execute the whole component tree at startup, but it does not make every handler available before interaction. The first event can still wait for its code, so latency and failure behavior remain test cases even though the startup mechanism is different.</p>
 
-  <p>The practical takeaway carries over from the streaming section. Islands and partial hydration remain a legitimate and often correct way to ship less JavaScript. What deserves deliberate design attention is the above-the-fold interactive islands, the ones most likely to get a keyboard or screen reader interaction in that narrow window. A visible loading or disabled state on an unhydrated interactive island, rather than a control that looks ready but silently does nothing, closes most of the practical gap even without eliminating the underlying timing window.</p>
+  <p>The strongest design is useful before JavaScript whenever the task permits it. A link can remain a link, and a form can submit to the server before client-side enhancement arrives. Where the interaction genuinely requires JavaScript, the component should not claim readiness too early. A loading state may be appropriate, but a disabled control needs accompanying text that explains why it is unavailable. Test the first interaction on a slow connection and under a failed script request, not only after the island has settled.</p>
 
   <!-- ═══════════════════════════════════════════════════
        LIVE REGIONS
   ════════════════════════════════════════════════════ -->
   <h2 id="live-regions">Live Regions Beyond Routing</h2>
-  <p class="lede">Anything that changes content without a navigation, not just a route change, needs the same announcement treatment.</p>
+  <p class="lede">Announce consequential updates that happen away from focus, while letting ordinary interaction semantics speak for themselves.</p>
 
-  <p>A toast notification, an inline validation error appearing under a form field, and an optimistic update from a <a href="react-server-components.html#actions">Server Action</a> all change what's on screen without anything resembling a navigation. All of them need an <code>aria-live</code> region to be announced to a screen reader the same way a route change does. The choice between <code>aria-live="polite"</code> and <code>aria-live="assertive"</code> should be made deliberately rather than defaulting to whichever one shows up first in a tutorial. Polite waits for a natural pause before announcing, which fits most route changes and status updates. Assertive interrupts whatever the screen reader is currently saying, useful for time-sensitive cases such as a session about to expire or a failed payment. Overusing it for routine updates trains users to tune out the interruption entirely.</p>
+  <p>Dynamic content does not automatically require a live region. Expanding a disclosure, selecting a tab, or changing a checkbox already exposes state through the control that has focus. Repeating each action as an announcement adds noise. Live regions are for important updates that occur elsewhere and would otherwise be easy to miss. Examples include a changed result count, completion of a background operation, or a toast that does not receive focus.</p>
 
-  <p>The Server Action case has a specific wrinkle, covered from the state-management side in the React Server Components article. <code>useOptimistic</code>'s rollback only happens automatically when an action throws. If an action instead follows the typed-result convention and returns something like <code>{ ok: false }</code>, there's no thrown error for <code>useOptimistic</code> to react to, and the optimistic UI keeps showing its predicted state until something else updates it. When that reversal does eventually happen, it's a second content change with no navigation and no user-initiated trigger behind it. It needs its own announcement just as much as the original optimistic update did. A UI that silently reverts a predicted success into a failure, with no live region covering either transition, leaves a screen reader user believing an action succeeded when it didn't.</p>
+  <p>Use <code>role="status"</code> or a polite live region for updates that can wait until the current speech finishes. Reserve <code>role="alert"</code> or an assertive region for critical, time-sensitive information because it can interrupt the user's current task. The live container should normally exist before its content changes. Inserting a pre-populated region and expecting an announcement is unreliable outside the special handling commonly given to alerts.</p>
+
+  <p>Optimistic interfaces make the distinction concrete. A <a href="react-server-components.html#actions">Server Action</a> may predict success before the server confirms it. The visual change does not always need narration if the focused control already communicates the new state. A later failure or reversal does need an accessible status when it would otherwise be missed. Form errors also require a programmatic relationship to their fields, and focus may need to move to an error summary after submission. A live region can support those patterns, but it cannot replace their structure.</p>
 
   <!-- ═══════════════════════════════════════════════════
        DESIGN SYSTEM
   ════════════════════════════════════════════════════ -->
   <h2 id="design-system">Baking It Into the Design System</h2>
-  <p class="lede">Focus styles, contrast, and motion fallbacks are design-system decisions, which makes them the cheapest accessibility work in this article.</p>
+  <p class="lede">Shared styles and components can provide safer defaults, although conformance still depends on how a page combines them.</p>
 
-  <p>A focus-visible outline style, a minimum contrast ratio, and a motion-reduction fallback belong at the shared token layer of a design system, not re-solved inside each component. That's the same reason a correct native <code>&lt;button&gt;</code> belongs in a shared component library. Get it right once, and every consumer of the design system inherits it without having to think about it again. Get it wrong once, at the token layer, and every consumer inherits that too.</p>
+  <p>A design system can define a visible <code>:focus-visible</code> treatment, approved color pairings, and reduced-motion utilities. Components can then apply those decisions consistently while preserving native semantics. Tokens alone cannot guarantee contrast or focus visibility because the result depends on the colors, backgrounds, states, and surrounding content used together. They narrow the range of unsafe choices rather than proving conformance.</p>
 
-  <p>The <a href="rendering-strategies.html#mpa">cross-document View Transitions</a> that give multi-page apps animated navigation without JavaScript are a concrete case where this matters. A page transition animation that ignores the <code>prefers-reduced-motion</code> media query is a real regression for users with vestibular disorders, for whom large-scale motion can trigger dizziness or nausea. The fix costs only a few lines of CSS: wrap the transition's animation rules in a media query that swaps them for an instant, non-animated cross-fade whenever the visitor has requested reduced motion. Done at the design-system level, once, it protects every page that opts into cross-document transitions automatically. Done per page, it's one more thing to remember and one more thing that eventually gets missed.</p>
+  <p>The <a href="rendering-strategies.html#mpa">cross-document View Transitions</a> used for animated navigation are one example. Scaling and large panning motion can cause discomfort for people with vestibular disorders. The <code>prefers-reduced-motion</code> media query detects a system preference to reduce non-essential motion. A shared transition policy can remove movement or substitute a gentler effect when that preference is active, then let every page use the same behavior.</p>
 
-  <p>Two WCAG 2.2-specific success criteria land squarely on decisions a rendering architecture and its design system make together, rather than on individual page content. <strong>Focus not obscured</strong> requires that a focused element isn't hidden behind a sticky header, a fixed banner, or a cookie-consent bar. That's a real risk in any layout with persistent chrome, where a page can scroll a focused element toward it. <strong>Target size</strong> sets a minimum tappable area for interactive controls. That matters most for whichever component library renders every button and link across a product, since a token-level fix there reaches every consumer at once rather than needing to be patched control by control.</p>
+  <p>Two Level AA criteria added in WCAG 2.2 illustrate the boundary between shared defaults and page composition. <strong>Focus Not Obscured (Minimum)</strong> requires that author-created content does not entirely hide a component when it receives keyboard focus. Sticky headers and persistent banners therefore need testing in the final layout. <strong>Target Size (Minimum)</strong> generally requires a pointer target of at least 24 by 24 CSS pixels, but it also defines spacing and several other exceptions. Component sizing can satisfy the common case, while dense toolbars and inline links still need contextual evaluation.</p>
 
   <!-- ═══════════════════════════════════════════════════
        TESTING
   ════════════════════════════════════════════════════ -->
   <h2 id="testing">Testing This Category of Bug</h2>
-  <p class="lede">Generic accessibility scanning is bad at catching any of the failures described in this article, because none of them are static markup problems.</p>
+  <p class="lede">Transition bugs appear between stable states, so tests must exercise the route change, boundary replacement, or first interaction itself.</p>
 
-  <p>An automated scanner like axe-core, discussed in more general terms in <a href="accessibility-foundations.html#testing">the foundations article's testing section</a>, inspects a single rendered snapshot of a page. Every failure covered here (a route change that doesn't move focus, a Suspense boundary that steals it, an island that looks ready before it is) is timing-dependent and interaction-dependent rather than something visible in one static snapshot. A scan of the finished DOM after everything has settled can look completely clean while the transition getting there was inaccessible the entire time.</p>
+  <p>An automated rules engine can inspect whichever rendered state a test presents to it. A scan after the interface settles may therefore miss stale focus during navigation, a disappearing fallback, or an unresponsive control before hydration. The tool is still useful, but the test must first drive the application into each meaningful state. The <a href="accessibility-foundations.html#testing">foundations article</a> covers the wider role of automated and manual evaluation.</p>
 
-  <p>The workable approach is treating each distinct route-change and streaming scenario a rendering architecture introduces as its own scripted keyboard pass: trigger the navigation or the boundary resolution, then check where focus ended up and what, if anything, got announced. This is testing work that belongs to whoever owns the rendering architecture decision, not a separate accessibility-only pass bolted on afterward. The failure modes are specific to the rendering choices covered in this article, and they don't show up in a generic component-level accessibility audit at all.</p>
+  <p>Begin with an inventory of transitions: route changes, validation responses, optimistic updates, boundary replacements, and islands becoming interactive. Exercise each one with a keyboard under normal and throttled conditions. Record where focus begins, whether the active element remains mounted, what state is exposed, and where the next navigation command leads. A screen reader pass then verifies whether any announcement is useful, absent, duplicated, or mistimed.</p>
 
-  <p>Tooling can carry some of this load once the scenarios are named. A Playwright script can drive a route change, or wait for a specific Suspense boundary to resolve, then assert on <code>document.activeElement</code> and on the contents of a live region. That turns a manual keyboard check into a regression test that runs on every pull request. It doesn't replace a real screen reader pass entirely, because announcement behavior varies enough between NVDA, VoiceOver, and JAWS that an assertion on DOM state alone can miss real differences. But it cheaply and automatically catches the most common regression where focus silently landing on <code>&lt;body&gt;</code> after a navigation.</p>
+  <p>Browser automation can preserve the deterministic parts of that pass. Playwright can trigger a route change, assert on <code>document.activeElement</code>, operate controls by role, and compare an ARIA snapshot of the resulting accessibility tree. It can also verify the text placed in a live region. Those assertions confirm application state, not what a particular screen reader speaks, so representative browser and assistive-technology combinations still require manual testing.</p>
 
-  <p>None of this is an argument against SPAs, streaming, or islands. Each strategy trades away a specific piece of behavior a plain MPA gave for free. Naming which piece (focus reset, announcement, or interactive readiness) is what lets a team rebuild it deliberately instead of discovering the gap from a support ticket.</p>
+  <p>No rendering strategy is accessible by default in every application, and none of the strategies discussed here is inherently inaccessible. A document navigation supplies a clearer transition, while client routing, streaming, and deferred execution give teams more control over intermediate states. That control comes with ownership. Choose the strategy for its architectural benefits, then define and test the focus, announcement, and readiness behavior it requires.</p>
 
 </main>
 </div><!-- end .shell -->

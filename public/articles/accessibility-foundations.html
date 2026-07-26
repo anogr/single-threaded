@@ -65,10 +65,10 @@
 
   <div class="eyebrow">Accessibility · Foundations</div>
   <h1>Accessibility as an Architecture Decision</h1>
-  <p class="subtitle">Why designing it in costs less than retrofitting, what standards and regulators require, and how to plan for it before code gets written.</p>
+  <p class="subtitle">Why early design decisions reduce remediation work, which standards matter, and how teams can make accessibility part of delivery.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~16 min read</span>
+    <div class="dot"></div><span>~11 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
@@ -76,11 +76,11 @@
        INTRO
   ════════════════════════════════════════════════════ -->
   <section id="intro">
-    <p>Accessibility is usually discussed as a checklist to run through near launch. Treated that way, it behaves like one. The gaps surface late, as a pile of fixes against components that were never built to hold them.</p>
+    <p>Accessibility often enters a project as a checklist for the final audit. By then, the audit is examining components and interaction patterns that have already spread through the product. Each defect may be small, but correcting the underlying pattern can touch many screens.</p>
 
-    <p>An estimated 1.3 billion people, about 16% of the global population, experience a significant disability. That figure only counts conditions that meaningfully limit daily activity. It leaves out the much larger group who hit a temporary or situational version of the same barrier, such as an arm in a cast, a phone screen washed out by sunlight, or a hallway too noisy for audio to help. Reach is the first reason accessibility belongs at the architecture level rather than the QA level. On its own, though, it is the least persuasive reason to a team under deadline pressure. This article leans on the other two. One is the legal exposure that now comes with getting it wrong. The other is a cost of repair that only moves in one direction as a project ages.</p>
+    <p>The World Health Organization estimates that 1.3 billion people, or 16% of the global population, experience significant disability. Products also create similar barriers for people dealing with temporary injuries or difficult surroundings. Someone may be using one hand, reading a screen in glare, or trying to follow a video where audio is unavailable. The scale alone makes accessibility an architectural concern. Legal obligations add another reason, while the cost of changing a shared pattern explains why the timing matters.</p>
 
-    <p>That cost curve matters more than anything else here. A component library that renders a real <code>&lt;button&gt;</code> instead of a styled <code>&lt;div&gt;</code> costs nothing extra to build correctly the first time. The same fix applied after three hundred product screens have copied the wrong pattern is a migration project. Accessibility isn't unusual in this respect. It follows the same shape as any architectural decision made once at the foundation versus repeated badly at every call site. The blast radius is wider, though, because interactive components get reused more than almost anything else in a frontend codebase.</p>
+    <p>Consider a design system that uses a real <code>&lt;button&gt;</code> for its button component. Every consumer starts with the element's native semantics and keyboard behavior. If the shared component begins with a styled <code>&lt;div&gt;</code> instead, each use inherits missing behavior that must later be restored and tested. Accessibility follows the familiar economics of architecture: a sound decision in a shared layer prevents repeated repair at its call sites.</p>
 
     <div class="figure-wrap">
       <svg viewBox="0 0 700 260" role="img" aria-label="Line chart showing the cost of fixing an accessibility issue rising sharply across four project phases: component library, feature build, pre-launch audit, and post-launch remediation. The line starts low and flat during the component library phase and climbs steeply by the post-launch remediation phase." xmlns="http://www.w3.org/2000/svg">
@@ -106,7 +106,7 @@
         <text x="620" y="222" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Post-launch</text>
         <text x="620" y="235" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">remediation</text>
       </svg>
-      <figcaption>The same underlying gap, such as a missing accessible name or an unreachable keyboard focus stop, costs roughly one line of code at the component library phase and a full remediation project once it has been copied across a shipped product.</figcaption>
+      <figcaption>This curve is conceptual rather than a cost estimate. It shows how one defect becomes more expensive to change after products have copied the pattern and users depend on its existing behavior.</figcaption>
     </div>
   </section>
 
@@ -114,124 +114,125 @@
        SEMANTIC HTML
   ════════════════════════════════════════════════════ -->
   <h2 id="semantic-html">Semantic HTML Does the Work</h2>
-  <p class="lede">Most of what accessibility requires is using the element the browser already built for the job instead of reconstructing it by hand.</p>
+  <p class="lede">Native elements provide a dependable starting point because browsers already understand their meaning and basic interaction.</p>
 
-  <p>Every browser exposes a parallel structure to assistive technology called the <strong>accessibility tree</strong>. It's built from the document object model (DOM) but isn't identical to it. Purely decorative nodes get dropped, and some elements are renamed or merged. Every node in it carries a computed role, an <strong>accessible name</strong>, and a state (expanded, checked, disabled, and so on). A screen reader doesn't read raw markup. It reads the accessibility tree, which is why two visually identical elements can behave completely differently for a screen reader user depending on what produced them.</p>
+  <p>Browsers derive an <strong>accessibility tree</strong> from the document object model (DOM) and expose it through platform accessibility APIs. The two trees are related but not identical. Hidden or purely presentational elements may be omitted, while meaningful text and controls are represented in forms that assistive technology can use. Interactive objects can expose a role, an <strong>accessible name</strong>, and relevant state such as whether they are expanded or disabled. Two elements that look identical can therefore present very different information to a screen reader.</p>
 
-  <p>A native <code>&lt;button&gt;</code> arrives in that tree with a role of "button" already set, an accessible name computed from its text content, keyboard operability (Enter and Space activate it, while Tab reaches and leaves it in the expected order), and a focus outline the browser manages on its own. None of that was written by whoever used the tag. It came from the browser's own implementation of the HTML specification, and it's consistent across every browser and every assistive technology that reads the accessibility tree. A <code>&lt;div&gt;</code> styled to look identical starts with none of it. Every one of those properties has to be added back by hand, and every one has to be kept in sync as the component evolves.</p>
+  <p>A native <code>&lt;button&gt;</code> is exposed with the button role and can take its accessible name from its contents. It also participates in sequential keyboard navigation and responds to Enter and Space without application code. Browsers provide default focus styling as well, although a design system may replace it with a clearer <code>:focus-visible</code> treatment. A styled <code>&lt;div&gt;</code> has none of those button behaviors. Authors must add the semantics and interaction themselves, then test the result across the browser and assistive-technology combinations they support.</p>
 
   <div class="figure-wrap">
-    <svg viewBox="0 0 700 260" role="img" aria-label="Side by side comparison of a DOM tree and its corresponding accessibility tree. The DOM tree shows a div containing a span and a button. The accessibility tree shows the div contributing no node at all, the span contributing no node, and the button contributing a single node with role button and accessible name Submit order, computed from its text content." xmlns="http://www.w3.org/2000/svg">
-      <text x="170" y="24" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--text-dim)">DOM</text>
+    <svg viewBox="0 0 700 260" role="img" aria-label="Side-by-side comparison of a DOM tree and a simplified accessibility tree. The DOM contains a wrapper, price text, and a button. The simplified accessibility tree keeps the meaningful text and exposes the button with its role and accessible name, while the wrapper has no separate semantic role." xmlns="http://www.w3.org/2000/svg">
+      <text x="185" y="24" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--text-dim)">DOM</text>
       <text x="530" y="24" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--text-dim)">Accessibility tree</text>
 
-      <rect x="90" y="40" width="160" height="34" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
-      <text x="170" y="61" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text-dim)">&lt;div class="card"&gt;</text>
-      <line x1="170" y1="74" x2="170" y2="98" stroke="var(--border)"/>
+      <rect x="105" y="40" width="160" height="34" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+      <text x="185" y="61" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text-dim)">&lt;div class="card"&gt;</text>
+      <line x1="185" y1="74" x2="185" y2="84" stroke="var(--border)"/>
+      <line x1="185" y1="84" x2="100" y2="98" stroke="var(--border)"/>
       <rect x="30" y="98" width="140" height="34" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
       <text x="100" y="119" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--text-dim)">&lt;span&gt;$42&lt;/span&gt;</text>
-      <line x1="170" y1="74" x2="260" y2="98" stroke="var(--border)"/>
+      <line x1="185" y1="84" x2="270" y2="98" stroke="var(--border)"/>
       <rect x="190" y="98" width="160" height="34" rx="4" fill="color-mix(in srgb, var(--accent) 16%, transparent)" stroke="color-mix(in srgb, var(--accent) 35%, transparent)"/>
       <text x="270" y="119" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--accent)">&lt;button&gt;Submit order&lt;/button&gt;</text>
 
-      <line x1="350" y1="115" x2="410" y2="115" stroke="var(--text-faint)" stroke-dasharray="3,3"/>
+      <line x1="375" y1="95" x2="425" y2="95" stroke="var(--text-faint)"/>
+      <path d="M 425 95 L 417 90 M 425 95 L 417 100" fill="none" stroke="var(--text-faint)"/>
 
-      <text x="530" y="61" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-faint)">no node contributed</text>
-      <text x="530" y="86" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-faint)">no node contributed</text>
+      <text x="530" y="61" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-faint)">wrapper: no semantic role</text>
+      <text x="530" y="86" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">text: "$42"</text>
       <rect x="450" y="98" width="160" height="52" rx="4" fill="color-mix(in srgb, var(--accent) 16%, transparent)" stroke="color-mix(in srgb, var(--accent) 45%, transparent)"/>
       <text x="530" y="118" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--accent)">role: button</text>
       <text x="530" y="135" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--accent)">name: "Submit order"</text>
 
-      <text x="20" y="200" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text-dim)">The wrapping div and the span contribute nothing to the accessibility tree at all.</text>
-      <text x="20" y="218" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text-dim)">Only the button produces a node, and its name comes free from its text content.</text>
+      <text x="20" y="200" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text-dim)">The wrapper adds no useful semantics, but its meaningful text remains available.</text>
+      <text x="20" y="218" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text-dim)">The button is exposed as a control, with its name derived from its text content.</text>
     </svg>
-    <figcaption>The DOM and the accessibility tree aren't the same structure. A screen reader works from the tree on the right, which is why non-interactive wrapper markup can be as elaborate as it likes without affecting what assistive technology announces.</figcaption>
+    <figcaption>This simplified view shows the important distinction: structural wrappers may add no semantics of their own, while meaningful text remains available and native controls expose their role and name.</figcaption>
   </div>
 
-  <p>The same argument extends well past buttons. A native <code>&lt;dialog&gt;</code> element, opened with its <code>showModal()</code> method, comes with a focus trap, an inert background that keeps the rest of the page from receiving clicks or keystrokes while it's open, a backdrop, and Escape-to-close, all handled by the browser. The <code>popover</code> attribute covers lighter cases such as menus, tooltips, and toasts. It provides light dismissal, closing on an Escape press or a click outside, without going as far as a full modal focus trap. A <code>&lt;details&gt;</code>/<code>&lt;summary&gt;</code> pair gets an expandable disclosure whose open or closed state the browser exposes to assistive technology on its own. In every one of these cases, the alternative is a JavaScript library or a hand-built component reimplementing behavior current browsers already ship. Reimplementations are where accessibility regressions tend to live. A focus trap that doesn't quite trap, or an Escape key wired to one handler but not another added later, is the typical shape of the bug. Reaching for the platform first is a practical default, not a nostalgia argument for plain HTML.</p>
+  <p>The same principle extends beyond buttons. Opening a native <code>&lt;dialog&gt;</code> with <code>showModal()</code> places it in the top layer, makes the rest of the document inert, and gives the browser defined focus and Escape-key behavior. Authors still need a useful name, sensible initial focus, and a deliberate destination for focus when the dialog closes. For non-modal overlays, the Popover API handles top-layer placement and can provide light dismissal for <code>popover="auto"</code>. It does not supply the keyboard model for a menu or the semantics of a tooltip, so those remain author responsibilities. A <code>&lt;details&gt;</code> and <code>&lt;summary&gt;</code> pair provides disclosure behavior without recreating it in JavaScript. Native features do not finish the accessibility work, but they reduce the amount of behavior a team must build and maintain.</p>
 
   <!-- ═══════════════════════════════════════════════════
        ARIA
   ════════════════════════════════════════════════════ -->
   <h2 id="aria">What ARIA Is For</h2>
-  <p class="lede">Accessible Rich Internet Applications attributes exist to patch a real gap in semantic HTML, not to replace it.</p>
+  <p class="lede">ARIA adds semantics that HTML cannot express on its own, but it does not implement a component's behavior.</p>
 
-  <p><strong>Accessible Rich Internet Applications</strong> (ARIA) is a set of HTML attributes, such as <code>role</code>, <code>aria-label</code>, and <code>aria-expanded</code>, that let a component tell the accessibility tree things the tag alone can't express. A custom dropdown, a tab panel, or a live region that updates without a page reload all need ARIA because HTML doesn't have a native element for them. That's a legitimate and common need. What ARIA can't do is retroactively grant keyboard behavior, focus management, or any of the other free properties a native element carries. Adding <code>role="button"</code> to a <code>&lt;div&gt;</code> tells a screen reader to announce it as a button. It does nothing to make Enter or Space activate it, and nothing to put it in the expected tab order, both of which then have to be coded in by hand and kept correct for the life of the component.</p>
+  <p><strong>Accessible Rich Internet Applications</strong> (ARIA) defines roles, states, and properties that browsers expose to assistive technology. Attributes such as <code>aria-expanded</code> can describe state that a tag does not convey, while roles support widgets such as tab lists and tree views that have no direct HTML equivalent. These additions change the semantic information exposed by an element. Keyboard handling and focus management remain the author's responsibility. A <code>&lt;div role="button"&gt;</code> may be announced as a button, but authors must still place it in the tab order and implement the expected Enter and Space interactions.</p>
 
   <div class="code-block">
     <div class="code-header">
       <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-filename">button.html</span>
-      <span class="code-lang">HTML</span>
+      <span class="code-filename">OrderButton.tsx</span>
+      <span class="code-lang">TSX</span>
     </div>
-    <pre><code><span class="cm">&lt;!-- Needs a manually added keydown handler for Enter and Space,</span>
-<span class="cm">     and a manually added tabindex to enter the tab order at all --&gt;</span>
-<span class="p">&lt;</span><span class="t">div</span> <span class="n">role</span><span class="p">=</span><span class="s">"button"</span> <span class="n">tabindex</span><span class="p">=</span><span class="s">"0"</span><span class="p">&gt;</span>Submit order<span class="p">&lt;/</span><span class="t">div</span><span class="p">&gt;</span>
+    <pre><code><span class="cm">// The div still needs Enter and Space handlers.</span>
+<span class="p">&lt;</span><span class="t">div</span> <span class="n">role</span><span class="p">=</span><span class="s">"button"</span> <span class="n">tabIndex</span><span class="p">=</span><span class="cn">{0}</span> <span class="n">onClick</span><span class="p">=</span><span class="cn">{submitOrder}</span><span class="p">&gt;</span>Submit order<span class="p">&lt;/</span><span class="t">div</span><span class="p">&gt;</span>
 
-<span class="cm">&lt;!-- Gets both behaviors from the browser, for free --&gt;</span>
-<span class="p">&lt;</span><span class="t">button</span><span class="p">&gt;</span>Submit order<span class="p">&lt;/</span><span class="t">button</span><span class="p">&gt;</span></code></pre>
+<span class="cm">// The native element already has the expected keyboard behavior.</span>
+<span class="p">&lt;</span><span class="t">button</span> <span class="n">type</span><span class="p">=</span><span class="s">"button"</span> <span class="n">onClick</span><span class="p">=</span><span class="cn">{submitOrder}</span><span class="p">&gt;</span>Submit order<span class="p">&lt;/</span><span class="t">button</span><span class="p">&gt;</span></code></pre>
   </div>
 
-  <p>The rule the W3C's own authoring guidance leads with settles most day-to-day decisions on its own: don't use ARIA if a native element or attribute already does the job. Reach for it when the markup has no native equivalent, not as a default way to build a custom design system's components.</p>
+  <p>The W3C's first rule of ARIA provides a useful default: use a native element when one already has the required semantics and behavior. ARIA becomes appropriate when the interface has no suitable HTML pattern or when native semantics need additional state or relationships.</p>
 
-  <p>A screen reader computes an element's accessible name by checking a fixed order of sources. That order explains a class of bug that shows up constantly in component libraries. An explicit <code>aria-labelledby</code> or <code>aria-label</code> wins if present. Visible label text associated through a <code>&lt;label&gt;</code> element or similar mechanism comes next, then the element's own text content. A <code>title</code> attribute is only consulted as a last resort, and most screen readers treat it as a weak fallback rather than a primary name. Because an explicit attribute always wins, a component that sets <code>aria-label</code> to match one piece of visible text and later changes the visible text without updating the attribute ends up with two labels. Sighted users read one, screen reader users hear the other. That drift is a common, quiet source of accessibility bugs because nothing about it fails visually.</p>
+  <p>Accessible-name calculation follows a defined algorithm whose sources vary by element. In broad terms, <code>aria-labelledby</code> takes precedence over <code>aria-label</code>, followed by native HTML naming mechanisms such as a form control's associated <code>&lt;label&gt;</code>. Some elements can derive a name from their contents, while attributes such as <code>title</code> serve only as fallbacks in relevant cases. The practical lesson is to prefer visible text and native labels. If a component duplicates visible wording in <code>aria-label</code>, later copy changes can leave sighted users reading one label while screen reader users hear another.</p>
 
   <!-- ═══════════════════════════════════════════════════
        STANDARDS
   ════════════════════════════════════════════════════ -->
   <h2 id="standards">The Standards Landscape</h2>
-  <p class="lede">One standard governs almost every accessibility conversation in practice, with conformance levels that show up in law even when the underlying legislation never mentions the standard by name.</p>
+  <p class="lede">WCAG provides the shared technical vocabulary, although each law or contract decides which version and conformance level applies.</p>
 
-  <p>The <strong>Web Content Accessibility Guidelines</strong> (WCAG) are the W3C's technical standard for accessible web content, and version 2.2 is the current Recommendation. In October 2025 it was also approved as ISO/IEC 40500:2025, which gives it formal standing in procurement and regulatory contexts beyond the W3C's own endorsement. WCAG defines three conformance levels, A, AA, and AAA, each layering stricter criteria on the one below it. AA is the level that matters in practice, since it's the level named by essentially every law or regulation that references WCAG at all. Full AAA conformance is rare and, for some criteria, not achievable for all content by design.</p>
+  <p>The <strong>Web Content Accessibility Guidelines</strong> (WCAG) are the W3C standard for accessible web content. WCAG 2.2 is the current Recommendation and became ISO/IEC 40500:2025 in October 2025. Its success criteria are grouped into levels A, AA, and AAA, with each level including the ones below it. Many policies and regulations use Level AA as their target, although the named WCAG version differs. The W3C advises against requiring Level AAA across an entire site because some content cannot satisfy every AAA criterion.</p>
 
-  <p>A successor, WCAG 3.0, is in development, though not yet mature enough to plan around. It proposes a graded outcome model in place of the current binary pass-or-fail criteria, closer to a maturity score than a checklist. As of a March 2026 working draft it listed 174 requirements and remained far from a stable, citable conformance model. Organizations should keep conforming to WCAG 2.2 and treat WCAG 3.0 as a multi-year horizon, not something worth deferring current work for.</p>
+  <p>WCAG 3.0 remains a Working Draft. The March 2026 draft explores core and supplemental requirements, assertions, and Bronze, Silver, and Gold conformance levels. Several parts of that model are still marked as undecided, so it is not a stable target for policy or procurement. Teams can follow its development without postponing work against the applicable WCAG 2 standard.</p>
 
   <h2 id="regulation">Regulation and Enforcement</h2>
-  <p class="lede">Deadlines move and penalties vary by jurisdiction, but the direction has only gone one way, toward more regulators naming WCAG explicitly.</p>
+  <p class="lede">Accessibility obligations depend on jurisdiction and sector, so architects need the applicable rule rather than a single global compliance claim.</p>
 
-  <p>In the European Union, the <strong>European Accessibility Act</strong> (EAA) has applied since 28 June 2025, and 2026 is the first full year national authorities are supervising against a deadline that has already passed. It reaches further than most government-only accessibility rules, covering private-sector e-commerce, banking, and other digital services sold into the EU, not just public bodies. Enforcement sits with member states individually rather than one central regulator, and the first court tests have already arrived. Disability advocacy groups filed suits in France in November 2025 against four major retailers. The first ruling, in May 2026, dismissed the case against Auchan on grounds specific to how France's older domestic accessibility law interacts with the new one. The court accepted that the site did not conform even so, and the decision is under appeal. A month later a court ordered Carrefour to make its site and app fully accessible within six months, under a daily penalty, rejecting the argument that meeting most of the criteria was enough.</p>
+  <p>In the European Union, the <strong>European Accessibility Act</strong> (EAA) applies to covered products placed on the market and covered consumer services provided after 28 June 2025. Its scope includes e-commerce, consumer banking, e-books, electronic communications, and parts of passenger transport. Member states implement and enforce the directive through national law, so obligations and remedies must be checked in the countries where a product is offered. The act is broader than rules limited to public-sector websites, but it does not cover every product, service, or piece of web content.</p>
 
-  <p>In the United States, a 2024 Department of Justice rule under Title II of the Americans with Disabilities Act (ADA) set WCAG 2.1 Level AA as the binding technical standard for state and local government web and mobile content. The original 2026 and 2027 compliance dates were pushed back a year by an April 2026 rule, to April 2027 for entities serving 50,000 people or more and April 2028 for smaller entities and special districts. The extension changes the timeline, not the destination. WCAG AA conformance is already the named target. Private-sector ADA litigation, which doesn't name a specific technical standard but treats WCAG conformance as the practical benchmark courts and plaintiffs point to, has been active for years, independent of the Title II rule.</p>
+  <p>In the United States, a 2024 Department of Justice rule under Title II of the Americans with Disabilities Act (ADA) adopts WCAG 2.1 Level AA. The rule covers web content and mobile apps from state and local governments. An April 2026 interim final rule moved the compliance date to 26 April 2027 for entities with a population of at least 50,000. Smaller entities and special district governments have until 26 April 2028. Title III separately applies to covered businesses open to the public. The Department identifies WCAG as helpful guidance for web accessibility under Title III, but it has not adopted the Title II web rule as a technical standard for private businesses.</p>
 
   <div class="table-wrap">
     <table>
       <thead>
-        <tr><th>Regulation</th><th>Jurisdiction</th><th>Standard named</th><th>2026 status</th></tr>
+        <tr><th>Regulation</th><th>Jurisdiction</th><th>Technical reference</th><th>2026 status</th></tr>
       </thead>
       <tbody>
-        <tr><td>European Accessibility Act</td><td>EU member states</td><td>EN 301 549 (incorporates WCAG 2.1 AA; a WCAG 2.2 update is pending)</td><td>Applies since June 2025, first court rulings in 2026</td></tr>
+        <tr><td>European Accessibility Act</td><td>Covered products and consumer services in the EU</td><td>Member-state law, supported by harmonized standards where applicable</td><td>Applies to covered products and services from 28 June 2025</td></tr>
         <tr><td>ADA Title II web rule</td><td>US state &amp; local government</td><td>WCAG 2.1 AA</td><td>Compliance dates extended to April 2027 / 2028</td></tr>
-        <tr><td>ADA Title III litigation</td><td>US private sector</td><td>No statute-named standard, WCAG AA the practical benchmark</td><td>Ongoing, independent of the Title II rule</td></tr>
+        <tr><td>ADA Title III</td><td>Covered US businesses open to the public</td><td>No DOJ web technical standard. WCAG is identified as helpful guidance</td><td>Existing accessibility obligations continue independently of the Title II rule</td></tr>
       </tbody>
     </table>
   </div>
 
   <h3 id="overlays">The Overlay Widget Shortcut</h3>
 
-  <p>One decision an architect gets asked to sign off on more often than any other in this space is whether to install an <strong>overlay widget</strong>, a third-party script layered on top of an existing site that promises to detect and patch accessibility issues automatically, usually with a floating badge in a corner of the page. Regulators and disability organizations are broadly aligned on the answer. The European Commission has stated that overlays and other tools which don't make the website itself meet the standard are not an appropriate route to compliance. In the US, the Federal Trade Commission ordered the largest overlay vendor, accessiBe, to pay one million dollars in 2025 for falsely claiming its product could make any website WCAG-compliant within 48 hours.</p>
+  <p>An <strong>overlay widget</strong> is a third-party script that attempts to alter an existing site at runtime, often through a control displayed in a corner of the page. Such software may change presentation or patch some detectable defects, but an automated layer cannot determine whether the site as a whole conforms to WCAG. The W3C is explicit that evaluation tools require human judgment and cannot establish accessibility on their own. In 2025, the US Federal Trade Commission finalized an order requiring accessiBe to pay one million dollars over deceptive claims that its automated product could make any website WCAG-compliant.</p>
 
   <div class="callout danger">
-    <div class="callout-title">An overlay is a signal, not a fix</div>
-    <p>Screen reader users report that overlays frequently interfere with the assistive technology they already use, rather than improving anything. A visible overlay badge is also now a recognizable pattern, so its presence can read to a regulator or a plaintiff's lawyer as a marker that the underlying site was never built accessibly. That's the opposite of the signal the badge was meant to send. There's no substitute for the semantic HTML and testing practice covered in this article. An overlay bought instead of that work is a liability with a subscription fee attached.</p>
+    <div class="callout-title">An overlay cannot establish conformance</div>
+    <p>A runtime patch does not repair inaccessible workflows, unclear content, or interactions that require human evaluation. It can also behave differently across browser and assistive-technology combinations. Treat an overlay like any other third-party script with a narrow, testable purpose. It cannot replace accessible source code, standards-based evaluation, or testing with the people who use the product.</p>
   </div>
 
   <!-- ═══════════════════════════════════════════════════
        PLANNING
   ════════════════════════════════════════════════════ -->
   <h2 id="planning">Planning Accessibility as a System</h2>
-  <p class="lede">The teams that don't end up doing a costly retrofit are the ones that never treated accessibility as a separate deliverable in the first place.</p>
+  <p class="lede">Accessibility becomes easier to sustain when it is part of ordinary product decisions rather than a separate launch activity.</p>
 
-  <p>The practical move is to fold an accessibility target, WCAG 2.2 AA in most cases, into the same place a performance budget or a security review gate already lives. It becomes a non-functional requirement checked at the component library level rather than a separate audit scheduled near launch. A shared component library is the highest-leverage place to spend this effort, because a correct, accessible button, form field, and dialog built once and reused everywhere pays for itself on every screen that consumes it. Fixing the same gap independently in every product team that built its own version is the expensive path, and it's the default outcome if accessibility isn't a stated requirement of the shared library from the start.</p>
+  <p>The first planning decision is the conformance target. WCAG 2.2 Level AA is a sensible product target when no governing rule requires a different version, and the W3C recommends adopting it over earlier WCAG 2 versions. The target then belongs in acceptance criteria, design review, and the definition of done for shared components. A reusable button or form field should be tested once at its source and again in representative product contexts. Centralizing the pattern does not remove page-level responsibilities, but it prevents every team from rebuilding the same interaction independently.</p>
 
   <div class="card teal" style="margin: 20px 0;">
     <div class="card-label">Practice</div>
-    <div class="card-title">Definition of done, not definition of launch-blocker</div>
-    <p>A component that ships without a correct accessible name or keyboard support isn't "incomplete but shippable with a follow-up ticket." It's unfinished, the same way a component with no error state is unfinished. Treating it that way keeps the gap from ever reaching production in the first place.</p>
+    <div class="card-title">Put accessibility in the definition of done</div>
+    <p>A component without an appropriate accessible name or its expected keyboard interaction is unfinished. Recording that requirement before implementation gives reviewers a clear basis for rejecting the defect instead of postponing it to an unspecified audit.</p>
   </div>
 
-  <p>The same logic extends to a design system's shared tokens, not just its components. A focus-visible outline style, a minimum contrast ratio, and a motion-reduction fallback each belong at the token layer for the same reason a correct <code>&lt;button&gt;</code> belongs in the component library. Solve it once and every team inherits it, instead of each team re-solving it inconsistently for whatever screen it builds next. A design system that ships accessible tokens by default makes the accessible choice the path of least resistance, which matters more than any amount of documentation telling teams what the inaccessible choice would have been. <a href="ux-principles.html">UX Principles</a> covers where a token system like that comes from in the first place, including why contrast belongs there alongside spacing and type.</p>
+  <p>Design tokens can support the same goal without pretending to guarantee it. A shared focus treatment and approved foreground-background pairs give components safer defaults. Motion utilities can provide reduced-motion variants for teams to reuse. Actual conformance still depends on how those tokens are combined in a component and how that component appears in context. <a href="ux-principles.html">UX Principles</a> explains how contrast, spacing, and type fit into the wider token system.</p>
 
-  <p>There's also a vendor-facing side to this planning that architects run into directly: procurement. Buying a third-party component library, a widget, or an embedded tool exposes an organization to that vendor's accessibility gaps as if they were its own. A <strong>Voluntary Product Accessibility Template</strong> (VPAT), a standardized report a vendor fills out describing how its product conforms to WCAG, is the artifact procurement teams increasingly ask for before a contract is signed, and it deserves the same scrutiny as a vendor security questionnaire. A vendor without one, or with one several major versions out of date, is a signal to weigh against the rest of the evaluation.</p>
+  <p>Procurement extends the boundary beyond code the organization owns. A third-party component, embedded service, or customer-facing platform can introduce barriers into the final workflow. The <strong>Voluntary Product Accessibility Template</strong> (VPAT) is a standard template for producing an Accessibility Conformance Report. The completed report should identify its product version, evaluation methods, applicable standards, and known gaps. It is evidence to examine rather than a certification, and representative workflows still need testing before a purchasing decision.</p>
 
   <!-- ═══════════════════════════════════════════════════
        TESTING
@@ -239,13 +240,13 @@
   <h2 id="testing">Testing Accessibility</h2>
   <p class="lede">Automated scanning is a floor, not a substitute for a person using a keyboard and a screen reader.</p>
 
-  <p>Automated tools like axe-core catch a real share of issues, and estimates of how much vary by methodology. Deque's own sampling against real, documented defects puts detectable coverage around 57%. Other estimates, testing against the full criteria set rather than a sample of already-known defects, put the automatable share lower, closer to 30 to 40%. Either number leaves a substantial remainder that needs human judgment. A scanner can confirm an image has an <code>alt</code> attribute, but not that the text describes the image rather than restating its filename. It can flag a missing label, but not a focus order that contradicts the visual reading order, or an error message that explains nothing when read aloud.</p>
+  <p>Automated tools such as axe-core can find many mechanical defects quickly, but coverage figures depend on what is being counted. Deque reported that its automated rules could detect 57.38% of issues in a sample of first-time customer audits. That number is not a percentage of WCAG that a tool can certify. The W3C states the broader limit plainly: tools cannot check every aspect of accessibility, and human judgment remains necessary. A scanner may detect a missing <code>alt</code> attribute, but it cannot decide whether the supplied text serves the image's purpose in context.</p>
 
-  <p>The workable shape for most teams pairs two layers, automated scanning and a manual pass. Automated scanning runs in continuous integration as a regression floor, catching mechanical failures such as missing labels, insufficient contrast, and invalid ARIA before they merge. A periodic manual pass uses a keyboard alone and at least one screen reader. That manual pass is the part that catches the failures users report, and it's also the part most commonly skipped when accessibility is scheduled as a single pre-launch audit rather than an ongoing practice. Broader test-automation strategy, including the pyramid of unit, integration, and end-to-end coverage, is covered in <a href="testing-strategy.html">Testing Strategy</a>. What's specific to accessibility is that a green automated scan is only ever the floor.</p>
+  <p>A workable testing strategy combines automated checks, expert review, and evaluation with users. Automated scanning can run in continuous integration and during component development. Manual passes then examine keyboard operation, reading order, focus behavior, text alternatives, and the clarity of errors. Testing with disabled users adds evidence about whether complete workflows are usable, while WCAG evaluation checks the wider range of requirements that a small user sample cannot represent. <a href="testing-strategy.html">Testing Strategy</a> covers how these checks fit into the broader test suite.</p>
 
-  <p>A keyboard-only pass is the cheapest version of manual testing and catches a surprising share of real problems on its own. Unplug the mouse, then try to reach and operate every interactive element on a page using only Tab, Shift+Tab, Enter, Space, and the arrow keys. Anything unreachable, anything that traps focus with no way out, and any focus outline invisible against its background shows up immediately, no assistive technology required. Layering a screen reader on top catches what the keyboard pass alone can't. Announcements that make no sense, a form error that never gets read aloud, or a live region that talks over whatever the user was already doing only surface when someone listens. Three tools cover the vast majority of real-world usage and are worth testing against directly rather than a longer list. NVDA is free and widely used on Windows, VoiceOver is built into every Apple platform, and JAWS remains common in enterprise and government environments. None of the three behaves identically to the others on edge cases, which is itself the argument for testing with more than one.</p>
+  <p>A keyboard-only pass is an efficient place to begin manual testing. Move through the interface with Tab and Shift+Tab, operate controls with their expected keys, and confirm that focus stays visible and never becomes trapped. A screen reader pass examines a different layer: names, roles, states, reading order, errors, and dynamic announcements. Choose test combinations from the browsers, operating systems, and assistive technologies used by the product's audience. Results from one combination should not be generalized to all others because browsers and assistive technologies share responsibility for presenting the accessibility tree.</p>
 
-  <p>None of this is a separate discipline from good architecture. A component library that gets semantic HTML right, a design system that bakes in focus states and contrast at the token level, and a testing practice that treats a keyboard as a first-class input device are the same investments a team makes for maintainability and resilience generally. The population directly served by getting it right is larger than most teams assume. The group that benefits indirectly, from clearer error messages, larger touch targets, and captions on video, is larger still. The other half of the picture, how a team's choice of rendering strategy, streaming, and hydration changes what this work requires, is covered in <a href="accessibility-rendering-architecture.html">Accessibility and Rendering Architecture</a>.</p>
+  <p>The architecture decision is therefore less about a special accessibility layer than about ownership. Shared components own their semantics and interaction. Product teams own the complete workflow and its content. The delivery process supplies automated checks, manual evaluation, and user feedback at the points where each is useful. <a href="accessibility-rendering-architecture.html">Accessibility and Rendering Architecture</a> examines the additional responsibilities introduced by client-side routing, streaming, and deferred interactivity.</p>
 
 </main>
 </div><!-- end .shell -->
