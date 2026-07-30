@@ -10,24 +10,7 @@
 <style>
   /* Article-specific only. Shared patterns (cards, callouts, code blocks,
      sidebar, tables) come from articles.css. */
-  .figure-wrap {
-    margin: 28px 0 8px;
-  }
-  .figure-wrap svg {
-    max-width: 100%;
-    display: block;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-  }
-  .figure-wrap figcaption {
-    font-size: 13px;
-    color: var(--text-dim);
-    margin-top: 10px;
-    line-height: 1.55;
-    max-width: var(--content-w);
-  }
-  .compare-grid {
+.compare-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 14px;
@@ -162,39 +145,39 @@
   <p>If <code>entry.ts</code> only ever writes <code>import { formatDate, formatCurrency } from './utils'</code>, a bundler can prove that <code>debugLog</code> is never reachable from the entry point. It can drop <code>debugLog</code>, and everything that function alone depends on, from the final bundle without executing a single line of it.</p>
 
   <div class="figure-wrap">
-    <svg viewBox="0 0 700 300" role="img" aria-label="Diagram showing tree-shaking as reachability from an entry point. An entry.ts box at the top has solid green arrows down to two reachable export boxes, formatDate and formatCurrency, which in turn have arrows down into a shipped bundle box. A third export box, debugLog, sits off to the side with a dashed faint border, no arrow connecting it to the entry point, and a label reading no import path, dropped." xmlns="http://www.w3.org/2000/svg">
+    <svg class="figure" viewBox="-20 -20 740 340" role="img" aria-label="Diagram showing tree-shaking as reachability from an entry point. An entry.ts box at the top has solid green arrows down to two reachable export boxes, formatDate and formatCurrency, which in turn have arrows down into a shipped bundle box. A third export box, debugLog, sits off to the side with a dashed faint border, no arrow connecting it to the entry point, and a label reading no import path, dropped." xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <marker id="arrow-green-ts" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-          <path d="M0,0 L10,5 L0,10 z" fill="var(--green)"/>
+        <marker id="arrow-green-ts" viewBox="0 0 10 10" markerWidth="6" markerHeight="6" refX="10" refY="5" orient="auto">
+          <polygon class="figure-arrow" points="0 0, 10 5, 0 10"/>
         </marker>
       </defs>
 
-      <text x="350" y="24" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" font-weight="700" fill="var(--accent)">REACHABILITY FROM THE ENTRY POINT</text>
+      <text class="figure-title is-accent-text" x="350" y="24" text-anchor="middle">Reachability from the entry point</text>
 
-      <rect x="280" y="42" width="140" height="36" rx="6" fill="var(--accent-wash)" stroke="color-mix(in srgb, var(--accent) 45%, transparent)"/>
-      <text x="350" y="65" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="var(--accent)">entry.ts</text>
+      <rect class="figure-node" x="280" y="42" width="140" height="36"/>
+      <text class="figure-note is-accent-text" x="350" y="65" text-anchor="middle">entry.ts</text>
 
-      <line x1="330" y1="78" x2="170" y2="118" stroke="var(--green)" stroke-width="1.5" marker-end="url(#arrow-green-ts)"/>
-      <line x1="360" y1="78" x2="395" y2="118" stroke="var(--green)" stroke-width="1.5" marker-end="url(#arrow-green-ts)"/>
+      <line class="figure-connector" x1="330" y1="78" x2="160" y2="122" marker-end="url(#arrow-green-ts)"/>
+      <line class="figure-connector" x1="360" y1="78" x2="400" y2="122" marker-end="url(#arrow-green-ts)"/>
 
-      <rect x="70" y="122" width="180" height="42" rx="6" fill="var(--green-wash)" stroke="color-mix(in srgb, var(--green) 45%, transparent)"/>
-      <text x="160" y="148" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10.5" fill="var(--green)">formatDate()</text>
+      <rect class="figure-node" x="70" y="122" width="180" height="42"/>
+      <text class="figure-note" x="160" y="148" text-anchor="middle">formatDate()</text>
 
-      <rect x="310" y="122" width="180" height="42" rx="6" fill="var(--green-wash)" stroke="color-mix(in srgb, var(--green) 45%, transparent)"/>
-      <text x="400" y="148" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10.5" fill="var(--green)">formatCurrency()</text>
+      <rect class="figure-node" x="310" y="122" width="180" height="42"/>
+      <text class="figure-note" x="400" y="148" text-anchor="middle">formatCurrency()</text>
 
-      <rect x="540" y="122" width="120" height="42" rx="6" fill="transparent" stroke="color-mix(in srgb, var(--text-faint) 45%, transparent)" stroke-dasharray="4,3"/>
-      <text x="600" y="143" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--text-faint)" text-decoration="line-through">debugLog()</text>
-      <text x="600" y="182" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="8.5" fill="var(--text-faint)">no import path</text>
+      <rect class="figure-node is-muted" x="540" y="122" width="120" height="42"/>
+      <text class="figure-note" x="600" y="143" text-anchor="middle" text-decoration="line-through">debugLog()</text>
+      <text class="figure-note" x="600" y="182" text-anchor="middle">no import path</text>
 
-      <line x1="160" y1="164" x2="270" y2="212" stroke="var(--green)" stroke-width="1.5" marker-end="url(#arrow-green-ts)"/>
-      <line x1="400" y1="164" x2="330" y2="212" stroke="var(--green)" stroke-width="1.5" marker-end="url(#arrow-green-ts)"/>
+      <line class="figure-connector" x1="160" y1="164" x2="270" y2="216" marker-end="url(#arrow-green-ts)"/>
+      <line class="figure-connector" x1="400" y1="164" x2="330" y2="216" marker-end="url(#arrow-green-ts)"/>
 
-      <rect x="210" y="216" width="240" height="44" rx="6" fill="var(--green-wash)" stroke="color-mix(in srgb, var(--green) 55%, transparent)"/>
-      <text x="330" y="234" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--green)">shipped bundle</text>
-      <text x="330" y="250" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">formatDate + formatCurrency only</text>
+      <rect class="figure-node" x="210" y="216" width="240" height="44"/>
+      <text class="figure-label" x="330" y="234" text-anchor="middle">shipped bundle</text>
+      <text class="figure-note" x="330" y="250" text-anchor="middle">formatDate + formatCurrency only</text>
 
-      <text x="600" y="284" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">dropped, not minified</text>
+      <text class="figure-note" x="600" y="214" text-anchor="middle">dropped, not minified</text>
     </svg>
     <figcaption>A bundler traces every static import from the entry point. formatDate and formatCurrency are reachable and end up in the shipped bundle. debugLog has no import path leading to it, so it's removed entirely rather than shrunk. The same treatment applies to anything that function alone depended on.</figcaption>
   </div>
@@ -240,54 +223,54 @@
   <p>In an application built from <a href="react-server-components.html#boundary">Server and Client Components</a>, the client boundary comes first. A component that never enters the <a href="react-server-components.html#islands">client module graph</a> does not ship as browser JavaScript. Code-splitting determines when reachable client code arrives. The server and client boundary determines whether it arrives at all.</p>
 
   <div class="figure-wrap">
-    <svg viewBox="0 0 700 300" role="img" aria-label="Two-panel comparison. Left panel, single bundle, shows one large box containing Home, Dashboard, and Settings all together, with a label reading everything downloads before first paint. Right panel, route-based split, shows a small app shell and router box at the top with a solid arrow down to a Home chunk box, labeled loaded eagerly, and two dashed arrows down to Dashboard chunk and Settings chunk boxes, labeled loaded only on navigation." xmlns="http://www.w3.org/2000/svg">
-      <line x1="350" y1="20" x2="350" y2="280" stroke="var(--border)" stroke-width="1"/>
+    <svg class="figure" viewBox="-20 -20 740 340" role="img" aria-label="Two-panel comparison. Left panel, single bundle, shows one large box containing Home, Dashboard, and Settings all together, with a label reading everything downloads before first paint. Right panel, route-based split, shows a small app shell and router box at the top with a solid arrow down to a Home chunk box, labeled loaded eagerly, and two dashed arrows down to Dashboard chunk and Settings chunk boxes, labeled loaded only on navigation." xmlns="http://www.w3.org/2000/svg">
+      <line class="figure-connector" x1="350" y1="20" x2="350" y2="280"/>
 
       <defs>
-        <marker id="arrow-accent-cs" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-          <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+        <marker id="arrow-accent-cs" viewBox="0 0 10 10" markerWidth="6" markerHeight="6" refX="10" refY="5" orient="auto">
+          <polygon class="figure-arrow" points="0 0, 10 5, 0 10"/>
         </marker>
-        <marker id="arrow-teal-cs" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-          <path d="M0,0 L10,5 L0,10 z" fill="var(--teal)"/>
+        <marker id="arrow-teal-cs" viewBox="0 0 10 10" markerWidth="6" markerHeight="6" refX="10" refY="5" orient="auto">
+          <polygon class="figure-arrow" points="0 0, 10 5, 0 10"/>
         </marker>
       </defs>
 
       <!-- LEFT: single bundle -->
-      <text x="175" y="26" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" font-weight="700" fill="var(--accent)">SINGLE BUNDLE</text>
+      <text class="figure-title is-accent-text" x="175" y="26" text-anchor="middle">Single bundle</text>
 
-      <rect x="60" y="46" width="230" height="150" rx="6" fill="var(--accent-wash)" stroke="color-mix(in srgb, var(--accent) 45%, transparent)"/>
-      <text x="175" y="86" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--accent)">Home</text>
-      <text x="175" y="110" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--accent)">Dashboard</text>
-      <text x="175" y="134" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--accent)">Settings</text>
-      <text x="175" y="158" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="11" fill="var(--accent)">vendor libs</text>
+      <rect class="figure-panel" x="60" y="46" width="230" height="150"/>
+      <text class="figure-label is-accent-text" x="175" y="86" text-anchor="middle">Home</text>
+      <text class="figure-label is-accent-text" x="175" y="110" text-anchor="middle">Dashboard</text>
+      <text class="figure-label is-accent-text" x="175" y="134" text-anchor="middle">Settings</text>
+      <text class="figure-label is-accent-text" x="175" y="158" text-anchor="middle">vendor libs</text>
 
-      <text x="175" y="222" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="var(--text-faint)">everything downloads</text>
-      <text x="175" y="238" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="var(--text-faint)">before first paint</text>
+      <text class="figure-note" x="175" y="222" text-anchor="middle">everything downloads</text>
+      <text class="figure-note" x="175" y="238" text-anchor="middle">before first paint</text>
 
       <!-- RIGHT: route-based split -->
-      <text x="525" y="26" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" font-weight="700" fill="var(--teal)">ROUTE-BASED SPLIT</text>
+      <text class="figure-title is-info-text" x="525" y="26" text-anchor="middle">Route-based split</text>
 
-      <rect x="455" y="44" width="140" height="34" rx="6" fill="var(--teal-wash)" stroke="color-mix(in srgb, var(--teal) 45%, transparent)"/>
-      <text x="525" y="65" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--teal)">shell + router</text>
+      <rect class="figure-node is-info" x="455" y="44" width="140" height="34"/>
+      <text class="figure-note is-info-text" x="525" y="65" text-anchor="middle">shell + router</text>
 
-      <line x1="480" y1="78" x2="425" y2="110" stroke="var(--teal)" stroke-width="1.5" marker-end="url(#arrow-teal-cs)"/>
-      <line x1="525" y1="78" x2="525" y2="110" stroke="var(--teal)" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow-teal-cs)"/>
-      <line x1="565" y1="78" x2="625" y2="110" stroke="var(--teal)" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow-teal-cs)"/>
+      <line class="figure-connector" x1="480" y1="78" x2="420" y2="114" marker-end="url(#arrow-teal-cs)"/>
+      <line class="figure-connector is-dashed" x1="525" y1="78" x2="525" y2="114" marker-end="url(#arrow-teal-cs)"/>
+      <line class="figure-connector is-dashed" x1="565" y1="78" x2="630" y2="114" marker-end="url(#arrow-teal-cs)"/>
 
-      <rect x="375" y="114" width="90" height="40" rx="5" fill="var(--teal-wash)" stroke="color-mix(in srgb, var(--teal) 50%, transparent)"/>
-      <text x="420" y="138" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--teal)">Home chunk</text>
+      <rect class="figure-node is-info" x="375" y="114" width="90" height="40"/>
+      <text class="figure-label is-info-text" x="420" y="138" text-anchor="middle">Home chunk</text>
 
-      <rect x="480" y="114" width="90" height="40" rx="5" fill="transparent" stroke="color-mix(in srgb, var(--teal) 50%, transparent)" stroke-dasharray="3,2"/>
-      <text x="525" y="138" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--teal)">Dashboard chunk</text>
+      <rect class="figure-node is-info" x="480" y="114" width="90" height="40"/>
+      <text class="figure-label is-info-text" x="525" y="138" text-anchor="middle">Dashboard chunk</text>
 
-      <rect x="585" y="114" width="90" height="40" rx="5" fill="transparent" stroke="color-mix(in srgb, var(--teal) 50%, transparent)" stroke-dasharray="3,2"/>
-      <text x="630" y="138" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--teal)">Settings chunk</text>
+      <rect class="figure-node is-info" x="585" y="114" width="90" height="40"/>
+      <text class="figure-label is-info-text" x="630" y="138" text-anchor="middle">Settings chunk</text>
 
-      <text x="420" y="172" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="8.5" fill="var(--text-faint)">loaded eagerly</text>
-      <text x="577" y="172" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="8.5" fill="var(--text-faint)">loaded only on navigation</text>
+      <text class="figure-note" x="420" y="172" text-anchor="middle">loaded eagerly</text>
+      <text class="figure-note" x="577" y="172" text-anchor="middle">loaded only on navigation</text>
 
-      <text x="525" y="222" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="var(--text-faint)">only the current route's code</text>
-      <text x="525" y="238" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="var(--text-faint)">downloads before first paint</text>
+      <text class="figure-note" x="525" y="222" text-anchor="middle">only the current route's code</text>
+      <text class="figure-note" x="525" y="238" text-anchor="middle">downloads before first paint</text>
     </svg>
     <figcaption>A single bundle ships every route's code on first visit whether or not it's ever used. A route-based split keeps the shell and the landing route's chunk eager, since those are needed immediately, and fetches Dashboard or Settings only once a visitor navigates there.</figcaption>
   </div>
@@ -386,3 +369,4 @@
 
 </body>
 </html>
+

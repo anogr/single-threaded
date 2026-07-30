@@ -7,27 +7,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="articles.css">
-<style>
-  /* Article-specific only. Shared patterns (cards, callouts, code blocks,
-     sidebar, tables) come from articles.css. */
-  .figure-wrap {
-    margin: 28px 0 8px;
-  }
-  .figure-wrap svg {
-    max-width: 100%;
-    display: block;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-  }
-  .figure-wrap figcaption {
-    font-size: 13px;
-    color: var(--text-dim);
-    margin-top: 10px;
-    line-height: 1.55;
-    max-width: var(--content-w);
-  }
-</style>
 </head>
 
 <body>
@@ -83,7 +62,7 @@
 
     <p><strong>User experience</strong> (UX) covers what happens as someone uses a product. Can they complete the task, understand the result, and trust what the product tells them? The <strong>user interface</strong> (UI) is the visual and interactive surface through which that experience is delivered. A polished screen can still produce a poor experience when its flow conflicts with the way people understand the task.</p>
 
-    <p>Many interface decisions are made twice. A design establishes the intended behavior, and the implementation decides how that behavior survives real input, data, and failure. The file may show a hover state, an error message, and a loading indicator. Code must still provide an alternative to hover on touch devices, preserve the error through state changes, and stop loading feedback when a request fails.</p>
+    <p>Many interface decisions are made twice. A design establishes the intended behavior, and the implementation decides how that behavior survives real input, data, and failure. The file may show a hover state, an error message, and a loading indicator. Code must still provide an alternative to hover on touch devices, preserve the error through state changes, and clear the loading state when a request fails. Code must still provide an alternative to hover on touch devices, preserve the error through state changes, and clear the loading state when a request fails.</p>
 
     <p>This article follows those decisions from usability and information architecture into visual hierarchy, tokens, and interaction feedback. Its focus is how to read and implement an existing direction well. Research methods and the wider process of forming that direction appear only where they help explain the result.</p>
   </section>
@@ -112,8 +91,6 @@
       </tbody>
     </table>
   </div>
-
-  <p>The same heuristics apply to features built around a language model. Generation needs visible progress rather than a blank pause, and an AI-drafted email still needs review before it is sent. Generated claims may also need citations, confidence cues, or an explicit verification step. Fluent prose does not establish that a claim is correct, so the interface should not imply otherwise.</p>
 
   <p>A style guide can enforce visual consistency without producing consistent behavior. Shortcuts, confirmation steps, and product terms must keep the same meaning wherever they appear. A “Save” action that behaves differently on two screens creates more confusion than a small difference in alignment.</p>
 
@@ -150,37 +127,37 @@
 
   <p><strong>Gestalt principles</strong> describe how visual relationships influence what people perceive as a group. In interface design, proximity is one of the most useful. Nearby elements tend to read as related, while a larger gap suggests a new group. Similarity creates another grouping signal through shared shape, color, or treatment. Two actions styled identically will appear to have comparable roles even if their labels describe very different consequences.</p>
 
-  <div class="figure-wrap">
-    <svg viewBox="0 0 700 250" role="img" aria-label="Two versions of the same four-field form shown side by side. On the left, the fields First name, Last name, Email, and Phone are spaced evenly and read as one undifferentiated list. On the right, the same four fields are grouped with a Contact label over the first two and a Shipping label over the last two, using a larger gap between the groups than within them, so the same fields now read as two distinct sections without any added borders or dividers." xmlns="http://www.w3.org/2000/svg">
-      <text x="20" y="24" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--text-dim)">The same four fields, regrouped by spacing alone</text>
+  <figure class="figure-wrap">
+    <svg class="figure" viewBox="0 0 700 300" role="img" aria-label="Two versions of the same four-field form shown side by side. On the left, First name, Last name, Street address, and Postal code have equal spacing and read as one list. On the right, the fields have the same labels and visual style, but a larger gap separates Last name from Street address. The gap makes the fields appear as two groups." xmlns="http://www.w3.org/2000/svg">
+      <text class="figure-title" x="20" y="24">Proximity changes perceived grouping</text>
 
-      <text x="180" y="52" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text-faint)">Same spacing throughout</text>
-      <rect x="90" y="64" width="180" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
-      <text x="180" y="81" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">First name</text>
-      <rect x="90" y="98" width="180" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
-      <text x="180" y="115" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Last name</text>
-      <rect x="90" y="132" width="180" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
-      <text x="180" y="149" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Email</text>
-      <rect x="90" y="166" width="180" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
-      <text x="180" y="183" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Phone</text>
+      <text class="figure-heading" x="180" y="48" text-anchor="middle">Equal spacing</text>
+      <rect class="figure-node" x="90" y="64" width="180" height="28"/>
+      <text class="figure-label" x="98" y="82">First name</text>
+      <rect class="figure-node" x="90" y="100" width="180" height="28"/>
+      <text class="figure-label" x="98" y="118">Last name</text>
+      <rect class="figure-node" x="90" y="136" width="180" height="28"/>
+      <text class="figure-label" x="98" y="154">Street address</text>
+      <rect class="figure-node" x="90" y="172" width="180" height="28"/>
+      <text class="figure-label" x="98" y="190">Postal code</text>
 
-      <text x="520" y="52" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text-faint)">Grouped by spacing</text>
-      <text x="430" y="62" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="var(--accent)">CONTACT</text>
-      <rect x="430" y="68" width="180" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
-      <text x="520" y="85" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">First name</text>
-      <rect x="430" y="102" width="180" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
-      <text x="520" y="119" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Last name</text>
-      <text x="430" y="150" font-family="Inter,system-ui,sans-serif" font-size="9.5" font-weight="600" fill="var(--accent)">SHIPPING</text>
-      <rect x="430" y="156" width="180" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
-      <text x="520" y="173" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Email</text>
-      <rect x="430" y="190" width="180" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
-      <text x="520" y="207" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Phone</text>
+      <text class="figure-heading" x="520" y="48" text-anchor="middle">A larger gap between pairs</text>
+      <rect class="figure-node" x="430" y="64" width="180" height="28"/>
+      <text class="figure-label" x="438" y="82">First name</text>
+      <rect class="figure-node" x="430" y="100" width="180" height="28"/>
+      <text class="figure-label" x="438" y="118">Last name</text>
+      <rect class="figure-node" x="430" y="160" width="180" height="28"/>
+      <text class="figure-label" x="438" y="178">Street address</text>
+      <rect class="figure-node" x="430" y="196" width="180" height="28"/>
+      <text class="figure-label" x="438" y="214">Postal code</text>
 
-      <text x="20" y="228" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Same four fields, same labels, same visual style on both sides.</text>
-      <text x="20" y="243" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Only the spacing between rows changed.</text>
+      <text class="figure-note" x="20" y="248">Same four fields, same labels, same visual style on both sides.</text>
+      <text class="figure-note" x="20" y="264">Only the spacing between rows changed.</text>
     </svg>
-    <figcaption>Proximity does the work here on its own. No divider, border, or heading style changed between the two versions, only the gap between one pair of fields and the next.</figcaption>
-  </div>
+    <figcaption>The larger gap makes two pairs appear where equal spacing produced one list. Nothing except the distance between the middle rows has changed.</figcaption>
+  </figure>
+
+  <p>The comparison isolates proximity so its effect is easy to see. A real form should not leave the relationship to spacing alone. Visible group names explain the structure, while semantic HTML such as <code>fieldset</code> and <code>legend</code> makes it available to assistive technology.</p>
 
   <p>Eye-tracking research on text-heavy web pages identified a common F-shaped scanning pattern. It describes a behavior that often appears when people scan weakly formatted content. It is not a template for every screen. Strong headings and visible actions can guide attention along a different path. The broader lesson is that people often scan before they read closely, so the hierarchy should reveal the page's structure during that first pass.</p>
 
@@ -230,40 +207,40 @@
 
   <p>Knowing where these states come from in the first place matters as much as knowing they exist. A design file usually shows one of them, and the rest get inferred, requested, or invented at implementation time. <a href="implementing-figma-designs.html">Implementing Figma Designs</a> covers that gap from the Figma side, including where in a file the other states typically live, when they exist at all.</p>
 
-  <div class="figure-wrap">
-    <svg viewBox="0 0 700 200" role="img" aria-label="A single Save button shown across six states: default, hover, focus, active, disabled, and loading. The default state is a plain outlined button. Hover adds an accent-colored border. Focus adds a visible outer ring around the button. Active fills the button with the accent color. Disabled shows the same button at reduced opacity with muted text. Loading replaces the button's text with a small spinner icon." xmlns="http://www.w3.org/2000/svg">
-      <text x="20" y="24" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--text-dim)">One button, six states a static mock rarely shows</text>
+  <figure class="figure-wrap">
+    <svg class="figure" viewBox="0 0 700 216" role="img" aria-label="A single Save button shown across six states: default, hover, focus, active, disabled, and loading. The default state is a plain outlined button. Hover adds an accent-colored border. Focus adds a visible outer ring around the button. Active fills the button with the accent color. Disabled shows a muted button. Loading replaces the button's text with a small spinner icon." xmlns="http://www.w3.org/2000/svg">
+      <text class="figure-title" x="20" y="24">One button, six states a static mock rarely shows</text>
 
-      <rect x="40" y="60" width="90" height="34" rx="6" fill="var(--surface-2)" stroke="var(--border)"/>
-      <text x="85" y="81" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">Save</text>
-      <text x="85" y="118" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Default</text>
+      <rect class="figure-node" x="40" y="64" width="88" height="32"/>
+      <text class="figure-label" x="84" y="84" text-anchor="middle">Save</text>
+      <text class="figure-note" x="84" y="120" text-anchor="middle">Default</text>
 
-      <rect x="146" y="60" width="90" height="34" rx="6" fill="var(--accent-wash)" stroke="var(--accent)"/>
-      <text x="191" y="81" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">Save</text>
-      <text x="191" y="118" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Hover</text>
+      <rect class="figure-node is-accent" x="144" y="64" width="88" height="32"/>
+      <text class="figure-label" x="188" y="84" text-anchor="middle">Save</text>
+      <text class="figure-note" x="188" y="120" text-anchor="middle">Hover</text>
 
-      <rect x="248" y="56" width="98" height="42" rx="8" fill="none" stroke="var(--accent)" stroke-width="2"/>
-      <rect x="252" y="60" width="90" height="34" rx="6" fill="var(--surface-2)" stroke="var(--border)"/>
-      <text x="297" y="81" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text)">Save</text>
-      <text x="297" y="118" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Focus</text>
+      <rect class="figure-guide figure-emphasis is-accent-stroke" x="244" y="60" width="96" height="40"/>
+      <rect class="figure-node" x="248" y="64" width="88" height="32"/>
+      <text class="figure-label" x="292" y="84" text-anchor="middle">Save</text>
+      <text class="figure-note" x="292" y="120" text-anchor="middle">Focus</text>
 
-      <rect x="358" y="60" width="90" height="34" rx="6" fill="var(--accent)" stroke="var(--accent)"/>
-      <text x="403" y="81" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--bg)">Save</text>
-      <text x="403" y="118" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Active</text>
+      <rect class="figure-node is-accent" x="352" y="64" width="88" height="32"/>
+      <text class="figure-label is-accent-text" x="396" y="84" text-anchor="middle">Save</text>
+      <text class="figure-note" x="396" y="120" text-anchor="middle">Active</text>
 
-      <rect x="464" y="60" width="90" height="34" rx="6" fill="var(--surface)" stroke="var(--border)" opacity="0.6"/>
-      <text x="509" y="81" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10.5" fill="var(--text-faint)" opacity="0.8">Save</text>
-      <text x="509" y="118" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Disabled</text>
+      <rect class="figure-node is-muted" x="456" y="64" width="88" height="32"/>
+      <text class="figure-label" x="500" y="84" text-anchor="middle">Save</text>
+      <text class="figure-note" x="500" y="120" text-anchor="middle">Disabled</text>
 
-      <rect x="570" y="60" width="90" height="34" rx="6" fill="var(--surface-2)" stroke="var(--border)"/>
-      <circle cx="615" cy="77" r="8" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="28 22"/>
-      <text x="615" y="118" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">Loading</text>
+      <rect class="figure-node" x="560" y="64" width="88" height="32"/>
+      <circle class="figure-connector figure-emphasis is-dashed is-accent-stroke" cx="604" cy="80" r="8"/>
+      <text class="figure-note" x="604" y="120" text-anchor="middle">Loading</text>
 
-      <text x="20" y="150" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">A design handoff that shows only the leftmost state leaves the other five as</text>
-      <text x="20" y="166" font-family="Inter,system-ui,sans-serif" font-size="10" fill="var(--text-dim)">implicit decisions, made ad hoc during implementation instead of on purpose.</text>
+      <text class="figure-note" x="20" y="164">A design handoff that shows only the leftmost state leaves the other five as</text>
+      <text class="figure-note" x="20" y="180">implicit decisions, made ad hoc during implementation instead of on purpose.</text>
     </svg>
     <figcaption>Six states, one component. A design file that only shows the default state is more common than one that shows all six, which means most of this matrix gets decided by whoever builds the component, not whoever designed it.</figcaption>
-  </div>
+  </figure>
 
   <div class="callout warn">
     <div class="callout-title">Not every state earns a bespoke treatment</div>
@@ -291,7 +268,7 @@
 
   <p>Form validation has a similar timing choice. Submit-time validation reports problems after the person attempts to continue, which avoids interrupting unfinished input. Inline validation can catch a mistake while its context is still visible, but it should wait until the value is meaningfully checkable. Reporting an error while someone is still typing creates noise rather than help.</p>
 
-  <p>What an error says matters more than where it's reported. A useful error message explains what happened, why, and what to do next, without exposing internal system details a user can't act on. "Error 500" tells someone nothing they can use. "We couldn't save your changes. Check your connection and try again" tells them what failed and what to try, without describing whatever crashed on the server to cause it.</p>
+  <p>What an error says matters more than where it's reported. A useful error message explains what happened, why, and what to do next, without exposing internal system details a user can't act on. "Error 500" tells someone nothing they can use. "We couldn't save your changes. Try again later." tells them what failed and what to try, without describing whatever crashed on the server to cause it.</p>
 
   <p>An empty state needs to distinguish absence from failure. A first login, an inbox with no messages, and a search with no matches are different situations even though each produces an empty region. Useful copy explains why nothing appears and offers a relevant next step when one exists.</p>
 

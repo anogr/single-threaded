@@ -100,51 +100,39 @@
   <h2 id="handshake">The TLS handshake</h2>
   <p class="lede">Steps 1 and 2 use asymmetric math (ECDHE) to derive a shared secret. From there, everything including the certificate travels encrypted, and step 4 is where ordinary application traffic begins.</p>
 
-  <figure style="margin:24px 0 8px;">
-    <svg viewBox="0 0 700 330" style="max-width:100%;display:block;background:var(--surface);border:1px solid var(--border);border-radius:8px;" role="img" aria-label="TLS 1.3 Handshake sequence diagram showing 4 steps between Browser and Server" xmlns="http://www.w3.org/2000/svg">
+  <figure class="figure-wrap">
+    <svg class="figure" viewBox="0 0 700 392" role="img" aria-label="TLS 1.3 handshake sequence diagram showing four steps between browser and server" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <marker id="tls-r" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-          <polygon points="0 0, 8 3, 0 6" fill="var(--text-dim)"/>
-        </marker>
-        <marker id="tls-l" markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto">
-          <polygon points="8 0, 0 3, 8 6" fill="var(--text-dim)"/>
-        </marker>
-        <marker id="tls-lo" markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto">
-          <polygon points="8 0, 0 3, 8 6" fill="var(--orange)"/>
-        </marker>
-        <marker id="tls-rg" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-          <polygon points="0 0, 8 3, 0 6" fill="var(--green)"/>
-        </marker>
-        <marker id="tls-lg" markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto">
-          <polygon points="8 0, 0 3, 8 6" fill="var(--green)"/>
+        <marker class="is-muted-color" id="tls-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path class="figure-arrow" d="M0,0 L10,5 L0,10 z"/>
         </marker>
       </defs>
-      <text x="350" y="22" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="12" fill="var(--text-dim)" letter-spacing="0.05em">TLS 1.3 Handshake: 4 Steps</text>
-      <rect x="20" y="30" width="140" height="36" rx="6" fill="var(--surface-2)" stroke="var(--border)" stroke-width="1.5"/>
-      <text x="90" y="53" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="13" font-weight="600" fill="var(--text)">Browser</text>
-      <rect x="540" y="30" width="140" height="36" rx="6" fill="var(--surface-2)" stroke="var(--accent)" stroke-width="1.5"/>
-      <text x="610" y="53" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="13" font-weight="600" fill="var(--text)">Server</text>
-      <line x1="90" y1="66" x2="90" y2="320" stroke="var(--border)" stroke-width="1" stroke-dasharray="4,3"/>
-      <line x1="610" y1="66" x2="610" y2="320" stroke="var(--border)" stroke-width="1" stroke-dasharray="4,3"/>
-      <line x1="98" y1="100" x2="602" y2="100" stroke="var(--text-dim)" stroke-width="1.5" marker-end="url(#tls-r)"/>
-      <text x="350" y="96" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text)">ClientHello</text>
-      <text x="350" y="114" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--text-faint)">Supported TLS versions, cipher suites, client random, key share</text>
-      <line x1="602" y1="158" x2="98" y2="158" stroke="var(--text-dim)" stroke-width="1.5" marker-end="url(#tls-l)"/>
-      <text x="350" y="154" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text)">ServerHello + Key Share</text>
-      <text x="350" y="172" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--text-faint)">Chosen cipher, server random, server's key share (ECDHE)</text>
-      <rect x="22" y="182" width="180" height="28" rx="4" fill="color-mix(in srgb, var(--accent) 8%, transparent)" stroke="color-mix(in srgb, var(--accent) 20%, transparent)" stroke-width="1"/>
-      <text x="112" y="200" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="var(--accent)">Derive shared secret (ECDHE)</text>
-      <line x1="602" y1="228" x2="98" y2="228" stroke="var(--orange)" stroke-width="1.5" marker-end="url(#tls-lo)"/>
-      <text x="350" y="224" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--orange)">Certificate + Finished</text>
-      <text x="350" y="242" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--text-faint)">Certificate, signature, and Finished sent already encrypted</text>
-      <rect x="160" y="252" width="380" height="24" rx="4" fill="color-mix(in srgb, var(--teal) 8%, transparent)" stroke="color-mix(in srgb, var(--teal) 20%, transparent)" stroke-width="1"/>
-      <text x="350" y="268" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9.5" fill="var(--teal)">Browser verifies the certificate chain and the server's signature</text>
-      <line x1="98" y1="295" x2="602" y2="295" stroke="var(--green)" stroke-width="1.5" marker-end="url(#tls-rg)"/>
-      <line x1="602" y1="305" x2="98" y2="305" stroke="var(--green)" stroke-width="1.5" marker-end="url(#tls-lg)"/>
-      <text x="350" y="291" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--green)">Secure session: application data begins</text>
-      <text x="350" y="318" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--text-faint)">All subsequent traffic uses symmetric encryption (fast)</text>
+      <text class="figure-title" x="20" y="24">TLS 1.3 handshake · Four steps</text>
+      <rect class="figure-node" x="20" y="36" width="140" height="36"/>
+      <text class="figure-label" x="90" y="58" text-anchor="middle">Browser</text>
+      <rect class="figure-node is-accent" x="540" y="36" width="140" height="36"/>
+      <text class="figure-label" x="610" y="58" text-anchor="middle">Server</text>
+      <line class="figure-guide" x1="90" y1="72" x2="90" y2="360"/>
+      <line class="figure-guide" x1="610" y1="72" x2="610" y2="360"/>
+      <line class="figure-connector" x1="90" y1="108" x2="610" y2="108" marker-end="url(#tls-arrow)"/>
+      <text class="figure-label" x="350" y="104" text-anchor="middle">ClientHello</text>
+      <text class="figure-note" x="350" y="124" text-anchor="middle">Supported TLS versions, cipher suites, client random, and key share</text>
+      <line class="figure-connector" x1="610" y1="168" x2="90" y2="168" marker-end="url(#tls-arrow)"/>
+      <text class="figure-label" x="350" y="164" text-anchor="middle">ServerHello + key share</text>
+      <text class="figure-note" x="350" y="184" text-anchor="middle">Chosen cipher, server random, and server's key share (ECDHE)</text>
+      <rect class="figure-node is-accent" x="20" y="196" width="184" height="32"/>
+      <text class="figure-note is-accent-text" x="112" y="216" text-anchor="middle">Derive shared secret (ECDHE)</text>
+      <line class="figure-connector is-accent-stroke" x1="610" y1="252" x2="90" y2="252" marker-end="url(#tls-arrow)"/>
+      <text class="figure-label is-accent-text" x="350" y="248" text-anchor="middle">Certificate + Finished</text>
+      <text class="figure-note" x="350" y="268" text-anchor="middle">Certificate, signature, and Finished are already encrypted</text>
+      <rect class="figure-node is-info" x="160" y="280" width="380" height="32"/>
+      <text class="figure-note is-info-text" x="350" y="300" text-anchor="middle">Browser verifies the certificate chain and the server's signature</text>
+      <line class="figure-connector" x1="90" y1="336" x2="610" y2="336" marker-end="url(#tls-arrow)"/>
+      <line class="figure-connector" x1="610" y1="348" x2="90" y2="348" marker-end="url(#tls-arrow)"/>
+      <text class="figure-label" x="350" y="332" text-anchor="middle">Secure session: application data begins</text>
+      <text class="figure-note" x="350" y="368" text-anchor="middle">All subsequent traffic uses symmetric encryption</text>
     </svg>
-    <figcaption style="font-size:13px;color:var(--text-dim);margin-top:8px;line-height:1.5;">Steps 1 and 2 use ECDHE, an asymmetric key exchange, to let browser and server independently derive the same shared secret. From that point on, everything including the certificate travels encrypted with keys derived from that secret. Step 3 is where the browser verifies the certificate. Step 4 is ordinary application traffic, encrypted with symmetric session keys.</figcaption>
+    <figcaption>Steps 1 and 2 use ECDHE, an asymmetric key exchange, to let browser and server independently derive the same shared secret. From that point on, everything including the certificate travels encrypted with keys derived from that secret. Step 3 is where the browser verifies the certificate. Step 4 is ordinary application traffic, encrypted with symmetric session keys.</figcaption>
   </figure>
 
   <div class="table-wrap">

@@ -75,46 +75,42 @@
 
   <p>The distinction between retrieval and generation is the key to operating the feature. Search determines which evidence is available; generation determines how that evidence becomes an answer. A stronger generating model cannot recover a passage that retrieval omitted, while perfect retrieval cannot force the model to represent the passage faithfully. Each layer needs its own evaluation.</p>
 
-  <figure style="margin:24px 0 8px;">
-    <svg viewBox="0 0 700 310" style="max-width:100%;display:block;background:var(--surface);border:1px solid var(--border);border-radius:8px;" role="img" aria-label="Two pipelines. The online request path runs from query through embedding, index search, and reranking to generation. The offline indexing pipeline runs from documents through parsing, chunking, and embedding into the index the request path searches." xmlns="http://www.w3.org/2000/svg">
+  <figure class="figure-wrap">
+    <svg class="figure" viewBox="0 0 700 312" role="img" aria-label="Two pipelines. The online request path runs from query through embedding, index search, and reranking to generation. The offline indexing pipeline runs from documents through parsing, chunking, and embedding into the index the request path searches." xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <marker id="rag-a" markerWidth="7" markerHeight="6" refX="6" refY="3" orient="auto"><polygon points="0 0,7 3,0 6" fill="var(--accent)"/></marker>
-        <marker id="rag-t" markerWidth="7" markerHeight="6" refX="6" refY="3" orient="auto"><polygon points="0 0,7 3,0 6" fill="var(--teal)"/></marker>
+        <marker id="rag-a" viewBox="0 0 10 10" markerWidth="6" markerHeight="6" refX="9" refY="5" orient="auto"><polygon class="figure-arrow" points="0,0 10,5 0,10"/></marker>
+        <marker id="rag-t" viewBox="0 0 10 10" markerWidth="6" markerHeight="6" refX="9" refY="5" orient="auto"><polygon class="figure-arrow" points="0,0 10,5 0,10"/></marker>
       </defs>
-      <text x="25" y="34" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--text-faint)">REQUEST PATH (per query)</text>
-      <g font-family="'IBM Plex Mono',monospace" font-size="9.5">
-        <rect x="25" y="48" width="110" height="44" rx="5" fill="var(--surface-2)" stroke="var(--border)"/><text x="80" y="74" text-anchor="middle" fill="var(--text-dim)">Query</text>
-        <rect x="160" y="48" width="110" height="44" rx="5" fill="var(--surface-2)" stroke="var(--border)"/><text x="215" y="74" text-anchor="middle" fill="var(--text-dim)">Embed query</text>
-        <rect x="295" y="48" width="110" height="44" rx="5" fill="var(--surface-2)" stroke="var(--border)"/><text x="350" y="74" text-anchor="middle" fill="var(--text-dim)">Search index</text>
-        <rect x="430" y="48" width="110" height="44" rx="5" fill="var(--surface-2)" stroke="var(--border)"/><text x="485" y="74" text-anchor="middle" fill="var(--text-dim)">Rerank</text>
-        <rect x="565" y="48" width="110" height="44" rx="5" fill="color-mix(in srgb, var(--accent) 12%, transparent)" stroke="var(--accent)"/><text x="620" y="68" text-anchor="middle" fill="var(--accent)">Generate</text><text x="620" y="82" text-anchor="middle" font-size="8" fill="var(--text-faint)">chunks + question</text>
+      <text class="figure-title" x="20" y="24">Request path (per query)</text>
+      <rect class="figure-node" x="20" y="40" width="104" height="48"/><text class="figure-label" x="72" y="68" text-anchor="middle">Query</text>
+      <rect class="figure-node" x="152" y="40" width="104" height="48"/><text class="figure-label" x="204" y="68" text-anchor="middle">Embed query</text>
+      <rect class="figure-node" x="284" y="40" width="104" height="48"/><text class="figure-label" x="336" y="68" text-anchor="middle">Search index</text>
+      <rect class="figure-node" x="416" y="40" width="104" height="48"/><text class="figure-label" x="468" y="68" text-anchor="middle">Rerank</text>
+      <rect class="figure-node is-accent" x="548" y="40" width="104" height="48"/><text class="figure-label is-accent-text" x="600" y="60" text-anchor="middle">Generate</text><text class="figure-note" x="600" y="76" text-anchor="middle">chunks + question</text>
+      <g class="is-accent-color">
+        <line class="figure-connector is-accent-stroke" x1="124" y1="64" x2="152" y2="64" marker-end="url(#rag-a)"/>
+        <line class="figure-connector is-accent-stroke" x1="256" y1="64" x2="284" y2="64" marker-end="url(#rag-a)"/>
+        <line class="figure-connector is-accent-stroke" x1="388" y1="64" x2="416" y2="64" marker-end="url(#rag-a)"/>
+        <line class="figure-connector is-accent-stroke" x1="520" y1="64" x2="548" y2="64" marker-end="url(#rag-a)"/>
       </g>
-      <g stroke="var(--accent)" stroke-width="1.4">
-        <line x1="135" y1="70" x2="156" y2="70" marker-end="url(#rag-a)"/>
-        <line x1="270" y1="70" x2="291" y2="70" marker-end="url(#rag-a)"/>
-        <line x1="405" y1="70" x2="426" y2="70" marker-end="url(#rag-a)"/>
-        <line x1="540" y1="70" x2="561" y2="70" marker-end="url(#rag-a)"/>
+      <text class="figure-title" x="20" y="184">Indexing pipeline (on document change)</text>
+      <rect class="figure-node" x="20" y="200" width="104" height="48"/><text class="figure-label" x="72" y="228" text-anchor="middle">Documents</text>
+      <rect class="figure-node" x="152" y="200" width="104" height="48"/><text class="figure-label" x="204" y="228" text-anchor="middle">Parse</text>
+      <rect class="figure-node" x="284" y="200" width="104" height="48"/><text class="figure-label" x="336" y="228" text-anchor="middle">Chunk</text>
+      <rect class="figure-node" x="416" y="200" width="104" height="48"/><text class="figure-label" x="468" y="228" text-anchor="middle">Embed</text>
+      <rect class="figure-node" x="548" y="200" width="104" height="48"/><text class="figure-label" x="600" y="228" text-anchor="middle">Index</text>
+      <g class="is-muted-color">
+        <line class="figure-connector" x1="124" y1="224" x2="152" y2="224" marker-end="url(#rag-t)"/>
+        <line class="figure-connector" x1="256" y1="224" x2="284" y2="224" marker-end="url(#rag-t)"/>
+        <line class="figure-connector" x1="388" y1="224" x2="416" y2="224" marker-end="url(#rag-t)"/>
+        <line class="figure-connector" x1="520" y1="224" x2="548" y2="224" marker-end="url(#rag-t)"/>
       </g>
-      <text x="25" y="188" font-family="'IBM Plex Mono',monospace" font-size="10" fill="var(--text-faint)">INDEXING PIPELINE (on document change)</text>
-      <g font-family="'IBM Plex Mono',monospace" font-size="9.5">
-        <rect x="25" y="202" width="110" height="44" rx="5" fill="var(--surface-2)" stroke="var(--border)"/><text x="80" y="228" text-anchor="middle" fill="var(--text-dim)">Documents</text>
-        <rect x="160" y="202" width="110" height="44" rx="5" fill="var(--surface-2)" stroke="var(--border)"/><text x="215" y="228" text-anchor="middle" fill="var(--text-dim)">Parse</text>
-        <rect x="295" y="202" width="110" height="44" rx="5" fill="var(--surface-2)" stroke="var(--border)"/><text x="350" y="228" text-anchor="middle" fill="var(--text-dim)">Chunk</text>
-        <rect x="430" y="202" width="110" height="44" rx="5" fill="var(--surface-2)" stroke="var(--border)"/><text x="485" y="228" text-anchor="middle" fill="var(--text-dim)">Embed</text>
-        <rect x="565" y="202" width="110" height="44" rx="5" fill="var(--surface-2)" stroke="var(--border)"/><text x="620" y="228" text-anchor="middle" fill="var(--text-dim)">Index</text>
-      </g>
-      <g stroke="var(--teal)" stroke-width="1.4">
-        <line x1="135" y1="224" x2="156" y2="224" marker-end="url(#rag-t)"/>
-        <line x1="270" y1="224" x2="291" y2="224" marker-end="url(#rag-t)"/>
-        <line x1="405" y1="224" x2="426" y2="224" marker-end="url(#rag-t)"/>
-        <line x1="540" y1="224" x2="561" y2="224" marker-end="url(#rag-t)"/>
-      </g>
-      <line x1="600" y1="198" x2="370" y2="96" stroke="var(--teal)" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#rag-t)"/>
-      <text x="530" y="140" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">the index the</text>
-      <text x="530" y="153" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">request path searches</text>
-      <text x="25" y="286" font-family="'IBM Plex Mono',monospace" font-size="9" fill="var(--text-faint)">the model appears once, in the last box of the top row</text>
+      <line class="figure-connector is-dashed" x1="600" y1="200" x2="336" y2="88" marker-end="url(#rag-t)"/>
+      <text class="figure-note" x="500" y="132">The request path searches</text>
+      <text class="figure-note" x="500" y="148">this prepared index</text>
+      <text class="figure-note" x="20" y="288">The generating model appears once, in the last box of the request path.</text>
     </svg>
-    <figcaption style="font-size:13px;color:var(--text-dim);margin-top:8px;line-height:1.5;">The two halves of RAG. The offline pipeline prepares the index whenever documents change. The request path searches it per query, and the model only enters at the final step.</figcaption>
+    <figcaption>The two halves of RAG. The offline pipeline prepares the index whenever documents change. The request path searches it per query, and the model only enters at the final step.</figcaption>
   </figure>
 
   <!-- ══════════════════════════════════════════════════ -->

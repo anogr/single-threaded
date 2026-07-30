@@ -1,5 +1,5 @@
 /* ── Google Fonts ─────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;0,6..72,700;1,6..72,300;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;0,6..72,700;1,6..72,300;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 /* ── Design tokens ────────────────────────────────────────── */
 /* Warm near-black, ivory text. One brand accent (amber). Four muted
@@ -53,6 +53,27 @@
   --font-sans:   'Newsreader', Georgia, serif;
   --font-mono:   'IBM Plex Mono', monospace;
 
+  /* Inline figures */
+  --figure-font:             Inter, system-ui, sans-serif;
+  --figure-title-size:       11px;
+  --figure-heading-size:     10.5px;
+  --figure-label-size:       10px;
+  --figure-note-size:        10px;
+  --figure-frame-radius:     8px;
+  --figure-node-radius:      4px;
+  --figure-panel-radius:     8px;
+  --figure-stroke:           1px;
+  --figure-connector-stroke: 1.5px;
+  --figure-emphasis-stroke:  2px;
+  --figure-semantic-wash:    14%;
+  --figure-canvas-inset:     20px;
+  --figure-space-tight:      8px;
+  --figure-space-default:    16px;
+  --figure-space-group:      24px;
+  --figure-space-section:    32px;
+  --figure-block-margin:     28px;
+  --figure-caption-gap:      10px;
+
   /* Layout */
   --sidebar-w:   260px;
   --content-w:   720px;
@@ -103,8 +124,152 @@ button {
   border: none;
 }
 
-figcaption {
-  margin-bottom: 16px;
+.figure-wrap {
+  margin: var(--figure-block-margin) 0 var(--figure-space-tight);
+}
+
+.figure {
+  max-width: 100%;
+  display: block;
+  background: var(--surface);
+  border: var(--figure-stroke) solid var(--border);
+  border-radius: var(--figure-frame-radius);
+}
+
+.figure-wrap figcaption {
+  max-width: var(--content-w);
+  margin-top: var(--figure-caption-gap);
+  margin-bottom: var(--figure-space-default);
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.figure-title,
+.figure-heading,
+.figure-label,
+.figure-note {
+  font-family: var(--figure-font);
+  font-style: normal;
+  letter-spacing: normal;
+}
+
+.figure-title {
+  fill: var(--text-dim);
+  font-size: var(--figure-title-size);
+  font-weight: 600;
+}
+
+.figure-heading {
+  fill: var(--text-faint);
+  font-size: var(--figure-heading-size);
+  font-weight: 400;
+}
+
+.figure-label {
+  fill: var(--text-dim);
+  font-size: var(--figure-label-size);
+  font-weight: 400;
+}
+
+.figure-note {
+  fill: var(--text-dim);
+  font-size: var(--figure-note-size);
+  font-weight: 400;
+}
+
+.figure-node {
+  rx: var(--figure-node-radius);
+  fill: var(--surface-2);
+  stroke: var(--border);
+  stroke-width: var(--figure-stroke);
+}
+
+.figure-panel {
+  rx: var(--figure-panel-radius);
+  fill: var(--surface);
+  stroke: var(--border);
+  stroke-width: var(--figure-stroke);
+}
+
+.figure-guide {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: var(--figure-stroke);
+}
+
+.figure-connector {
+  fill: none;
+  stroke: var(--text-faint);
+  stroke-width: var(--figure-connector-stroke);
+}
+
+.figure-emphasis {
+  stroke-width: var(--figure-emphasis-stroke);
+}
+
+.figure-connector.is-dashed,
+.figure-panel.is-dashed {
+  stroke-dasharray: 5 3;
+}
+
+.figure-node.is-accent {
+  fill: color-mix(in srgb, var(--accent) var(--figure-semantic-wash), transparent);
+  stroke: var(--accent);
+}
+
+.figure-node.is-info {
+  fill: color-mix(in srgb, var(--teal) var(--figure-semantic-wash), transparent);
+  stroke: var(--teal);
+}
+
+.figure-node.is-gold {
+  fill: color-mix(in srgb, var(--gold) var(--figure-semantic-wash), transparent);
+  stroke: var(--gold);
+}
+
+.figure-node.is-clay {
+  fill: color-mix(in srgb, var(--accent2) var(--figure-semantic-wash), transparent);
+  stroke: var(--accent2);
+}
+
+.figure-node.is-muted {
+  fill: color-mix(in srgb, var(--text-faint) var(--figure-semantic-wash), transparent);
+  stroke: var(--text-faint);
+}
+
+.figure-panel.is-info {
+  fill: color-mix(in srgb, var(--teal) var(--figure-semantic-wash), transparent);
+  stroke: var(--teal);
+}
+
+.figure-panel.is-muted {
+  fill: color-mix(in srgb, var(--text-faint) var(--figure-semantic-wash), transparent);
+  stroke: var(--text-faint);
+}
+
+.figure .is-accent-text {
+  fill: var(--accent);
+}
+
+.figure .is-info-text {
+  fill: var(--teal);
+}
+
+.figure .is-accent-stroke {
+  stroke: var(--accent);
+}
+
+.figure .is-muted-color {
+  color: var(--text-faint);
+}
+
+.figure .is-accent-color {
+  color: var(--accent);
+}
+
+.figure-arrow {
+  fill: currentColor;
 }
 
 :focus-visible {

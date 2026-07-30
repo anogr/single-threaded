@@ -127,32 +127,41 @@
     <code>ThemeToggle</code>, <code>Avatar</code>, and <code>CartBadge</code> all subscribe to <code>AppContext</code>. Replacing its value after a cart update therefore schedules all three consumers. The extra work may be irrelevant in a small tree, but it becomes easier to notice when the provider contains fast-changing state and many consumers.
   </p>
 
-  <svg viewBox="0 0 700 260" role="img" aria-label="A cart update inside a single shared AppContext re-renders ThemeToggle and Avatar even though neither reads the cart field, because all three are subscribed to the same context value." xmlns="http://www.w3.org/2000/svg">
-    <rect x="260" y="20" width="180" height="54" rx="6" fill="color-mix(in srgb, var(--accent) 14%, transparent)" stroke="color-mix(in srgb, var(--accent) 45%, transparent)"/>
-    <text x="350" y="42" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--accent)">AppContext value</text>
-    <text x="350" y="60" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">{ user, theme, cart, notifications }</text>
+  <figure class="figure-wrap">
+    <svg class="figure" viewBox="0 0 704 264" role="img" aria-label="A cart update inside a single shared AppContext re-renders ThemeToggle and Avatar even though neither reads the cart field, because all three are subscribed to the same context value." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="context-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><polygon class="figure-arrow" points="0,0 10,5 0,10"/></marker>
+      </defs>
+      <rect class="figure-node is-accent" x="252" y="20" width="200" height="56"/>
+      <text class="figure-title is-accent-text" x="352" y="44" text-anchor="middle">AppContext value</text>
+      <text class="figure-note" x="352" y="60" text-anchor="middle">{ user, theme, cart, notifications }</text>
 
-    <line x1="350" y1="74" x2="130" y2="140" stroke="var(--red)" stroke-width="1.5"/>
-    <line x1="350" y1="74" x2="350" y2="140" stroke="var(--red)" stroke-width="1.5"/>
-    <line x1="350" y1="74" x2="570" y2="140" stroke="var(--red)" stroke-width="1.5"/>
+      <g class="is-accent-color">
+        <line class="figure-connector is-accent-stroke" x1="352" y1="76" x2="352" y2="112"/>
+        <line class="figure-connector is-accent-stroke" x1="120" y1="112" x2="584" y2="112"/>
+        <line class="figure-connector is-accent-stroke" x1="120" y1="112" x2="120" y2="144" marker-end="url(#context-arrow)"/>
+        <line class="figure-connector is-accent-stroke" x1="352" y1="112" x2="352" y2="144" marker-end="url(#context-arrow)"/>
+        <line class="figure-connector is-accent-stroke" x1="584" y1="112" x2="584" y2="144" marker-end="url(#context-arrow)"/>
+      </g>
 
-    <rect x="40" y="140" width="180" height="80" rx="6" fill="color-mix(in srgb, var(--red) 10%, transparent)" stroke="color-mix(in srgb, var(--red) 40%, transparent)"/>
-    <text x="130" y="166" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text)">ThemeToggle</text>
-    <text x="130" y="184" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">reads theme only</text>
-    <text x="130" y="204" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" font-weight="600" fill="var(--red)">re-renders anyway</text>
+      <rect class="figure-node is-accent" x="20" y="144" width="200" height="72"/>
+      <text class="figure-title" x="120" y="168" text-anchor="middle">ThemeToggle</text>
+      <text class="figure-note" x="120" y="184" text-anchor="middle">reads theme only</text>
+      <text class="figure-label is-accent-text" x="120" y="200" text-anchor="middle">re-renders anyway</text>
 
-    <rect x="260" y="140" width="180" height="80" rx="6" fill="color-mix(in srgb, var(--red) 10%, transparent)" stroke="color-mix(in srgb, var(--red) 40%, transparent)"/>
-    <text x="350" y="166" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text)">CartBadge</text>
-    <text x="350" y="184" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">reads cart, actually changed</text>
-    <text x="350" y="204" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" font-weight="600" fill="var(--red)">re-renders (correctly)</text>
+      <rect class="figure-node is-accent" x="252" y="144" width="200" height="72"/>
+      <text class="figure-title" x="352" y="168" text-anchor="middle">CartBadge</text>
+      <text class="figure-note" x="352" y="184" text-anchor="middle">reads cart, which changed</text>
+      <text class="figure-label is-accent-text" x="352" y="200" text-anchor="middle">re-renders correctly</text>
 
-    <rect x="480" y="140" width="180" height="80" rx="6" fill="color-mix(in srgb, var(--red) 10%, transparent)" stroke="color-mix(in srgb, var(--red) 40%, transparent)"/>
-    <text x="570" y="166" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text)">Avatar</text>
-    <text x="570" y="184" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" fill="var(--text-dim)">reads user only</text>
-    <text x="570" y="204" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10" font-weight="600" fill="var(--red)">re-renders anyway</text>
+      <rect class="figure-node is-accent" x="484" y="144" width="200" height="72"/>
+      <text class="figure-title" x="584" y="168" text-anchor="middle">Avatar</text>
+      <text class="figure-note" x="584" y="184" text-anchor="middle">reads user only</text>
+      <text class="figure-label is-accent-text" x="584" y="200" text-anchor="middle">re-renders anyway</text>
 
-    <text x="350" y="245" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text-faint)">One field changing re-renders every consumer of the shared context, not just the one that reads that field.</text>
-  </svg>
+      <text class="figure-note" x="352" y="244" text-anchor="middle">One field changing re-renders every consumer of the shared context.</text>
+    </svg>
+  </figure>
 
   <div class="callout danger">
     <div class="callout-title">What this costs</div>
@@ -400,27 +409,29 @@
     A <strong>request waterfall</strong> appears when a parent waits for data before mounting a child that starts the next request. The child may then gate a grandchild in the same way. Rendering order has become network order, whether or not the requests truly depend on one another.
   </p>
 
-  <svg viewBox="0 0 700 300" role="img" aria-label="Comparison of a sequential request waterfall, where a parent, child, and grandchild fetch one after another, against independent requests that start together." xmlns="http://www.w3.org/2000/svg">
-    <text x="20" y="24" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text-dim)">Sequential (each level fetches after it mounts)</text>
-    <rect x="40" y="40" width="160" height="26" rx="4" fill="color-mix(in srgb, var(--red) 22%, transparent)" stroke="color-mix(in srgb, var(--red) 50%, transparent)"/>
-    <text x="120" y="58" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text)">Parent: user</text>
-    <rect x="200" y="76" width="160" height="26" rx="4" fill="color-mix(in srgb, var(--red) 22%, transparent)" stroke="color-mix(in srgb, var(--red) 50%, transparent)"/>
-    <text x="280" y="94" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text)">Child: orders</text>
-    <rect x="360" y="112" width="160" height="26" rx="4" fill="color-mix(in srgb, var(--red) 22%, transparent)" stroke="color-mix(in srgb, var(--red) 50%, transparent)"/>
-    <text x="440" y="130" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text)">Grandchild: detail</text>
-    <line x1="550" y1="40" x2="550" y2="140" stroke="var(--red)" stroke-width="1.5" stroke-dasharray="3,3"/>
-    <text x="560" y="94" font-family="'Inter',system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--red)">three waits</text>
+  <figure class="figure-wrap">
+    <svg class="figure" viewBox="0 0 700 308" role="img" aria-label="Comparison of a sequential request waterfall, where a parent, child, and grandchild fetch one after another, against independent requests that start together." xmlns="http://www.w3.org/2000/svg">
+      <text class="figure-title" x="20" y="24">Sequential (each level fetches after it mounts)</text>
+      <rect class="figure-node is-accent" x="40" y="40" width="160" height="28"/>
+      <text class="figure-label" x="120" y="58" text-anchor="middle">Parent: user</text>
+      <rect class="figure-node is-accent" x="200" y="76" width="160" height="28"/>
+      <text class="figure-label" x="280" y="94" text-anchor="middle">Child: orders</text>
+      <rect class="figure-node is-accent" x="360" y="112" width="160" height="28"/>
+      <text class="figure-label" x="440" y="130" text-anchor="middle">Grandchild: detail</text>
+      <line class="figure-connector is-dashed is-accent-stroke" x1="552" y1="40" x2="552" y2="140"/>
+      <text class="figure-note is-accent-text" x="568" y="96">three waits</text>
 
-    <text x="20" y="184" font-family="'Inter',system-ui,sans-serif" font-size="12" font-weight="600" fill="var(--text-dim)">Requested together (hoisted or fetched in parallel)</text>
-    <rect x="40" y="200" width="160" height="26" rx="4" fill="color-mix(in srgb, var(--green) 22%, transparent)" stroke="color-mix(in srgb, var(--green) 50%, transparent)"/>
-    <text x="120" y="218" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text)">user</text>
-    <rect x="40" y="230" width="160" height="26" rx="4" fill="color-mix(in srgb, var(--green) 22%, transparent)" stroke="color-mix(in srgb, var(--green) 50%, transparent)"/>
-    <text x="120" y="248" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text)">orders</text>
-    <rect x="40" y="260" width="160" height="26" rx="4" fill="color-mix(in srgb, var(--green) 22%, transparent)" stroke="color-mix(in srgb, var(--green) 50%, transparent)"/>
-    <text x="120" y="278" text-anchor="middle" font-family="'Inter',system-ui,sans-serif" font-size="10.5" fill="var(--text)">detail</text>
-    <line x1="220" y1="200" x2="220" y2="286" stroke="var(--green)" stroke-width="1.5" stroke-dasharray="3,3"/>
-    <text x="230" y="246" font-family="'Inter',system-ui,sans-serif" font-size="11" font-weight="600" fill="var(--green)">one shared wait</text>
-  </svg>
+      <text class="figure-title" x="20" y="184">Requested together (hoisted or fetched in parallel)</text>
+      <rect class="figure-node is-info" x="40" y="200" width="160" height="28"/>
+      <text class="figure-label" x="120" y="218" text-anchor="middle">user</text>
+      <rect class="figure-node is-info" x="40" y="232" width="160" height="28"/>
+      <text class="figure-label" x="120" y="250" text-anchor="middle">orders</text>
+      <rect class="figure-node is-info" x="40" y="264" width="160" height="24"/>
+      <text class="figure-label" x="120" y="280" text-anchor="middle">detail</text>
+      <line class="figure-connector is-dashed" x1="224" y1="200" x2="224" y2="288"/>
+      <text class="figure-note is-info-text" x="240" y="248">one shared wait</text>
+    </svg>
+  </figure>
 
   <p>
     Start independent requests together. If the user and order requests both know their identifiers at route entry, a loader can begin both before rendering their consumers. A detail request that needs an identifier from the order response must remain sequential. The useful distinction is data dependency versus accidental nesting.
