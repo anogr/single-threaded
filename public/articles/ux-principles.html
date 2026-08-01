@@ -22,9 +22,8 @@
 
 <nav class="sidebar" id="sidebar">
   <a class="sidebar-back" href="index.html">← All articles</a>
-  <a class="sidebar-logo" href="index.html">Article<br><span>UX Principles</span></a>
 
-  <div class="sidebar-section">Why It Matters</div>
+  <div class="sidebar-section">Problem</div>
   <a href="#intro">UX Is Not UI</a>
 
   <div class="sidebar-section">Foundations</div>
@@ -38,9 +37,9 @@
   <div class="sidebar-section">Implementation</div>
   <a href="#states">Interaction States and Feedback</a>
 
-  <div class="sidebar-section">Context &amp; Practice</div>
-  <a href="#research">Why UX Decisions Look the Way They Do</a>
-  <a href="#practice">Applying UX Principles During Implementation</a>
+  <div class="sidebar-section">Evidence &amp; Practice</div>
+  <a href="#research">Evidence Behind UX Decisions</a>
+  <a href="#practice">Implementation Review</a>
 </nav>
 
 <main>
@@ -50,7 +49,7 @@
   <p class="subtitle">How usability, structure, and visual hierarchy shape interface decisions and the code that carries them into a working product.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~15 min read</span>
+    <div class="dot"></div><span>~14 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
@@ -60,31 +59,31 @@
   <section id="intro">
     <p class="lede">A design file describes an intended experience. Users encounter the implementation, including every state and behavior that the file left unstated.</p>
 
-    <p><strong>User experience</strong> (UX) covers what happens as someone uses a product. Can they complete the task, understand the result, and trust what the product tells them? The <strong>user interface</strong> (UI) is the visual and interactive surface through which that experience is delivered. A polished screen can still produce a poor experience when its flow conflicts with the way people understand the task.</p>
+    <p><strong>User experience (UX)</strong> covers what happens as someone uses a product. Can they complete the task, understand the result, and trust what the product tells them? The <strong>user interface (UI)</strong> is the visual and interactive surface through which that experience is delivered. A polished screen can still produce a poor experience when its flow conflicts with the way people understand the task.</p>
 
-    <p>Many interface decisions are made twice. A design establishes the intended behavior, and the implementation decides how that behavior survives real input, data, and failure. The file may show a hover state, an error message, and a loading indicator. Code must still provide an alternative to hover on touch devices, preserve the error through state changes, and clear the loading state when a request fails. Code must still provide an alternative to hover on touch devices, preserve the error through state changes, and clear the loading state when a request fails.</p>
+    <p>Many interface decisions are made twice. A design establishes the intended behavior, and the implementation decides how that behavior survives real input, data, and failure. The file may show a hover state, an error message, and a loading indicator. Code must still provide an alternative to hover on touch devices, preserve the error through state changes, and clear the loading state when a request fails.</p>
 
-    <p>This article follows those decisions from usability and information architecture into visual hierarchy, tokens, and interaction feedback. Its focus is how to read and implement an existing direction well. Research methods and the wider process of forming that direction appear only where they help explain the result.</p>
+    <p>The implementation must preserve the design's usability, structure, visual hierarchy, and feedback under conditions that the design file may not show. Research matters here because it explains why some constraints must survive even when a developer could produce the same appearance another way.</p>
   </section>
 
   <!-- ═══════════════════════════════════════════════════
        HEURISTICS
   ════════════════════════════════════════════════════ -->
   <h2 id="heuristics">Usability Heuristics</h2>
-  <p class="lede">Nielsen's ten heuristics remain useful because they describe recurring usability problems without prescribing one visual solution.</p>
+  <p class="lede"><strong>Usability heuristics</strong> are broad rules for finding recurring interaction problems without prescribing one visual solution.</p>
 
-  <p>Jakob Nielsen published the best-known version of the heuristics in 1994, building on earlier work with Rolf Molich. They are broad rules for evaluating an interface rather than requirements or component patterns. Their wording has since been refined, but the underlying concerns remain familiar: feedback, control, consistency, error handling, and the burden placed on memory.</p>
+  <p>Jakob Nielsen published the best-known version of the heuristics in 1994, building on earlier work with Rolf Molich. Nielsen Norman Group has since revised the article's explanations and examples while keeping the ten heuristics unchanged. Heuristics support evaluation and judgment, but they are not requirements or component patterns.</p>
 
-  <p>Five recur especially often during implementation:</p>
+  <p>Five of the heuristics translate directly into implementation checks:</p>
 
   <div class="table-wrap">
     <table>
       <thead>
-        <tr><th>Heuristic</th><th>Interface pattern</th><th>What breaks without it</th></tr>
+        <tr><th>Heuristic or concern</th><th>Interface pattern</th><th>What breaks without it</th></tr>
       </thead>
       <tbody>
         <tr><td>Visibility of system status</td><td>Loading indicators, progress bars, save confirmations</td><td>Users repeat an action because they can't tell whether the first attempt worked</td></tr>
-        <tr><td>User control and freedom</td><td>Undo, cancel, and back navigation that actually goes back</td><td>A mistake becomes permanent the instant it's made</td></tr>
+        <tr><td>User control and freedom</td><td>Undo, cancel, and back navigation that returns to the prior state</td><td>A mistake becomes permanent the instant it's made</td></tr>
         <tr><td>Consistency and standards</td><td>The same icon or action means the same thing everywhere in a product</td><td>Every screen becomes a decision someone has to work out again</td></tr>
         <tr><td>Error prevention and recovery</td><td>Confirmation before a destructive action, a clear path back afterward</td><td>A destructive action executes with no way to reverse it</td></tr>
         <tr><td>Recognition over recall</td><td>Options shown directly instead of ones a user has to remember exist</td><td>A task gets abandoned because the option needed was never visible</td></tr>
@@ -96,7 +95,7 @@
 
   <div class="callout info">
     <div class="callout-title">Heuristics guide judgment, they don't replace it</div>
-    <p>Heuristics still require context. Deleting an account may justify a confirmation because recovery is difficult. Adding an item to a cart usually does not, because the action is easy to reverse and an extra prompt would interrupt a common task.</p>
+    <p>Heuristics still require context. Deleting an account may justify a confirmation because recovery is difficult. Adding an item to a cart may not, because the action is easy to reverse and an extra prompt would interrupt the task.</p>
   </div>
 
   <p><strong>Progressive disclosure</strong> applies the same concern to feature complexity. The interface presents the options needed for the common task and reveals advanced controls on request, perhaps through a settings drawer. Useful defaults make that arrangement work. They let most people finish without opening the advanced view, while preserving access for those who need more control.</p>
@@ -123,7 +122,7 @@
        VISUAL HIERARCHY
   ════════════════════════════════════════════════════ -->
   <h2 id="hierarchy">Visual Hierarchy and Perception</h2>
-  <p class="lede">A layout communicates structure before anyone reads a single word on it, through nothing more than how its elements are spaced and grouped.</p>
+  <p class="lede">Spacing, alignment, and visual treatment show which elements belong together before a reader examines their labels.</p>
 
   <p><strong>Gestalt principles</strong> describe how visual relationships influence what people perceive as a group. In interface design, proximity is one of the most useful. Nearby elements tend to read as related, while a larger gap suggests a new group. Similarity creates another grouping signal through shared shape, color, or treatment. Two actions styled identically will appear to have comparable roles even if their labels describe very different consequences.</p>
 
@@ -161,13 +160,13 @@
 
   <p>Eye-tracking research on text-heavy web pages identified a common F-shaped scanning pattern. It describes a behavior that often appears when people scan weakly formatted content. It is not a template for every screen. Strong headings and visible actions can guide attention along a different path. The broader lesson is that people often scan before they read closely, so the hierarchy should reveal the page's structure during that first pass.</p>
 
-  <p>Alignment does similar work at a larger scale. Elements sharing an edge read as part of the same system, even across otherwise unrelated components. That's the mechanism behind why a consistent grid makes an interface feel organized rather than merely tidy.</p>
+  <p>Alignment groups elements across a larger area. When headings, fields, and actions share an edge, readers can follow that line through otherwise separate components. A consistent grid provides those repeated edges.</p>
 
   <!-- ═══════════════════════════════════════════════════
        TOKENS
   ════════════════════════════════════════════════════ -->
   <h2 id="tokens">Type, Spacing, and Color as Tokens</h2>
-  <p class="lede">A type scale and a spacing scale are Gestalt principles turned into fixed values, which is exactly what makes them portable into code.</p>
+  <p class="lede">Type, spacing, and color need a limited set of shared values if the same visual relationships are to recur across screens.</p>
 
   <p>A <strong>type scale</strong> is a limited set of font sizes used across a product. The sizes may follow a ratio, but the purpose is consistency rather than mathematical purity. A heading can then signal the same level of importance on every screen. A spacing scale gives whitespace the same discipline, so a familiar gap continues to communicate the same degree of separation.</p>
 
@@ -175,7 +174,7 @@
 
   <p>Emphasis cannot come at the expense of legibility. Muted text may look appropriately quiet to one reader and become unreadable to another. Contrast should therefore be checked when color tokens are defined and again in the contexts where those tokens are combined, because a token does not have a contrast ratio on its own.</p>
 
-  <p><strong>Design tokens</strong> are these values, such as a spacing scale, a type scale, and a color palette, expressed as named variables instead of hardcoded numbers. The same decision then propagates everywhere it's used instead of drifting apart screen by screen.</p>
+  <p><a href="design-systems.html#contents"><strong>Design tokens</strong></a> give selected values stable names that record their role. Code can then reference a spacing or color decision by name instead of repeating a raw number. The design-systems article explains how tokens relate to foundations, components, and the system's other artifacts.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -195,21 +194,21 @@
 <span class="kw">type</span> <span class="t">SpacingToken</span> = <span class="kw">keyof</span> <span class="kw">typeof</span> <span class="cn">spacing</span>;</code></pre>
   </div>
 
-  <p>Shadows and elevation follow the same logic on a smaller scale. A handful of fixed shadow values signal depth and layering consistently, the same way a fixed type scale signals text importance consistently. Organizing and scaling these tokens across a real codebase, including tiers of variables, theming, and the tooling that enforces them, is a bigger topic covered in <a href="css-architectures.html">CSS at Scale</a>.</p>
+  <p>A product can also name a small set of shadow or elevation values so the same depth relationship receives the same treatment. <a href="design-system-governance.html#tokens">Design System Governance</a> covers ownership and compatibility once tokens become published contracts.</p>
 
   <!-- ═══════════════════════════════════════════════════
        STATES
   ════════════════════════════════════════════════════ -->
   <h2 id="states">Interaction States and Feedback</h2>
-  <p class="lede">A static design file only ever shows a screen in one state, leaving every other state a screen can be in to get built without ever being drawn first.</p>
+  <p class="lede">A static frame shows one state at a time, while the implementation must handle every state a user can reach.</p>
 
   <p>An interactive component may need default, hover, focus, active, disabled, loading, and error states. Browsers supply parts of that behavior for native controls, including semantics, keyboard operation, and several default states. Product-specific loading and error behavior still has to be designed. A custom widget starts with fewer guarantees and must recreate the relevant interaction model deliberately.</p>
 
-  <p>Knowing where these states come from in the first place matters as much as knowing they exist. A design file usually shows one of them, and the rest get inferred, requested, or invented at implementation time. <a href="implementing-figma-designs.html">Implementing Figma Designs</a> covers that gap from the Figma side, including where in a file the other states typically live, when they exist at all.</p>
+  <p>The design file may show some states as component variants, prototype interactions, or separate examples. Any missing behavior must come from an established component pattern or a decision made during handoff. <a href="implementing-figma-designs.html">Implementing Figma Designs</a> explains how to find and interpret that evidence in Figma.</p>
 
   <figure class="figure-wrap">
     <svg class="figure" viewBox="0 0 700 216" role="img" aria-label="A single Save button shown across six states: default, hover, focus, active, disabled, and loading. The default state is a plain outlined button. Hover adds an accent-colored border. Focus adds a visible outer ring around the button. Active fills the button with the accent color. Disabled shows a muted button. Loading replaces the button's text with a small spinner icon." xmlns="http://www.w3.org/2000/svg">
-      <text class="figure-title" x="20" y="24">One button, six states a static mock rarely shows</text>
+      <text class="figure-title" x="20" y="24">One button across six interaction states</text>
 
       <rect class="figure-node" x="40" y="64" width="88" height="32"/>
       <text class="figure-label" x="84" y="84" text-anchor="middle">Save</text>
@@ -239,7 +238,7 @@
       <text class="figure-note" x="20" y="164">A design handoff that shows only the leftmost state leaves the other five as</text>
       <text class="figure-note" x="20" y="180">implicit decisions, made ad hoc during implementation instead of on purpose.</text>
     </svg>
-    <figcaption>Six states, one component. A design file that only shows the default state is more common than one that shows all six, which means most of this matrix gets decided by whoever builds the component, not whoever designed it.</figcaption>
+    <figcaption>A handoff that shows only the default button leaves hover, focus, active, disabled, and loading behavior unspecified.</figcaption>
   </figure>
 
   <div class="callout warn">
@@ -247,20 +246,22 @@
     <p>A disabled state often needs only a clear visual treatment and the correct programmatic behavior. Save richer illustration and copy for states in which people need explanation or a next step, such as an empty result or a failed request.</p>
   </div>
 
-  <p>Performance is itself a usability feature, not a separate concern from the states covered here. An interface that responds immediately is often perceived as simpler than an identical interface that pauses before every interaction. That perception, more than raw polish, is the real reason optimistic updates and skeletons matter.</p>
+  <p>Delay changes how an interaction feels and what feedback it needs. If an operation cannot complete immediately, the interface should acknowledge the action, preserve layout where useful, and explain failure. Optimistic updates and loading placeholders are two ways to provide that feedback.</p>
 
-  <p><strong>Optimistic updates</strong> show the expected result before the server confirms it. If the request fails, the interface restores the previous state and explains what happened. The pattern suits low-risk actions whose failure is easy to reverse, such as liking an item. Destructive operations and decisions controlled by the server usually need confirmation first.</p>
+  <p><strong>Optimistic updates</strong> show the expected result before the server confirms it. If the request fails or the server returns a different result, the interface reconciles the displayed state and explains any failure that affects the user. The pattern suits low-risk actions whose failure is easy to reverse, such as liking an item.</p>
+
+  <p>A <strong>pessimistic update</strong> waits for the server before it shows the final result. The interface can still acknowledge the action immediately with a pending state. Waiting is useful when the server controls the outcome, as with payment or inventory, or when an incorrect temporary result would be difficult to undo.</p>
 
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:20px 0;">
     <div class="card teal">
       <div class="card-label">Feedback pattern</div>
       <div class="card-title">Optimistic update</div>
-      <p>Apply the change immediately and roll back only if the request fails. Right for low-stakes, easily reversible actions like a like button or a reorderable list.</p>
+      <p>Show the expected result immediately, then reconcile it with the response. Suitable for low-stakes, reversible actions such as liking an item or reordering a list.</p>
     </div>
     <div class="card orange">
       <div class="card-label">Feedback pattern</div>
       <div class="card-title">Pessimistic update</div>
-      <p>Wait for confirmation before showing the change. Right for anything destructive, expensive to undo, or dependent on a server-side decision like payment or inventory.</p>
+      <p>Show a pending state and wait for confirmation before showing the result. Suitable when the server controls the outcome or a temporary mistake would be costly.</p>
     </div>
   </div>
 
@@ -268,35 +269,35 @@
 
   <p>Form validation has a similar timing choice. Submit-time validation reports problems after the person attempts to continue, which avoids interrupting unfinished input. Inline validation can catch a mistake while its context is still visible, but it should wait until the value is meaningfully checkable. Reporting an error while someone is still typing creates noise rather than help.</p>
 
-  <p>What an error says matters more than where it's reported. A useful error message explains what happened, why, and what to do next, without exposing internal system details a user can't act on. "Error 500" tells someone nothing they can use. "We couldn't save your changes. Try again later." tells them what failed and what to try, without describing whatever crashed on the server to cause it.</p>
+  <p>What an error says matters more than where it's reported. A useful error message states what failed and offers a next step. It should explain the cause when that information helps the person recover, without exposing internal details they cannot act on. "Error 500" tells someone nothing they can use. "We couldn't save your changes. Try again later." identifies the failed action and suggests what to try.</p>
 
   <p>An empty state needs to distinguish absence from failure. A first login, an inbox with no messages, and a search with no matches are different situations even though each produces an empty region. Useful copy explains why nothing appears and offers a relevant next step when one exists.</p>
 
-  <p>Loading feedback also needs an exit when work stalls or fails. An indefinite spinner keeps promising progress after the request may already be lost. The application should eventually present a clear failure state and offer recovery when retrying is safe. Similar fallbacks apply when a feature depends on a browser capability or a script that may not load.</p>
+  <p>Loading feedback also needs a failure path. When a request fails or exceeds the application's timeout policy, replace the progress indicator with a clear error and offer recovery when retrying is safe. Similar fallbacks apply when a feature depends on a browser capability or a script that may not load.</p>
 
   <p>Input methods do not expose the same states. Hover is unreliable on touch devices, so information or actions revealed on hover need another path. Screen width creates a separate constraint. Responsive behavior is rarely a proportional shrink. Components may need to wrap, reorder, collapse, or change their level of detail as space changes.</p>
 
-  <p>Motion is a feedback channel in its own right, not decoration layered on top of a finished interface. A transition that slides a new screen in from the direction a user just navigated preserves their sense of place in a way an instant cut doesn't. The same principle argues against motion with no informational job to do. An animation that exists only to look polished adds latency to every interaction without telling anyone anything.</p>
+  <p>Motion can show that content entered, left, or changed position. A directional transition can also preserve the relationship between two views. Keep the duration short enough that it does not delay the task, and respect reduced-motion preferences when the movement is not essential. <a href="accessibility-foundations.html">Accessibility as an Architecture Decision</a> covers the implementation requirements.</p>
 
-  <p>Focus deserves particular attention among these states. A visible focus indicator is how someone navigating by keyboard knows where they currently are on a page. Removing it, a common side effect of resetting a browser's default styles, leaves keyboard users with no way to track their own position. The mechanics behind that indicator, and the accessibility tree these states plug into, are covered in <a href="accessibility-foundations.html">Accessibility as an Architecture Decision</a>.</p>
+  <p>Focus deserves particular attention among these states. A visible focus indicator is how someone navigating by keyboard knows where they currently are on a page. Removing the browser's default indicator without providing a visible replacement leaves keyboard users with no way to track their position. The mechanics behind that indicator, and the accessibility tree these states plug into, are covered in <a href="accessibility-foundations.html">Accessibility as an Architecture Decision</a>.</p>
 
   <!-- ═══════════════════════════════════════════════════
        RESEARCH
   ════════════════════════════════════════════════════ -->
-  <h2 id="research">Why UX Decisions Look the Way They Do</h2>
-  <p class="lede">Every constraint embedded in a design came from somewhere, even when the reasoning never made it into the file itself.</p>
+  <h2 id="research">Evidence Behind UX Decisions</h2>
+  <p class="lede">Research and product data explain which design constraints address observed user problems.</p>
 
-  <p><strong>Usability testing</strong> is watching a real person attempt a task with a design and observing where they hesitate, misread something, or fail outright, rather than asking them to describe the design in the abstract. It exists because the people who build an interface are too familiar with it to see it the way a first-time user does.</p>
+  <p><strong>Usability testing</strong> observes a person attempting a task with a design. The researcher records where the participant hesitates, misreads something, or cannot continue. That behavior exposes problems that a team familiar with the interface may no longer notice.</p>
 
-  <p>Analytics data does something usability testing structurally can't. It shows what's happening at scale, across a real population, after a design has already shipped. A drop-off at a specific step in a checkout flow, a button that gets far fewer clicks than expected, and a support ticket pattern that keeps naming the same screen are all signals like this. Any one of them can turn into a redesign brief months after the original decision was made.</p>
+  <p>Analytics shows aggregate behavior after a design ships. A drop-off at one checkout step or an action that receives fewer uses than expected can identify where to investigate. Support tickets add descriptions of the problems people encountered. These signals do not explain the cause by themselves, but they can guide further research and a later redesign.</p>
 
   <p><strong>Personas</strong> are composite profiles built from research and organized around goals or behaviors. They can give a distributed team a shared way to discuss the people a product serves. A persona is not evidence by itself, however. If a decision depends on a preference written into the profile, the underlying interviews, observations, or usage data should support it.</p>
 
   <!-- ═══════════════════════════════════════════════════
        PRACTICE
   ════════════════════════════════════════════════════ -->
-  <h2 id="practice">Applying UX Principles During Implementation</h2>
-  <p class="lede">The heuristics, structure, and states covered so far compress into a short list worth running against any interface before calling it finished.</p>
+  <h2 id="practice">Implementation Review</h2>
+  <p class="lede">A short review can find gaps between the intended experience and the behavior that the code delivers.</p>
 
   <p>The checklist works during implementation and review. It can expose a gap between a design and the code that implements it, or guide a team that has no designer available for every decision. Each question points to observable behavior rather than personal taste.</p>
 
@@ -307,7 +308,7 @@
     <li>Does navigating to the same kind of content always work the same way?</li>
     <li>Are related items grouped by spacing, not just by a shared label?</li>
     <li>Are hover, focus, disabled, loading, and error states implemented where they apply?</li>
-    <li>Does spacing, type, and color come from the token system, or was a one-off value used instead?</li>
+    <li>Do spacing, type, and color come from the token system, or was a one-off value used instead?</li>
     <li>Is the thing someone came here to do visible, or does it require already knowing it exists?</li>
   </ul>
 

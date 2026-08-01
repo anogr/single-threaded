@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design Systems — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+</head>
+
+<body>
+
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Articles</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+
+  <div class="sidebar-section">Foundations</div>
+  <a href="#intro">Repeated Interface Decisions</a>
+  <a href="#artifacts">The System and Its Artifacts</a>
+
+  <div class="sidebar-section">Architecture</div>
+  <a href="#contents">Decisions at Different Scopes</a>
+  <a href="#tokens">Token Architecture</a>
+  <a href="#representations">Representations That Must Agree</a>
+  <a href="#boundaries">System Boundaries</a>
+
+  <div class="sidebar-section">Quality</div>
+  <a href="#quality">Accessibility and Content</a>
+
+  <div class="sidebar-section">Operating the System</div>
+  <a href="#adoption">Adoption and Evolution</a>
+  <a href="design-system-governance.html">Governance →</a>
+
+  <div class="sidebar-section">Decision</div>
+  <a href="#scope">Choosing the Scope</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">Design · Foundations</div>
+  <h1>Design Systems</h1>
+  <p class="subtitle">How shared design decisions become reusable guidance and assets across products, platforms, designers, and developers.</p>
+  <div class="byline">
+    <span>Andreas Ögren</span>
+    <div class="dot"></div><span>~16 min read</span>
+    <div class="dot"></div><span>Last updated July 2026</span>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       INTRO
+  ═══════════════════════════════════════════════════ -->
+  <section id="intro">
+    <p>One team chooses the spacing inside a card. Another team builds a similar card months later and chooses a different value. The same divergence appears in button states, form validation, navigation, and interface language. Each local choice may be reasonable but together they make one product family feel like several unrelated products.</p>
+
+    <p>The cost goes beyond appearance. Teams repeatedly work through the same interaction and accessibility challenges. They create several implementations that must be tested, fixed, and maintained separately. A shared answer reduces that repeated work and gives users familiar behavior as they move between products.</p>
+
+    <p>A <strong>design system</strong> is a governed set of reusable interface decisions. Guidance explains those decisions, while design assets, tokens, and production components make them available in the tools that product teams use. Reuse can reduce repeated work and preserve tested behavior, but the result still depends on which decisions the system covers and how teams apply them.</p>
+
+    <p>The focus here is how a design system is structured and how it connects design work to production software. Detailed UX methods and design-tool workflows are outside that scope.</p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════
+       ARTIFACTS
+  ═══════════════════════════════════════════════════ -->
+  <h2 id="artifacts">The System and Its Artifacts</h2>
+  <p class="lede">People use a design system through several artifacts, each serving a different part of product work.</p>
+
+  <p>A design system contains reusable design assets, production code, guidance, and tools that connect them. Some artifacts guide product work, while others provide assets that designers or applications can use directly. Organizations group and name the artifacts differently, so their responsibilities matter more than their local labels.</p>
+
+  <p>A <strong>brand guide</strong> defines the identity that an organization wants people to recognize. It records choices such as logo usage, brand colors, typography, imagery, and tone of voice, along with rules that preserve those choices across different media. Its audience includes marketing, communications, and product teams, as they all represent the same organization. For example, the guide may reserve clear space around a logo and show which backgrounds may sit behind it. Rules for button states, form spacing, and inline validation are not part of brand identity; that is the responsibility of a style guide.</p>
+
+  <p>A <strong>style guide</strong> turns broad identity and product decisions into rules for a particular kind of work. An interface style guide may define the type scale, grid, spacing, icon treatment, colors, and contrast requirements for digital products. A content style guide may define terminology, capitalization, grammar, and the structure of error messages. These rules help designers, writers, and developers make recurring choices consistently.</p>
+
+  <p>A <strong>UI kit</strong> is a collection of reusable interface assets for design work. It includes components such as buttons, form fields, navigation bars, and cards, along with their variants, states, shared styles, and variables. It may also include usage guidance to help designers apply those assets consistently. Broader visual, content, and accessibility rules can live in a style guide or the design system's documentation. The UI kit itself lives in a design tool such as Figma.</p>
+
+  <p>A <strong>component library</strong> provides implementations of interface components, often corresponding to components in a UI kit. Application developers then install or reference the library and import components such as buttons, dialogs, navigation, and form fields into an application. Each component implements a programming interface together with styling and runtime behavior. For example, a dialog component may manage focus, respond to the Escape key, provide accessible semantics, and support application-controlled state. Its corresponding UI-kit component shows the dialog’s visual structure, variants, and states in the design file. Designers and developers may maintain these artifacts separately, but their variants, states, and intended behavior must remain aligned.</p>
+
+  <p>A <strong>token package</strong> distributes named values such as colors and spacing across design tools and software platforms. A <strong>documentation site</strong> explains intended use, shows examples, records status, and points consumers to the available assets and code. These two artifacts connect the guidance, design assets, and production code without replacing them.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Artifact</th><th>What it provides</th><th>What it does not provide alone</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Brand guide</strong></td>
+          <td>Identity rules for areas such as logos, typography, imagery, and brand color</td>
+          <td>Product interaction behavior or production components</td>
+        </tr>
+        <tr>
+          <td><strong>Style guide</strong></td>
+          <td>Guidance for visual treatment, interface language, or both</td>
+          <td>Reusable assets that enforce the guidance</td>
+        </tr>
+        <tr>
+          <td><strong>UI kit</strong></td>
+          <td>Reusable design components, styles, variables, and examples, often distributed through a design-tool library</td>
+          <td>Production semantics, runtime behavior, or application code</td>
+        </tr>
+        <tr>
+          <td><strong>Token package</strong></td>
+          <td>Named design values that tools and platforms can transform into usable formats</td>
+          <td>Rules for combining those values into a usable interface</td>
+        </tr>
+        <tr>
+          <td><strong>Component library</strong></td>
+          <td>Tested interface components that applications can install and run</td>
+          <td>The reasoning, design assets, and task-level guidance around them</td>
+        </tr>
+        <tr>
+          <td><strong>Documentation site</strong></td>
+          <td>Guidance, examples, status, and links to the available assets</td>
+          <td>The implementations that products need at design time and runtime</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>The design system coordinates the relevant artifacts under shared decisions about the intended experience and supported scope. The required set depends on that scope. A native mobile system may have no web component package, while a system built around an external library may add local design assets, content guidance, and product-specific components. Those shared decisions and the relationships between the artifacts form the system.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       CONTENTS
+  ═══════════════════════════════════════════════════ -->
+  <h2 id="contents">Decisions at Different Scopes</h2>
+  <p class="lede">The artifacts introduced above carry shared decisions that range from one named value to the structure of a recurring product flow.</p>
+
+  <p>Validation in a registration form shows how these scopes differ. The UI kit and component library can provide fields, error messages, an error summary, and a submit button. The token package can provide the colors and spacing used by those parts. A product team must still decide when to show each error, how to connect it to its field, where to move focus after a failed submission, and how to help the user recover. A design system can preserve decisions at each of these scopes.</p>
+
+  <p><strong>Foundations</strong> define basic rules shared across the product family, including color roles, typography, spacing, layout, motion, iconography, and voice. A <strong>design token</strong> gives a selected foundation value a stable name that tools and platforms can use. In the form example, a semantic token can identify the color role for error text while themes provide different values for that role. The token package introduced above distributes those names and values. Foundations make separate controls use the same visual language. They do not define the validation sequence.</p>
+
+  <p>A <strong>component</strong> captures one reusable part of the interface. A form-field component can define the relationship between its label, input, hint, and error message together with its visual states. The UI kit contains the design representation of that component, and the component library contains its production implementation. The component handles the behavior and choices that belong to the field itself.</p>
+
+  <p>A <strong>pattern</strong> records a reusable solution to a user task that spans several components. A validation pattern can specify when errors appear, how the error summary links to fields, what happens to focus after submission, and how messages help the user correct the problem. The pattern may use form fields and an error-summary component, but its main responsibility is the complete recovery experience rather than either control in isolation.</p>
+
+  <p>A <strong>template</strong> preserves a recurring page or flow structure. If several products use the same multi-step application flow, a template can arrange its heading, progress indicator, form pattern, navigation, and review step. Product teams supply the domain-specific fields, content, and rules. A design system needs a template only when that larger structure repeats.</p>
+
+  <p>These categories describe the scope of a decision. Teams do not need to create them in order. Work on a pattern may reveal that several products need a new component, while a component may remain useful without belonging to a shared template.</p>
+
+  <p><strong>Evidence</strong> and <strong>principles</strong> inform decisions at every scope. Research, usability testing, accessibility testing, and product feedback show where people encounter problems and whether a proposed solution helps. Principles state the qualities that the organization wants teams to preserve when evidence does not yet settle a choice. They provide reasons and evaluation criteria rather than another layer of reusable interface structure.</p>
+
+  <p>The documentation site connects the scopes. It can explain the role of a token, the contract of a component, the reasoning behind a pattern, and the products for which a template is suitable. This guidance lets teams reuse the decisions as well as the visible assets.</p>
+
+  <div class="figure-wrap">
+    <svg class="figure" viewBox="0 0 700 410" role="img" aria-label="Four levels of decision scope: foundations and tokens, components, patterns, and templates. Evidence and principles inform every level, while documentation connects them." xmlns="http://www.w3.org/2000/svg">
+      <text class="figure-title" x="20" y="24">One system carries decisions at several scopes</text>
+
+      <rect class="figure-panel" x="44" y="48" width="628" height="56"/>
+      <text class="figure-heading" x="60" y="70">Evidence and principles inform every scope</text>
+      <text class="figure-note" x="60" y="90">Research tests decisions; principles guide choices that evidence has not settled.</text>
+
+      <rect class="figure-node" x="44" y="128" width="348" height="44"/>
+      <text class="figure-heading" x="60" y="148">Foundations and tokens</text>
+      <text class="figure-note" x="60" y="164">Shared roles and named values</text>
+
+      <rect class="figure-node" x="44" y="184" width="348" height="44"/>
+      <text class="figure-heading" x="60" y="204">Components</text>
+      <text class="figure-note" x="60" y="220">One reusable interface part</text>
+
+      <rect class="figure-node" x="44" y="240" width="348" height="44"/>
+      <text class="figure-heading" x="60" y="260">Patterns</text>
+      <text class="figure-note" x="60" y="276">A recurring task across several parts</text>
+
+      <rect class="figure-node" x="44" y="296" width="348" height="44"/>
+      <text class="figure-heading" x="60" y="316">Templates</text>
+      <text class="figure-note" x="60" y="332">A recurring page or flow structure</text>
+
+      <rect class="figure-panel" x="424" y="128" width="248" height="212"/>
+      <text class="figure-heading" x="440" y="152">Documentation connects scopes</text>
+      <text class="figure-label" x="440" y="188">Foundation roles</text>
+      <text class="figure-label" x="440" y="220">Component contracts</text>
+      <text class="figure-label" x="440" y="252">Pattern rationale</text>
+      <text class="figure-label" x="440" y="284">Template scope</text>
+     <text class="figure-note" x="440" y="316">Guidance preserves the decisions</text>
+
+      <defs>
+        <marker id="decision-scope-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path class="figure-arrow" d="M 0 0 L 10 5 L 0 10 z"/>
+        </marker>
+      </defs>
+      <path class="figure-connector" d="M 44 364 L 392 364" marker-end="url(#decision-scope-arrow)"/>
+      <text class="figure-note" x="44" y="386">Decision scope grows from one shared value toward a recurring page or flow.</text>
+    </svg>
+    <figcaption>Foundations, components, patterns, and templates describe increasing scopes of reuse. Evidence and principles inform them and documentation records their relationships.</figcaption>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       TOKENS
+  ═══════════════════════════════════════════════════ -->
+  <h2 id="tokens">Token Architecture</h2>
+  <p class="lede">Tokens separate a design decision's stable meaning from the value that expresses it and the formats that software platforms consume.</p>
+
+  <p>A token set can separate decisions into three tiers:</p>
+  <ol>
+    <li>A <strong>primitive token</strong> such as <code>color.palette.blue.500</code> holds a raw value without assigning it an interface role.</li>
+    <li>A <strong>semantic token</strong> such as <code>color.action.primary</code> names a purpose and references the primitive that currently expresses it.</li>
+    <li>A <strong>component token</strong> such as <code>button.background.primary</code> narrows that decision to one component and can reference the semantic token.</li>
+  </ol>
+
+  <p>A rebrand can move <code>color.action.primary</code> from <code>color.palette.blue.500</code> to a primitive in the new palette. Components that use the semantic role then receive the new color without changing their own definitions. Unrelated roles can continue to use the original blue. The references preserve why each value is used instead of spreading the same raw value across several unrelated decisions.</p>
+
+  <p>Not every component property needs a component token. Use the semantic token directly when the component should always follow the shared role. Add a component token only when the component needs a stable override point or must vary independently.</p>
+
+  <p>A shared interchange format lets tools exchange token definitions without replacing every reference with a copied value. The Design Tokens Community Group publishes the <a href="https://www.designtokens.org/TR/2025.10/format/">Design Tokens Format Module</a>, a JSON format for exchanging token data. In that format, an object with a <code>$value</code> property is a token. The optional <code>$type</code> property tells tools how to interpret the value; a token can also inherit its type from a referenced token or a parent group.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">tokens.ts</span>
+      <span class="code-lang">TS</span>
+    </div>
+    <pre><code><span class="kw">const</span> <span class="cn">tokens</span> = {
+  <span class="json-key">"color"</span>: {
+    <span class="json-key">"palette"</span>: {
+      <span class="json-key">"blue"</span>: {
+        <span class="json-key">"500"</span>: {
+          <span class="json-key">"$type"</span>: <span class="json-str">"color"</span>,
+          <span class="json-key">"$value"</span>: {
+            <span class="json-key">"colorSpace"</span>: <span class="json-str">"srgb"</span>,
+            <span class="json-key">"components"</span>: [<span class="json-num">0</span>, <span class="json-num">0.4</span>, <span class="json-num">0.8</span>],
+            <span class="json-key">"hex"</span>: <span class="json-str">"#0066cc"</span>
+          }
+        }
+      }
+    },
+    <span class="json-key">"action"</span>: {
+      <span class="json-key">"primary"</span>: {
+        <span class="json-key">"$type"</span>: <span class="json-str">"color"</span>,
+        <span class="json-key">"$value"</span>: <span class="json-str">"{color.palette.blue.500}"</span>
+      }
+    }
+  },
+  <span class="json-key">"button"</span>: {
+    <span class="json-key">"background"</span>: {
+      <span class="json-key">"primary"</span>: {
+        <span class="json-key">"$type"</span>: <span class="json-str">"color"</span>,
+        <span class="json-key">"$value"</span>: <span class="json-str">"{color.action.primary}"</span>
+      }
+    }
+  }
+} <span class="kw">as const</span>;</code></pre>
+  </div>
+
+  <p>The primitive token stores the color value. The other two tokens use curly-braced references, which tools resolve to the complete value of the referenced token. A translation tool can then turn the canonical token set into the representation that each platform reads while preserving one set of names and relationships.</p>
+
+  <div class="figure-wrap">
+    <svg class="figure" viewBox="0 0 700 372" role="img" aria-label="A semantic token named color dot action dot primary on the left, with arrows to a CSS custom property, a TypeScript object property, an iOS asset catalog entry, and an Android color resource." xmlns="http://www.w3.org/2000/svg">
+      <text class="figure-title" x="20" y="24">One token, one definition, four outputs</text>
+
+      <rect class="figure-node" x="30" y="140" width="220" height="100"/>
+      <text class="figure-heading" x="140" y="168" text-anchor="middle">Semantic token</text>
+      <text class="figure-label" x="140" y="194" text-anchor="middle">color.action.primary</text>
+      <text class="figure-note" x="140" y="216" text-anchor="middle">Defined once in the canonical set</text>
+
+      <rect class="figure-node" x="430" y="50" width="240" height="60"/>
+      <text class="figure-heading" x="550" y="70" text-anchor="middle">CSS custom property</text>
+      <text class="figure-label" x="550" y="90" text-anchor="middle">--color-action-primary</text>
+
+      <rect class="figure-node" x="430" y="124" width="240" height="60"/>
+      <text class="figure-heading" x="550" y="144" text-anchor="middle">TypeScript object</text>
+      <text class="figure-label" x="550" y="164" text-anchor="middle">tokens.color.action.primary</text>
+
+      <rect class="figure-node" x="430" y="198" width="240" height="60"/>
+      <text class="figure-heading" x="550" y="218" text-anchor="middle">iOS asset catalog</text>
+      <text class="figure-label" x="550" y="238" text-anchor="middle">ColorActionPrimary</text>
+
+      <rect class="figure-node" x="430" y="272" width="240" height="60"/>
+      <text class="figure-heading" x="550" y="292" text-anchor="middle">Android resource</text>
+      <text class="figure-label" x="550" y="312" text-anchor="middle">@color/color_action_primary</text>
+
+      <defs>
+        <marker id="token-output-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path class="figure-arrow" d="M 0 0 L 10 5 L 0 10 z"/>
+        </marker>
+      </defs>
+      <path class="figure-connector" d="M 250 178 L 300 80 L 430 80" marker-end="url(#token-output-arrow)"/>
+      <path class="figure-connector" d="M 250 185 L 320 154 L 430 154" marker-end="url(#token-output-arrow)"/>
+      <path class="figure-connector" d="M 250 195 L 320 228 L 430 228" marker-end="url(#token-output-arrow)"/>
+      <path class="figure-connector" d="M 250 202 L 300 302 L 430 302" marker-end="url(#token-output-arrow)"/>
+
+      <text class="figure-note" x="20" y="348">A build step transforms the canonical set into the formats that each platform consumes.</text>
+    </svg>
+    <figcaption>The token keeps the same design role while its generated name and value syntax adapt to each platform.</figcaption>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       REPRESENTATIONS
+  ═══════════════════════════════════════════════════ -->
+  <h2 id="representations">Representations That Must Agree</h2>
+  <p class="lede">Designers and developers use different artifacts, but users should encounter the same decisions when the product runs.</p>
+
+  <p>A Figma library gives designers reusable components, styles, and variables. Token files carry named values into formats such as CSS custom properties or native platform resources. Code packages provide production behavior. Documentation connects those assets to their intended use. These artifacts share contracts, but they are not interchangeable.</p>
+
+  <p>Machine-readable values can often be generated from a common token source. Components are different. A Figma button and a React button express corresponding variants and states, yet one cannot be generated reliably from the other. The code implementation must account for semantics, runtime state, responsive behavior, and application integration that a design component does not execute.</p>
+
+  <p>No single artifact can own every kind of decision. A token repository may own shared color values. Production code owns runtime behavior. Figma may show visual composition most clearly. Documentation explains when each option applies. Teams need to name the owner for each decision and check that the other representations still agree with it.</p>
+
+  <div class="figure-wrap">
+    <svg class="figure" viewBox="0 0 700 316" role="img" aria-label="A shared decisions and contracts node branches to four peer artifacts: a Figma library, token files, code packages, and documentation. A note explains that values may be generated while design and code components require explicit mapping and review." xmlns="http://www.w3.org/2000/svg">
+      <text class="figure-title" x="20" y="24">One system, several usable representations</text>
+
+      <rect class="figure-node" x="230" y="48" width="240" height="56"/>
+      <text class="figure-heading" x="350" y="70" text-anchor="middle">Shared decisions and contracts</text>
+      <text class="figure-note" x="350" y="90" text-anchor="middle">Roles, names, behavior, and intended use</text>
+
+      <path class="figure-connector" d="M 350 104 L 350 144"/>
+      <path class="figure-connector" d="M 94 144 L 606 144"/>
+
+      <rect class="figure-node" x="24" y="184" width="140" height="72"/>
+      <text class="figure-heading" x="94" y="208" text-anchor="middle">Figma library</text>
+      <text class="figure-note" x="94" y="228" text-anchor="middle">Design components</text>
+      <text class="figure-note" x="94" y="244" text-anchor="middle">and variables</text>
+
+      <rect class="figure-node" x="194" y="184" width="140" height="72"/>
+      <text class="figure-heading" x="264" y="208" text-anchor="middle">Token files</text>
+      <text class="figure-note" x="264" y="228" text-anchor="middle">Portable named</text>
+      <text class="figure-note" x="264" y="244" text-anchor="middle">values</text>
+
+      <rect class="figure-node" x="366" y="184" width="140" height="72"/>
+      <text class="figure-heading" x="436" y="208" text-anchor="middle">Code packages</text>
+      <text class="figure-note" x="436" y="228" text-anchor="middle">Runtime components</text>
+      <text class="figure-note" x="436" y="244" text-anchor="middle">and platform APIs</text>
+
+      <rect class="figure-node" x="536" y="184" width="140" height="72"/>
+      <text class="figure-heading" x="606" y="208" text-anchor="middle">Documentation</text>
+      <text class="figure-note" x="606" y="228" text-anchor="middle">Guidance, examples,</text>
+      <text class="figure-note" x="606" y="244" text-anchor="middle">status, and limits</text>
+
+      <defs>
+        <marker id="representation-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path class="figure-arrow" d="M 0 0 L 10 5 L 0 10 z"/>
+        </marker>
+      </defs>
+      <path class="figure-connector" d="M 94 144 L 94 184" marker-end="url(#representation-arrow)"/>
+      <path class="figure-connector" d="M 264 144 L 264 184" marker-end="url(#representation-arrow)"/>
+      <path class="figure-connector" d="M 436 144 L 436 184" marker-end="url(#representation-arrow)"/>
+      <path class="figure-connector" d="M 606 144 L 606 184" marker-end="url(#representation-arrow)"/>
+
+      <text class="figure-note" x="20" y="284">Token outputs can be generated. Design and code components still need explicit mapping, review, and testing.</text>
+    </svg>
+    <figcaption>The design system is the shared contract, not whichever tool happens to hold one representation of it.</figcaption>
+  </div>
+
+  <p><a href="implementing-figma-designs.html">Implementing Figma Designs</a> follows a design artifact into production code and explains why its layer tree and variants are evidence rather than implementation instructions. <a href="design-system-governance.html#tokens">Design System Governance</a> explains how ownership, compatibility, and migration apply once tokens become published contracts.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       BOUNDARIES
+  ═══════════════════════════════════════════════════ -->
+  <h2 id="boundaries">System Boundaries</h2>
+  <p class="lede">A useful design system states which products, platforms, and decisions it serves. Anything broader becomes difficult to keep coherent.</p>
+
+  <p>Scope begins with the products that should feel related. A single brand may operate several product families with different interaction needs. The shared system can provide brand foundations and common controls while allowing each family to maintain domain patterns of its own. Forcing every specialized workflow into a universal core usually produces components with too many options and unclear ownership.</p>
+
+  <p>Platforms create another boundary. Web, iOS, and Android can share semantic token names, accessibility intent, and interaction principles. They should still respect their native conventions and platform capabilities. A system may therefore publish one conceptual component with several platform implementations rather than pretending that identical code is the goal.</p>
+
+  <p>Brands and themes require a similar separation between stable meaning and variable expression. Semantic roles such as primary action or critical text can remain consistent while their colors, typography, or motion values vary. A theme should change presentation without changing what a component means. A separate product pattern is a better fit when behavior or task structure also changes.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Layer</th><th>Suitable contents</th><th>Typical reach</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Core</td>
+          <td>Shared principles, semantic tokens, basic controls, and baseline accessibility behavior</td>
+          <td>Across the organization or product family</td>
+        </tr>
+        <tr>
+          <td>Platform</td>
+          <td>Web or native implementations that preserve the core intent through platform conventions</td>
+          <td>Across products on one platform</td>
+        </tr>
+        <tr>
+          <td>Product or domain</td>
+          <td>Specialized components and patterns for a recurring business context</td>
+          <td>Across related products or teams</td>
+        </tr>
+        <tr>
+          <td>Local</td>
+          <td>Feature-specific composition that has not proved reusable elsewhere</td>
+          <td>One product or feature</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Layers also clarify contribution. A local component does not represent failure. It should move into a wider layer only after its problem and solution recur. Promotion expands the compatibility, documentation, testing, and maintenance obligations that the system accepts.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       QUALITY
+  ═══════════════════════════════════════════════════ -->
+  <h2 id="quality">Accessibility and Content</h2>
+  <p class="lede">Shared components can raise the quality baseline, but no design system can make every composition correct automatically.</p>
+
+  <p>Accessibility belongs throughout the system. Foundations can define approved foreground and background pairings. Components can preserve native semantics, keyboard operation, focus behavior, and motion preferences. Patterns can explain focus movement and error recovery across several components. Documentation can publish test results and known limitations.</p>
+
+  <p>A color token has no contrast ratio by itself. Contrast exists between a foreground and its background in a particular state. The system can provide tested semantic pairings and restrict unsafe combinations, but product teams still need to test the pages they assemble. The same limit applies elsewhere. An accessible dialog component cannot repair a workflow that hides essential information behind unnecessary dialogs.</p>
+
+  <p>Content is also part of the interface contract. Terminology, voice, labels, validation messages, and empty states affect whether people understand what happened and what to do next. A content guide can establish recurring conventions without forcing every situation into one reusable sentence. Product context, translation, and pluralization still shape the final wording.</p>
+
+  <p><a href="accessibility-foundations.html">Accessibility as an Architecture Decision</a> explains why shared semantics prevent repeated repair without guaranteeing an accessible product. <a href="ux-principles.html">UX Principles</a> explains the usability and perception decisions that the system turns into reusable conventions.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       ADOPTION
+  ═══════════════════════════════════════════════════ -->
+  <h2 id="adoption">Adoption and Evolution</h2>
+  <p class="lede">A technically sound library has little value when teams cannot find the right asset, understand it, or migrate to it safely.</p>
+
+  <p>The consumers of a design system are designers, developers, content specialists, and product teams. Treating them as users changes what the system team builds. Searchable documentation, clear status labels, migration guidance, support, and a predictable release process become part of the product rather than administrative work around it.</p>
+
+  <p>Adoption also depends on fit. Repeated local wrappers and overrides may reveal a missing variant, an unsuitable API, or a domain need that belongs in an extension layer. Usage data and direct feedback help separate those gaps from one-off preferences. Product experience should feed changes back into the shared system.</p>
+
+  <p>Changes have a wider blast radius than ordinary application code. A token name, default component behavior, Figma variant, or documented pattern can become a dependency across many teams. Ownership, contribution rules, versioning, deprecation, and migration therefore belong to the operating model. <a href="design-system-governance.html">Design System Governance</a> discusses those concerns in full.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       SCOPE
+  ═══════════════════════════════════════════════════ -->
+  <h2 id="scope">Choosing the Scope</h2>
+  <p class="lede">The right starting point depends on how many independent decisions need to remain aligned, not on whether an organization can build a large library.</p>
+
+  <p>One product team can often succeed with a component library, a small token set, and concise usage guidance. Direct communication supplies much of the missing coordination. Formal layers add little when the same people make the design and implementation decisions together.</p>
+
+  <p>Several independent teams working on related products create a stronger case for a design system. Shared patterns become valuable because teams cannot rely on informal knowledge. A layered system becomes useful when the organization also spans platforms, brands, or distinct product domains.</p>
+
+  <p>Adopting an established external system can avoid rebuilding common controls and accessibility behavior. The tradeoff is that its visual language, component APIs, and release schedule become architectural constraints. A local layer can add brand tokens and domain patterns, but extensive overrides may cost more than owning a narrower system directly.</p>
+
+  <p>The decisions that already repeat across products provide a practical starting point. A shared asset becomes useful when it removes recurring work or preserves a tested behavior. Governance becomes necessary when independent teams begin changing those assets on separate schedules. <a href="design-system-governance.html">Design System Governance</a> explains how that operating model can scale. Demonstrated reuse should determine what the system adds.</p>
+
+</main>
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+
+</body>
+</html>
