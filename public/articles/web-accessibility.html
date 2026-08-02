@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Web Accessibility — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+<style>
+  .accessibility-figure-scroll { overflow-x: auto; }
+
+  .accessibility-demo {
+    max-width: var(--content-w);
+    padding: 20px;
+  }
+
+  .accessibility-demo-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .accessibility-demo-panel {
+    min-width: 0;
+    padding: 16px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--figure-node-radius);
+  }
+
+  .accessibility-demo-heading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+    color: var(--text-dim);
+    font-family: var(--figure-font);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .accessibility-demo-mark {
+    display: inline-grid;
+    width: 20px;
+    height: 20px;
+    place-items: center;
+    border: 1px solid currentColor;
+    border-radius: 50%;
+    font-size: 11px;
+    line-height: 1;
+  }
+
+  .accessibility-demo-mark.is-bad { color: var(--red); }
+  .accessibility-demo-mark.is-good { color: var(--green); }
+
+  .accessibility-demo-label,
+  .accessibility-demo-field,
+  .accessibility-demo-note,
+  .accessibility-demo-error,
+  .accessibility-demo-status {
+    font-family: var(--figure-font);
+  }
+
+  .accessibility-demo-label {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--text-dim);
+    font-size: 11px;
+  }
+
+  .accessibility-demo-field {
+    width: 100%;
+    min-height: 38px;
+    padding: 9px 10px;
+    color: var(--text-body);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 11px;
+    line-height: 18px;
+  }
+
+  .accessibility-demo-field.is-error { border-color: var(--red); }
+
+  .accessibility-demo-placeholder { color: var(--text-faint); }
+
+  .accessibility-demo-note {
+    margin-top: 10px;
+    color: var(--text-faint);
+    font-size: 10px;
+    line-height: 1.45;
+  }
+
+  .accessibility-demo-error {
+    display: flex;
+    gap: 7px;
+    margin-top: 7px;
+    color: var(--red);
+    font-size: 10px;
+    line-height: 1.45;
+  }
+
+  .accessibility-demo-error.is-helpful { color: var(--text-dim); }
+
+  .accessibility-demo-status-list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .accessibility-demo-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-dim);
+    font-size: 10px;
+  }
+
+  .accessibility-demo-dot {
+    width: 9px;
+    height: 9px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+  }
+
+  .is-success { background: var(--green); }
+  .is-warn { background: var(--orange); }
+  .is-error { background: var(--red); }
+
+  .is-success2 { color: var(--green); }
+  .is-warn2 { color: var(--orange); }
+  .is-error2 { color: var(--red); }
+
+  .accessibility-demo-status-icon {
+    width: 18px;
+    flex: 0 0 auto;
+    text-align: center;
+    font-size: 12px;
+  }
+
+  @media (max-width: 600px) {
+    .accessibility-figure-scroll .figure { min-width: 620px; }
+
+    .accessibility-demo-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+
+<body>
+
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Articles</span></a>
+  <button class="hamburger" id="nav-toggle" type="button" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+
+  <div class="sidebar-section">Foundations</div>
+  <a href="#intro">Access without barriers</a>
+  <a href="#people">Different ways of using the web</a>
+  <a href="#principles">The four accessibility principles</a>
+
+  <div class="sidebar-section">How the Web Exposes Meaning</div>
+  <a href="#semantics">Semantic HTML</a>
+  <a href="#names-roles-states">Names, roles, and states</a>
+
+  <div class="sidebar-section">Interface Decisions</div>
+  <a href="#perceivable">Perceivable content</a>
+  <a href="#operable">Operable interfaces</a>
+  <a href="#understandable">Understandable workflows</a>
+
+  <div class="sidebar-section">Evaluating the Result</div>
+  <a href="#conformance">Conformance and usability</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">Accessibility · Foundations</div>
+  <h1>Web Accessibility</h1>
+  <p class="subtitle">How web products create or remove barriers, which principles guide design, and how browsers expose meaning to assistive technology.</p>
+  <div class="byline">
+    <span>Andreas Ögren</span>
+    <div class="dot"></div><span>~13 min read</span>
+    <div class="dot"></div><span>Last updated August 2026</span>
+  </div>
+
+  <section id="intro">
+    <p>A web product becomes inaccessible when its design or implementation prevents someone from completing a task because of a disability. A form that depends on seeing color, a menu that requires precise pointer movement, and a video without captions create different barriers. The person is not the defect in any of these examples. The product has assumed a way of perceiving or operating the interface that not everyone can use.</p>
+
+    <p><strong>Web accessibility</strong> means designing and developing websites, applications, and authoring tools so disabled people can perceive, understand, navigate, interact with, and contribute through the web. The World Health Organization estimates that 1.3 billion people, or 16% of the global population, experience significant disability. Disability can also be temporary or change with age. Difficult surroundings create some of the same constraints. Glare reduces visual contrast, and a noisy train can make audio hard to hear. Carrying a child often leaves only one hand free.</p>
+
+    <p>Equal access is the primary reason to remove these barriers. Removing them extends a product's reach, helps it operate across more devices and input methods, and reduces legal and commercial risk. Flexible interaction can improve the experience outside the original use case, but those wider benefits do not replace the needs of disabled users as the measure of whether the product is accessible.</p>
+
+    <p>Timing makes accessibility an architectural concern. If a shared button in a <a href="design-systems.html">design system</a> begins with native semantics and keyboard behavior, every consumer receives that foundation. If the component begins with a styled <code>&lt;div&gt;</code>, every product inherits behavior that must be rebuilt and tested. One decision in a shared layer can therefore prevent or distribute the same barrier.</p>
+
+    <figure class="figure-wrap">
+      <div class="accessibility-figure-scroll">
+      <svg class="figure" viewBox="0 0 700 250" role="img" aria-labelledby="propagation-title propagation-desc" xmlns="http://www.w3.org/2000/svg">
+        <title id="propagation-title">A component decision propagates into several product workflows</title>
+        <desc id="propagation-desc">A shared component points to four product screens. When the component contains an accessibility barrier, every screen needs remediation. When the component supplies an accessible foundation, every screen starts with that behavior.</desc>
+        <defs>
+          <marker id="accessibility-propagation-arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path class="figure-arrow" d="M 0 0 L 10 5 L 0 10 z"/>
+          </marker>
+        </defs>
+        <text class="figure-title" x="20" y="28">A shared decision changes every consumer</text>
+
+        <rect class="figure-node is-accent" x="28" y="89" width="190" height="72"/>
+        <text class="figure-label is-accent-text" x="123" y="116" text-anchor="middle">Shared component</text>
+        <text class="figure-note" x="123" y="138" text-anchor="middle">semantics + interaction</text>
+
+        <line class="figure-connector is-muted-color" x1="218" y1="125" x2="316" y2="125" marker-end="url(#accessibility-propagation-arrow)"/>
+        <line class="figure-connector" x1="316" y1="58" x2="316" y2="193"/>
+        <line class="figure-connector is-muted-color" x1="316" y1="58" x2="396" y2="58" marker-end="url(#accessibility-propagation-arrow)"/>
+        <line class="figure-connector is-muted-color" x1="316" y1="103" x2="396" y2="103" marker-end="url(#accessibility-propagation-arrow)"/>
+        <line class="figure-connector is-muted-color" x1="316" y1="148" x2="396" y2="148" marker-end="url(#accessibility-propagation-arrow)"/>
+        <line class="figure-connector is-muted-color" x1="316" y1="193" x2="396" y2="193" marker-end="url(#accessibility-propagation-arrow)"/>
+
+        <rect class="figure-node" x="396" y="38" width="250" height="40"/>
+        <rect class="figure-node" x="396" y="83" width="250" height="40"/>
+        <rect class="figure-node" x="396" y="128" width="250" height="40"/>
+        <rect class="figure-node" x="396" y="173" width="250" height="40"/>
+        <text class="figure-label" x="521" y="60" text-anchor="middle">Account workflow</text>
+        <text class="figure-label" x="521" y="105" text-anchor="middle">Checkout workflow</text>
+        <text class="figure-label" x="521" y="150" text-anchor="middle">Support workflow</text>
+        <text class="figure-label" x="521" y="195" text-anchor="middle">Administration workflow</text>
+      </svg>
+      </div>
+      <figcaption>A shared component does not make every consuming page accessible, but it determines whether each page starts with the same useful behavior or the same barrier.</figcaption>
+    </figure>
+  </section>
+
+  <h2 id="people">Different Ways of Using the Web</h2>
+  <p class="lede">Accessible design begins by removing assumptions about how a person perceives information or operates an interface.</p>
+
+  <p>A person who is blind may use a screen reader that presents text and controls as speech or braille. Someone with low vision may enlarge text, zoom the page, change colors, or use screen magnification. Neither experience is represented by a desktop screenshot at its default size. Reading order, meaningful structure, text alternatives, and the ability to reflow at high zoom decide whether the same content remains usable.</p>
+
+  <p>Input varies as much as output. Some people navigate with a keyboard because a mouse requires movements they cannot perform reliably. Voice-control software identifies controls by their visible labels, while switch devices often move through the same focus order used by a keyboard. Touch, a stylus, and a pointer also have different precision. An interface that works through only one input method excludes users even when every control is visible.</p>
+
+  <p>Other barriers come from the content and timing of a task. Deaf and hard-of-hearing users need captions or another equivalent for audio. People with cognitive and neurological disabilities may depend on predictable navigation, clear instructions, enough time, and errors that explain how to recover. Flashing content can cause seizures, while large movement can make people with vestibular disorders unwell. Accessibility must therefore cover information, presentation, interaction, and behavior together.</p>
+
+  <h2 id="principles">The Four Accessibility Principles</h2>
+  <p class="lede">WCAG groups its requirements by four questions that remain useful even when a team is not looking at a checklist.</p>
+
+  <p><strong>Perceivable</strong> asks whether people can obtain the information through only one of their senses. Images need an appropriate text alternative when they carry meaning. Audio and video need captions, transcripts, or audio description. Structure and relationships must survive when presentation changes, while text and controls need sufficient contrast and must remain usable when enlarged.</p>
+
+  <p><strong>Operable</strong> asks whether people can reach and use the interface. Functionality must not depend on a mouse, touch gesture, device motion, or fine pointer control when another method can serve the same task. Keyboard focus needs a visible indicator and a logical path. People also need enough time, safe motion, and navigation that helps them locate content and understand where they are.</p>
+
+  <p><strong>Understandable</strong> covers both information and behavior. The page identifies its language so software can pronounce it correctly. Labels and instructions explain what controls require. Navigation and components behave consistently, and validation helps people avoid or correct mistakes without making them infer the problem from color or position alone.</p>
+
+  <p><strong>Robust</strong> asks whether browsers and assistive technologies can interpret the content reliably. Valid relationships, native elements, and accurate states give user agents the information they need. Robustness does not mean that every browser and assistive-technology combination behaves identically. It means using platform contracts that those tools can translate instead of making meaning depend on appearance or private application logic.</p>
+
+  <h2 id="semantics">Semantic HTML</h2>
+  <p class="lede">HTML can provide structure and interaction that browsers already know how to expose and operate.</p>
+
+  <p>Browsers derive an <strong>accessibility tree</strong> from the document object model (DOM) and expose it through platform accessibility APIs. The two trees are related but not identical. Purely presentational wrappers may add no accessible object, while meaningful text remains available. Interactive objects expose information such as their role, name, value, and state. Assistive technology uses that representation instead of interpreting pixels on the screen.</p>
+
+  <p><strong>Semantic HTML</strong> uses an element whose meaning matches the content or interaction. Headings identify sections, lists expose groups of related items, landmarks identify regions, and form controls carry established behavior. A native <code>&lt;button&gt;</code> participates in keyboard navigation and responds to Enter and Space. It also exposes the button role and can take its accessible name from its contents. A styled <code>&lt;div&gt;</code> provides none of those button contracts.</p>
+
+  <figure class="figure-wrap">
+    <div class="accessibility-figure-scroll">
+    <svg class="figure" viewBox="0 0 700 260" role="img" aria-labelledby="tree-title tree-desc" xmlns="http://www.w3.org/2000/svg">
+      <title id="tree-title">A DOM tree and its simplified accessibility tree</title>
+      <desc id="tree-desc">A wrapper, price text, and button in the DOM become meaningful text and a button with an accessible name. The wrapper adds no semantic object of its own.</desc>
+      <defs>
+        <marker id="web-accessibility-tree-arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path class="figure-arrow" d="M 0 0 L 10 5 L 0 10 z"/>
+        </marker>
+      </defs>
+      <text class="figure-title" x="184" y="24" text-anchor="middle">DOM</text>
+      <text class="figure-title" x="532" y="24" text-anchor="middle">Accessibility tree</text>
+
+      <rect class="figure-node" x="104" y="48" width="160" height="32"/>
+      <text class="figure-label" x="184" y="68" text-anchor="middle">&lt;div class="card"&gt;</text>
+      <line class="figure-connector" x1="184" y1="80" x2="184" y2="96"/>
+      <line class="figure-connector" x1="100" y1="96" x2="268" y2="96"/>
+      <line class="figure-connector is-muted-color" x1="100" y1="96" x2="100" y2="120" marker-end="url(#web-accessibility-tree-arrow)"/>
+      <line class="figure-connector is-muted-color" x1="268" y1="96" x2="268" y2="120" marker-end="url(#web-accessibility-tree-arrow)"/>
+      <rect class="figure-node" x="32" y="120" width="136" height="48"/>
+      <text class="figure-label" x="100" y="148" text-anchor="middle">&lt;span&gt;$42&lt;/span&gt;</text>
+      <rect class="figure-node is-accent" x="188" y="120" width="160" height="48"/>
+      <text class="figure-label is-accent-text" x="268" y="148" text-anchor="middle">&lt;button&gt;Submit order&lt;/button&gt;</text>
+
+      <line class="figure-connector is-muted-color" x1="348" y1="144" x2="452" y2="144" marker-end="url(#web-accessibility-tree-arrow)"/>
+
+      <text class="figure-note" x="532" y="68" text-anchor="middle">Wrapper: no semantic role</text>
+      <text class="figure-label" x="532" y="92" text-anchor="middle">Text: "$42"</text>
+      <rect class="figure-node is-accent" x="452" y="120" width="160" height="48"/>
+      <text class="figure-label is-accent-text" x="532" y="140" text-anchor="middle">Role: button</text>
+      <text class="figure-label is-accent-text" x="532" y="156" text-anchor="middle">Name: "Submit order"</text>
+
+      <text class="figure-note" x="20" y="220">The wrapper adds no semantic object, but its meaningful text remains available.</text>
+      <text class="figure-note" x="20" y="236">The native control exposes its purpose and name through a browser contract.</text>
+    </svg>
+    </div>
+    <figcaption>The accessibility tree represents information that assistive technology can use. Visual similarity does not guarantee that two controls expose the same meaning or behavior.</figcaption>
+  </figure>
+
+  <p>Native elements are a starting point rather than a complete solution. A page still needs meaningful heading order, useful link text, correctly associated form labels, and content that follows a sensible reading order. A design system may improve the browser's default focus indicator, but it must preserve a visible indicator. Custom widgets are sometimes necessary, but their owners then accept responsibility for the semantics, focus management, keyboard model, and compatibility testing that a native element would otherwise supply.</p>
+
+  <figure class="figure-wrap">
+    <div class="accessibility-figure-scroll">
+    <svg class="figure" viewBox="0 0 700 405" role="img" aria-labelledby="link-text-title link-text-desc" xmlns="http://www.w3.org/2000/svg">
+      <title id="link-text-title">Repeated link text compared with links that describe their destinations</title>
+      <desc id="link-text-desc">Two article lists appear side by side. The first gives every article a Read more link, producing three identical entries in a links list. The second names each destination, so the links remain understandable outside the surrounding cards.</desc>
+      <text class="figure-title" x="20" y="26">Link text should identify its destination</text>
+
+      <text class="figure-heading" x="32" y="56">REPEATED WORDING</text>
+      <text class="figure-heading" x="368" y="56">DESCRIPTIVE WORDING</text>
+
+      <rect class="figure-panel" x="20" y="70" width="312" height="194"/>
+      <rect class="figure-panel is-info" x="356" y="70" width="324" height="194"/>
+
+      <text class="figure-label" x="36" y="96">Keyboard testing</text>
+      <text class="figure-note" x="36" y="114">Exercise the complete task without a pointer.</text>
+      <text class="figure-label is-accent-text" x="36" y="134">Read more →</text>
+      <line class="figure-guide" x1="36" y1="147" x2="316" y2="147"/>
+      <text class="figure-label" x="36" y="170">Writing useful alternatives</text>
+      <text class="figure-note" x="36" y="188">Describe the purpose an image serves.</text>
+      <text class="figure-label is-accent-text" x="36" y="208">Read more →</text>
+      <line class="figure-guide" x1="36" y1="221" x2="316" y2="221"/>
+      <text class="figure-label" x="36" y="239">Focus in dialogs</text>
+      <text class="figure-label is-accent-text" x="36" y="257">Read more →</text>
+
+      <text class="figure-label" x="372" y="96">Keyboard testing</text>
+      <text class="figure-note" x="372" y="114">Exercise the complete task without a pointer.</text>
+      <text class="figure-label is-accent-text" x="372" y="134">Read about keyboard testing →</text>
+      <line class="figure-guide" x1="372" y1="147" x2="664" y2="147"/>
+      <text class="figure-label" x="372" y="170">Writing useful alternatives</text>
+      <text class="figure-note" x="372" y="188">Describe the purpose an image serves.</text>
+      <text class="figure-label is-accent-text" x="372" y="208">Write useful image alternatives →</text>
+      <line class="figure-guide" x1="372" y1="221" x2="664" y2="221"/>
+      <text class="figure-label" x="372" y="239">Focus in dialogs</text>
+      <text class="figure-label is-accent-text" x="372" y="257">Manage focus in dialogs →</text>
+
+      <text class="figure-heading" x="32" y="294">LINKS LIST</text>
+      <text class="figure-heading" x="368" y="294">LINKS LIST</text>
+      <rect class="figure-node" x="20" y="306" width="312" height="80"/>
+      <rect class="figure-node is-info" x="356" y="306" width="324" height="80"/>
+      <text class="figure-note" x="36" y="330">1. Read more</text>
+      <text class="figure-note" x="36" y="350">2. Read more</text>
+      <text class="figure-note" x="36" y="370">3. Read more</text>
+      <text class="figure-note" x="372" y="330">1. Read about keyboard testing</text>
+      <text class="figure-note" x="372" y="350">2. Write useful image alternatives</text>
+      <text class="figure-note" x="372" y="370">3. Manage focus in dialogs</text>
+    </svg>
+    </div>
+    <figcaption>Someone navigating a list of links may hear each link without its surrounding card. Descriptive wording preserves the destination in both contexts.</figcaption>
+  </figure>
+
+  <h2 id="names-roles-states">Names, Roles, and States</h2>
+  <p class="lede">A control must expose what it is, what it is called, and any state that changes how it behaves.</p>
+
+  <p>An <strong>accessible name</strong> identifies an element to someone who cannot rely on its visual presentation. A button's text, a form control's associated <code>&lt;label&gt;</code>, or another native naming mechanism often supplies it. Visible labels are the most dependable source because the same wording supports screen-reader users, voice-control users, people with cognitive disabilities, and sighted users. Invisible naming is useful for controls such as an icon-only button, but it should not contradict the text that other users see.</p>
+
+  <figure class="figure-wrap">
+    <div class="figure accessibility-demo" inert aria-hidden="true">
+      <div class="accessibility-demo-grid">
+        <div class="accessibility-demo-panel">
+          <div class="accessibility-demo-heading"><span class="accessibility-demo-mark is-bad">×</span> Placeholder only</div>
+          <input class="accessibility-demo-field" type="email" placeholder="Work email">
+          <div class="accessibility-demo-note">After typing: <span class="accessibility-demo-placeholder">andreas@example.com</span><br>Visible label: none</div>
+        </div>
+        <div class="accessibility-demo-panel">
+          <div class="accessibility-demo-heading"><span class="accessibility-demo-mark is-good">✓</span> Persistent label</div>
+          <label class="accessibility-demo-label" for="accessibility-email-example">Work email</label>
+          <input class="accessibility-demo-field" id="accessibility-email-example" type="email" value="andreas@example.com">
+          <div class="accessibility-demo-note">After typing: the label remains visible<br>Accessible name: “Work email”</div>
+        </div>
+      </div>
+    </div>
+    <figcaption>A placeholder can offer an example, but it disappears as the user enters a value. An associated label remains visible and supplies the control's accessible name.</figcaption>
+  </figure>
+
+  <p>A <strong>role</strong> identifies the kind of object, such as a heading, link, checkbox, or dialog. A <strong>state</strong> describes information that can change, such as whether a disclosure is expanded, a checkbox is checked, or a control is unavailable. Relationships connect information that belongs together, including a field and its error message or a region and its heading. HTML supplies many of these contracts directly.</p>
+
+  <p><strong>Accessible Rich Internet Applications</strong> (ARIA) can add a role, state, property, or relationship that HTML does not express on its own. ARIA changes the semantic information exposed to assistive technology, but it does not implement behavior. Giving a <code>&lt;div&gt;</code> the button role does not add keyboard handling, focus behavior, or form semantics. A native element should be preferred when it already provides the required contract, and ARIA can be used to fill a real semantic gap.</p>
+
+  <h2 id="perceivable">Perceivable Content</h2>
+  <p class="lede">Information must remain available when a user cannot see, hear, or display it in the form the author expected.</p>
+
+  <p>A text alternative should communicate the purpose an image serves in its context. A chart may need both its conclusion and its underlying data, while a decorative image should not add noise for screen-reader users. Captions provide a synchronized alternative to speech and meaningful sounds in video. A transcript can serve audio when synchronization is unnecessary. Audio description may also be needed when the soundtrack does not explain important visual events.</p>
+
+  <p>Users must be able to change how content is displayed without losing information or controls. Color cannot be the only way to identify an error, status, or selected state. Text and meaningful graphics need sufficient contrast against their backgrounds. Enlarging text, changing text spacing, or zooming on a narrow screen must not hide information or controls. Ordinary page content should reflow instead of requiring scrolling in two directions.</p>
+
+  <figure class="figure-wrap">
+    <div class="figure accessibility-demo" inert aria-hidden="true">
+      <div class="accessibility-demo-grid">
+        <div class="accessibility-demo-panel">
+          <div class="accessibility-demo-heading"><span class="accessibility-demo-mark is-bad">×</span> Color carries the status</div>
+          <div class="accessibility-demo-status-list">
+            <div class="accessibility-demo-status"><span class="accessibility-demo-dot is-success"></span>Profile photo</div>
+            <div class="accessibility-demo-status"><span class="accessibility-demo-dot is-warn"></span>Contact details</div>
+            <div class="accessibility-demo-status"><span class="accessibility-demo-dot is-error"></span>Identity check</div>
+          </div>
+        </div>
+        <div class="accessibility-demo-panel">
+          <div class="accessibility-demo-heading"><span class="accessibility-demo-mark is-good">✓</span> Text preserves the status</div>
+          <div class="accessibility-demo-status-list">
+            <div class="accessibility-demo-status"><span class="accessibility-demo-status-icon is-success2">✓</span>Profile photo — Complete</div>
+            <div class="accessibility-demo-status"><span class="accessibility-demo-status-icon is-warn2">!</span>Contact details — Review</div>
+            <div class="accessibility-demo-status"><span class="accessibility-demo-status-icon is-error2">×</span>Identity check — Failed</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption>Color can reinforce a status, but text and a distinct symbol keep the same information available when the colors cannot be distinguished or are not presented.</figcaption>
+  </figure>
+
+  <p>HTML must preserve the relationships communicated by the visual design when the presentation changes or assistive technology presents the content in another form. A section title should use a heading element rather than merely look like a heading. Table header cells should identify the rows or columns they describe, and related form controls should have a shared group label. CSS can change how these elements look and where they appear, but their meaning must remain available to browsers and assistive technologies.</p>
+
+  <h2 id="operable">Operable Interfaces</h2>
+  <p class="lede">People need to reach, identify, and activate functionality through the input methods they use.</p>
+
+  <p>Keyboard access provides a useful baseline because many alternative devices follow the same focus path. Available functionality must be reachable and operable without trapping focus. The order should follow the content and task rather than a visual arrangement manufactured with positive <code>tabindex</code> values. A visible focus indicator shows which control will receive the next action, and sticky headers or overlays must not cover it.</p>
+
+  <figure class="figure-wrap">
+    <div class="accessibility-figure-scroll">
+    <svg class="figure" viewBox="0 0 700 270" role="img" aria-labelledby="focus-title focus-desc" xmlns="http://www.w3.org/2000/svg">
+      <title id="focus-title">A weak focus treatment compared with a clear focus outline</title>
+      <desc id="focus-desc">Two identical rows of controls are shown. On the first row, the Delivery control differs only through a slight background change. On the second, a high-contrast outline clearly identifies Delivery as the current keyboard target, and an arrow shows that Tab will continue to Payment.</desc>
+      <defs>
+        <marker id="web-accessibility-focus-arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path class="figure-arrow" d="M 0 0 L 10 5 L 0 10 z"/>
+        </marker>
+      </defs>
+      <text class="figure-title" x="20" y="26">Focus must remain visible as it moves</text>
+
+      <text class="figure-heading" x="32" y="58">DIFFICULT TO LOCATE</text>
+      <rect class="figure-panel" x="20" y="72" width="660" height="62"/>
+      <rect class="figure-node" x="36" y="88" width="136" height="30"/>
+      <rect class="figure-node is-muted" x="184" y="88" width="136" height="30"/>
+      <rect class="figure-node" x="332" y="88" width="136" height="30"/>
+      <rect class="figure-node" x="480" y="88" width="164" height="30"/>
+      <text class="figure-label" x="104" y="107" text-anchor="middle">Address</text>
+      <text class="figure-label" x="252" y="107" text-anchor="middle">Delivery</text>
+      <text class="figure-label" x="400" y="107" text-anchor="middle">Payment</text>
+      <text class="figure-label" x="562" y="107" text-anchor="middle">Review order</text>
+
+      <text class="figure-heading" x="32" y="168">CURRENT CONTROL IS EXPLICIT</text>
+      <rect class="figure-panel is-info" x="20" y="182" width="660" height="68"/>
+      <rect class="figure-node" x="36" y="200" width="136" height="30"/>
+      <rect class="figure-node is-accent" x="184" y="200" width="136" height="30"/>
+      <rect class="figure-guide is-accent-stroke figure-emphasis" x="179" y="195" width="146" height="40" rx="7"/>
+      <rect class="figure-node" x="348" y="200" width="136" height="30"/>
+      <rect class="figure-node" x="508" y="200" width="136" height="30"/>
+      <text class="figure-label" x="104" y="219" text-anchor="middle">Address</text>
+      <text class="figure-label is-accent-text" x="252" y="219" text-anchor="middle">Delivery</text>
+      <text class="figure-label" x="416" y="219" text-anchor="middle">Payment</text>
+      <text class="figure-label" x="576" y="219" text-anchor="middle">Review order</text>
+      <line class="figure-connector is-accent-stroke" x1="325" y1="215" x2="344" y2="215" marker-end="url(#web-accessibility-focus-arrow)"/>
+    </svg>
+    </div>
+    <figcaption>A keyboard action applies to the control that has focus, not the control under the pointer. A clear indicator lets the user follow that position through the task.</figcaption>
+  </figure>
+
+  <p>Pointer interaction has separate constraints. Targets need enough size or separation for people with limited precision, and an action should not depend on a complex gesture when a simpler control can provide the same result. The visible wording of a control also needs to appear in its accessible name so someone using voice control can activate what they see by speaking that label.</p>
+
+  <figure class="figure-wrap">
+    <div class="accessibility-figure-scroll">
+    <svg class="figure" viewBox="0 0 700 300" role="img" aria-labelledby="targets-title targets-desc" xmlns="http://www.w3.org/2000/svg">
+      <title id="targets-title">Closely packed icon targets compared with separated labeled controls</title>
+      <desc id="targets-desc">The first toolbar contains three small icon buttons with little space between them. A large pointer landing area overlaps all three. The second toolbar uses larger separated controls labeled Edit, Duplicate, and Delete, so the same landing area intersects only one target.</desc>
+      <text class="figure-title" x="20" y="26">Size and spacing change the precision an action requires</text>
+      <text class="figure-heading" x="32" y="58">TIGHT TARGETS</text>
+      <text class="figure-heading" x="368" y="58">SEPARATED TARGETS</text>
+
+      <rect class="figure-panel" x="20" y="72" width="312" height="164"/>
+      <rect class="figure-panel is-info" x="356" y="72" width="324" height="164"/>
+
+      <rect class="figure-node" x="112" y="116" width="30" height="30"/>
+      <rect class="figure-node" x="145" y="116" width="30" height="30"/>
+      <rect class="figure-node" x="178" y="116" width="30" height="30"/>
+      <text class="figure-label" x="127" y="136" text-anchor="middle">✎</text>
+      <text class="figure-label" x="160" y="136" text-anchor="middle">□</text>
+      <text class="figure-label" x="193" y="136" text-anchor="middle">×</text>
+      <circle class="figure-guide is-accent-stroke figure-emphasis" cx="160" cy="131" r="27"/>
+      <text class="figure-note" x="176" y="185" text-anchor="middle">One imprecise contact can reach</text>
+      <text class="figure-note" x="176" y="201" text-anchor="middle">several neighboring actions.</text>
+
+      <rect class="figure-node is-info" x="376" y="108" width="82" height="46"/>
+      <rect class="figure-node is-info" x="469" y="108" width="96" height="46"/>
+      <rect class="figure-node is-info" x="576" y="108" width="84" height="46"/>
+      <text class="figure-label is-info-text" x="417" y="135" text-anchor="middle">Edit</text>
+      <text class="figure-label is-info-text" x="517" y="135" text-anchor="middle">Duplicate</text>
+      <text class="figure-label is-info-text" x="618" y="135" text-anchor="middle">Delete</text>
+      <circle class="figure-guide is-accent-stroke figure-emphasis" cx="517" cy="131" r="27"/>
+      <text class="figure-note" x="518" y="185" text-anchor="middle">The same contact area reaches one action,</text>
+      <text class="figure-note" x="518" y="201" text-anchor="middle">whose visible label can also be spoken.</text>
+
+      <text class="figure-note" x="20" y="272">The circles illustrate the same degree of pointer imprecision; they are not prescribed target dimensions.</text>
+    </svg>
+    </div>
+    <figcaption>Larger targets and space between adjacent actions reduce the precision required. Visible wording also gives voice-control users an unambiguous command.</figcaption>
+  </figure>
+
+  <p>Time and motion affect operability. People may need more time to read, enter information, or respond to a session warning. Automatically moving content needs a way to pause when it interferes with the task. Interfaces must avoid flashes that can trigger seizures and should respect reduced-motion preferences when movement is not essential to the information or operation.</p>
+
+  <h2 id="understandable">Understandable Workflows</h2>
+  <p class="lede">A technically exposed control is still a barrier when people cannot determine what it does or recover from a mistake.</p>
+
+  <p>Clear language, descriptive headings, and predictable navigation reduce the effort needed to understand a page. Components with the same purpose should use consistent names and behavior. Unexpected context changes, such as submitting a form when a field receives focus, take control away from the user and make the interface harder to learn.</p>
+
+  <p>Forms need visible labels and instructions before an error occurs. When validation fails, the message should identify the affected field, explain the problem in words, and describe how to correct it. Color and an icon can reinforce the message but cannot replace it. The error also needs a programmatic relationship to its field, and a long form may need an error summary that helps the user reach each problem.</p>
+
+  <figure class="figure-wrap">
+    <div class="figure accessibility-demo" inert aria-hidden="true">
+      <div class="accessibility-demo-grid">
+        <div class="accessibility-demo-panel">
+          <div class="accessibility-demo-heading"><span class="accessibility-demo-mark is-bad">×</span> The user must infer the problem</div>
+          <label class="accessibility-demo-label" for="accessibility-password-bad">New password</label>
+          <input class="accessibility-demo-field is-error" id="accessibility-password-bad" type="text" value="orchid">
+          <div class="accessibility-demo-error"><span>!</span><span>Invalid</span></div>
+        </div>
+        <div class="accessibility-demo-panel">
+          <div class="accessibility-demo-heading"><span class="accessibility-demo-mark is-good">✓</span> The message supports recovery</div>
+          <label class="accessibility-demo-label" for="accessibility-password-good">New password</label>
+          <input class="accessibility-demo-field is-error" id="accessibility-password-good" type="text" value="orchid" aria-describedby="accessibility-password-error">
+          <div class="accessibility-demo-error is-helpful" id="accessibility-password-error"><span>!</span><span>Use at least 12 characters. You entered 6.</span></div>
+        </div>
+      </div>
+    </div>
+    <figcaption>A useful validation message names the problem and explains how to correct it. Associating the message with the field lets software present the same relationship.</figcaption>
+  </figure>
+
+  <p>Authentication and other consequential workflows deserve the same analysis from beginning to end. An accessible sign-in form does not help if the one-time-code step expires too quickly or the recovery route depends on a puzzle a user cannot perceive. Product teams must test the complete task, including errors, loading states, timeouts, and third-party content.</p>
+
+  <h2 id="conformance">Conformance and Usability</h2>
+  <p class="lede">Standards, expert evaluation, and disabled-user research answer different questions about the same product.</p>
+
+  <p>The <a href="https://www.w3.org/WAI/standards-guidelines/wcag/"><strong>Web Content Accessibility Guidelines</strong></a> (WCAG) define testable requirements for accessible web content. Conformance evaluation asks whether a complete page or process satisfies the applicable success criteria at a stated level. WCAG 2.2 is the latest WCAG 2 Recommendation, although laws and contracts may name an earlier version. Later WCAG 2 versions add requirements without generally invalidating the earlier criteria.</p>
+
+  <p>A <strong>success criterion</strong> states an outcome that can be evaluated without requiring one particular design or implementation. Each criterion has a conformance level. Level AA conformance requires a page to satisfy every Level A and Level AA criterion.</p>
+
+  <p>Each WCAG success criterion defines the required outcome. W3C’s supporting Understanding documents and techniques explain why the requirement exists and show possible ways to meet it, but those techniques are not themselves required. For example, the visible-focus criterion requires a visible keyboard focus indicator without prescribing one CSS treatment. The <a href="https://www.w3.org/WAI/WCAG22/quickref/">WCAG 2.2 Quick Reference</a> connects each criterion to that supporting guidance.</p>
+
+  <p>Conformance is necessary evidence, but it is not a guarantee that every workflow is easy to use. A label can exist and still be unclear. Focus can follow a technically valid order that makes a task inefficient. Evaluation with disabled users reveals these practical barriers and shows how complete workflows behave with real strategies and assistive technologies.</p>
+
+  <p>User research cannot replace conformance evaluation either. A small participant group cannot represent every disability, technology, language, or WCAG requirement. Teams need both: standards provide systematic coverage, while user involvement tests whether the resulting experience supports people in practice. <a href="accessibility-governance.html">Accessibility Governance</a> explains how organizations assign that work and sustain it through delivery. <a href="accessibility-in-rendering-architecture.html">Accessibility in Rendering Architecture</a> covers the additional responsibilities created by client-side navigation, streaming, and deferred interactivity.</p>
+
+</main>
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+
+</body>
+</html>
