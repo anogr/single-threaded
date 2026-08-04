@@ -3,10 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Accessibility Governance — Single Threaded</title>
+<title>Accessibility in Rendering Architecture — Single Threaded</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="articles.css">
+<style>
+  .accessibility-figure-scroll { overflow-x: auto; }
+
+  @media (max-width: 600px) {
+    .accessibility-figure-scroll .figure { min-width: 620px; }
+  }
+</style>
 </head>
 
 <body>
@@ -23,141 +30,157 @@
 <nav class="sidebar" id="sidebar">
   <a class="sidebar-back" href="index.html">← All articles</a>
 
-  <div class="sidebar-section">Targets and Obligations</div>
-  <a href="#intro">A sustained product capability</a>
-  <a href="#standards">Standards and conformance</a>
-  <a href="#regulation">Regulation and contracts</a>
-  <a href="#target">Choosing a target</a>
+  <div class="sidebar-section">Document Changes</div>
+  <a href="#intro">Rendering changes responsibility</a>
+  <a href="#navigation">Document and client navigation</a>
 
-  <div class="sidebar-section">Ownership</div>
-  <a href="#responsibility">Distributed responsibility</a>
-  <a href="#systems-content">Systems and content</a>
-  <a href="#procurement">Third-party products</a>
+  <div class="sidebar-section">Intermediate States</div>
+  <a href="#streaming">Streaming and replacement</a>
+  <a href="#interactivity">Deferred interactivity</a>
+  <a href="#updates">Asynchronous updates</a>
 
-  <div class="sidebar-section">Evidence and Maintenance</div>
-  <a href="#overlays">Runtime overlays</a>
-  <a href="#evaluation">Evaluation and user research</a>
-  <a href="#sustaining">Sustaining accessibility</a>
+  <div class="sidebar-section">Presentation</div>
+  <a href="#focus-layers">Focus and persistent layers</a>
+  <a href="#motion">Motion during view changes</a>
+
+  <div class="sidebar-section">Verification</div>
+  <a href="#testing">Testing transitions</a>
 </nav>
 
 <main>
 
-  <div class="eyebrow">Accessibility · Governance</div>
-  <h1>Accessibility Governance</h1>
-  <p class="subtitle">How organizations turn accessibility targets into ownership, delivery practices, procurement decisions, evaluation, and ongoing improvement.</p>
+  <div class="eyebrow">Accessibility · Architecture</div>
+  <h1>Accessibility in Rendering Architecture</h1>
+  <p class="subtitle">How rendering choices affect a user's ability to stay oriented and operate an interface while it changes.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~10 min read</span>
+    <div class="dot"></div><span>~12 min read</span>
     <div class="dot"></div><span>Last updated August 2026</span>
   </div>
 
   <section id="intro">
-    <p>An audit can identify barriers in a product, but the report does not explain who must prevent the next regression. Teams need a shared target, people who own the decisions behind it, evidence from the right kinds of evaluation, and a way to keep those arrangements working as the product changes.</p>
+    <p>A user follows a link in an application and sees a new view. The address changes and the previous content disappears, but keyboard focus remains on the link in the navigation menu. A person looking at the screen can see that navigation succeeded. A screen-reader user may still hear the old link and receive no clear indication of where the new content begins.</p>
 
-    <p><strong>Accessibility governance</strong> is the system an organization uses to assign that responsibility and verify the result. It covers product policy, design and engineering practices, content publishing, procurement, testing, user feedback, and reporting. Governance is not a separate approval layer that makes a product accessible after implementation. It gives each existing delivery activity an accessibility responsibility.</p>
+    <p><strong>Rendering architecture</strong> determines whether navigation creates a document or changes the document that is already open. The same architecture determines whether visible content can be replaced and whether a control can appear before its behavior is ready. Document lifetime and readiness timing decide which accessibility behavior the browser provides and which behavior the framework or application must implement.</p>
 
-    <p>The work starts with the barrier model described in <a href="web-accessibility.html">Web Accessibility</a>. A <a href="design-systems.html">design system</a> can prevent repeated semantic defects, while a product team still owns the complete workflow. A procurement process can reject an inaccessible service before integration, while operations still needs a route for users to report barriers that escaped evaluation. Each boundary needs an owner because no single specialist can control the whole experience.</p>
+    <p><a href="rendering-strategies.html">Rendering Strategies</a> explains how an architecture produces and activates a page. The chosen architecture creates the document and intermediate states that users encounter. <a href="web-accessibility.html">Web Accessibility</a> explains how semantics and keyboard behavior make the resulting document and intermediate states usable by people with disabilities. The article follows the user's experience from activating navigation until the new content is both oriented and operable.</p>
   </section>
 
-  <h2 id="standards">Standards and Conformance</h2>
-  <p class="lede">WCAG supplies a technical baseline, while laws, contracts, and organizational policy decide which baseline applies.</p>
+  <h2 id="navigation">Document and Client Navigation</h2>
+  <p class="lede">The first architectural question is whether navigation creates a new document or changes the current document.</p>
 
-  <p>The <a href="https://www.w3.org/WAI/standards-guidelines/wcag/"><strong>Web Content Accessibility Guidelines</strong></a> (WCAG) are the W3C standard for accessible web content. WCAG 2.2 is the latest WCAG 2 Recommendation and was approved in October 2025. Its success criteria are organized into levels A, AA, and AAA, with each level including the levels below it. W3C encourages teams to use the latest WCAG 2 version, but WCAG 2.2 does not deprecate WCAG 2.1 or 2.0. A governing rule may still name one of those earlier versions.</p>
+  <p>A document navigation asks the browser to load another URL and replace the active document. The destination supplies its own HTML and page title. Browsers and assistive technologies can therefore treat the load as a document change, although the exact focus position and spoken announcement vary between products. A descriptive title names the new document. The title identifies the browser tab and helps assistive-technology users distinguish the destination from other open pages.</p>
 
-  <p>Level AA is a common target because it includes the foundational Level A criteria and a wider set of barriers that products are generally expected to address. Level AAA contains additional requirements that can improve access for particular content and audiences. W3C advises against requiring Level AAA for an entire site because some content cannot satisfy every AAA criterion. Teams can still adopt relevant AAA criteria where the user need and product context justify them.</p>
+  <p>A client-side router keeps the current document alive. The router updates the URL and replaces part of the Document Object Model (DOM) instead of asking the browser to load another document. The browser does not infer that the replacement represents a new page. Unless the framework or application supplies a new title and manages focus deliberately, both can remain associated with the previous view.</p>
 
-  <p>A conformance claim applies to complete pages and processes, not isolated components. A component library can test a field's semantics, keyboard operation, and error API. Only the product can determine whether a multi-step application process preserves instructions, focus, error recovery, and accessible third-party content from beginning to end. Component evidence lowers risk without certifying the page that consumes it.</p>
+  <p>The application should first distinguish a route change from an update within the current view. Opening an order details route takes the user to a view with a different purpose. Moving focus to the new view's heading or main region can help the user begin there. Filtering the orders that are already visible is different. The filter control still explains why the results changed, so preserving focus on that control usually supports the next action better than moving focus into the results.</p>
 
-  <h2 id="regulation">Regulation and Contracts</h2>
-  <p class="lede">Accessibility law creates obligations, but the applicable jurisdiction and product scope determine what a team must implement.</p>
+  <p>Each client-side route needs a descriptive title so the current view has an accurate name. After updating the title, the application must decide how a user enters the new view. Moving focus to the main heading can identify the destination and place keyboard navigation near its content. Preserving focus and announcing the route may work better when a focus move would interrupt the task. Using a focus move and an announcement together can repeat the same information, so the product team must test the complete behavior before choosing both.</p>
 
-  <p>Both the European Union and the United States regulate digital accessibility. In the EU, common requirements for selected products and services began applying in June 2025. In the US, federal rules cover public-sector digital services, while disability law also applies to businesses open to the public. State law, sector regulation, and public funding can add further obligations.</p>
+  <figure class="figure-wrap">
+    <div class="accessibility-figure-scroll" role="region" aria-label="Navigation lifecycle diagram" tabindex="0">
+    <svg class="figure" viewBox="0 0 700 344" role="img" aria-label="Comparison of document navigation and client-side navigation. Document navigation creates a new document with its own title. Client-side navigation keeps the current document, so the framework or application must update the title and choose how to orient the user." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="rendering-navigation-arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path class="figure-arrow" d="M 0 0 L 10 5 L 0 10 z"/>
+        </marker>
+      </defs>
+      <text class="figure-title" x="176" y="24" text-anchor="middle">Document navigation</text>
+      <text class="figure-title" x="524" y="24" text-anchor="middle">Client-side navigation</text>
 
-  <p>A law does not always provide the checklist that a designer or developer follows. It may define which organizations and services must be accessible, then refer to a technical standard or leave the organization to choose suitable criteria. WCAG is often used for that technical baseline, but the required version, conformance level, exceptions, and evidence depend on the governing rule.</p>
+      <rect class="figure-node" x="32" y="48" width="288" height="32"/>
+      <text class="figure-label" x="176" y="68" text-anchor="middle">Browser loads the destination URL</text>
+      <line class="figure-connector is-muted-color" x1="176" y1="80" x2="176" y2="104" marker-end="url(#rendering-navigation-arrow)"/>
+      <rect class="figure-node is-info" x="32" y="104" width="288" height="32"/>
+      <text class="figure-label is-info-text" x="176" y="124" text-anchor="middle">A new document becomes active</text>
+      <line class="figure-connector is-muted-color" x1="176" y1="136" x2="176" y2="160" marker-end="url(#rendering-navigation-arrow)"/>
+      <rect class="figure-node is-info" x="32" y="160" width="288" height="32"/>
+      <text class="figure-label is-info-text" x="176" y="180" text-anchor="middle">The new document supplies its title</text>
+      <line class="figure-connector is-muted-color" x1="176" y1="192" x2="176" y2="216" marker-end="url(#rendering-navigation-arrow)"/>
+      <rect class="figure-node is-info" x="32" y="216" width="288" height="48"/>
+      <text class="figure-label is-info-text" x="176" y="236" text-anchor="middle">Browser and assistive technology</text>
+      <text class="figure-note is-info-text" x="176" y="252" text-anchor="middle">handle the document load</text>
 
-  <p>Contracts and procurement policies can be more specific than legislation. A customer may require a particular WCAG target, evaluation report, remediation period, or process for reporting regressions. Legal specialists determine which obligations apply. Product and architecture teams turn those obligations into scope, acceptance criteria, evidence, and ongoing ownership.</p>
+      <rect class="figure-node" x="380" y="48" width="288" height="32"/>
+      <text class="figure-label" x="524" y="68" text-anchor="middle">Router changes the URL and DOM</text>
+      <line class="figure-connector is-muted-color" x1="524" y1="80" x2="524" y2="104" marker-end="url(#rendering-navigation-arrow)"/>
+      <rect class="figure-node is-accent" x="380" y="104" width="288" height="32"/>
+      <text class="figure-label is-accent-text" x="524" y="124" text-anchor="middle">The current document remains active</text>
+      <line class="figure-connector is-muted-color" x1="524" y1="136" x2="524" y2="160" marker-end="url(#rendering-navigation-arrow)"/>
+      <rect class="figure-node is-accent" x="380" y="160" width="288" height="32"/>
+      <text class="figure-label is-accent-text" x="524" y="180" text-anchor="middle">Title and focus do not reset automatically</text>
+      <line class="figure-connector is-muted-color" x1="524" y1="192" x2="524" y2="216" marker-end="url(#rendering-navigation-arrow)"/>
+      <rect class="figure-node is-info" x="380" y="216" width="288" height="48"/>
+      <text class="figure-label is-info-text" x="524" y="236" text-anchor="middle">Framework or application</text>
+      <text class="figure-note is-info-text" x="524" y="252" text-anchor="middle">updates the title and restores orientation</text>
 
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr><th>Source</th><th>Question it answers</th><th>Architectural consequence</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>WCAG</td><td>Which testable accessibility requirements apply to web content?</td><td>Define evaluation criteria and the conformance level</td></tr>
-        <tr><td>Law or regulation</td><td>Which products, services, organizations, and dates are covered?</td><td>Define jurisdiction, scope, exceptions, and evidence</td></tr>
-        <tr><td>Contract or procurement policy</td><td>What must a supplier deliver and report?</td><td>Define acceptance, remediation, and change obligations</td></tr>
-        <tr><td>Product policy</td><td>What will the organization support beyond the minimum obligation?</td><td>Define defaults, ownership, budgets, and monitoring</td></tr>
-      </tbody>
-    </table>
-  </div>
+      <text class="figure-note" x="350" y="308" text-anchor="middle">The diagram shows the lifecycle boundary, not a guaranteed spoken announcement.</text>
+    </svg>
+    </div>
+    <figcaption>A new document gives the browser a document-load boundary. A client-side route stays within the current document, so the framework or application must update the title and decide how the user enters the new view.</figcaption>
+  </figure>
 
-  <h2 id="target">Choosing a Target</h2>
-  <p class="lede">A target becomes useful only after the organization connects it to product scope and delivery decisions.</p>
+  <p>Framework support changes the amount of application code, not the product's responsibility for the outcome. <a href="https://nextjs.org/docs/architecture/accessibility">Next.js includes a route announcer</a> that looks first for the document title. When no title is available, the announcer uses the first level-one heading and then falls back to the URL path. Another router may provide no equivalent behavior. Teams need to inspect the version they use and test the rendered application rather than assume that the word “router” implies a particular focus or announcement policy.</p>
 
-  <p>When no governing rule requires a different version, WCAG 2.2 Level AA is a sensible product target. The policy should identify the websites, applications, documents, and third-party content it covers. It should also state supported languages and platforms, how legacy content will be handled, when conformance will be evaluated, and where exceptions require documented approval.</p>
+  <h2 id="streaming">Streaming and Replacement</h2>
+  <p class="lede">Streaming changes when parts of a document become available, while the document structure still decides where those parts belong.</p>
 
-  <p>Product teams then translate the target into acceptance criteria for complete workflows. A requirement such as “meet WCAG 2.2 AA” is too broad for a feature ticket on its own. A checkout feature can specify keyboard operation, visible focus, field labels, error relationships, status announcements, reflow, and the behavior of its payment provider. Those conditions give design, implementation, and review a common definition of finished.</p>
+  <p>With streaming server-side rendering, a server can send a page shell before every region has finished rendering. A <a href="react-server-components.html#streaming">React Suspense boundary</a>, for example, can place fallback content in the HTML and replace that fallback when the delayed region becomes ready. A region near the bottom of the page may finish first, but React inserts it at its assigned position. Network completion order does not become reading order or keyboard order.</p>
 
-  <p>Accessibility targets also need resources. Training, expert review, assistive-technology testing, disabled-user research, remediation, and supplier evaluation take time and money. A policy without an allocated budget transfers those costs to individual teams and makes delivery depend on local enthusiasm.</p>
+  <p>Replacement can disrupt the user when it removes keyboard focus. Suppose a user activates a “Load order history” button and the application replaces the whole panel with a fallback. Removing the button also removes the focused element. When the order history later replaces the fallback, neither replacement gives the keyboard user a stable reference point. Keeping the trigger and loading status outside the replaceable result area lets the result change without taking the focused control with it.</p>
 
-  <h2 id="responsibility">Distributed Responsibility</h2>
-  <p class="lede">Every role owns the barriers created by the decisions it controls.</p>
+  <p>Newly streamed content does not need an announcement merely because it arrived later. An article section can enter its intended place in the document and become available when the user reads to that position. A search result count has a different purpose because it tells the user that a requested search has finished. When focus remains in the search field, the application can update a live region with the result count. The results themselves remain ordinary document content that the user reaches through normal reading.</p>
 
-  <p>Product leadership owns scope, priority, budget, and the consequences of releasing known barriers. Researchers include disabled participants and the assistive technologies or adaptive strategies relevant to the product. Designers specify content order, interaction, focus, motion, contrast, responsive behavior, and states that static default screens often omit.</p>
+  <p>A stable page shell preserves the structure that people use to move around the page. Keeping the main landmark mounted gives the page a persistent content region while inner sections resolve. A primary heading included in that region gives the content a stable name when the server already knows the heading text. Because the main region remains present, a skip link can continue to target it throughout the update. The application can then replace a product list without removing the structural points used for orientation.</p>
 
-  <p>Content authors own headings, link purpose, text alternatives, captions, instructions, and clear error wording. Developers preserve semantics and implement keyboard, focus, state, and announcement behavior. Design-system teams encode safe defaults and document the responsibilities that remain with component consumers. Quality engineers exercise workflows and transitions rather than scanning only settled pages.</p>
+  <h2 id="interactivity">Deferred Interactivity</h2>
+  <p class="lede">Server-rendered HTML can expose a control before the JavaScript that implements its behavior is ready.</p>
 
-  <p>Procurement owns accessibility requirements for products the organization does not build. Operations and support own the path through which users report a barrier and receive an accessible alternative while it is corrected. An accessibility specialist can train teams, advise on difficult patterns, and evaluate evidence. The specialist cannot substitute for these owners because most decisions occur before a central review can see them.</p>
+  <p><a href="rendering-strategies.html#islands"><strong>Hydration</strong></a> connects server-rendered elements to client-side state and event handlers. An architecture may hydrate the whole application together or activate separate regions at different times. During that interval, a button can already appear in the accessibility tree and keyboard sequence. If its action exists only in a client-side handler, activating the button before hydration may do nothing.</p>
 
-  <h2 id="systems-content">Systems and Content</h2>
-  <p class="lede">Shared systems can prevent repeated defects, but they cannot decide whether a finished page communicates clearly.</p>
+  <p>Native browser behavior narrows the readiness gap. A normal link can navigate before hydration because the browser understands its destination from the <code>href</code> attribute. A form can submit for the same reason when its HTML identifies a server endpoint. Client-side validation may not be ready yet, but the browser still knows how to send the form. A JavaScript-only command has no equivalent browser behavior to fall back on. The application must therefore make the command ready when the control appears or represent the control as unavailable until its behavior can run.</p>
 
-  <p>The design system can supply native controls, visible focus treatments, approved color pairings, reduced-motion utilities, and documented keyboard models. Components should be evaluated at their source and again in representative product contexts. Tokens narrow unsafe choices but cannot prove contrast, focus visibility, or reflow after a page combines colors, layers, sticky regions, and content.</p>
+  <p>Progressive enhancement is useful when the server can complete the task without client code. Client-side behavior can then improve speed or feedback without becoming the only route through the task. Some interactions genuinely depend on JavaScript, such as editing a diagram directly on a canvas. In that case, the interface needs a readiness state that people can perceive, and the loading design must not invite activation before the editor can respond.</p>
 
-  <p>Component APIs need explicit boundaries. A field component can require a visible label and provide an error-message relationship. The product still writes the label, chooses when validation occurs, and decides whether the message helps a user recover. A modal component can provide dialog semantics and focus containment, while the product chooses a useful name, initial focus, and the destination when the dialog closes.</p>
+  <p>Resumability changes how the application reaches readiness without changing when the control must work. A resumable framework can serialize references to event handlers and load the relevant code after the first event instead of eagerly rebuilding the component tree. The first activation can still wait for a network request or fail when the code cannot be loaded. Testing must therefore include the first action, not only actions performed after all client code is present.</p>
 
-  <p>Publishing tools create another shared boundary. A content management system can require alternative-text decisions, preserve heading structure, and produce valid markup. It should not force every image to have descriptive text because decorative images need a different result. Templates, editorial guidance, validation, and preview tools work together to help authors make the contextual decision.</p>
+  <h2 id="updates">Asynchronous Updates</h2>
+  <p class="lede">When content changes away from focus, the application may need to notify a screen-reader user without moving focus.</p>
 
-  <h2 id="procurement">Third-Party Products</h2>
-  <p class="lede">A supplier becomes part of the user journey, so its accessibility belongs in architecture and acceptance.</p>
+  <p>A <a href="https://www.w3.org/WAI/WCAG22/Understanding/status-messages"><strong>live region</strong></a> identifies content whose later updates may be presented by assistive technology without moving focus. Consider a search form that keeps focus in its query field while a request replaces the results. A screen reader remains at the query field, so it may not present a visible “18 results” message beside the updated results. Placing the count in a live status region makes the new value available for announcement without moving focus away from the query.</p>
 
-  <p>A payment flow, identity provider, embedded support tool, document viewer, or analytics widget can introduce barriers into an otherwise accessible application. Procurement should include the applicable standard, product and platform scope, evaluation expectations, remediation terms, disclosure of known gaps, and notice when an update changes accessibility behavior.</p>
+  <p>A disclosure button communicates whether its associated content is expanded. When the user opens the disclosure, focus remains on the button and its programmatic expanded state changes. A screen reader can present the new state from the focused button, so a live-region message would repeat information that is already available. The same reasoning applies when a focused tab becomes selected or a focused checkbox becomes checked.</p>
 
-  <p>The <a href="https://www.itic.org/policy/accessibility/vpat"><strong>Voluntary Product Accessibility Template</strong></a> (VPAT) is a template for producing an <strong>Accessibility Conformance Report</strong> (ACR). A completed report identifies the product version, evaluation methods, applicable standards, and the supplier's account of how the product supports each criterion. It is evidence supplied by the vendor, not a certification.</p>
+  <p>The urgency of a message determines how its live region behaves. The <code>status</code> role is appropriate for information that can wait until current speech finishes. The <code>alert</code> role is intended for important, time-sensitive information because it can interrupt the user's current task. An ordinary search result count therefore belongs in a status, while a warning that an unsaved session is about to expire may justify an alert.</p>
 
-  <p>Review the report for specific explanations, current product scope, and testing that matches the planned environment. Vague remarks, an old version, or blanket claims without methods reduce its value. Representative workflows still need evaluation before purchase and after important upgrades. Where a supplier has gaps, the contract needs an accepted workaround, remediation commitment, or a decision not to use the product.</p>
+  <p>A live region also needs to be present before the application updates it. The browser and assistive technology can then observe the change from the previous content to the new message. If the application instead inserts a pre-filled live region, some browser and screen-reader combinations may not announce it because they did not observe a content change inside an existing region.</p>
 
-  <h2 id="overlays">Runtime Overlays</h2>
-  <p class="lede">A script that modifies a finished page cannot establish that its content and workflows conform to WCAG.</p>
+  <p>A live message can tell the user that a form submission failed, but the message does not explain where each error occurred. Every error still needs a programmatic relationship to its field so the user can identify the invalid value. When the form contains several errors, moving focus to an error summary can provide a starting point for correction. The announcement reports the failed event, while the field relationships and focus strategy help the user recover from it.</p>
 
-  <p>An <strong>overlay widget</strong> is a third-party script that attempts to alter an existing site at runtime, often through a control displayed in a corner of the page. It may change presentation or patch some detectable defects. It cannot determine whether text alternatives fit their context, repair an inaccessible business process, rewrite unclear instructions, or verify behavior across the browser and assistive-technology combinations a product supports.</p>
+  <h2 id="focus-layers">Focus and Persistent Layers</h2>
+  <p class="lede">A focus target can be correct in the DOM and still be hidden from a person looking at the page.</p>
 
-  <p>The limitation is the same one that applies to automated evaluation: tools cannot determine every accessibility requirement without human judgment. In 2025, the <a href="https://www.ftc.gov/business-guidance/blog/2025/04/million-dollar-blunder-how-ftcs-settlement-software-provider-accessibe-can-help-your-business-avoid">US Federal Trade Commission finalized an order</a> requiring accessiBe to pay one million dollars over deceptive claims that its automated product could make any website WCAG-compliant.</p>
+  <p>A client-side route may move focus to the new heading while a sticky header covers that heading. A person looking at the screen then loses the visual cue that should identify the new location. The same overlap becomes a standards issue when a persistent layer completely covers an interactive component reached with the keyboard. <a href="https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum">WCAG 2.2 requires that a focused component not be completely hidden by author-created content</a>. Route landing points and nearby controls therefore need visual testing at responsive breakpoints and in zoomed layouts.</p>
 
-  <div class="callout danger">
-    <div class="callout-title">An overlay cannot establish conformance</div>
-    <p>Treat an overlay like any other third-party script with a narrow, testable purpose. It cannot replace accessible source code, workflow evaluation, expert judgment, or testing with disabled users.</p>
-  </div>
+  <p>Shared components can provide sensible stacking rules and scroll offsets, but the final page decides which layers appear together. A header component cannot know that a product adds a fixed consent banner below it. The product team must test the composed page and correct the layer that covers focus. <a href="accessibility-governance.html#systems-content">Accessibility Governance</a> explains how responsibility is divided between shared systems and the products that use them.</p>
 
-  <h2 id="evaluation">Evaluation and User Research</h2>
-  <p class="lede">Different evaluation methods find different kinds of evidence, so a credible program combines them.</p>
+  <h2 id="motion">Motion During View Changes</h2>
+  <p class="lede">Animation changes how a transition looks, but it does not change whether navigation creates a new document.</p>
 
-  <p>Automated rules can quickly detect mechanical defects such as missing attributes, invalid relationships, and some contrast failures. They work well in component development, continuous integration, and repeated page scans. A passing scan does not establish conformance because many requirements depend on purpose, reading order, interaction, timing, or the quality of supplied text.</p>
+  <p>The <a href="rendering-strategies.html#mpa">View Transition API</a> can animate a DOM update within one document or a navigation between two documents. A cross-document animation still loads a new document, and a same-document animation still leaves client routing responsible for orientation. A smooth visual handoff therefore provides no evidence that focus or announcements also work.</p>
 
-  <p>Manual evaluation examines keyboard operation, focus order and visibility, zoom and reflow, text alternatives, errors, dynamic updates, and complete task behavior. Assistive-technology testing checks the browser contract that users actually receive. Test combinations should reflect product analytics, audience research, language, and supported platforms; results from one screen reader and browser cannot be generalized to every combination.</p>
+  <p>Large scaling and panning effects can cause discomfort for people with vestibular disorders. The <a href="https://www.w3.org/WAI/WCAG22/Understanding/animation-from-interactions"><code>prefers-reduced-motion</code> media query</a> lets the product detect a request to reduce non-essential motion. The reduced experience can remove movement or substitute an opacity change while preserving the navigation itself. The same motion policy should govern both document and client-side transitions so the user's preference does not depend on which rendering path a route uses.</p>
 
-  <p>Disabled-user research provides evidence about usability and barriers that standards-based checks may not reveal. It should happen during research, design, and iterative delivery rather than only after implementation. A small participant group cannot represent every disability or establish WCAG conformance, so user involvement complements systematic evaluation instead of replacing it.</p>
+  <h2 id="testing">Testing Transitions</h2>
+  <p class="lede">A test of the settled page cannot reveal every problem that occurred while the interface was changing.</p>
 
-  <p>Independent expert audits remain useful at major milestones, for regulated evidence, and when internal teams need a broader assessment. Findings should enter the ordinary issue tracker with an owner, severity, affected users, target release, and regression test where one is possible. A report that remains outside the delivery system documents risk without controlling it. <a href="testing-strategy.html">Testing Strategy</a> explains how these layers fit into the wider test portfolio.</p>
+  <p>An automated accessibility scan inspects the state that the test presents to it. A scan performed after hydration cannot reveal that a button ignored its first activation. A scan performed after a route completes cannot show that focus remained in the old navigation while the route was loading. Both defects happened before the scanned state existed. The test must therefore drive the application through the transition before it inspects the result. <a href="accessibility-governance.html#evaluation">Accessibility Governance</a> explains why this automated evidence still needs manual evaluation and research with people with disabilities.</p>
 
-  <h2 id="sustaining">Sustaining Accessibility</h2>
-  <p class="lede">Accessibility changes with the product, its dependencies, its content, and the standards that govern it.</p>
+  <p>Each transition can be tested as a short sequence. For a route change, focus begins on the link that opens the order details. The test activates the link and observes any loading state. If the application offers a cancel action during loading, that action must work from the keyboard and focus must remain on an element that stays mounted. After the new view appears, the test identifies the active element and follows the next keyboard action. Throttled and failed requests reveal behavior that a fast local environment can hide.</p>
 
-  <p>Monitor representative workflows after release, not only individual URLs. Track regressions, unresolved barriers, supplier gaps, audit findings, user feedback, and the time taken to provide an accessible alternative. Trend information is more useful than a single score because it shows whether teams are preventing defects or accumulating them.</p>
+  <p>Browser automation can verify deterministic application state. Playwright can activate the order link and assert that the intended heading becomes the active element. An <a href="https://playwright.dev/docs/aria-snapshots">ARIA snapshot</a> can then verify the heading and other exposed structure, while a text assertion checks the content placed in a live region. Browser assertions prove what the application exposed, but they cannot prove what a particular screen reader speaks. Announcement timing and interruption still need manual testing with representative browser and assistive-technology combinations.</p>
 
-  <p>Users need a clear way to report a barrier and receive a response. Support staff need enough context to recognize an accessibility problem, avoid asking a user to repeat an inaccessible process, and route the issue to an owner. Feedback can reveal combinations and tasks that planned testing missed.</p>
-
-  <p>Review the governance system when products, platforms, suppliers, standards, or laws change. Update training and shared components when the same defect recurs across teams. Accessibility becomes sustainable when the organization can name the target, the owner of each decision, the evidence required before release, and the route from a reported barrier to a verified correction.</p>
+  <p>An architectural decision should identify the transition behavior along with the rendering strategy. The decision begins with the behavior supplied by a document load or native HTML control. It then records any behavior added by the selected framework. The application owns every remaining gap. A route test verifies where focus lands, while an interaction test verifies that a visible control works when a user first activates it. Rendering choices can then be evaluated for their performance and delivery benefits without leaving accessibility behavior implicit.</p>
 
 </main>
 </div><!-- end .shell -->
