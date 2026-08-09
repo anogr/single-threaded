@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Layout, Spacing, and Sizing — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+<style>
+  /* Article-specific only. Shared patterns come from articles.css. */
+  @media (max-width: 600px) {
+    .figure-wrap {
+      overflow-x: auto;
+      overscroll-behavior-inline: contain;
+    }
+
+    .figure {
+      min-width: 640px;
+    }
+  }
+</style>
+</head>
+
+<body>
+
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Articles</span></a>
+  <button class="hamburger" id="nav-toggle" type="button" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+
+  <div class="sidebar-section">Foundations</div>
+  <a href="#intro">Layout Must Survive Change</a>
+  <a href="#constraints">Available Space and Content</a>
+  <a href="#boxes">CSS Box Measurements</a>
+  <a href="#flow">Document Flow</a>
+  <a href="#positioning">Positioned Layout</a>
+  <a href="#stacking-context">Stacking Context</a>
+  <a href="#sizing">How Sizes Resolve</a>
+
+  <div class="sidebar-section">Relationships</div>
+  <a href="#algorithms">Coordinating Children</a>
+  <a href="#spacing">Spacing Ownership</a>
+
+  <div class="sidebar-section">Adaptation</div>
+  <a href="#responsive">Responsive Ownership</a>
+  <a href="#patterns">Composition Patterns</a>
+  <a href="#contracts">Where Rules Belong</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">Frontend Architecture · Layout</div>
+  <h1>Layout, Spacing, and Sizing</h1>
+  <p class="subtitle">How browsers turn content and available space into adaptable layouts, and how clear ownership keeps those decisions maintainable.</p>
+  <div class="byline">
+    <span>Andreas Ögren</span>
+    <div class="dot"></div><span>~33 min read</span>
+    <div class="dot"></div><span>Last updated August 2026</span>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       INTRO
+  ════════════════════════════════════════════════════ -->
+  <section id="intro">
+  <p>A web page starts with two kinds of input. HTML describes the page's content and structure, such as a heading, a paragraph, or a list of products, without saying where on the page any of it should appear. CSS describes how that content should look and how much space it should take, but it does not fix an exact position either. Neither format works like a drawing or a file from design software, where every element already sits at a fixed x and y coordinate. Before anything can appear on screen, the browser has to turn that content and those style rules into an actual arrangement of pixels. During <strong>layout</strong>, the browser generates rectangular boxes from the document's elements and text, determines how large those boxes should be, and places them in relation to one another.</p>
+
+  <p>That arrangement is not fixed once it is computed. The <strong>viewport</strong> is the visible area of the web page within the browser window, and its dimensions differ across screens and change whenever someone resizes the window or rotates a device. The content on the page can change too, since the same page might show different data or a different language depending on who requests it. A reader can also enlarge the text to make it easier to read. The browser has to calculate sizes and positions again every time any of these things change. CSS layout makes it possible to preserve the page's relationships under those changing conditions, instead of describing one fixed arrangement that only works at a single size.</p>
+
+  <p><strong>Sizing</strong> controls how much space a box may take and whether that space comes from its content, its surroundings, or a declared limit. <strong>Spacing</strong> controls the distance inside a box and between neighboring boxes. The surrounding layout provides the available space for a box, and the box's content contributes its required size. Changing either the available space or the content can change the box's final size. Within a fixed available width, for example, increasing the space inside a box leaves less room for its content and can cause text to wrap.</p>
+
+  <p>This article explains how CSS layout works and how to apply it to adaptable web pages. The focus is on how layout, sizing, and spacing work together, not on documenting every CSS property.</p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════
+       CHANGING CONSTRAINTS
+  ════════════════════════════════════════════════════ -->
+  <h2 id="constraints">Layout Combines Available Space and Content Size</h2>
+  <p class="lede">CSS layout combines constraints supplied by a parent with sizes contributed by its children.</p>
+
+  <p>An element that directly contains another element is its <strong>parent</strong>, and directly contained elements are its children. An online store page's body contains a navigation column, a main product catalog, and a recommendation column as its children. The navigation column contains links to product categories. The catalog is the page's primary content, while the recommendations supplement it with a smaller selection of products. Each direct child that serves a distinct page-level purpose is a <strong>page region</strong>.</p>
+
+  <p>A <strong>media query</strong> makes page-level rules conditional on a viewport characteristic such as a minimum width. Those rules can place the three regions side by side in a wide viewport and stack them when the viewport is too narrow for that arrangement. At the width illustrated below, the page layout assigns most of the available width to the catalog and narrower shares to navigation and recommendations.</p>
+
+  <p>The page layout arranges the three regions, and each region then lays out its own children. The layout established by a parent determines how its child boxes share the available space. The catalog region is the parent of its product cards, and each card is in turn the parent of its own image, name, price, and link. The page layout constrains the available space, and each nested layout receives a share of it. This is the top-down direction of layout.</p>
+
+  <figure class="figure-wrap">
+    <svg class="figure" viewBox="0 0 700 350" role="img" aria-label="A viewport contains navigation, a wide catalog region, and a narrow recommendation region. The page layout allocates space to those regions, and each region supplies available width to its child product cards, each shown with an image placeholder, a name, a price, and a link." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="region-measure-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+          <path class="figure-arrow" d="M 0 0 L 10 5 L 0 10 z"/>
+        </marker>
+        <clipPath id="catalog-image-clip">
+          <rect x="174" y="170" width="78" height="60" rx="4"/>
+        </clipPath>
+        <clipPath id="reco-image-clip">
+          <rect x="542" y="170" width="88" height="38" rx="4"/>
+        </clipPath>
+      </defs>
+
+      <text class="figure-title" x="20" y="24">Nested layouts supply available space to their children</text>
+
+      <rect class="figure-panel" x="20" y="48" width="660" height="248"/>
+      <text class="figure-heading" x="40" y="74">Viewport</text>
+
+      <rect class="figure-node is-muted" x="40" y="88" width="68" height="184"/>
+      <text class="figure-label" x="74" y="112" text-anchor="middle">Navigation</text>
+
+      <rect class="figure-panel is-info" x="124" y="88" width="372" height="184"/>
+      <text class="figure-heading" x="310" y="108" text-anchor="middle">Main catalog region</text>
+      <path class="figure-connector" d="M 144 140 L 476 140" marker-start="url(#region-measure-arrow)" marker-end="url(#region-measure-arrow)"/>
+      <text class="figure-note" x="310" y="132" text-anchor="middle">larger share of the viewport</text>
+
+      <rect class="figure-panel" x="158" y="156" width="304" height="88"/>
+      <rect class="figure-node is-accent" x="174" y="170" width="78" height="60"/>
+      <path class="figure-guide" d="M 180 176 L 246 224 M 180 224 L 246 176" clip-path="url(#catalog-image-clip)"/>
+      <rect class="figure-node" x="268" y="172" width="174" height="16"/>
+      <rect class="figure-node" x="268" y="195" width="90" height="7"/>
+      <rect class="figure-node is-info" x="268" y="208" width="56" height="14" style="rx:7px"/>
+      <text class="figure-note" x="310" y="262" text-anchor="middle">Product card in the catalog</text>
+
+      <rect class="figure-panel" x="512" y="88" width="148" height="184"/>
+      <text class="figure-heading" x="586" y="108" text-anchor="middle">Recommendations</text>
+      <path class="figure-connector is-accent-stroke" d="M 528 140 L 644 140" marker-start="url(#region-measure-arrow)" marker-end="url(#region-measure-arrow)"/>
+      <text class="figure-note" x="586" y="132" text-anchor="middle">smaller share</text>
+
+      <rect class="figure-panel" x="528" y="156" width="116" height="106"/>
+      <rect class="figure-node is-accent" x="542" y="170" width="88" height="38"/>
+      <path class="figure-guide" d="M 546 174 L 622 204 M 546 204 L 622 174" clip-path="url(#reco-image-clip)"/>
+      <rect class="figure-node" x="542" y="214" width="88" height="11"/>
+      <rect class="figure-node" x="542" y="231" width="58" height="6"/>
+      <rect class="figure-node is-info" x="542" y="241" width="36" height="11" style="rx:5.5px"/>
+
+      <text class="figure-note" x="20" y="324">The page lays out its regions. Each region then lays out its own children.</text>
+    </svg>
+    <figcaption>The viewport constrains the page layout. The page sizes its regions, and each region supplies available width to its cards.</figcaption>
+  </figure>
+
+  <p>Parent constraints do not provide enough information to determine every size. The parent layout also uses size information from its children. Words and wrapping opportunities determine the possible widths of a piece of text, while an image may provide dimensions in its source. A longer product name can make its card taller. When a catalog row's height depends on the cards inside it, a taller card then increases the height of the whole row. This is the bottom-up direction of layout.</p>
+
+  <p>Top-down and bottom-up describe where the sizing information comes from. They are not two fixed browser passes that always run in sequence. A layout algorithm may measure content, assign space, and repeat those steps when one result depends on a value that has not yet been computed.</p>
+
+  <p>Width and height can affect each other during layout. When the text area is narrower, the product name wraps onto more lines, and each extra line makes the card taller. Increasing the card's horizontal padding leaves less room for the same text, so a spacing decision can change the resulting height as well. The browser must know the available width before it can determine how the text wraps and how much height the card uses.</p>
+
+  <figure class="figure-wrap">
+    <svg class="figure" viewBox="0 0 700 330" role="img" aria-label="Two controlled comparisons show why a card becomes taller. In the first, the same product name wraps from one line to two when the available width decreases. In the second, a longer product name takes three lines while the card width stays the same." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="comparison-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path class="figure-arrow" d="M 0 0 L 10 5 L 0 10 z"/>
+        </marker>
+        <marker id="measure-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+          <path class="figure-arrow" d="M 0 0 L 10 5 L 0 10 z"/>
+        </marker>
+      </defs>
+
+      <text class="figure-title" x="20" y="24">Parent width and content both affect used height</text>
+
+      <rect class="figure-panel" x="20" y="48" width="320" height="254"/>
+      <text class="figure-heading" x="180" y="76" text-anchor="middle">Available width changes</text>
+
+      <path class="figure-connector is-accent-stroke" d="M 44 110 L 162 110" marker-start="url(#measure-arrow)" marker-end="url(#measure-arrow)"/>
+      <text class="figure-note" x="103" y="100" text-anchor="middle">more width</text>
+      <rect class="figure-node" x="44" y="124" width="118" height="74"/>
+      <text class="figure-label" x="58" y="166">Canvas backpack</text>
+      <text class="figure-note" x="103" y="220" text-anchor="middle">one line</text>
+
+      <path class="figure-connector is-accent-stroke" d="M 174 160 L 208 160" marker-end="url(#comparison-arrow)"/>
+
+      <path class="figure-connector is-accent-stroke" d="M 220 110 L 302 110" marker-start="url(#measure-arrow)" marker-end="url(#measure-arrow)"/>
+      <text class="figure-note" x="261" y="100" text-anchor="middle">less width</text>
+      <rect class="figure-node" x="220" y="124" width="82" height="96"/>
+      <text class="figure-label" x="232" y="160">Canvas</text>
+      <text class="figure-label" x="232" y="178">backpack</text>
+      <text class="figure-note" x="261" y="242" text-anchor="middle">two lines, taller card</text>
+
+      <text class="figure-note" x="180" y="278" text-anchor="middle">The product name stays the same. Only its available width changes.</text>
+
+      <rect class="figure-panel" x="360" y="48" width="320" height="254"/>
+      <text class="figure-heading" x="520" y="76" text-anchor="middle">Content length changes</text>
+
+      <path class="figure-connector is-accent-stroke" d="M 382 110 L 500 110" marker-start="url(#measure-arrow)" marker-end="url(#measure-arrow)"/>
+      <text class="figure-note" x="441" y="100" text-anchor="middle">same width</text>
+      <rect class="figure-node" x="382" y="124" width="118" height="74"/>
+      <text class="figure-label" x="396" y="166">Canvas backpack</text>
+      <text class="figure-note" x="441" y="220" text-anchor="middle">one line</text>
+
+      <path class="figure-connector is-accent-stroke" d="M 508 160 L 528 160" marker-end="url(#comparison-arrow)"/>
+
+      <path class="figure-connector is-accent-stroke" d="M 536 110 L 654 110" marker-start="url(#measure-arrow)" marker-end="url(#measure-arrow)"/>
+      <text class="figure-note" x="595" y="100" text-anchor="middle">same width</text>
+      <rect class="figure-node" x="536" y="124" width="118" height="110"/>
+      <text class="figure-label" x="550" y="154">Weatherproof</text>
+      <text class="figure-label" x="550" y="172">canvas backpack</text>
+      <text class="figure-label" x="550" y="190">with sleeve</text>
+      <text class="figure-note" x="595" y="256" text-anchor="middle">three lines, taller card</text>
+
+      <text class="figure-note" x="520" y="278" text-anchor="middle">The width stays the same. Only the product name gets longer.</text>
+    </svg>
+    <figcaption>The parent supplies available width to the card. The product name wraps within that width and contributes to the card's used height.</figcaption>
+  </figure>
+
+  <p>Each parent lays out its own children using intrinsic size information from their content and any author-declared size constraints. The page layout places the navigation, catalog, and recommendation regions beside one another. The catalog then arranges its product cards into rows and columns. Each card positions its image, name, price, and link within the space the catalog provides.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       BOXES
+  ════════════════════════════════════════════════════ -->
+  <h2 id="boxes">CSS Boxes Provide the Measurements</h2>
+  <p class="lede">The browser measures CSS boxes when it compares the space available from a parent with the size required by its children.</p>
+
+  <p>CSS usually represents an element with a rectangular <strong>CSS box</strong> whose content area is surrounded by padding, a border, and a margin. The four nested areas define the content box, the padding box, the border box, and the margin box, each with different dimensions. The phrase “the product card's width” is therefore incomplete until the relevant edge is known.</p>
+
+  <p>A box's edges do not always match what appears painted on screen. The <code>border-radius</code> property rounds the visible corners of the border. The <code>clip-path</code> property can clip the painted content to a circle, polygon, or another shape. A <code>transform</code> can rotate, scale, or move a box's rendered appearance. Regardless, the box underneath still reserves its full rectangular area among its siblings.</p>
+
+  <figure class="figure-wrap">
+    <svg class="figure" viewBox="0 0 700 320" role="img" aria-label="A nested CSS box model diagram shows the content area surrounded by padding, a border, and margin. The content-box and border-box edges are marked." xmlns="http://www.w3.org/2000/svg">
+      <text class="figure-title" x="20" y="24">A CSS box has several measurable edges</text>
+
+      <rect class="figure-node" x="45" y="55" width="610" height="220"/>
+      <rect class="figure-node is-info" x="85" y="82" width="530" height="166"/>
+      <rect class="figure-node" x="125" y="109" width="450" height="112"/>
+      <rect class="figure-node is-accent" x="175" y="136" width="350" height="58"/>
+
+      <text class="figure-note" x="57" y="75">Margin area</text>
+      <text class="figure-note" x="97" y="102">Border area</text>
+      <text class="figure-note" x="137" y="129">Padding area</text>
+      <text class="figure-heading" x="350" y="170" text-anchor="middle">Content area</text>
+
+      <text class="figure-note" x="175" y="296">content-box edge</text>
+      <path class="figure-connector" d="M 275 290 L 275 194"/>
+      <text class="figure-note" x="455" y="296">border-box edge</text>
+      <path class="figure-connector" d="M 545 290 L 545 248"/>
+    </svg>
+    <figcaption>Content, padding, border, and margin are nested areas of one CSS box.</figcaption>
+  </figure>
+
+  <div class="callout info">
+    <div class="callout-title">One element, multiple boxes</div>
+  <p>An element does not always generate exactly one such box. A paragraph usually generates a surrounding box that contains line boxes, while its text is split into inline fragments when it wraps across those lines. A list item, for example, generates a marker box for its bullet or number alongside the box that holds its content. CSS layout operates on these generated boxes rather than on a developer-defined visual group such as “product card.” That grouping exists only in the developer's markup and mental model. The element tree establishes the document structure, while the box tree is the set of boxes that CSS layout actually measures and positions.</p>
+  </div>
+
+  <p>The <code>box-sizing</code> property determines whether declared sizes apply to the content box or the border box. Its initial value is <code>content-box</code>. A declared width then measures the content area, while padding and border make the visible box wider. With <code>border-box</code>, the same declared width includes the content, padding, and border. Margin remains outside both measurements.</p>
+
+  <p>The <code>box-sizing</code> value determines whether padding expands the declared width or reduces the space available to content. Consider a card with <code>width: 20rem</code> and <code>box-sizing: content-box</code>. Adding padding to it makes the card wider. The same card with <code>border-box</code> keeps a twenty-rem border box, so additional padding leaves less room for its content.</p>
+
+  <p>Applying <code>box-sizing: border-box</code> consistently can make component dimensions easier to reason about because padding and borders stay inside the declared size. It does not prevent overflow by itself. Content, minimum sizes, or margins can still make a box exceed the space available to it.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       DOCUMENT FLOW
+  ════════════════════════════════════════════════════ -->
+  <h2 id="flow">Document Flow Connects Neighboring Boxes</h2>
+  <p class="lede">A box in normal flow participates in a shared layout and therefore affects the space available to nearby boxes.</p>
+
+  <p><strong>Normal flow</strong> is the default layout for boxes that have not been taken out of flow. Block-level and inline-level boxes participate in normal flow differently. An ordinary non-replaced <strong>block-level</strong> box with an automatic width fills the available inline space. It is placed after the preceding block-level box along the block axis. It accepts a declared <code>width</code>, <code>height</code>, and vertical margin the same way the box model describes. An <strong>inline-level</strong> box instead participates in a line of text. In horizontal English text, it sits beside the inline-level box before it and moves to a new line when the current line has no more room. For an ordinary non-replaced inline box, <code>width</code> and <code>height</code> do not apply, and top and bottom margins do not change the line's layout. Its size follows its content, while left and right margins affect the surrounding inline content.</p>
+
+  <p>The product card contains both kinds of box. Its container and product-name heading are block-level boxes that stack vertically. A link in its description is an inline-level box that sits among the surrounding words in this horizontal writing mode.</p>
+
+  <p>Every element has a value for the CSS <code>display</code> property, which controls the boxes it generates and how they participate in layout. A <code>&lt;div&gt;</code>, a <code>&lt;p&gt;</code>, and an <code>&lt;h1&gt;</code> default to <code>display: block</code>. A <code>&lt;li&gt;</code> defaults to <code>display: list-item</code>, which gives it a block-level box for its contents and a marker box. A <code>&lt;span&gt;</code>, an <code>&lt;a&gt;</code>, and a <code>&lt;strong&gt;</code> default to <code>display: inline</code>. These defaults reflect the elements' usual behavior. Headings begin a new block, while links and emphasized text remain within a line.</p>
+
+  <p>A box's size can also change the position of boxes that follow it. Each block-level box stacks below the one before it, so a taller heading pushes the paragraph after it further down the page. Each inline-level box sits in the same line as the one before it. A wider word or link therefore changes where the next fragment starts and can push later words onto a new line.</p>
+
+  <figure class="figure-wrap">
+    <svg class="figure" viewBox="0 0 700 310" role="img" aria-label="Two panels contrast block-level and inline-level boxes. On the left, a Product name heading box stacks directly above a Paragraph box, connected by an arrow labeled Top to bottom, with a note that each box stacks below the one before it. On the right, the sentence Free shipping on the canvas backpack, See details continues on one line, with See details outlined as its own inline box inside that line, followed by an arrow labeled Left to right and a note that the link stays inside the line." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="boxtype-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path class="figure-arrow" d="M 0 0 L 10 5 L 0 10 z"/>
+        </marker>
+      </defs>
+
+      <text class="figure-title" x="20" y="24">Block-level and inline-level boxes lay out differently</text>
+
+      <rect class="figure-panel" x="30" y="50" width="300" height="210"/>
+      <text class="figure-heading" x="180" y="76" text-anchor="middle">Block-level boxes stack</text>
+
+      <rect class="figure-node is-accent" x="54" y="92" width="252" height="36"/>
+      <text class="figure-label" x="180" y="114" text-anchor="middle">Product name (h3)</text>
+
+      <path class="figure-connector is-accent-stroke" d="M 180 128 L 180 148" marker-end="url(#boxtype-arrow)"/>
+      <text class="figure-note" x="192" y="142">Top to bottom</text>
+
+      <rect class="figure-node" x="54" y="150" width="252" height="70"/>
+      <text class="figure-label" x="180" y="172" text-anchor="middle">Paragraph (p)</text>
+      <rect class="figure-node is-muted" x="70" y="186" width="220" height="6"/>
+      <rect class="figure-node is-muted" x="70" y="198" width="150" height="6"/>
+
+      <text class="figure-note" x="180" y="246" text-anchor="middle">Each box stacks below the one before it</text>
+
+      <rect class="figure-panel" x="370" y="50" width="300" height="210"/>
+      <text class="figure-heading" x="520" y="76" text-anchor="middle">Inline-level boxes flow</text>
+
+      <text class="figure-label" x="394" y="112">Free shipping on the canvas</text>
+      <text class="figure-label" x="394" y="134">backpack.</text>
+      <rect class="figure-node is-accent" x="447" y="123" width="68" height="16"/>
+      <text class="figure-label" x="451" y="134">See details</text>
+      <text class="figure-label" x="519" y="134">.</text>
+
+      <path class="figure-connector is-accent-stroke" d="M 394 152 L 646 152" marker-end="url(#boxtype-arrow)"/>
+      <text class="figure-note" x="520" y="168" text-anchor="middle">Left to right</text>
+
+      <text class="figure-note" x="520" y="246" text-anchor="middle">The link stays inside the line</text>
+
+      <text class="figure-note" x="20" y="290">In normal block layout, a block-level box starts on a new line. An inline-level box sits inside the line.</text>
+    </svg>
+    <figcaption>In this horizontal writing example, a block-level box stacks below the one before it, while an inline-level box sits inside a line.</figcaption>
+  </figure>
+
+  <p><code>display: inline-block</code> combines both behaviors. The box still sits inline with the surrounding content, but it accepts a width, a height, and vertical margin the way a block-level box does. A star rating badge placed next to the price is a common use, since it needs a fixed size without forcing a line break around it.</p>
+
+  <p>These three display values differ as follows:</p>
+
+  <ul>
+    <li><strong><code>display: block</code></strong> starts a non-replaced box on a new line and, with the default automatic width, fills the available inline space.</li>
+    <li><strong><code>display: inline</code></strong> places a non-replaced box inside a line of surrounding content and sizes it from that content.</li>
+    <li><strong><code>display: inline-block</code></strong> places the box inside a line like an inline box, but lets it accept a width, a height, and vertical margin like a block-level box.</li>
+  </ul>
+
+  <p>A different value, <code>display: none</code>, does not generate a box at all. The element has no visual presence and no effect on the boxes around it, the same as if it had been removed from the HTML.</p>
+
+  <p>Other <code>display</code> values change how an element's children are laid out. With <code>display: flex</code> or <code>display: grid</code>, the children participate in Flexbox or Grid layout.</p>
+
+  <p>Top to bottom and left to right describe the common case in a horizontal writing system, but the direction itself can change. The <strong>inline axis</strong> is the direction along which inline-level boxes flow within a line. The <strong>block axis</strong> is the direction along which block-level boxes stack. English commonly uses a horizontal inline axis and a vertical block axis, while a vertical writing mode maps those same logical axes to different physical directions.</p>
+
+  <figure class="figure-wrap">
+    <svg class="figure" viewBox="0 0 700 286" role="img" aria-label="Two writing modes show logical axes. Horizontal text has a left-to-right inline axis and a top-to-bottom block axis. Vertical-rl text has a top-to-bottom inline axis and a right-to-left block axis." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="axis-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path class="figure-arrow" d="M 0 0 L 10 5 L 0 10 z"/>
+        </marker>
+      </defs>
+
+      <text class="figure-title" x="20" y="24">Logical axes follow the writing mode</text>
+
+      <rect class="figure-panel" x="40" y="54" width="270" height="180"/>
+      <text class="figure-heading" x="175" y="80" text-anchor="middle">Horizontal writing</text>
+      <text class="figure-label" x="82" y="120">Product name</text>
+      <text class="figure-label" x="82" y="144">Second line</text>
+      <path class="figure-connector is-accent-stroke" d="M 78 170 L 270 170" marker-end="url(#axis-arrow)"/>
+      <text class="figure-note" x="174" y="190" text-anchor="middle">Inline axis</text>
+      <path class="figure-connector" d="M 66 98 L 66 210" marker-end="url(#axis-arrow)"/>
+      <text class="figure-note" x="100" y="218">Block axis</text>
+
+      <rect class="figure-panel" x="390" y="54" width="270" height="180"/>
+      <text class="figure-heading" x="525" y="80" text-anchor="middle">Vertical-rl writing</text>
+      <text class="figure-label" x="570" y="108" text-anchor="middle">商</text>
+      <text class="figure-label" x="570" y="130" text-anchor="middle">品</text>
+      <text class="figure-label" x="530" y="108" text-anchor="middle">名</text>
+      <text class="figure-label" x="530" y="130" text-anchor="middle">前</text>
+      <path class="figure-connector is-accent-stroke" d="M 610 96 L 610 210" marker-end="url(#axis-arrow)"/>
+      <text class="figure-note" x="616" y="224" text-anchor="end">Inline axis</text>
+      <path class="figure-connector" d="M 590 178 L 444 178" marker-end="url(#axis-arrow)"/>
+      <text class="figure-note" x="518" y="198" text-anchor="middle">Block axis</text>
+    </svg>
+    <figcaption>Inline and block describe relationships that remain meaningful when the writing mode changes.</figcaption>
+  </figure>
+
+  <p><strong>Logical properties</strong> express sizes and spacing through these axes. A declaration such as <code>padding-inline</code> applies padding on both sides of the inline axis, regardless of which physical edges correspond to those logical sides. Physical properties such as <code>width</code> and <code>margin-left</code> remain appropriate when the design depends on a physical dimension or edge.</p>
+
+  <p>Suppose the product card has <code>width: 50%</code>. Because it is a block-level box inside the catalog region, that percentage resolves against the catalog region's content box. An 800-pixel-wide catalog therefore gives the card a used width of 400 pixels, and resizing the catalog changes the card's width. CSS calls that reference box the <strong>containing block</strong> rather than simply the parent. In ordinary block layout the two are usually the same box, so the distinction rarely matters here. The distinction matters in positioned layout. An absolutely positioned box may use its nearest positioned ancestor as its containing block rather than its parent.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       POSITIONING
+  ════════════════════════════════════════════════════ -->
+  <h2 id="positioning">Positioned Layout Changes Participation</h2>
+  <p class="lede">The <code>position</code> property can preserve a box's place in flow or remove the box so that it no longer reserves space.</p>
+
+  <p>By default, CSS places every box using normal flow. In normal flow, each box occupies space that affects where later boxes are placed. The <code>position</code> property can change that arrangement for an individual box. It can keep the box in normal flow while shifting where it is drawn, or it can remove the box from normal flow entirely, so that other boxes no longer make room for it.</p>
+
+  <p>The initial value, <code>position: static</code>, leaves a box in normal flow with no shift at all. <strong>Relative positioning</strong> with <code>position: relative</code> also preserves the box's original place in flow, but inset properties such as <code>top</code> and <code>left</code> can shift where it is drawn. The boxes that follow still use the unshifted position when they are laid out, so a visual offset does not create new space around the moved box.</p>
+
+  <p>Relative positioning can also establish the containing block for an absolutely positioned descendant. <strong>Absolute positioning</strong>, set with <code>position: absolute</code>, removes a box from normal flow, so it no longer reserves space among its siblings. The browser resolves its <code>top</code>, <code>right</code>, <code>bottom</code>, and <code>left</code> offsets and any percentage width or height against a containing block.</p>
+
+  <p>Positioning an ancestor is one way to establish that containing block. When <code>position</code> is the property that establishes it, the browser uses the nearest ancestor whose <code>position</code> value is not <code>static</code>. That ancestor's padding box becomes the reference, so <code>top: 0</code> places the absolutely positioned box's top margin edge against the top edge of that padding box. If no ancestor establishes an absolute-positioning containing block, the browser falls back to the initial containing block, which for a page open in a browser window has the dimensions of the viewport.</p>
+
+  <div class="callout info">
+    <div class="callout-title">Other ancestor properties can also qualify</div>
+  <p>A non-positioned ancestor can still become the containing block for an absolutely positioned box. A <code>transform</code>, <code>filter</code>, or <code>perspective</code> value other than <code>none</code> can do so, as can <code>will-change</code> when it names a qualifying property. Certain <code>contain</code> values such as <code>contain: layout</code> and a <code>content-visibility</code> value of <code>auto</code> can also establish a containing block.</p>
+  </div>
+
+  <p>The product-card badge shows how relative and absolute positioning work together. Without a positioned ancestor nearby, an absolutely positioned badge on a product card would be placed against the whole viewport instead of against its card. Giving the card <code>position: relative</code> establishes its padding box as the badge's containing block, even without inset values. The badge can then be pinned to a corner of the card instead of the page. The card itself remains in normal flow throughout.</p>
+
+  <p><strong>Fixed positioning</strong> with <code>position: fixed</code> removes a box from normal flow like absolute positioning, but an ancestor's non-static <code>position</code> value alone does not establish its containing block. Its containing block is the viewport by default, which is what allows a notice to remain at the same viewport position while the document scrolls. An ancestor with a transform, filter, or another qualifying property can also establish the containing block for a fixed box, just as it can for an absolutely positioned box. Fixed positioning is therefore relative to the viewport only when no such ancestor intervenes.</p>
+
+  <p><strong>Sticky positioning</strong> with <code>position: sticky</code> keeps a box in normal flow but shifts it within its nearest scrollport as the page or container scrolls. A <strong>scrollport</strong> is the visible area through which a scrolling box is viewed. The declared inset and the box's containing block limit how far it can move. A section heading can therefore remain visible during part of a scroll without giving up the space it occupies in the document.</p>
+
+  <figure class="figure-wrap">
+    <svg class="figure" viewBox="0 0 700 350" role="img" aria-label="Three panels compare document flow and positioning. Normal-flow boxes reserve space. An absolutely positioned badge overlaps a card and uses the card as its reference. A fixed notice uses the viewport as its reference when no ancestor establishes another fixed containing block." xmlns="http://www.w3.org/2000/svg">
+      <text class="figure-title" x="20" y="24">Positioning changes participation and reference</text>
+
+      <text class="figure-heading" x="118" y="54" text-anchor="middle">Normal flow</text>
+      <rect class="figure-panel" x="24" y="70" width="188" height="224"/>
+      <rect class="figure-node is-info" x="44" y="92" width="148" height="44"/>
+      <rect class="figure-node" x="44" y="150" width="148" height="72"/>
+      <rect class="figure-node is-accent" x="44" y="236" width="86" height="30"/>
+      <text class="figure-note" x="118" y="316" text-anchor="middle">Each box reserves space</text>
+
+      <text class="figure-heading" x="350" y="54" text-anchor="middle">Absolute</text>
+      <rect class="figure-panel is-info" x="256" y="70" width="188" height="224"/>
+      <rect class="figure-node is-info" x="276" y="92" width="148" height="70"/>
+      <rect class="figure-node" x="276" y="178" width="148" height="52"/>
+      <rect class="figure-node is-accent" x="372" y="80" width="62" height="28"/>
+      <text class="figure-note" x="350" y="254" text-anchor="middle">The badge overlaps</text>
+      <text class="figure-note" x="350" y="272" text-anchor="middle">and reserves no row</text>
+      <text class="figure-note" x="350" y="316" text-anchor="middle">The card is the reference</text>
+
+      <text class="figure-heading" x="582" y="54" text-anchor="middle">Fixed</text>
+      <rect class="figure-panel" x="488" y="70" width="188" height="224"/>
+      <rect class="figure-node" x="508" y="90" width="148" height="42"/>
+      <rect class="figure-node" x="508" y="144" width="148" height="42"/>
+      <rect class="figure-node is-accent" x="508" y="244" width="148" height="30"/>
+      <text class="figure-note" x="582" y="316" text-anchor="middle">The viewport is the reference</text>
+
+      <text class="figure-note" x="20" y="340">The positioning scheme determines whether the positioned box reserves space and which rectangle its offsets use.</text>
+    </svg>
+    <figcaption>A position value may change whether a box remains in flow, which box establishes its containing block, or both.</figcaption>
+  </figure>
+
+  <p>The five <code>position</code> values differ as follows:</p>
+
+  <ul>
+    <li><strong><code>position: static</code></strong> is the initial value. The box stays in normal flow, and inset properties have no effect.</li>
+    <li><strong><code>position: relative</code></strong> keeps the box in normal flow but lets inset properties shift where it is drawn, without changing the space reserved for it.</li>
+    <li><strong><code>position: absolute</code></strong> removes the box from normal flow and positions it against its nearest positioned ancestor, or the initial containing block if there is none.</li>
+    <li><strong><code>position: fixed</code></strong> removes the box from normal flow and positions it against the viewport, unless an ancestor establishes a different fixed-positioning containing block.</li>
+    <li><strong><code>position: sticky</code></strong> keeps the box in normal flow but shifts it within a declared inset as the page or container scrolls, until the box's own containing block limits how far it can go.</li>
+  </ul>
+
+  <!-- ═══════════════════════════════════════════════════
+       STACKING CONTEXT
+  ════════════════════════════════════════════════════ -->
+  <h2 id="stacking-context">Stacking Context Determines Paint Order</h2>
+  <p class="lede">The browser paints overlapping boxes in a defined order, and <code>z-index</code> values are comparable only within the same stacking context.</p>
+
+  <p>Boxes can overlap after one is removed from flow or shifted from its original position. When boxes overlap, the browser uses the paint order to determine which content appears on top. The <code>z-index</code> property can assign a box a numeric stacking level, but those numbers are comparable only when the boxes participate in the same stacking context. A <strong>stacking context</strong> groups an element with its descendant boxes. Their <code>z-index</code> values are compared within that context rather than directly against every <code>z-index</code> on the page. Within a stacking context, a higher positive <code>z-index</code> paints after a lower positive level when both are compared in the same context. A descendant's own <code>z-index</code> cannot move it above a sibling stacking context that is painted later.</p>
+
+  <p>A positioned element with a <code>z-index</code> other than <code>auto</code> creates a stacking context rooted at that element. Fixed and sticky positioned elements also form stacking contexts. Properties such as <code>opacity</code> and <code>transform</code> can create a stacking context too, without requiring positioning at all, since each of those properties can already change how the element is composited on screen. The <code>isolation: isolate</code> declaration creates a stacking context without otherwise changing the element's appearance. It is useful when a component must contain its own <code>z-index</code> values without relying on an unrelated property. The element and its descendants are then painted together as one item in the parent stacking context.</p>
+
+  <p>The browser paints each stacking context as a single item among the sibling contexts in its parent. If the context-creating element has a <code>z-index</code>, that value ranks the whole context against its sibling contexts, the same way it would rank an ordinary descendant. When two sibling contexts have no distinguishing <code>z-index</code>, the one that appears later in the HTML paints on top of the other.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       SIZING
+  ════════════════════════════════════════════════════ -->
+  <h2 id="sizing">The Browser Resolves Size from Content and Context</h2>
+  <p class="lede">The browser calculates a used size from the available space, the content's size, and limits declared in CSS.</p>
+
+  <p>If the product card has <code>width: 50%</code>, the browser resolves that percentage against the width of its containing block rather than a fixed number. Moving the unchanged card into a narrower container then results in a narrower used width. <strong>Extrinsic sizing</strong> describes sizing that depends on constraints outside the box.</p>
+
+  <p>Content also contributes intrinsic sizing information. A product name has widths at which its text can wrap, while an image may carry natural dimensions in its source data. <strong>Intrinsic sizing</strong> derives a size from the content itself, without regard to the space the surrounding layout would otherwise offer.</p>
+
+  <p>Text contributes two useful intrinsic widths. At its <code>min-content</code> width, the text wraps at every available opportunity and is roughly as wide as the longest word or other unbreakable run of characters. Its <code>max-content</code> width lays the text out on a single line instead, without wrapping at all. These values describe limits supplied by the content. They do not force the final box to use either width.</p>
+
+  <p>Images, video, and other embedded content contribute intrinsic dimensions differently from text because they do not wrap. An image may provide a natural width, a natural height, and a natural aspect ratio. When CSS determines one dimension and leaves the other automatic, the browser can use that ratio to calculate the automatic dimension.</p>
+
+  <p>The <code>aspect-ratio</code> property gives a box a preferred ratio for sizing. When one dimension is constrained and the other remains automatic, the ratio helps determine the automatic dimension. A full-width placeholder with <code>aspect-ratio: 16 / 9</code> can therefore reserve space before its image or video arrives.</p>
+
+  <p>Authors can constrain the sizing calculation with <code>width</code>, <code>min-width</code>, and <code>max-width</code>. <code>width</code> provides a preferred width. <code>min-width</code> sets a lower bound, while <code>max-width</code> sets an upper bound. The layout algorithm resolves the used size from these declarations, the containing block, and the content's intrinsic contributions.</p>
+
+  <p>The <code>fit-content</code> calculation combines intrinsic sizes with available space. It uses the available space when that space falls between the intrinsic minimum and maximum. The result is limited by the <code>min-content</code> size on one side and the <code>max-content</code> size on the other. For example, a button can use <code>width: fit-content</code>. If the surrounding container offers more space than the button's label needs, the button shrinks to wrap the label snugly instead of stretching to fill the container. If the container is narrower than the label's <code>min-content</code> width, the button still uses that minimum, so an unbreakable run can overflow rather than make the button shrink further. The button's final width therefore depends on both its content and the available space.</p>
+
+  <figure class="figure-wrap">
+    <svg class="figure" viewBox="0 0 700 350" role="img" aria-label="A diagram shows available space, content contributions, and declared constraints entering a layout algorithm. The algorithm produces a used size measured at the chosen box edge." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="constraint-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path class="figure-arrow" d="M 0 0 L 10 5 L 0 10 z"/>
+        </marker>
+      </defs>
+
+      <text class="figure-title" x="20" y="24">A used size comes from several inputs</text>
+
+      <rect class="figure-node" x="25" y="58" width="205" height="66"/>
+      <text class="figure-heading" x="127" y="82" text-anchor="middle">Available space</text>
+      <text class="figure-note" x="127" y="104" text-anchor="middle">Supplied by the context</text>
+
+      <rect class="figure-node" x="25" y="142" width="205" height="66"/>
+      <text class="figure-heading" x="127" y="166" text-anchor="middle">Content contributions</text>
+      <text class="figure-note" x="127" y="188" text-anchor="middle">min-content and max-content</text>
+
+      <rect class="figure-node" x="25" y="226" width="205" height="66"/>
+      <text class="figure-heading" x="127" y="250" text-anchor="middle">Declared limits</text>
+      <text class="figure-note" x="127" y="272" text-anchor="middle">Minimum, preferred, maximum</text>
+
+      <rect class="figure-node is-info" x="300" y="133" width="170" height="84"/>
+      <text class="figure-heading" x="385" y="163" text-anchor="middle">Layout algorithm</text>
+      <text class="figure-note" x="385" y="187" text-anchor="middle">Resolves the inputs</text>
+
+      <rect class="figure-node is-accent" x="540" y="133" width="135" height="84"/>
+      <text class="figure-heading" x="607" y="163" text-anchor="middle">Used size</text>
+      <text class="figure-note" x="607" y="187" text-anchor="middle">Chosen box edge</text>
+
+      <path class="figure-connector" d="M 230 91 L 268 91 L 300 155" marker-end="url(#constraint-arrow)"/>
+      <path class="figure-connector" d="M 230 175 L 300 175" marker-end="url(#constraint-arrow)"/>
+      <path class="figure-connector" d="M 230 259 L 268 259 L 300 195" marker-end="url(#constraint-arrow)"/>
+      <path class="figure-connector" d="M 470 175 L 540 175" marker-end="url(#constraint-arrow)"/>
+
+      <text class="figure-note" x="20" y="326">Changing the parent, content, or declared limits can change the used size.</text>
+    </svg>
+    <figcaption>The selected layout algorithm uses available space, intrinsic contributions, and declared limits to resolve width and height.</figcaption>
+  </figure>
+
+  <p>Content or a declared minimum can make a box exceed the available space and overflow. A long unbreakable value may contribute more width than the parent can provide. Enforcing a declared minimum can create the same visible result, although the source of the constraint is different.</p>
+
+  <p>The <code>overflow</code> property controls what happens when content extends beyond a box's padding box. Depending on the chosen value and axis, the excess may remain visible, be clipped, or become reachable through a scrolling mechanism. The property controls how the excess is displayed. It does not remove the content or minimum size that caused it.</p>
+
+  <p>Diagnosis should therefore begin with the box edge, intrinsic contribution, or declared minimum that led to the conflict. The appropriate correction depends on the relationship the layout must preserve. The content may be allowed to break, an unnecessary minimum may be relaxed, or the container may deliberately clip or scroll the excess.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       ALGORITHMS
+  ════════════════════════════════════════════════════ -->
+  <h2 id="algorithms">Layout Algorithms Coordinate Children</h2>
+  <p class="lede">At each nesting level, a container's layout algorithm determines how its children contribute size, share available space, and align with one another.</p>
+
+  <p>Ordinary block and inline layouts are suitable when content should follow the document's natural sequence. Setting a container to <code>display: flex</code> or <code>display: grid</code> gives its children a different layout algorithm. The container itself normally remains an in-flow box within its parent, so changing the algorithm for its children does not remove the container from the surrounding page layout.</p>
+
+  <p>Flexbox starts with a sequence along a <strong>main axis</strong>, while the perpendicular direction is the cross axis. These are not the same pair as the inline and block axes from earlier. The main axis follows the inline axis by default. With <code>flex-direction: column</code>, it follows the block axis instead. The writing mode alone therefore does not determine its physical direction. A toolbar can distribute actions along a horizontal main axis. Its items may grow or shrink as the container allocates the available space, and wrapping can create additional flex lines when one line is not enough.</p>
+
+  <p>Grid defines explicit rows and columns for layouts that need alignment in two dimensions. Grid declarations specify the sizes of those rows and columns, and the children are placed into that structure instead of simply following one after another. A child can also be given a specific row or column of its own, so its position does not have to follow the order it appears in the markup. In the catalog, Grid can align product cards across shared rows and columns. Flexbox does not provide the same cross-row alignment because each flex line is laid out independently.</p>
+
+  <p>The choice of algorithm depends on the required relationship. Flexbox suits a sequence distributed primarily along one axis, even when it wraps. Grid suits layouts that need alignment across rows and columns. Both algorithms still resolve sizes from available space, intrinsic contributions, and declared limits.</p>
+
+  <div class="callout warn">
+    <div class="callout-title">order changes visual order by default</div>
+  <p>The <code>order</code> property applies to flex and grid items. It can change an item's visual position without changing its place in the document. The CSS Flexible Box Layout specification states that style sheets that use <code>order</code> to perform logical reordering are non-conforming. With the default <code>reading-flow: normal</code>, <code>order</code> does not affect tab order or the sequence exposed to speech. CSS Display Level 4 defines <code>reading-flow</code> as a separate container property for setting a different order for speech and sequential navigation. Some <code>reading-flow</code> values take <code>order</code> into account. Without an explicit reading flow, a keyboard user's focus still follows the document, not the screen. If focusable items are visually reordered, keyboard focus may jump between distant positions because the tab order still follows the document. The source order should express the intended logical sequence, and <code>order</code> should be reserved for adjustments that are genuinely visual.</p>
+  </div>
+
+  <figure class="figure-wrap">
+    <svg class="figure" viewBox="0 0 700 318" role="img" aria-label="The left side shows four toolbar actions in one flex sequence. The right side shows three product cards aligned to shared image and action rows in a grid." xmlns="http://www.w3.org/2000/svg">
+      <text class="figure-title" x="20" y="24">The algorithm depends on the relationship</text>
+
+      <text class="figure-heading" x="172" y="54" text-anchor="middle">A sequence along one axis</text>
+      <rect class="figure-panel" x="24" y="72" width="296" height="112"/>
+      <rect class="figure-node is-info" x="42" y="108" width="52" height="38"/>
+      <rect class="figure-node is-info" x="108" y="108" width="52" height="38"/>
+      <rect class="figure-node is-info" x="174" y="108" width="52" height="38"/>
+      <rect class="figure-node is-info" x="240" y="108" width="62" height="38"/>
+      <path class="figure-connector is-accent-stroke" d="M 42 164 L 302 164"/>
+      <text class="figure-note" x="172" y="204" text-anchor="middle">Flexbox distributes the toolbar actions</text>
+
+      <text class="figure-heading" x="520" y="54" text-anchor="middle">Shared rows and columns</text>
+      <rect class="figure-panel" x="370" y="72" width="306" height="176"/>
+      <path class="figure-guide" d="M 390 126 L 656 126 M 390 174 L 656 174 M 478 90 L 478 230 M 566 90 L 566 230"/>
+      <rect class="figure-node is-accent" x="400" y="94" width="68" height="24"/>
+      <rect class="figure-node is-accent" x="488" y="94" width="68" height="24"/>
+      <rect class="figure-node is-accent" x="576" y="94" width="68" height="24"/>
+      <rect class="figure-node is-info" x="400" y="188" width="68" height="24"/>
+      <rect class="figure-node is-info" x="488" y="188" width="68" height="24"/>
+      <rect class="figure-node is-info" x="576" y="188" width="68" height="24"/>
+      <text class="figure-note" x="523" y="268" text-anchor="middle">Grid keeps card regions on shared rows and columns</text>
+
+      <text class="figure-note" x="20" y="302">The toolbar needs a sequence, while the cards need shared rows. Neither layout fixes the container to one size.</text>
+    </svg>
+    <figcaption>Flexbox preserves a sequence, while Grid preserves alignment across two axes.</figcaption>
+  </figure>
+
+  <p>Flexbox and Grid provide separate properties for alignment, sizing, and placement. Detailed Flexbox and Grid properties are outside this article's scope.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       SPACING
+  ════════════════════════════════════════════════════ -->
+  <h2 id="spacing">Spacing Expresses Ownership and Grouping</h2>
+  <p class="lede">Spacing affects both the room available in a layout and whether readers perceive neighboring content as a group.</p>
+
+  <p>Readers perceive nearby elements as a group and elements separated by more space as different groups. Placing a label near its value groups them visually, while a larger gap separates that pair from the next group. <a href="ux-principles.html#hierarchy">UX Principles</a> explains why proximity works this way. The rule should belong to the element that controls the distance. That ownership keeps the spacing consistent when content wraps, the component is reused, or the design changes.</p>
+
+  <p>Padding creates space between a box's content and its border. That space is entirely internal to the box. On the product card, the card's own styles therefore set the padding, not a rule belonging to the catalog around it. With <code>border-box</code>, increasing padding inside a fixed width leaves less room for the content and can cause the text to wrap onto more lines.</p>
+
+  <p>The <code>gap</code> property creates gutters between grid tracks, between flex items or lines, and between columns in multi-column layout. This distance belongs to the container, since only the container's own layout determines how its children relate to one another. For example, the catalog can change the distance between cards without adding sibling-dependent rules to each card.</p>
+
+  <p>Margin creates space outside a box's border. Unlike <code>gap</code>, which belongs to a container's layout, a margin belongs to one edge of a specific box. A heading can use its bottom margin, for example, to contribute space before the paragraph that follows it.</p>
+
+  <p>Adjacent vertical margins can collapse in normal block layout. Consider a heading with <code>margin-bottom: 2rem</code> immediately followed by a paragraph with <code>margin-top: 1rem</code>. These margins do not create 3rem of space. The adjacent margins collapse to the larger value, producing 2rem. Margins on flex or grid items do not collapse, and collapsing never applies to the <code>gap</code> property, which creates space through a separate mechanism. For a known set of children, <code>gap</code> usually expresses the intended spacing more directly than margins on each child.</p>
+
+  <p>A <strong>spacing scale</strong> is a limited set of reusable distances. It reduces one-off values, but developers still decide which box should use each value. The catalog still owns the gap between cards, while the card owns its internal padding. <a href="design-systems.html#tokens">Design Systems</a> explains how token names can preserve these distinctions across a larger system.</p>
+
+  <figure class="figure-wrap">
+    <svg class="figure" viewBox="0 0 700 330" role="img" aria-label="A catalog contains two product cards. The catalog owns the gap between cards. Each card owns its padding and the spacing between its internal parts." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="space-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path class="figure-arrow" d="M 0 0 L 10 5 L 0 10 z"/>
+        </marker>
+      </defs>
+
+      <text class="figure-title" x="20" y="24">Each distance has an owner</text>
+      <rect class="figure-panel" x="34" y="52" width="632" height="220"/>
+      <text class="figure-heading" x="54" y="78">Catalog</text>
+
+      <rect class="figure-node is-info" x="70" y="94" width="238" height="146"/>
+      <rect class="figure-node is-info" x="392" y="94" width="238" height="146"/>
+      <text class="figure-heading" x="189" y="120" text-anchor="middle">Card padding</text>
+      <text class="figure-heading" x="511" y="120" text-anchor="middle">Card padding</text>
+
+      <rect class="figure-node" x="100" y="140" width="178" height="34"/>
+      <rect class="figure-node" x="100" y="190" width="178" height="24"/>
+      <rect class="figure-node" x="422" y="140" width="178" height="34"/>
+      <rect class="figure-node" x="422" y="190" width="178" height="24"/>
+
+      <path class="figure-connector is-accent-stroke" d="M 312 166 L 388 166" marker-start="url(#space-arrow)" marker-end="url(#space-arrow)"/>
+      <text class="figure-note" x="350" y="154" text-anchor="middle">Catalog gap</text>
+
+      <path class="figure-connector" d="M 189 176 L 189 188" marker-start="url(#space-arrow)" marker-end="url(#space-arrow)"/>
+      <path class="figure-connector" d="M 511 176 L 511 188" marker-start="url(#space-arrow)" marker-end="url(#space-arrow)"/>
+      <text class="figure-note" x="350" y="294" text-anchor="middle">Each card owns the spacing among its own parts</text>
+    </svg>
+    <figcaption>The catalog owns the relationship between cards, while each card owns the space inside its border.</figcaption>
+  </figure>
+
+  <!-- ═══════════════════════════════════════════════════
+       RESPONSIVE
+  ════════════════════════════════════════════════════ -->
+  <h2 id="responsive">Responsive Rules Follow Their Owner</h2>
+  <p class="lede">Continuous changes in available space often need only flexible sizing. A media or container query is needed when the arrangement itself must change.</p>
+
+  <p>Responsive rules belong with the layout they change. Flexible sizes and wrapping already respond continuously to available space. A breakpoint is needed only when the arrangement must switch at a threshold. The page or component responsible for that arrangement should define the breakpoint.</p>
+
+  <h3>Breakpoints and their owner</h3>
+
+  <p>A <strong>breakpoint</strong> is the threshold at which a layout switches to a different arrangement, rather than simply reflowing within its current one. The appropriate threshold is the minimum width at which the new arrangement works, not the nominal width of a device category. CSS can test a page-level breakpoint with a media query or a component-level breakpoint with a container query.</p>
+
+  <p>A viewport-width media query tests the page as a whole, so it suits page-level changes such as switching the regions from a stacked column to a side-by-side arrangement. The same viewport condition applies to cards in both regions, even when the catalog is wide and the recommendations are narrow. A viewport query cannot respond to the width of the card's containing region.</p>
+
+  <p>A <strong>container size query</strong> instead tests the size of a nearby ancestor declared as a query container. A descendant can then change its own styles according to the space that ancestor actually provides, regardless of where in the page that ancestor sits. This keeps the page responsible for allocating space to a region, while the card inside it stays responsible for deciding how its own elements use whatever space it receives.</p>
+
+  <p>The card itself can act as that ancestor, establishing an inline-size query container with <code>container-type: inline-size</code>. The card layout starts with one grid column, and an <code>@container</code> rule can add an image column once the card's own content box has enough inline space. The query condition therefore depends only on the space needed by the card's two-column layout, not on the region that contains it.</p>
+
+  <h3>Continuous adaptation</h3>
+
+  <p>Some layouts need no breakpoint because their sizes and wrapping already change continuously with available space. Text wraps within its available inline size. A flex container can form another line, and a grid with repeating columns can create only as many as fit. Minimum and maximum sizes limit that continuous reflow, and the declarations remain on the box they size.</p>
+
+  <p>The <code>clamp()</code> function combines a preferred value with lower and upper bounds, as in <code>clamp(1rem, 4vw, 2rem)</code>. The computed value can change continuously but never falls below 1rem or rises above 2rem. If the preferred value includes a viewport-percentage unit such as <code>vw</code>, the result follows the viewport width until it reaches one of those bounds. The <code>clamp()</code> declaration belongs to the element whose size it controls.</p>
+
+  <h3>Choosing a unit</h3>
+
+  <p>The appropriate unit depends on the measurement that should determine the value. The <code>rem</code> unit resolves against the root element's font size. The <code>em</code> unit resolves against the current element's font size, except when it sets <code>font-size</code> itself, where it resolves against the inherited font size. These units suit type and spacing that should scale with the corresponding text size. A viewport-relative unit such as <code>vw</code> resolves as a percentage of the viewport width, which suits page-level values but not measurements inside a nested container. A container query length unit such as <code>cqi</code> resolves against the inline size of the nearest ancestor established as an inline-size query container. If there is no eligible query container, <code>cqi</code> falls back to the small viewport's inline size. A <code>px</code> length represents CSS pixels rather than a percentage of a font size, viewport, or container, though browser zoom still scales the rendered page.</p>
+
+  <p>The same ownership rule applies to spacing, sizing, and responsive behavior. A continuous sizing rule belongs to the element it sizes. The element responsible for an arrangement should also define its breakpoint. The page owns breakpoints between page regions, while a component owns breakpoints within its own layout.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       PATTERNS
+  ════════════════════════════════════════════════════ -->
+  <h2 id="patterns">Composition Patterns Give Recurring Relationships a Name</h2>
+  <p class="lede">A name gives a team a shared term for a recurring layout pattern. Teams can implement that pattern as a reusable primitive.</p>
+
+  <p>A <strong>layout primitive</strong> is a reusable implementation of a recurring spatial relationship without product meaning. Andy Bell and Heydon Pickering's <em>Every Layout</em> collects a well-known set of these, each named for the relationship it preserves. A Stack places children one after another along the block axis with a controlled gap, and a Cluster arranges children along the inline axis and lets them wrap. Sidebar, Switcher, and Center preserve three other useful relationships.</p>
+
+  <ul>
+    <li><strong>Sidebar</strong> pairs a fixed-width region with a flexible region. They share a row until the flexible region becomes narrower than a set threshold. When that happens, both regions stack at full width.</li>
+    <li><strong>Switcher</strong> gives any number of children equal widths in a row, unlike Sidebar's asymmetric split. When the container is too narrow for those widths, all of the children stack.</li>
+    <li><strong>Center</strong> sets a maximum width and uses automatic side margins to center the block. It switches to <code>content-box</code> sizing so side padding does not reduce that width.</li>
+  </ul>
+
+  <figure class="figure-wrap">
+    <svg class="figure" viewBox="0 0 700 380" role="img" aria-label="Two rows compare how Sidebar and Switcher collapse. In the wide Sidebar container, a narrow fixed column sits beside a wider flexible column. In the narrow container, both stack to full width. In the wide Switcher container, three equal-width boxes sit in a row. In the narrow container, the same three boxes stack, still equal width." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="pattern-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path class="figure-arrow" d="M 0 0 L 10 5 L 0 10 z"/>
+        </marker>
+      </defs>
+
+      <text class="figure-title" x="20" y="24">Sidebar and Switcher collapse differently</text>
+
+      <rect class="figure-panel" x="20" y="44" width="380" height="140"/>
+      <text class="figure-heading" x="210" y="68" text-anchor="middle">Sidebar — wide container</text>
+      <rect class="figure-node is-accent" x="40" y="86" width="64" height="78"/>
+      <rect class="figure-node is-info" x="116" y="86" width="272" height="78"/>
+      <text class="figure-note" x="72" y="178" text-anchor="middle">fixed width</text>
+      <text class="figure-note" x="252" y="178" text-anchor="middle">fills the rest</text>
+
+      <path class="figure-connector is-accent-stroke" d="M 408 125 L 428 125" marker-end="url(#pattern-arrow)"/>
+
+      <rect class="figure-panel" x="436" y="44" width="244" height="140"/>
+      <text class="figure-heading" x="558" y="68" text-anchor="middle">Sidebar — narrow container</text>
+      <rect class="figure-node is-accent" x="456" y="86" width="204" height="30"/>
+      <rect class="figure-node is-info" x="456" y="124" width="204" height="40"/>
+      <text class="figure-note" x="558" y="178" text-anchor="middle">both full width</text>
+
+      <rect class="figure-panel" x="20" y="206" width="380" height="150"/>
+      <text class="figure-heading" x="210" y="230" text-anchor="middle">Switcher — wide container</text>
+      <rect class="figure-node is-accent" x="40" y="248" width="108" height="60"/>
+      <rect class="figure-node is-accent" x="160" y="248" width="108" height="60"/>
+      <rect class="figure-node is-accent" x="280" y="248" width="108" height="60"/>
+      <text class="figure-note" x="210" y="348" text-anchor="middle">equal width</text>
+
+      <path class="figure-connector is-accent-stroke" d="M 408 278 L 428 278" marker-end="url(#pattern-arrow)"/>
+
+      <rect class="figure-panel" x="436" y="206" width="244" height="150"/>
+      <text class="figure-heading" x="558" y="230" text-anchor="middle">Switcher — narrow container</text>
+      <rect class="figure-node is-accent" x="456" y="248" width="204" height="24"/>
+      <rect class="figure-node is-accent" x="456" y="278" width="204" height="24"/>
+      <rect class="figure-node is-accent" x="456" y="308" width="204" height="24"/>
+      <text class="figure-note" x="558" y="348" text-anchor="middle">still equal width, stacked</text>
+    </svg>
+    <figcaption>Sidebar splits space asymmetrically between a fixed and a flexible region. Switcher splits it symmetrically among equal children. Both collapse to a full-width stack once the container becomes too narrow for their side-by-side arrangement.</figcaption>
+  </figure>
+
+  <p>Other primitives cover different layout relationships. Cover centers a piece of content vertically within a minimum-height container while pinning header and footer content to the top and bottom, which suits a full-height hero section. For a responsive multi-column layout, Grid adds or removes columns as space changes without an explicit breakpoint. Reel keeps its children in a single horizontally scrolling row instead of wrapping them. Imposter uses absolute positioning and the containing-block mechanism covered earlier to center an element over its nearest positioned ancestor.</p>
+
+  <p>These patterns do not replace the earlier ownership rule. Their names help a team recognize recurring relationships and reuse the same declarations instead of rebuilding them.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       CONTRACTS
+  ════════════════════════════════════════════════════ -->
+  <h2 id="contracts">Where Layout Rules Belong</h2>
+  <p class="lede">A layout rule should stay with the element that owns the relationship and become shared code only when that relationship recurs.</p>
+
+  <p>The catalog controls the grid and gaps between cards, while each card controls the arrangement and padding inside its border. The catalog should not position a card's product name, and the card should not add an outer margin that assumes which siblings surround it.</p>
+
+  <p>Whether implemented as a CSS class or another small abstraction, a primitive should contain only the declarations for its recurring layout behavior. The surrounding markup still determines which elements participate and what those elements mean. A Stack may control direction and gap, but it should not assume that its first child is a product name or that its last child is a purchase action.</p>
+
+  <p>A relationship that appears once can remain a local CSS rule. A shared rule becomes useful when the same Stack, Cluster, grid, or spacing relationship recurs and should change consistently. <a href="design-systems.html">Design Systems</a> explains how organizations package those rules alongside tokens and component libraries.</p>
+
+  <p>Each parent determines how its children share the available space, while the children's content affects their sizes. A recurring relationship may justify a shared abstraction. A one-off arrangement should remain local.</p>
+
+</main>
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+
+</body>
+</html>
