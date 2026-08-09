@@ -4,9 +4,6 @@ Web site deployed to singlethreaded.se.
 
 ## Tech Stack
 
-- Node.js & npm
-- Vite
-- TypeScript
-- React
-- Tailwind
+- Static HTML, CSS & vanilla JS
+- Tailwind CSS (compiled via `@tailwindcss/cli`, see `npm run build`)
 - Biome
