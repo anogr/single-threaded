@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cascade and Inheritance — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+<style>
+  /* Article-specific only. Shared patterns (cards, callouts, code blocks,
+     sidebar, tables) come from articles.css. */
+  .cascade-order-figure {
+    width: min(100%, 600px);
+    margin-inline: auto;
+  }
+
+  .cascade-order-figure .figure-label {
+    font-size: 16px;
+  }
+
+  .figure-scroll {
+    overflow-x: auto;
+  }
+
+  @media (max-width: 760px) {
+    .figure-scroll .cascade-order-figure {
+      width: 600px;
+      max-width: none;
+    }
+
+    .figure-scroll .wide-figure {
+      width: 740px;
+      max-width: none;
+    }
+  }
+</style>
+</head>
+
+<body>
+
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Articles</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+
+  <div class="sidebar-section">Resolving Conflicts</div>
+  <a href="#cascade">The Cascade</a>
+  <a href="#origins-importance">Origins and Importance</a>
+  <a href="#encapsulation-contexts">Encapsulation Contexts</a>
+  <a href="#style-attributes">Style Attributes</a>
+  <a href="#cascade-layers">Cascade Layers</a>
+  <a href="#specificity">Specificity</a>
+  <a href="#scope-rules">Scope Rules</a>
+  <a href="#source-order">Source Order</a>
+
+  <div class="sidebar-section">Filling Gaps</div>
+  <a href="#inheritance">Inheritance</a>
+
+  <div class="sidebar-section">Applying It</div>
+  <a href="#tracing-a-property">Tracing a Property</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">Frontend Architecture · CSS</div>
+  <h1>Cascade and Inheritance</h1>
+  <p class="subtitle">How a browser chooses among competing declarations and supplies values through inheritance.</p>
+  <div class="byline">
+    <span>Andreas Ögren</span>
+    <div class="dot"></div><span>~18 min read</span>
+    <div class="dot"></div><span>Last updated August 2026</span>
+  </div>
+
+  <section id="intro">
+  <p>Two stylesheets can assign different values to the same property on the same element. A base stylesheet might set a card's text to a neutral gray, and a theme stylesheet might set the same card's text to the brand's navy color. The browser must therefore choose which value becomes the card's color.</p>
+
+  <p>For a given property on an element, CSS may provide zero, one, or several applicable declarations. When no declaration applies, CSS obtains the value through <strong>inheritance</strong> or from the property's initial value. When exactly one declaration applies, the browser uses its value for the property. When several declarations compete, the <strong>cascade</strong> applies a fixed precedence order and selects one.</p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════
+       THE CASCADE
+  ════════════════════════════════════════════════════ -->
+  <h2 id="cascade">The Cascade</h2>
+  <p class="lede">The browser resolves conflicts among declarations through an ordered sequence of comparisons.</p>
+
+  <p>A <strong>stylesheet</strong> can contain <strong>style rules</strong>, and each style rule can contain <strong>declarations</strong>. A style rule combines a <strong>selector</strong> with a block enclosed in braces. The selector determines which elements the rule can match. Each declaration in the block pairs a <strong>property</strong> with a <strong>value</strong>.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">base.css + theme.css</span>
+      <span class="code-lang">CSS</span>
+    </div>
+    <pre><code><span class="cm">/* base.css */</span>
+<span class="n">.card</span> {
+  <span class="n">color</span>: <span class="cn">gray</span>;
+  <span class="n">padding</span>: <span class="cn">1rem</span>;
+}
+
+<span class="cm">/* theme.css, linked after base.css */</span>
+<span class="n">.card</span> {
+  <span class="n">color</span>: <span class="cn">navy</span>;
+}</code></pre>
+  </div>
+
+  <p>Each block in the example is a style rule. <code>.card</code> is the selector, while <code>color: gray</code> and <code>color: navy</code> are declarations. Within the first color declaration, <code>color</code> is the property and <code>gray</code> is the value. The cascade considers each declaration separately. The card can therefore take <code>color</code> from the second rule while keeping <code>padding</code> from the first because the browser resolves those properties separately.</p>
+
+  <p>Before comparing precedence, the browser determines which declarations apply. A declaration in a style rule must be valid, and the rule's selector must match the element. If the rule is inside a condition such as <code>@media</code>, that condition must also match. Declarations that pass these checks become candidates in the cascade.</p>
+
+  <p>After filtering, the browser compares candidate declarations in the cascade order. It stops when one declaration has higher precedence. If the candidates tie, the browser moves to the next comparison.</p>
+
+  <p>The cascade compares declarations in this order.</p>
+
+  <ol>
+    <li><strong>Origin and importance</strong> rank declarations by where they come from and whether they use <code>!important</code>.</li>
+    <li><strong>Encapsulation context</strong> decides between declarations from the document and its shadow trees.</li>
+    <li><strong>Style attributes</strong> take precedence over style rules when the earlier comparisons tie.</li>
+    <li><strong>Cascade layers</strong> set precedence among groups of declarations.</li>
+    <li><strong>Specificity</strong> favors the declaration whose selector is more specific.</li>
+    <li><strong>Scoping proximity</strong> favors the declaration whose scoping root is closest to the element.</li>
+    <li><strong>Source order</strong> lets the declaration that appears later win.</li>
+  </ol>
+
+  <h2 id="origins-importance">Origins and Importance</h2>
+  <p class="lede">Origins identify who supplied a declaration. Importance changes which origins outrank others.</p>
+
+  <p>An <strong>origin</strong> identifies who supplied a declaration. The user-agent (UA) origin gives HTML elements usable default styles. The user origin represents styles chosen by the reader. The author origin contains linked stylesheets, <code>&lt;style&gt;</code> elements, and other styles supplied by the page.</p>
+
+  <p>For normal declarations, the site's author styles outrank user styles, and user styles outrank browser defaults. That order lets the page provide its design without requiring every browser default to be reset. In the example, both card declarations are normal author declarations, so neither gains precedence from origin.</p>
+
+  <p>Adding <code>!important</code> marks a declaration as important. Important declarations beat normal declarations, and the order of the three origins reverses. Important user-agent declarations outrank important user declarations, which outrank important author declarations. Reversing the origin order lets a reader's important <code>font-size</code> or <code>color</code> declaration override the site's important styles.</p>
+
+  <p>The origin-and-importance comparison also includes animation and transition declarations. While a CSS animation is running, the value it produces for an animated property outranks normal declarations for that property. Any important declaration still outranks the animated value. An active CSS transition outranks all of them for the property being transitioned. While active, an animation or transition can therefore replace the value the property would otherwise use.</p>
+
+  <div class="callout warn">
+    <div class="callout-title">!important as a last resort</div>
+    <p>In author CSS, <code>!important</code> should be reserved for a declaration that must outrank normal author declarations. It is unnecessary when changing layer order or selector matching can resolve the conflict. Once an author declaration is important, another author declaration normally needs <code>!important</code> to override it. A normal declaration cannot override an important one.</p>
+  </div>
+
+  <h2 id="encapsulation-contexts">Encapsulation Contexts</h2>
+  <p class="lede">A shadow tree creates a separate styling context attached to a host element.</p>
+
+  <p>A <strong>shadow tree</strong> is a separate Document Object Model (DOM) tree attached to a <strong>host element</strong>. Ordinary selectors in the page cannot match elements inside the shadow tree, and ordinary selectors inside the shadow tree cannot match elements in the page. The document tree and its shadow trees form separate <strong>encapsulation contexts</strong> for the cascade.</p>
+
+  <p>Special selectors allow limited styling across the shadow boundary. A <code>:host</code> rule inside the shadow tree and a rule in the outer document can both style the host element. When those rules set the same property, the cascade compares their encapsulation contexts after origin and importance. If both declarations are normal, the outer declaration wins, allowing the page to override a normal host default from the shadow tree. If both are important, the shadow-tree declaration wins. These precedence rules do not change which elements each selector can match.</p>
+
+  <p>The two card declarations come from page stylesheets, so both belong to the document context and remain tied at this comparison. The browser next checks whether either declaration comes from a style attribute.</p>
+
+  <h2 id="style-attributes">Style Attributes</h2>
+
+  <p>A declaration in a <code>style</code> attribute applies directly to one element and has no selector. If it competes with an author declaration from a style rule, it wins when both declarations have the same importance and encapsulation context. Important author declarations outrank normal declarations in style attributes.</p>
+
+  <p>A style attribute is useful when runtime code supplies a value for one element, such as a <code>width</code> calculated after measuring that element. Static styles shared by several elements are better expressed as style rules. One rule can apply to several elements. When another rule supplies a different value, the cascade chooses between the declarations.</p>
+
+  <p>The two card declarations both come from style rules, so they remain tied.</p>
+
+  <h2 id="cascade-layers">Cascade Layers</h2>
+  <p class="lede">Layers give groups of declarations an explicit priority before specificity is compared.</p>
+
+  <p>A <strong>cascade layer</strong> groups related declarations and gives the group a position in the layer order. A project might place site defaults and third-party CSS in early layers, base components in the next layer, application styles in a later layer, and exceptions in a final layer. Declarations in the same layer remain tied at this comparison. When declarations come from different layers, layer order decides the winner before specificity.</p>
+
+  <p>Normal declarations outside a named layer belong to an implicit final layer, so they outrank normal declarations in every named layer. Normal declarations in an existing unlayered stylesheet can therefore outrank matching normal declarations in a layered default or third-party stylesheet. Moving only some rules into named layers can lower their normal precedence relative to rules left unlayered.</p>
+
+  <p>Important declarations reverse the layer order. An important declaration in an earlier layer outranks an important declaration in a later layer, and important declarations in named layers outrank important unlayered declarations. The reversed order protects important declarations in earlier layers when later layers add their own important declarations.</p>
+
+  <p>Layers are useful when groups of declarations need a stable priority that does not depend on selector weight. The layer order expresses that priority directly, so selectors do not need extra IDs or ancestors merely to win conflicts. Layers do not change which elements a selector matches. A small stylesheet with no recurring priority conflicts may not need named layers, while a larger project can define one layer order across its stylesheets as part of its <a href="css-architectures.html#modern-trends">CSS architecture</a>.</p>
+
+  <p>If <code>@layer base, theme;</code> appears before either layer has been declared, it establishes <code>base</code> before <code>theme</code>. For normal declarations, a later layer has higher precedence. If the gray card declaration belongs to <code>base</code> and the navy declaration belongs to <code>theme</code>, the theme declaration wins at the layer comparison. If both <code>.card</code> rules remain unlayered, their color declarations tie at the layer comparison.</p>
+
+  <!-- ═══════════════════════════════════════════════════
+       SPECIFICITY
+  ════════════════════════════════════════════════════ -->
+  <h2 id="specificity">Specificity</h2>
+  <p class="lede">The browser compares selector specificity only after the earlier cascade comparisons tie.</p>
+
+  <p><strong>Specificity</strong> is a weight calculated from a selector's structure. The browser compares it only when declarations from style rules remain tied after the earlier cascade comparisons. Style attributes have no selectors, so specificity does not apply to them. Greater specificity cannot overcome a declaration that won an earlier comparison.</p>
+
+  <p>A selector's specificity is represented by three counts for IDs, classes, and types. The browser compares the counts from left to right and moves to the next count only when the earlier counts tie.</p>
+
+  <ol>
+    <li>The <strong>ID count</strong> comes first. Each ID selector contributes one.</li>
+    <li>The <strong>class count</strong> comes second. Each class selector and attribute selector contributes one. Most pseudo-classes, including <code>:hover</code>, also contribute one.</li>
+    <li>The <strong>type count</strong> comes last. Each type selector contributes one. A pseudo-element such as <code>::before</code> also contributes one.</li>
+  </ol>
+
+  <p>The selectors below show why one ID outweighs three classes.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">specificity.css</span>
+      <span class="code-lang">CSS</span>
+    </div>
+    <pre><code><span class="n">#save-btn</span> { <span class="n">color</span>: <span class="cn">navy</span>; }
+<span class="cm">/* Specificity is (1, 0, 0) because the selector contains one ID. */</span>
+
+<span class="n">.card .actions .save-button</span> { <span class="n">color</span>: <span class="cn">gray</span>; }
+<span class="cm">/* Specificity is (0, 3, 0). Three classes still lose to the ID above. */</span></code></pre>
+  </div>
+
+  <div class="figure-wrap">
+    <div class="figure-scroll" role="region" aria-label="Scrollable specificity comparison diagram" tabindex="0">
+    <svg class="figure wide-figure" viewBox="-20 -20 740 320" role="img" aria-label="Two paired comparisons of CSS selectors broken into ID, class, and type counts. The ID column is compared first, so a single ID outweighs any number of classes. When ID counts tie, the class column settles it.">
+      <text class="figure-label" x="470" y="14" text-anchor="middle">ID</text>
+      <text class="figure-label" x="550" y="14" text-anchor="middle">CLASS</text>
+      <text class="figure-label" x="630" y="14" text-anchor="middle">TYPE</text>
+
+      <rect class="figure-node is-accent" x="20" y="24" width="410" height="44"/>
+      <text class="figure-label" x="36" y="51">#save-btn</text>
+      <rect class="figure-node is-accent" x="443" y="29" width="54" height="34"/>
+      <text class="figure-label is-accent-text" x="470" y="51" text-anchor="middle">1</text>
+      <rect class="figure-node" x="523" y="29" width="54" height="34"/>
+      <text class="figure-label" x="550" y="51" text-anchor="middle">0</text>
+      <rect class="figure-node" x="603" y="29" width="54" height="34"/>
+      <text class="figure-label" x="630" y="51" text-anchor="middle">0</text>
+
+      <rect class="figure-node" x="20" y="72" width="410" height="44"/>
+      <text class="figure-label" x="36" y="99">.card .actions .save-button</text>
+      <rect class="figure-node" x="443" y="77" width="54" height="34"/>
+      <text class="figure-label" x="470" y="99" text-anchor="middle">0</text>
+      <rect class="figure-node" x="523" y="77" width="54" height="34"/>
+      <text class="figure-label" x="550" y="99" text-anchor="middle">3</text>
+      <rect class="figure-node" x="603" y="77" width="54" height="34"/>
+      <text class="figure-label" x="630" y="99" text-anchor="middle">0</text>
+
+      <text class="figure-note" x="20" y="134">The top row wins because its ID count is 1 and the lower row's is 0.</text>
+
+      <rect class="figure-node is-accent" x="20" y="160" width="410" height="44"/>
+      <text class="figure-label" x="36" y="187">.card button:hover</text>
+      <rect class="figure-node" x="443" y="165" width="54" height="34"/>
+      <text class="figure-label" x="470" y="187" text-anchor="middle">0</text>
+      <rect class="figure-node is-accent" x="523" y="165" width="54" height="34"/>
+      <text class="figure-label is-accent-text" x="550" y="187" text-anchor="middle">2</text>
+      <rect class="figure-node" x="603" y="165" width="54" height="34"/>
+      <text class="figure-label" x="630" y="187" text-anchor="middle">1</text>
+
+      <rect class="figure-node" x="20" y="208" width="410" height="44"/>
+      <text class="figure-label" x="36" y="235">html body main button</text>
+      <rect class="figure-node" x="443" y="213" width="54" height="34"/>
+      <text class="figure-label" x="470" y="235" text-anchor="middle">0</text>
+      <rect class="figure-node" x="523" y="213" width="54" height="34"/>
+      <text class="figure-label" x="550" y="235" text-anchor="middle">0</text>
+      <rect class="figure-node" x="603" y="213" width="54" height="34"/>
+      <text class="figure-label" x="630" y="235" text-anchor="middle">4</text>
+
+      <text class="figure-note" x="20" y="270">IDs tie at 0. Two classes then outweigh four type selectors.</text>
+    </svg>
+    </div>
+  <figcaption>Columns are compared left to right. A larger count in a later column cannot outweigh a difference in an earlier column.</figcaption>
+  </div>
+
+  <p>The universal selector and combinators add no specificity. The descendant combinator, written as a space, and the child combinator <code>&gt;</code> describe relationships without increasing any of the three counts. The <code>:where()</code> pseudo-class also contributes zero, regardless of its argument, so <code>:where(#save-btn)</code> has <code>(0, 0, 0)</code>. A default stylesheet can use <code>:where()</code> to match a precise set of elements without making later overrides harder.</p>
+
+  <p>The <code>:is()</code>, <code>:has()</code>, and <code>:not()</code> pseudo-classes take the specificity of their most specific selector argument. The selector <code>:is(.save-button, #save-btn)</code> therefore has <code>(1, 0, 0)</code>, even when it matches an element through the class argument.</p>
+
+  <p>The <code>:nth-child()</code> and <code>:nth-last-child()</code> pseudo-classes each contribute one to the class count. An <code>of</code> clause adds the specificity of its most specific selector, so <code>:nth-child(2n of .featured)</code> has a specificity of <code>(0, 2, 0)</code>. The nesting selector <code>&amp;</code> follows the same maximum rule as <code>:is()</code>. It has the specificity of the most specific selector in the parent rule's selector list.</p>
+
+  <p>Specificity should follow from the selector needed to identify the intended elements. Adding an ID or ancestor only to win a conflict makes later overrides harder. When a selector matches the intended elements but still loses, an earlier cascade comparison may already have decided the winner. More specificity cannot change the result of an earlier comparison.</p>
+
+  <h2 id="scope-rules">Scope Rules</h2>
+  <p class="lede">A scope limits selector matching to a document region. If scoped declarations otherwise tie, the browser also compares their distance from the scoping root.</p>
+
+  <p>A <strong>scope rule</strong> begins with <code>@scope</code> and groups style rules that share a matching region. The first selector in parentheses identifies one or more <strong>scoping roots</strong>, which form the upper boundary of each scope. An optional selector after <code>to</code> identifies the <strong>lower boundaries</strong>. Enclosed selectors can match descendants of a scoping root, but not a lower-boundary element or any of its descendants.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">scope.html + scope.css</span>
+      <span class="code-lang">HTML + CSS</span>
+    </div>
+    <pre><code><span class="cm">&lt;!-- scope.html --&gt;</span>
+&lt;article class="article"&gt;
+  &lt;header&gt;
+    &lt;h2 class="title"&gt;
+      Cascade and inheritance
+    &lt;/h2&gt;
+  &lt;/header&gt;
+  &lt;section class="comments"&gt;
+    &lt;h2 class="title"&gt;Comments&lt;/h2&gt;
+  &lt;/section&gt;
+&lt;/article&gt;
+
+<span class="cm">/* scope.css */</span>
+<span class="k">@scope</span> (<span class="n">.article</span>) <span class="k">to</span> (<span class="n">.comments</span>) {
+  <span class="n">.title</span> { <span class="n">color</span>: <span class="cn">navy</span>; }
+}</code></pre>
+  </div>
+
+  <p>The article title is inside <code>.article</code> and outside <code>.comments</code>, so the scoped rule gives it navy text. The comments heading is a descendant of the lower-boundary element and therefore outside the scope. Wrapping the article title in <code>&lt;header&gt;</code> does not change the match because <code>.title</code> can appear at any descendant depth between the boundaries.</p>
+
+  <p>A scope keeps the shared boundary separate from the selectors that style individual elements. When several rules belong to the article region, each enclosed selector can describe the element it styles without repeating <code>.article</code> or an exclusion for <code>.comments</code>. Changing the region later requires changing the <code>@scope</code> prelude rather than every enclosed selector. The block also keeps rules for the same region together in the stylesheet.</p>
+
+  <p>Descendant and child combinators express one relationship within one selector. The selector <code>.article .title</code> matches both headings because both are descendants of the article. The selector <code>.article &gt; .title</code> matches neither heading because each one is wrapped in another element. The scope allows the article title to appear at any depth between the two boundaries while excluding the entire comments subtree.</p>
+
+  <p>Scope boundaries do not add specificity to enclosed selectors. The scoped <code>.title</code> selector remains <code>(0, 1, 0)</code>, whereas <code>.article .title</code> has <code>(0, 2, 0)</code>. Specificity therefore reflects the enclosed selector rather than the selectors that define the region.</p>
+
+  <p>If declarations remain tied after specificity, the browser compares <strong>scoping proximity</strong>. It counts the parent or sibling steps between the matched element and each scoping root. The declaration from the nearest root wins. A declaration from an unscoped rule has no scoping root, so it loses to an otherwise tied scoped declaration.</p>
+
+  <h2 id="source-order">Source Order</h2>
+  <p>If scoping proximity ties, or both rules are unscoped, source order is the final comparison. The later declaration wins whether it appears later in the same stylesheet or in a stylesheet linked afterward.</p>
+
+  <p>These comparisons form the complete cascade order. The browser moves down the order only when declarations tie. The two card declarations reach source order because they tie at every earlier step.</p>
+
+  <div class="figure-wrap">
+    <div class="figure-scroll" role="region" aria-label="Scrollable cascade order diagram" tabindex="0">
+    <svg class="figure cascade-order-figure" viewBox="-10 -10 520 648" role="img" aria-label="Complete cascade comparison order after filtering. The browser compares origin and importance, encapsulation context, style attributes, cascade layers, specificity, scoping proximity, and source order. A later comparison is reached only when every earlier comparison ties.">
+      <defs>
+        <marker id="fig1-arrow" viewBox="0 0 10 10" markerWidth="6" markerHeight="6" refX="10" refY="5" orient="auto">
+          <polygon class="figure-arrow" points="0 0, 10 5, 0 10"/>
+        </marker>
+      </defs>
+
+      <rect class="figure-node" x="20" y="20" width="460" height="88"/>
+      <text class="figure-label" x="36" y="43">1 · Origin &amp; Importance</text>
+      <text class="figure-label" x="36" y="62">transitions &gt; important UA &gt; important user</text>
+      <text class="figure-label" x="36" y="80">&gt; important author &gt; animations &gt; normal author</text>
+      <text class="figure-label" x="36" y="98">&gt; normal user &gt; normal UA</text>
+
+      <line class="figure-connector" x1="250" y1="108" x2="250" y2="128" marker-end="url(#fig1-arrow)"/>
+
+      <rect class="figure-node" x="20" y="128" width="460" height="54"/>
+      <text class="figure-label" x="36" y="150">2 · Encapsulation Context</text>
+      <text class="figure-label" x="36" y="169">outer wins for normal, inner wins for important</text>
+
+      <line class="figure-connector" x1="250" y1="182" x2="250" y2="202" marker-end="url(#fig1-arrow)"/>
+
+      <rect class="figure-node" x="20" y="202" width="460" height="54"/>
+      <text class="figure-label" x="36" y="224">3 · Style Attribute</text>
+      <text class="figure-label" x="36" y="243">after earlier ties, the style attribute wins</text>
+
+      <line class="figure-connector" x1="250" y1="256" x2="250" y2="276" marker-end="url(#fig1-arrow)"/>
+
+      <rect class="figure-node" x="20" y="276" width="460" height="54"/>
+      <text class="figure-label" x="36" y="298">4 · Cascade Layer</text>
+      <text class="figure-label" x="36" y="317">later wins for normal, earlier wins for important</text>
+
+      <line class="figure-connector" x1="250" y1="330" x2="250" y2="350" marker-end="url(#fig1-arrow)"/>
+
+      <rect class="figure-node" x="20" y="350" width="460" height="54"/>
+      <text class="figure-label" x="36" y="372">5 · Specificity</text>
+      <text class="figure-label" x="36" y="391">higher selector weight wins</text>
+
+      <line class="figure-connector" x1="250" y1="404" x2="250" y2="424" marker-end="url(#fig1-arrow)"/>
+
+      <rect class="figure-node" x="20" y="424" width="460" height="54"/>
+      <text class="figure-label" x="36" y="446">6 · Scoping Proximity</text>
+      <text class="figure-label" x="36" y="465">closer scoping root wins</text>
+
+      <line class="figure-connector is-accent-stroke is-accent-color" x1="250" y1="478" x2="250" y2="498" marker-end="url(#fig1-arrow)"/>
+
+      <rect class="figure-node is-accent" x="20" y="498" width="460" height="54"/>
+      <text class="figure-label is-accent-text" x="36" y="520">7 · Source Order</text>
+      <text class="figure-label is-accent-text" x="36" y="539">later declaration wins</text>
+
+      <line class="figure-connector" x1="250" y1="552" x2="250" y2="572" marker-end="url(#fig1-arrow)"/>
+
+      <rect class="figure-node is-info" x="20" y="572" width="460" height="50"/>
+      <text class="figure-label is-info-text" x="250" y="602" text-anchor="middle">one winning declaration for this property</text>
+    </svg>
+    </div>
+  <figcaption>The cascade reaches a later comparison only while declarations remain tied. The two card declarations reach source order because they tie at every earlier comparison.</figcaption>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       INHERITANCE
+  ════════════════════════════════════════════════════ -->
+  <h2 id="inheritance">Inheritance</h2>
+  <p class="lede">The cascade may provide a value for a property. If it does not, defaulting uses inheritance or the property's initial value.</p>
+
+  <p>Every applicable declaration contributes a <strong>declared value</strong> for its property. If the cascade supplies no value, defaulting uses <strong>inheritance</strong> or the property's <strong>initial value</strong>. Each property's definition states whether the property inherits. An inherited property then receives its parent's value, while a non-inherited property uses its initial value. The root element has no parent, so an inherited property on the root also uses its initial value.</p>
+
+  <p>Text-related properties such as <code>color</code>, <code>font-family</code>, and <code>line-height</code> usually inherit because nested text should normally keep the surrounding text style. Authors can set these properties on a container instead of repeating them for every descendant that contains text.</p>
+
+  <p>Properties that control an element's box usually do not inherit. A border, margin, or width belongs to the box on which it is set. If those values inherited, every nested element would receive the same box styling unless another declaration replaced it.</p>
+
+  <p>A card with a nested <code>&lt;em&gt;</code> shows both behaviors.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">inheritance.html + inheritance.css</span>
+      <span class="code-lang">HTML + CSS</span>
+    </div>
+    <pre><code><span class="cm">&lt;!-- inheritance.html --&gt;</span>
+&lt;div class="card"&gt;
+  Card text with &lt;em&gt;emphasis&lt;/em&gt;.
+&lt;/div&gt;
+
+<span class="cm">/* inheritance.css */</span>
+<span class="n">.card</span> {
+  <span class="n">color</span>: <span class="cn">#1a1a1a</span>;
+  <span class="n">border</span>: <span class="cn">1px solid</span>;
+}</code></pre>
+  </div>
+
+  <p>The <code>&lt;em&gt;</code> has no color declaration, so it inherits the card's color. It also has no border declaration, but border properties do not inherit. Its border properties take their initial values, including <code>none</code> for <code>border-style</code>, so the browser draws no border around the emphasized text.</p>
+
+  <p>Inheritance uses the parent's <strong>computed value</strong>, which is the value after CSS has resolved dependencies such as relative units. If a parent declares <code>font-size: 1.25em</code>, the browser first resolves that size against the font size inherited by the parent. A child that inherits <code>font-size</code> receives the resolved size, so the <code>1.25</code> factor is not applied again at each descendant level.</p>
+
+  <div class="figure-wrap">
+    <div class="figure-scroll" role="region" aria-label="Scrollable inheritance diagram" tabindex="0">
+    <svg class="figure wide-figure" viewBox="-20 -20 740 340" role="img" aria-label="A parent card has a computed dark color and a border. Its nested em inherits the color. The border properties do not inherit, and the initial border style is none." >
+      <defs>
+        <marker id="fig3-arrow" viewBox="0 0 10 10" markerWidth="6" markerHeight="6" refX="10" refY="5" orient="auto">
+          <polygon class="figure-arrow" points="0 0, 10 5, 0 10"/>
+        </marker>
+      </defs>
+
+      <rect class="figure-node" x="240" y="20" width="260" height="78"/>
+      <text class="figure-label" x="370" y="42" text-anchor="middle">.card</text>
+      <text class="figure-label" x="370" y="60" text-anchor="middle">color: #1a1a1a</text>
+      <text class="figure-label" x="370" y="76" text-anchor="middle">border: 1px solid</text>
+
+      <line class="figure-connector is-accent-stroke is-accent-color" x1="330" y1="98" x2="330" y2="230" marker-end="url(#fig3-arrow)"/>
+      <line class="figure-connector is-dashed" x1="420" y1="98" x2="420" y2="230" marker-end="url(#fig3-arrow)"/>
+
+      <text class="figure-label is-accent-text" x="310" y="140" text-anchor="end">color inherits,</text>
+      <text class="figure-label is-accent-text" x="310" y="156" text-anchor="end">child receives computed color</text>
+
+      <text class="figure-label" x="440" y="140" text-anchor="start">border properties do not inherit,</text>
+      <text class="figure-label" x="440" y="156" text-anchor="start">child gets their initial values</text>
+
+      <rect class="figure-node" x="240" y="230" width="260" height="78"/>
+      <text class="figure-label" x="370" y="252" text-anchor="middle">em</text>
+      <text class="figure-label is-accent-text" x="370" y="270" text-anchor="middle">color: #1a1a1a (computed)</text>
+      <text class="figure-label" x="370" y="286" text-anchor="middle">border-style: none (initial)</text>
+    </svg>
+    </div>
+  <figcaption>When a child has no cascaded value for an inherited property, it receives its parent's computed value. For a non-inherited property, it takes the property's initial value.</figcaption>
+  </div>
+
+  <p>A property's initial value comes from the property's specification, not from the browser's user-agent stylesheet. The initial value of <code>display</code> is <code>inline</code>, for example, even though the browser's stylesheet normally gives a <code>&lt;div&gt;</code> block layout. In normal flow, <code>display: initial</code> therefore makes a <code>&lt;div&gt;</code> inline rather than restoring its familiar browser styling.</p>
+
+  <p><strong>Custom properties</strong> (CSS variables) inherit by default. A descendant can use the inherited value in another declaration with <code>var()</code>. A <a href="design-systems.html#tokens">design-token value</a> declared on an ancestor is available to descendants that do not override it. An <code>@property</code> rule can register the custom property with <code>inherits: false</code> when the value should not pass to descendants.</p>
+
+  <p>A <strong>CSS-wide keyword</strong> can be used as the complete value of any property. CSS defines five such keywords.</p>
+
+  <ul>
+    <li><code>inherit</code> uses the inherited value even if the property does not normally inherit. That value is the parent's computed value, or the property's initial value on the root element.</li>
+    <li><code>initial</code> takes the property's initial value even if the property normally inherits.</li>
+    <li><code>unset</code> acts like <code>inherit</code> on an inherited property and like <code>initial</code> on a non-inherited property.</li>
+    <li><code>revert</code> rolls author styles back to the user origin and user styles back to the user-agent origin. In a user-agent stylesheet, it behaves like <code>unset</code>.</li>
+    <li>In a style rule, <code>revert-layer</code> acts as if declarations in the current cascade layer did not apply to that property. The cascade checks lower-priority layers in the same origin and can continue to an earlier origin if none supplies a value.</li>
+  </ul>
+
+  <p>The first three keywords determine the specified value directly. Because <code>color</code> is inherited, <code>color: unset</code> gives the card its parent's computed color.</p>
+
+  <p>With <code>revert</code> and <code>revert-layer</code>, the browser continues at lower precedence to find another declaration. If <code>@layer base</code> sets the card's color to gray and a later <code>@layer theme</code> declares <code>color: revert-layer</code>, the browser disregards the theme layer for that property and uses the gray declaration from <code>base</code>. If a normal theme rule uses <code>color: revert</code>, the browser disregards author-origin declarations for that property and checks the user and user-agent origins before defaulting.</p>
+
+  <p>In this example, <code>.card__highlight</code> is a child of <code>.card</code>. Its color would inherit without an explicit declaration, while its border would not. The <code>inherit</code> keyword changes the border behavior but leaves the resulting color unchanged.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">inheritance.css</span>
+      <span class="code-lang">CSS</span>
+    </div>
+    <pre><code><span class="n">.card</span> {
+  <span class="n">color</span>: <span class="cn">#1a1a1a</span>;
+  <span class="n">border</span>: <span class="cn">1px solid</span>;
+}
+
+<span class="n">.card__highlight</span> {
+  <span class="n">color</span>: <span class="cn">inherit</span>;  <span class="cm">/* Color already inherits, so this does not change the result. */</span>
+  <span class="n">border</span>: <span class="cn">inherit</span>; <span class="cm">/* The highlight receives the card's border values. */</span>
+}</code></pre>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       TRACING A PROPERTY
+  ════════════════════════════════════════════════════ -->
+  <h2 id="tracing-a-property">Tracing a Property</h2>
+  <p class="lede">A property trace follows one property from applicable declarations to its specified and computed values.</p>
+
+  <p>The <code>:root</code> selector matches the document root. The <code>:root</code> rule sets a color that the save button would inherit if no declaration set <code>color</code> on the button itself. The two button rules set <code>color</code> directly, so both declarations enter the cascade. The selector in <code>base</code> contains one ID and three classes, while the selector in <code>components</code> contains one class.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">resolution.css</span>
+      <span class="code-lang">CSS</span>
+    </div>
+    <pre><code><span class="p">:root</span> { <span class="n">--accent</span>: <span class="cn">#9a5a22</span>; <span class="n">color</span>: <span class="cn">#1a1a1a</span>; }
+
+<span class="p">@layer</span> <span class="n">base</span>, <span class="n">components</span>;
+
+<span class="p">@layer</span> <span class="n">base</span> {
+  <span class="n">#page .sidebar .card .save-button</span> { <span class="n">color</span>: <span class="cn">red</span>; }
+  <span class="cm">/* Specificity is (1, 3, 0), but this rule is in the earlier layer. */</span>
+}
+
+<span class="p">@layer</span> <span class="n">components</span> {
+  <span class="n">.save-button</span> { <span class="n">color</span>: <span class="cn">var(--accent)</span>; }
+  <span class="cm">/* Specificity is (0, 1, 0). Layer order makes this declaration win. */</span>
+}</code></pre>
+  </div>
+
+  <p>Both declarations are normal author declarations in the same encapsulation context. They tie at the origin-and-importance and encapsulation-context comparisons. Neither declaration comes from a style attribute, so they also tie at the style-attribute comparison. The <code>components</code> layer was declared after <code>base</code>, so its declaration wins at the layer comparison. The cascade stops there without comparing specificity, scoping proximity, or source order. Because a declaration supplies the button's color, the button does not inherit <code>color</code> from <code>:root</code>.</p>
+
+  <p>A property trace follows one property from applicable declarations to its computed value in four stages.</p>
+
+  <ol>
+    <li><strong>Candidate collection</strong> gathers valid declarations for that property that apply to the element. A candidate may come from a matching style rule or a <code>style</code> attribute. If a style rule is inside a condition such as <code>@media</code>, that condition must match.</li>
+    <li><strong>Cascade comparison</strong> orders the candidates by precedence and chooses at most one cascaded value. <code>revert-layer</code> can make the cascade continue in a lower-priority layer, and <code>revert</code> can make it continue at a lower-priority origin. If no declaration remains, there is no cascaded value.</li>
+    <li><strong>Defaulting</strong> produces the specified value. It normally uses the cascaded value. The <code>inherit</code>, <code>initial</code>, and <code>unset</code> keywords instead determine the specified value according to their rules. If there is no cascaded value, an inherited property receives its parent's computed value, or its initial value on the root element. A non-inherited property receives its initial value.</li>
+    <li><strong>Computation</strong> resolves dependencies in the specified value that do not require layout, producing the computed value.</li>
+  </ol>
+
+  <p>A property trace shows why the browser chose an unexpected value. Selector matching decides which declarations participate. Layer order sets precedence among groups of declarations, while a scope limits selector matching to a region. Increasing specificity cannot change layer order, and <code>!important</code> cannot make a declaration apply when its selector does not match.</p>
+
+  <p>Low-specificity selectors make declarations within the same layer easier to override without adding IDs solely for that purpose. Layer order controls precedence between layers independently of selector specificity. <a href="css-architectures.html#methodologies">Block Element Modifier (BEM)</a>, for example, uses class-based names for blocks, elements, and modifiers. Combining BEM selectors with an explicit layer order makes precedence easier to trace across a CSS codebase.</p>
+
+</main>
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+
+</body>
+</html>
