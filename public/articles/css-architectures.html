@@ -51,16 +51,16 @@
   <p class="subtitle">How teams keep CSS maintainable as codebases, component counts, and contributor lists grow.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~16 min read</span>
+    <div class="dot"></div><span>~17 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
   <section id="intro">
   <p>A small stylesheet rarely needs much architecture. Its authors can remember the selectors, understand their order, and see where a change will land. That shared context fades as components and contributors multiply. Eventually, changing one class can affect a screen its author has never opened. CSS architecture exists to make those effects predictable again.</p>
 
-  <p>The recurring problems begin with CSS itself: selectors share a namespace, rules compete in the cascade, and inheritance crosses component boundaries. Naming methodologies, preprocessors, generated classes, utility frameworks, and native browser features each address a different part of that problem.</p>
+  <p>These problems arise because selectors share a global namespace, rules compete in the cascade, and inheritance crosses component boundaries. CSS architectures address the problems caused by these mechanisms in different ways.</p>
 
-  <p>Native CSS now covers more of the architecture than it once did. Cascade layers make priority explicit, <code>@scope</code> limits selector reach, and <a href="layout-spacing-sizing.html#responsive">container queries</a> let a component respond to its own available space. Tooling still matters, but the decision is increasingly about authoring constraints and team workflow rather than missing platform capability.</p>
+  <p>Native CSS now covers more of the architecture than it once did. Cascade layers make priority explicit, <code>@scope</code> limits selector reach, and <a href="layout-spacing-sizing.html#responsive">container queries</a> let a component respond to its own available space. Tooling still shapes authoring constraints and team workflow.</p>
   </section>
 
   <!-- ═══════════════════════════════════════════════════
@@ -69,11 +69,11 @@
   <h2 id="why-it-breaks">The Scaling Problem</h2>
   <p class="lede">Three ordinary CSS mechanisms, useful at small scale, turn into liabilities once enough people are writing rules against the same page.</p>
 
-  <p>Selectors in an ordinary document share one namespace. When several rules match, <a href="cascade-and-inheritance.html#cascade">the cascade resolves them through origin, importance, layers, and</a> <a href="cascade-and-inheritance.html#specificity">specificity</a>, falling back to source order only once those tie. <a href="cascade-and-inheritance.html#inheritance">Inherited properties</a> then carry computed values into descendants. These mechanisms make CSS expressive, but their effects become harder to predict when many authors work against the same document.</p>
+  <p>Selectors in an ordinary document share one global namespace. When several declarations set the same property on the same element, <a href="cascade-and-inheritance.html#cascade">the cascade</a> chooses one according to a defined order. Through <a href="cascade-and-inheritance.html#inheritance">inheritance</a>, some property values pass from ancestors to descendants. These mechanisms make CSS expressive, but their effects become harder to predict when many authors work against the same document.</p>
 
-  <p>Take the global namespace first. Every class selector in a page's CSS lives in one shared space, regardless of which file, which team, or which component it was written for. A <code>.card</code> class in a checkout component and a <code>.card</code> class in a marketing component are the same selector as far as the browser is concerned. Whichever rule loads last, or whichever rule carries higher specificity, wins. Neither team necessarily knows the other one exists.</p>
+  <p>The browser does not associate a class name with the component that introduced it. A class selector can match elements throughout the document, regardless of which file, team, or component it was written for. A <code>.card</code> class in a checkout component and a <code>.card</code> class in a marketing component are the same selector as far as the browser is concerned. A rule written for either <code>.card</code> can therefore style both components. Neither team necessarily knows the other one exists.</p>
 
-  <p>Collisions often lead to specificity escalation. A rule that loses to an existing selector gains another class, an ID, or <code>!important</code>. The immediate problem disappears, but the next override must clear a higher bar. Over time, local fixes create a stylesheet whose effective priority is difficult to understand from any one file.</p>
+  <p>Collisions often lead to specificity escalation. <a href="cascade-and-inheritance.html#specificity">Specificity</a> is a weight calculated from a selector. An author whose rule loses may add another class or an ID to increase that weight. Marking a declaration <code>!important</code> changes its cascade importance rather than its specificity. The immediate problem disappears, but the next override must clear a higher bar. Over time, local fixes create a stylesheet whose effective priority is difficult to understand from any one file.</p>
 
   <div class="figure-wrap">
     <svg class="figure" viewBox="-20 -20 740 380" role="img" aria-label="Diagram of four CSS rules escalating in specificity, each one added to override the previous rule, ending in an ID selector combined with important, styled as a warning example.">
@@ -121,13 +121,13 @@
       <text class="figure-label" x="58" y="285">#footer .btn { color: purple !important; }</text>
       <text class="figure-label is-accent-text" x="58" y="303">ID selector + !important</text>
       <rect class="figure-node is-accent" x="515" y="260" width="145" height="56"/>
-      <text class="figure-label is-accent-text" x="587" y="284" text-anchor="middle">(1,0,0)</text>
+      <text class="figure-label is-accent-text" x="587" y="284" text-anchor="middle">(1,1,0)</text>
       <text class="figure-label is-accent-text" x="587" y="301" text-anchor="middle">+ !important</text>
     </svg>
-  <figcaption>Each override raises specificity until the sequence reaches an ID selector and <code>!important</code>. A later author must either match that priority or change the architecture that produced it.</figcaption>
+  <figcaption>The second and third rules add class selectors, which raises their specificity. The final rule adds an ID selector and separately marks its declaration <code>!important</code>. A later override must account for both forms of priority.</figcaption>
   </div>
 
-  <p>The third problem is dependency through the cascade. A rule's effect depends on every competing rule that can match the same element. Removing one safely requires knowing which pages and states relied on that competition. When tests or ownership boundaries cannot provide that confidence, unused-looking CSS tends to remain.</p>
+  <p>The third problem is proving that a rule is dead. A declaration that loses in one page, viewport, or component state may still apply elsewhere. Before removing a rule, an author must know which pages and component states rely on that interaction. If tests do not exercise those cases, deleting the rule is risky, so unused CSS tends to remain.</p>
 
   <!-- ═══════════════════════════════════════════════════
        PAIN POINTS
@@ -135,7 +135,7 @@
   <h2 id="pain-points">The Pain Points</h2>
   <p class="lede">The available architectures can be compared against six recurring failure modes.</p>
 
-  <p>The namespace, cascade, and inheritance become visible through the symptoms below. The rest of the article uses them as a consistent comparison. An approach is useful when it closes the failure modes a team experiences without introducing a larger cost elsewhere.</p>
+  <p>The symptoms below result from the namespace, cascade, and inheritance described in the previous section. The rest of the article uses them as a consistent comparison. An approach is useful when it addresses the failure modes a team experiences without introducing a larger cost elsewhere.</p>
 
   <div class="table-wrap">
     <table>
@@ -146,32 +146,32 @@
         <tr>
           <td>Global namespace collisions</td>
           <td>Two unrelated components pick the same class name, one silently overrides the other's styles after a merge.</td>
-          <td>Single global selector namespace, no built-in scoping.</td>
+          <td>Ordinary class names are not locally scoped.</td>
         </tr>
         <tr>
           <td>Specificity wars</td>
-          <td>Overrides pile up as extra selector segments, then ID selectors, then <code>!important</code>, because normal class rules keep losing to something written earlier with a higher score.</td>
-          <td>The cascade resolves by specificity and source order, not by authorial intent.</td>
+          <td>Overrides pile up as extra selector segments, then ID selectors, then <code>!important</code>, because class rules keep losing to higher-priority declarations.</td>
+          <td>The cascade uses its defined priority order. It cannot infer which declaration an author meant to win.</td>
         </tr>
         <tr>
           <td>Dead, unremovable CSS</td>
           <td>Stylesheets only grow. Nobody deletes a rule because nobody can prove another rule doesn't depend on it still being there.</td>
-          <td>Cascade dependency: any rule's effect depends on every other rule that could match the same element.</td>
+          <td>Whether a rule affects an element can depend on other rules that match the same element.</td>
         </tr>
         <tr>
-          <td>Selector and paint performance</td>
-          <td>Deeply nested selectors and oversized stylesheets slow down style recalculation, especially on large, frequently updated DOM trees.</td>
-          <td>Selector matching cost scales with both selector complexity and DOM size.</td>
+          <td>Selector and style performance</td>
+          <td>Deeply nested selectors and oversized stylesheets can increase style-recalculation work, especially on large, frequently updated DOM trees.</td>
+          <td>Selector matching cost depends on selector complexity and the affected elements.</td>
         </tr>
         <tr>
           <td>Theming inconsistency</td>
           <td>Two teams both implement "the primary brand colour" with a slightly different value, because nothing enforces a single source of truth.</td>
-          <td>Custom properties and design tokens are conventions, not types, nothing stops drift.</td>
+          <td>Custom properties and design tokens remain conventions unless tooling enforces them.</td>
         </tr>
         <tr>
           <td>Build/tooling coupling</td>
-          <td>A one-line style change forces a full rebuild, or a runtime styling bug in one component slows down pages that don't even render it.</td>
-          <td>Some architectures tie style computation to the bundler or the JS runtime instead of resolving independently.</td>
+          <td>A style change requires a rebuild, or style generation adds client work as components render.</td>
+          <td>Some architectures tie styling to the bundler or the JavaScript runtime.</td>
         </tr>
       </tbody>
     </table>
@@ -183,13 +183,13 @@
        ARCHITECTURES INTRO
   ════════════════════════════════════════════════════ -->
   <h2 id="architectures">Architectures and Tools</h2>
-  <p class="lede">With the mechanisms and their symptoms established, every approach below can be measured against the same six-item rubric.</p>
+  <p class="lede">The following sections compare each approach against the same six failure modes.</p>
 
   <p>No approach removes all six failure modes. BEM cannot affect build tooling because it is a naming convention. Runtime CSS-in-JS can prevent class collisions while adding client-side style work. Each option should therefore be judged against the particular problem it is meant to solve.</p>
 
   <h3 id="methodologies">Methodologies</h3>
 
-  <p>Block, Element, Modifier (BEM) is a naming convention, not a tool. A component gets a block name, its internal parts get <code>block__element</code> names, and variations get <code>block--modifier</code> names, all as flat, single-class selectors with no nesting. <code>.card__title--highlighted</code> is unambiguous about what it styles and carries a specificity of exactly one class, the same as every other BEM selector in the codebase.</p>
+  <p>Block, Element, Modifier (BEM) is a naming convention. A component gets a block name, its internal parts get <code>block__element</code> names, and variations get <code>block--modifier</code> names, all as flat, single-class selectors with no nesting. <code>.card__title--highlighted</code> is unambiguous about what it styles and carries a specificity of exactly one class, the same as every other BEM selector in the codebase.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -203,11 +203,11 @@
 <span class="p">&lt;/div&gt;</span></code></pre>
   </div>
 
-  <p>Flat selectors give BEM its value. Rules written as single classes have equal specificity, leaving source order to resolve conflicts instead of encouraging escalation. The convention does not guarantee unique block names, remove unused rules, or enforce theme tokens. It organizes a shared namespace without isolating it.</p>
+  <p>BEM relies on flat selectors. Rules written as single classes have equal specificity, leaving source order to resolve conflicts instead of encouraging escalation. The convention does not guarantee unique block names, remove unused rules, or enforce theme tokens. It organizes a shared namespace without isolating it.</p>
 
   <p>Scalable and Modular Architecture for CSS (SMACSS) and Object-Oriented CSS (OOCSS) add organizational rules. OOCSS separates reusable structure from visual skin. SMACSS groups rules into categories such as base, layout, module, state, and theme. Both remain useful when maintaining codebases already organized around them.</p>
 
-  <p>Inverted Triangle CSS (ITCSS) focuses on order. Generic, low-specificity rules appear first, followed by increasingly specific components, utilities, and overrides. Source order and specificity therefore move in the same direction. Cascade layers now express that priority directly in the platform, but the organizing principle remains useful.</p>
+  <p>Inverted Triangle CSS (ITCSS) focuses on order. Generic, low-specificity rules appear first, followed by increasingly specific components, utilities, and overrides. Later rules therefore also tend to have higher specificity. <a href="cascade-and-inheritance.html#cascade-layers">Cascade layers</a> now express that priority directly in the platform, but the organizing principle remains useful.</p>
 
   <div class="table-wrap">
     <table>
@@ -241,9 +241,9 @@
 
   <p>Sass and its SCSS syntax add variables, nesting, mixins, functions, and modules before compiling to CSS. The output still participates in the ordinary cascade, so Sass alone does not prevent namespace collisions or specificity escalation. Its value lies in authoring tools such as reusable calculations, parameterized mixins, and source organization.</p>
 
-  <p>Native nesting and custom properties now cover part of the territory that once required a preprocessor. Sass still provides compile-time functions, loops, mixins, and a mature module system. Existing codebases can keep those capabilities without treating Sass as an architectural boundary.</p>
+  <p>Native CSS now provides nesting and custom properties, so those features no longer require a preprocessor. Sass still provides compile-time functions, loops, mixins, and a mature module system. Existing codebases can keep those capabilities without treating Sass as an architectural boundary.</p>
 
-  <p>Less occupies a similar space with different syntax and a smaller contemporary ecosystem. It remains relevant mainly where an existing project or dependency already uses it.</p>
+  <p>Less is another CSS preprocessor with different syntax. It remains relevant where an existing project or dependency already uses it.</p>
 
   <div class="table-wrap">
     <table>
@@ -255,13 +255,13 @@
           <td>Sass / SCSS</td>
           <td>Authoring ergonomics: variables, mixins, nesting, partial organization</td>
           <td>Namespace collisions, specificity wars, dead CSS, tooling coupling</td>
-          <td>Existing Sass codebases, or projects needing real functions and loops native CSS still lacks</td>
+          <td>Existing Sass codebases, or projects needing compile-time functions, loops, or mixins</td>
         </tr>
         <tr>
           <td>Less</td>
-          <td>Same category as Sass, narrower feature set</td>
-          <td>Same as Sass, plus a shrinking ecosystem</td>
-          <td>Maintaining legacy projects only</td>
+          <td>The same authoring category as Sass</td>
+          <td>The same namespace, cascade, dead-CSS, and build-coupling gaps as Sass</td>
+          <td>Legacy projects already using Less</td>
         </tr>
       </tbody>
     </table>
@@ -269,11 +269,11 @@
 
   <h3 id="css-in-js">CSS-in-JS</h3>
 
-  <p>CSS-in-JS covers two different implementation strategies. Runtime libraries such as styled-components and Emotion evaluate style definitions and coordinate generated class names while the application renders. Build-time libraries such as Vanilla Extract, Panda CSS, StyleX, and Linaria extract CSS ahead of execution. The browser receives a static stylesheet while application code refers to generated class names.</p>
+  <p>CSS-in-JS covers two different implementation strategies. Runtime libraries such as styled-components and Emotion evaluate style definitions and coordinate generated class names while the application renders. Build-time libraries, often called zero-runtime CSS-in-JS, extract CSS ahead of execution. Vanilla Extract, Panda CSS, StyleX, and Linaria use this strategy. The browser receives a static stylesheet while application code refers to generated class names.</p>
 
-  <p>The distinction matters for <a href="react-server-components.html">React Server Components</a>. A server-only component never runs in the browser, so styling that depends on a client runtime must sit behind an appropriate client boundary and integrate with server rendering carefully. Extracted CSS avoids that constraint because the stylesheet exists before either server or client components render. Existing runtime CSS-in-JS applications can continue to work, but new architecture decisions should account for that execution model.</p>
+  <p>The code for <a href="react-server-components.html">React Server Components</a> is not sent to the browser. A runtime CSS-in-JS library therefore needs framework support to collect styles during server rendering and to manage styles when interactive components run in the browser. Extracted CSS avoids that coordination because the stylesheet exists before either server or client components render. Existing runtime CSS-in-JS applications can continue to work, but new architecture decisions should account for that execution model.</p>
 
-  <p>The build-time tools also make different tradeoffs. Vanilla Extract emphasizes typed theme contracts and CSS authored from TypeScript. Panda CSS generates utilities and recipes from a token system. StyleX produces atomic CSS and is designed for large codebases. Linaria extracts styles written with CSS-in-JS syntax. Their common property is static output, not one shared authoring model.</p>
+  <p>Build-time tools differ in their authoring models and generated CSS. Vanilla Extract emphasizes typed theme contracts and CSS authored from TypeScript. Panda CSS generates utilities and recipes from a token system. StyleX produces atomic CSS and is designed for large codebases. Linaria extracts styles written with CSS-in-JS syntax. Their common property is static output.</p>
 
   <p>Some build-time tools also type the theme contract. Vanilla Extract and Panda CSS can make token names part of the TypeScript program, so an unknown token fails during development instead of becoming a missing CSS value. Sass variables are checked while Sass compiles, but CSS custom-property references remain strings unless another tool validates them.</p>
 
@@ -299,7 +299,7 @@
 <span class="cm">// vars.color.brnad would fail to compile: no such token exists</span></code></pre>
   </div>
 
-  <p>The values inside a theme contract, such as a type scale, a spacing scale, or color reserved for meaning rather than decoration, come from a design question before they come from a tooling one. <a href="ux-principles.html">UX Principles</a> covers that side of the same system.</p>
+  <p>A <a href="design-systems.html">design system</a> defines the values inside a theme contract, including type scales, spacing scales, and colors assigned to interface meanings.</p>
 
   <div class="table-wrap">
     <table>
@@ -311,22 +311,22 @@
           <td>styled-components / Emotion</td>
           <td>Runtime</td>
           <td>Namespace collisions, via generated scoped class names</td>
-          <td>Tooling coupling, RSC compatibility, theming type-safety</td>
+          <td>Tooling coupling, server-rendering integration, theming type-safety</td>
           <td>Existing codebases, or products that need runtime-dependent style generation</td>
         </tr>
         <tr>
           <td>Vanilla Extract / Panda CSS</td>
           <td>Zero-runtime</td>
-          <td>Namespace collisions, theming inconsistency, tooling coupling (static output)</td>
-          <td>Still requires a build step</td>
+          <td>Generated class names, typed theme contracts, no runtime style generation</td>
+          <td>Still requires a build step and tool integration</td>
           <td>TypeScript codebases with a design system to enforce</td>
         </tr>
         <tr>
           <td>StyleX / Linaria</td>
           <td>Zero-runtime</td>
-          <td>Namespace collisions, tooling coupling, some specificity via atomic output</td>
-          <td>Tool-specific constraints and a required extraction step</td>
-          <td>Large orgs (StyleX, from Meta) or teams wanting near-zero-cost atomic styles</td>
+          <td>Generated class names and static CSS output</td>
+          <td>Tool-specific constraints, a required extraction step, and varying theme guarantees</td>
+          <td>Codebases that want static CSS with CSS-in-JS authoring</td>
         </tr>
       </tbody>
     </table>
@@ -338,7 +338,7 @@
 
   <p>Tailwind v4 introduced a new engine, integrated Lightning CSS, and moved common configuration into CSS. A basic project can begin with <code>@import "tailwindcss"</code> and define design tokens through <code>@theme</code>. JavaScript configuration remains available for compatibility, but it is no longer the center of the default authoring model.</p>
 
-  <p>A generated utility vocabulary avoids local class-name collisions and keeps selector specificity low. Tailwind also emits CSS from the candidates it discovers in source files, which limits unused output. The tradeoff moves into markup. Responsive states, interaction variants, and conditional classes can make a component's visual intent difficult to scan. Component helpers can contain that complexity, but they add another convention rather than removing it.</p>
+  <p>A generated utility vocabulary avoids local class-name collisions and keeps selector specificity low. Tailwind also emits CSS from the candidates it discovers in source files, which limits unused output. Utility classes put more styling information in markup. Responsive states, interaction variants, and conditional classes can make a component's visual intent difficult to scan. Component helpers can keep long utility combinations out of repeated call sites. Teams must then maintain those helpers as an additional convention.</p>
 
   <p>Tachyons established many of the same functional-CSS ideas earlier. It remains useful in existing projects, while Tailwind offers the larger contemporary ecosystem and a more extensive variant system.</p>
 
@@ -352,7 +352,7 @@
           <td>Tailwind v4</td>
           <td>Namespace collisions, specificity wars, dead CSS</td>
           <td>Tooling coupling still ties styling to a build step, plus markup density</td>
-          <td>Fast-moving teams, component frameworks, AI-generated code</td>
+          <td>Teams using component frameworks and a shared utility vocabulary</td>
         </tr>
         <tr>
           <td>Tachyons</td>
@@ -366,11 +366,11 @@
 
   <h3 id="scoped-css">Scoped &amp; Hashed CSS</h3>
 
-  <p>CSS Modules take a different route to the same namespace problem. A stylesheet is written as ordinary CSS, one file per component. The build step then rewrites every class name into something globally unique, so <code>.card</code> becomes <code>.Card_card__a3f9k</code> before the browser ever sees it. The component only references the original, human-readable name through an imported object, <code>styles.card</code>, so authoring still looks like normal CSS while the actual selector on the page is guaranteed unique.</p>
+  <p>CSS Modules address the same namespace problem during the build. A stylesheet is written as ordinary CSS, one file per component. The build step rewrites every local class name into a generated name, so <code>.card</code> might become <code>.Card_card__a3f9k</code> before the browser sees it. The component references the original name through an imported object, <code>styles.card</code>, so authoring still looks like normal CSS while the page uses the generated selector.</p>
 
-  <p>The generated name provides mechanical uniqueness rather than semantic isolation. Two components can still make incompatible layout assumptions about shared markup, and global selectors can still escape their modules. CSS Modules prevent local class names from colliding. They do not make every interaction in the cascade predictable.</p>
+  <p>Generated names prevent local class-name collisions. Two components can still make incompatible layout assumptions about shared markup, and global selectors can still match elements in either module. CSS Modules therefore do not make every interaction in the cascade predictable.</p>
 
-  <p>CSS Modules solve local class-name collisions and encourage component-sized stylesheets. Flat selectors can also keep specificity manageable, although the format does not enforce that discipline. Theming still needs tokens, and unused CSS depends on what the build tool can eliminate. Their appeal is modest but durable: authors write ordinary CSS while the build supplies unique local names.</p>
+  <p>CSS Modules solve local class-name collisions and encourage component-sized stylesheets. Flat selectors can also keep specificity manageable, although the format does not enforce that discipline. Theming still needs tokens, and unused CSS depends on what the build tool can eliminate. Authors write ordinary CSS while the build supplies generated local names.</p>
 
   <div class="table-wrap">
     <table>
@@ -380,7 +380,7 @@
       <tbody>
         <tr>
           <td>CSS Modules</td>
-          <td>Namespace collisions, via guaranteed unique class names</td>
+          <td>Class-name collisions between modules, via generated local names</td>
           <td>Theming, tooling coupling, specificity wars if authors nest deeply</td>
           <td>Component-per-file frameworks without a full CSS-in-JS or utility system</td>
         </tr>
@@ -398,9 +398,9 @@
 
   <p>Two browser mechanisms constrain style reach without generated class names, although they create different kinds of boundary.</p>
 
-  <p>Shadow DOM gives an element an isolated subtree with its own style scope. Selectors inside the shadow root do not match elements outside it, and document selectors do not normally cross into the shadow tree. Inherited properties, including CSS custom properties, can still cross the host boundary. That behavior gives design systems a deliberate channel for tokens while keeping ordinary selectors isolated.</p>
+  <p>Attaching a shadow root to an element creates an isolated subtree with its own style scope. Selectors inside the shadow root do not match elements outside it, and document selectors do not normally cross into the shadow tree. Inherited properties, including CSS custom properties, can still cross the host boundary. Design systems can use inherited custom properties as a deliberate channel for tokens while keeping ordinary selectors isolated.</p>
 
-  <p><code>@scope</code> takes a lighter approach. It limits a group of selectors to a DOM subtree and can define a lower boundary where that scope stops. The feature reached Baseline newly available status in December 2025, so projects supporting older browser releases may still need a fallback. Unlike Shadow DOM, <code>@scope</code> does not create a separate DOM tree or block outside styles.</p>
+  <p><code>@scope</code> limits a group of selectors to a DOM subtree and can define a lower boundary where that scope stops. The feature reached Baseline newly available status in December 2025, so projects supporting older browser releases may still need a fallback. Unlike Shadow DOM, <code>@scope</code> does not create a separate DOM tree or block outside styles.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -423,15 +423,15 @@
       <tbody>
         <tr>
           <td>Shadow DOM</td>
-          <td>Namespace collisions completely, specificity wars (outside styles can't reach in)</td>
-          <td>Theming requires deliberate custom-property piping, adds a real DOM boundary</td>
+          <td>Selector collisions across the shadow boundary, because outside selectors do not normally reach in</td>
+          <td>Specificity conflicts inside the shadow tree, a deliberate theming API, and DOM integration costs</td>
           <td>Web Components, design systems distributed outside a single framework</td>
         </tr>
         <tr>
           <td><code>@scope</code></td>
-          <td>Namespace collisions, specificity wars, no build step required</td>
-          <td>Older browsers may need a fallback</td>
-          <td>Projects that can rely on the Baseline 2025 browser set</td>
+          <td>Selector reach within a subtree, with no build step required</td>
+          <td>Class names remain global, and document rules can still match elements within the scope. Older browsers may need a fallback.</td>
+          <td>Projects whose browser support range includes <code>@scope</code></td>
         </tr>
       </tbody>
     </table>
@@ -443,10 +443,10 @@
   <h2 id="modern-trends">Modern Trends</h2>
   <p class="lede">Four shifts matter more than any individual styling library.</p>
 
-  <p>The first shift is from runtime style generation toward static extraction when teams still want CSS-in-JS authoring. Server-first rendering makes that distinction visible because some components never execute in the browser. Static output also moves style creation off the interaction path. Runtime libraries remain viable where their dynamic behavior and existing ecosystem justify the client work.</p>
+  <p>Static extraction lets teams use CSS-in-JS authoring without generating styles at runtime. Some components in a server-first application never execute in the browser, so they cannot generate styles there at runtime. The extracted stylesheet exists before those components render. Runtime libraries remain viable where their dynamic behavior and existing ecosystem justify the client work.</p>
 
   <div class="figure-wrap">
-    <svg class="figure" viewBox="-20 -20 740 330" role="img" aria-label="Timeline from 2016 to 2026 showing three eras of CSS-in-JS and native CSS: runtime CSS-in-JS with styled-components and Emotion from 2016, zero-runtime CSS-in-JS with Vanilla Extract, Panda, and StyleX from around 2020, and native CSS closing the gap with cascade layers, at-scope, and container queries from around 2023 onward.">
+    <svg class="figure" viewBox="-20 -20 740 330" role="img" aria-label="Timeline from 2016 to 2026 showing runtime CSS-in-JS, build-time CSS extraction, and native CSS milestones: cascade layers in 2022, container queries in 2023, and at-scope in 2025.">
       <defs>
         <marker id="fig3-arrow" viewBox="0 0 10 10" markerWidth="6" markerHeight="6" refX="10" refY="5" orient="auto">
           <polygon class="figure-arrow" points="0 0, 10 5, 0 10"/>
@@ -460,7 +460,7 @@
       <line class="figure-connector" x1="460" y1="133" x2="460" y2="167"/>
       <text class="figure-label" x="30" y="184" text-anchor="middle">2016</text>
       <text class="figure-label" x="250" y="184" text-anchor="middle">2020</text>
-      <text class="figure-label" x="460" y="184" text-anchor="middle">2023</text>
+      <text class="figure-label" x="460" y="184" text-anchor="middle">2022</text>
       <text class="figure-label" x="650" y="184" text-anchor="end">2026+</text>
 
       <!-- era bands -->
@@ -474,7 +474,7 @@
       <text class="figure-label is-accent-text" x="54" y="50">Runtime CSS-in-JS</text>
       <text class="figure-label" x="54" y="68">styled-components, Emotion</text>
       <text class="figure-label" x="54" y="84">Runtime style generation,</text>
-      <text class="figure-label" x="54" y="97">friction with RSC</text>
+      <text class="figure-label" x="54" y="97">server-rendering integration</text>
 
       <!-- box 2: zero-runtime era, below axis, center -->
       <line class="figure-connector" x1="355" y1="162" x2="355" y2="188"/>
@@ -482,24 +482,24 @@
       <text class="figure-label" x="276" y="212">Zero-runtime CSS-in-JS</text>
       <text class="figure-label" x="276" y="230">Vanilla Extract, Panda, StyleX</text>
       <text class="figure-label" x="276" y="246">Compile-time output,</text>
-      <text class="figure-label" x="276" y="259">typed theme contracts</text>
+      <text class="figure-label" x="276" y="259">no client style generation</text>
 
       <!-- box 3: native era, above axis, right -->
       <line class="figure-connector" x1="557" y1="104" x2="557" y2="138"/>
       <rect class="figure-node" x="452" y="26" width="205" height="78"/>
       <text class="figure-label is-info-text" x="466" y="50">Native CSS</text>
-      <text class="figure-label" x="466" y="68">Cascade layers, @scope,</text>
-      <text class="figure-label" x="466" y="83">container queries</text>
-      <text class="figure-label" x="466" y="98">Closing the gap by 2026</text>
+      <text class="figure-label" x="466" y="68">Cascade layers · 2022</text>
+      <text class="figure-label" x="466" y="83">Container queries · 2023</text>
+      <text class="figure-label" x="466" y="98">@scope · 2025</text>
     </svg>
-  <figcaption>CSS architectures have moved from naming conventions and preprocessors toward generated scoping, utility systems, and stronger native platform boundaries. The older approaches remain useful where their constraints fit.</figcaption>
+  <figcaption>The timeline places runtime CSS-in-JS, build-time extraction, and native CSS milestones on a shared 2016–2026 axis.</figcaption>
   </div>
 
-  <p>The second shift is away from treating global and co-located styles as opposites. Global layers can define resets, tokens, typography, and shared utilities. Component-level styles can then use CSS Modules, <code>@scope</code>, or static extraction. The two levels serve different responsibilities within one cascade.</p>
+  <p>Global styles and co-located component styles can be used together. Global layers can define resets, tokens, typography, and shared utilities. Component-level styles can then use CSS Modules, <code>@scope</code>, or static extraction. Global and component-level styles handle different responsibilities within one cascade.</p>
 
-  <p>The third shift sits below the authoring syntax. Tools such as Lightning CSS can transform and minify output regardless of whether the source came from plain CSS, a utility framework, or generated styles. PostCSS remains common where plugins provide project-specific transforms. A team can often change this processing layer without rewriting the styling model used by components.</p>
+  <p>CSS processing can be chosen independently of authoring syntax. Tools such as Lightning CSS can transform and minify output regardless of whether the source came from plain CSS, a utility framework, or generated styles. PostCSS remains common where plugins provide project-specific transforms. A team can often change this processing layer without rewriting the styling model used by components.</p>
 
-  <p>The fourth shift is the platform's stronger control over the cascade. Cascade layers declare priority groups that resolve before specificity within those groups. If the order is reset, base, components, and overrides, a normal rule in the later overrides layer can outrank a more specific rule in reset.</p>
+  <p>Native CSS gives authors more control over cascade order. Cascade layers declare priority groups that resolve before specificity within those groups. If the order is reset, base, utilities, components, and overrides, a normal rule in the later overrides layer can outrank a more specific rule in reset.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -507,7 +507,7 @@
       <span class="code-filename">app.css</span>
       <span class="code-lang">CSS</span>
     </div>
-    <pre><code><span class="p">@layer</span> <span class="n">reset</span>, <span class="n">base</span>, <span class="n">components</span>, <span class="n">overrides</span>;
+    <pre><code><span class="p">@layer</span> <span class="n">reset</span>, <span class="n">base</span>, <span class="n">utilities</span>, <span class="n">components</span>, <span class="n">overrides</span>;
 
 <span class="p">@layer</span> <span class="n">reset</span> {
   <span class="n">#app button</span> { <span class="n">all</span>: <span class="cn">unset</span>; }
@@ -515,15 +515,15 @@
 
 <span class="p">@layer</span> <span class="n">overrides</span> {
   <span class="n">button</span> { <span class="n">color</span>: <span class="cn">var(--accent)</span>; }
-  <span class="cm">/* wins over the ID selector above, not because it's more
-     specific, but because @layer overrides was declared later */</span>
+  <span class="cm">/* wins over the ID selector above because @layer overrides
+     was declared later */</span>
 }</code></pre>
   </div>
 
-  <p>Layers prevent priority between architectural groups from turning into a selector-specificity contest. Specificity still matters between competing rules inside the same layer.</p>
+  <p>Cascade layers set priority between architectural groups before specificity is compared within a group. Specificity still matters between competing rules inside the same layer. The example and figure use normal declarations. Important declarations reverse the order of named layers, while normal declarations outside any layer outrank layered normal declarations.</p>
 
   <div class="figure-wrap">
-    <svg class="figure" viewBox="-20 -20 740 375" role="img" aria-label="Diagram of five CSS cascade layers stacked in declaration order from at-layer reset at the top to at-layer overrides at the bottom, showing that later-declared layers win over earlier ones regardless of selector specificity.">
+    <svg class="figure" viewBox="-20 -20 740 375" role="img" aria-label="Diagram of five CSS cascade layers stacked in declaration order from at-layer reset at the top to at-layer overrides at the bottom, showing that for normal declarations a later layer wins over an earlier one regardless of selector specificity.">
       <defs>
         <marker id="fig2-arrow" viewBox="0 0 10 10" markerWidth="6" markerHeight="6" refX="10" refY="5" orient="auto">
           <polygon class="figure-arrow" points="0 0, 10 5, 0 10"/>
@@ -539,8 +539,8 @@
       <text class="figure-label" x="58" y="119">tokens, element defaults</text>
 
       <rect class="figure-node" x="40" y="140" width="480" height="46"/>
-      <text class="figure-label" x="58" y="161">@layer tailwind-base</text>
-      <text class="figure-label" x="58" y="177">utility framework's own reset + base styles</text>
+      <text class="figure-label" x="58" y="161">@layer utilities</text>
+      <text class="figure-label" x="58" y="177">shared utility rules</text>
 
       <rect class="figure-node" x="40" y="198" width="480" height="46"/>
       <text class="figure-label" x="58" y="219">@layer components</text>
@@ -548,13 +548,13 @@
 
       <rect class="figure-node" x="40" y="256" width="480" height="46"/>
       <text class="figure-label is-accent-text" x="58" y="277">@layer overrides</text>
-      <text class="figure-label is-accent-text" x="58" y="293">wins, regardless of specificity used above</text>
+      <text class="figure-label is-accent-text" x="58" y="293">later normal layer wins before specificity</text>
 
       <path class="figure-connector" d="M 520 47 H 600 V 279 H 520" marker-end="url(#fig2-arrow)"/>
       <text class="figure-note" x="600" y="16" text-anchor="middle">declared first</text>
-      <text class="figure-note" x="600" y="316" text-anchor="middle">declared last, wins</text>
+      <text class="figure-note" x="600" y="316" text-anchor="middle">last normal layer wins</text>
     </svg>
-    <figcaption>Layer order resolves priority before selector specificity. A low-specificity rule in <code>@layer overrides</code> therefore beats a high-specificity ID selector in the earlier <code>@layer reset</code>.</figcaption>
+    <figcaption>For normal declarations, layer order resolves priority before selector specificity. A low-specificity rule in <code>@layer overrides</code> therefore beats a high-specificity ID selector in the earlier <code>@layer reset</code>.</figcaption>
   </div>
 
   <p>Container queries and <code>@scope</code> extend that native toolset. A component can respond to the size of its container and limit selectors to its subtree without JavaScript. Frameworks and build tools still add shared vocabularies, typed tokens, extraction, and compatibility transforms. The architecture decision should begin with the platform boundary and add tooling for constraints CSS does not enforce on its own.</p>
@@ -563,16 +563,16 @@
        TRADEOFFS
   ════════════════════════════════════════════════════ -->
   <h2 id="tradeoffs">Tradeoffs</h2>
-  <p class="lede">No single architecture closes all six pain points from earlier in this article, so the real differences between them are which problems each one leaves for something else to solve.</p>
+  <p class="lede">No single architecture addresses all six pain points from earlier in this article. Each leaves some problems unresolved.</p>
 
-  <p>Four factors explain why teams choose differently. Contributor count determines how far naming discipline can scale without enforcement. The rendering model determines whether runtime style generation fits naturally. Design-system maturity decides whether typed tokens solve a present problem or add premature structure. Existing code sets the migration cost, which often matters more than a cleaner architecture on paper.</p>
+  <p>Teams choose differently because four project constraints vary. Naming discipline becomes harder to enforce as the contributor count grows. Runtime style generation must fit the application's rendering model. Typed tokens help when a team already maintains a governed token vocabulary in its design system. Migration cost depends on the existing codebase and often matters more than a cleaner architecture on paper.</p>
 
   <p>Combinations are common because each layer can address a different failure mode. A project may use cascade layers for priority, CSS Modules for local names, and custom properties for shared tokens. The useful question is whether every added mechanism has a distinct responsibility.</p>
 
   <div class="table-wrap">
     <table>
       <thead>
-        <tr><th>Combination</th><th>Pain points it closes</th><th>Pain points it leaves open</th></tr>
+        <tr><th>Combination</th><th>Pain points it addresses</th><th>Pain points it leaves open</th></tr>
       </thead>
       <tbody>
         <tr>
@@ -582,8 +582,8 @@
         </tr>
         <tr>
           <td>Vanilla Extract or Panda CSS + <code>@scope</code></td>
-          <td>Namespace collisions, theming inconsistency (typed tokens), tooling coupling (static output), plus scoping for markup that isn't authored through the theme system</td>
-          <td>Requires a build step; older browsers may need a scoping fallback</td>
+          <td>Generated names, typed tokens, static output, and bounded selectors</td>
+          <td>Build coupling remains; older browsers may need a scoping fallback</td>
         </tr>
         <tr>
           <td>Sass + cascade layers</td>
@@ -596,7 +596,7 @@
 
   <p>Native CSS now addresses more of the original scaling problem. Cascade layers define architectural priority, <code>@scope</code> limits selector reach, and container queries provide component-level responsiveness. Tooling still adds valuable guarantees around token types, generated vocabularies, extraction, and compatibility.</p>
 
-  <p>Choose the smallest combination that makes ownership and priority obvious. A team that values utility composition may prefer Tailwind. A typed design system may justify Vanilla Extract or Panda CSS. An established Sass codebase can adopt cascade layers without rewriting its authoring model. The durable architecture is the one contributors can understand and enforce.</p>
+  <p>Teams usually need only enough mechanisms to make ownership and priority obvious. A team that values utility composition may prefer Tailwind. A typed design system may justify Vanilla Extract or Panda CSS. An established Sass codebase can adopt cascade layers without rewriting its authoring model. The durable architecture is the one contributors can understand and enforce.</p>
 
 </main>
 </div><!-- end .shell -->
