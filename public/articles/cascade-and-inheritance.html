@@ -65,7 +65,7 @@
   <div class="byline">
     <span>Andreas Ögren</span>
     <div class="dot"></div><span>~19 min read</span>
-    <div class="dot"></div><span>Last updated July 2026</span>
+    <div class="dot"></div><span>Last updated August 2026</span>
   </div>
 
   <section id="intro">
@@ -82,7 +82,7 @@
   <h2 id="applicable-declarations">Applicable Declarations</h2>
   <p class="lede">Selectors and conditions determine which declarations can supply a value for a property on an element.</p>
 
-  <p>A style rule can contribute declarations only to elements its selector matches. A <strong>stylesheet</strong> can contain <strong>style rules</strong>, and each style rule can contain declarations. A style rule combines a <strong>selector</strong> with a block enclosed in braces. Each declaration in the block pairs a <strong>property</strong> with a <strong>value</strong>.</p>
+  <p>A <strong>stylesheet</strong> contains <strong>style rules</strong>. Each rule combines a <strong>selector</strong> with a block of declarations. The selector determines which elements the declarations can apply to. Each declaration pairs a <strong>property</strong> with a <strong>value</strong>.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -135,7 +135,7 @@
 
   <p>Adding <code>!important</code> marks a declaration as important. Important declarations beat normal declarations, and the order of the three origins reverses. Important user-agent declarations outrank important user declarations, which outrank important author declarations. Reversing the origin order lets a reader's important <code>font-size</code> or <code>color</code> declaration override the site's important styles.</p>
 
-  <p>The origin-and-importance comparison also includes animation and transition declarations. While a CSS animation is running, the value it produces for an animated property outranks normal declarations for that property. Any important declaration still outranks the animated value. An active CSS transition outranks all of them for the property being transitioned. While active, an animation or transition can therefore replace the value the property would otherwise use.</p>
+  <p>Animation and transition declarations also participate in the origin-and-importance comparison. A running CSS animation outranks normal declarations for the animated property, but any important declaration still outranks the animation. An active transition has the highest precedence for the property being transitioned and can temporarily replace the value CSS would otherwise use.</p>
 
   <div class="callout warn">
     <div class="callout-title">!important as a last resort</div>
@@ -202,7 +202,7 @@
 
   <p>Important declarations reverse the layer order. An important declaration in an earlier layer outranks an important declaration in a later layer, and important declarations in named layers outrank important unlayered declarations. The reversed order protects important declarations in earlier layers when later layers add their own important declarations.</p>
 
-  <p>Layers are useful when groups of declarations need a stable priority that does not depend on selector weight. The layer order expresses that priority directly, so selectors do not need extra IDs or ancestors merely to win conflicts. Layers do not change which elements a selector matches. A small stylesheet with no recurring priority conflicts may not need named layers, while a larger project can define one layer order across its stylesheets as part of its <a href="css-architectures.html#modern-trends">CSS architecture</a>.</p>
+  <p>Layers are useful when groups of declarations need a stable priority that does not depend on selector weight. The layer order expresses that priority directly, so selectors do not need extra IDs or ancestors merely to win conflicts. Layers do not change which elements a selector matches. Named layers may be unnecessary in a small stylesheet with no recurring priority conflicts. A larger project can define one layer order across its stylesheets as part of its <a href="css-architectures.html#modern-trends">CSS architecture</a>.</p>
 
   <p>The two <code>.card</code> rules remain unlayered, so their color declarations tie at the layer comparison.</p>
 
@@ -327,11 +327,13 @@
 
   <p>The article title is inside <code>.article</code> and outside <code>.comments</code>, so the scoped rule gives it navy text. The comments heading is a descendant of the lower-boundary element and therefore outside the scope. Wrapping the article title in <code>&lt;header&gt;</code> does not change the match because <code>.title</code> can appear at any descendant depth between the boundaries.</p>
 
-  <p>A scope keeps the shared boundary separate from the selectors that style individual elements. When several rules belong to the article region, each enclosed selector can describe the element it styles without repeating <code>.article</code> or an exclusion for <code>.comments</code>. Changing the region later requires changing the <code>@scope</code> prelude rather than every enclosed selector. The block also keeps rules for the same region together in the stylesheet.</p>
+  <p>When several rules apply to the article region, <code>@scope</code> gives them one shared boundary. Each enclosed selector can describe the element it styles without repeating <code>.article</code> or excluding <code>.comments</code>. A later boundary change affects the <code>@scope</code> prelude instead of every selector, and the rules for the region remain grouped in one block.</p>
 
   <p>Descendant and child combinators express one relationship within one selector. The selector <code>.article .title</code> matches both headings because both are descendants of the article. The selector <code>.article &gt; .title</code> matches neither heading because each one is wrapped in another element. The scope allows the article title to appear at any depth between the two boundaries while excluding the entire comments subtree.</p>
 
-  <p>Scope boundaries do not add specificity to enclosed selectors. The scoped <code>.title</code> selector remains <code>(0, 1, 0)</code>, whereas <code>.article .title</code> has <code>(0, 2, 0)</code>. Specificity therefore reflects the enclosed selector rather than the selectors that define the region.</p>
+  <p>Scope boundaries do not add specificity to enclosed selectors. The scoped <code>.title</code> selector remains <code>(0, 1, 0)</code>, whereas <code>.article .title</code> has <code>(0, 2, 0)</code>. Specificity reflects the enclosed selector. The selectors that define the region do not contribute.</p>
+
+  <p>Scoping proximity comes after specificity because CSS uses it as a tie-breaker between equally specific rules. A nearer scoping root therefore cannot make a less specific selector defeat a more specific one.</p>
 
   <p>If declarations remain tied after specificity, the browser compares <strong>scoping proximity</strong>. It counts the parent or sibling steps between the matched element and each scoping root. The declaration from the nearest root wins. A declaration from an unscoped rule has no scoping root, so it loses to an otherwise tied scoped declaration.</p>
 
@@ -418,7 +420,7 @@
   <figcaption>When a child has no cascaded value for an inherited property, it receives its parent's computed value. For a non-inherited property, it takes the property's initial value.</figcaption>
   </div>
 
-  <p>A property's initial value comes from the property's specification, not from the browser's user-agent stylesheet. The initial value of <code>display</code> is <code>inline</code>, for example, even though the browser's stylesheet normally gives a <code>&lt;div&gt;</code> block layout. In normal flow, <code>display: initial</code> therefore makes a <code>&lt;div&gt;</code> inline rather than restoring its familiar browser styling.</p>
+  <p>CSS specifications define each property's initial value. Browser defaults come from a separate user-agent stylesheet. The <code>display</code> property, for example, has an initial value of <code>inline</code>. The browser stylesheet normally gives a <code>&lt;div&gt;</code> block layout, so <code>display: initial</code> makes the element inline in normal flow.</p>
 
   <p><strong>Custom properties</strong> (CSS variables) inherit by default. A descendant can use the inherited value in another declaration with <code>var()</code>. A <a href="design-systems.html#tokens">design-token value</a> declared on an ancestor is available to descendants that do not override it. An <code>@property</code> rule can register the custom property with <code>inherits: false</code> when the value should not pass to descendants.</p>
 
@@ -436,7 +438,7 @@
 
   <p>With <code>revert</code> and <code>revert-layer</code>, the browser continues at lower precedence to find another declaration. If <code>@layer base</code> sets the card's color to gray and a later <code>@layer theme</code> declares <code>color: revert-layer</code>, the browser disregards the theme layer for that property and uses the gray declaration from <code>base</code>. If a normal theme rule uses <code>color: revert</code>, the browser disregards author-origin declarations for that property and checks the user and user-agent origins before defaulting.</p>
 
-  <p>In this example, <code>.card__highlight</code> is a child of <code>.card</code>. Its color would inherit without an explicit declaration, while its border would not. The <code>inherit</code> keyword changes the border behavior but leaves the resulting color unchanged.</p>
+  <p>In this example, <code>.card__highlight</code> is a child of <code>.card</code>. Without explicit declarations, the highlight inherits the card's color. Its border properties use their initial values because they do not normally inherit. Setting both properties to <code>inherit</code> leaves the color unchanged and gives the highlight the card's border.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -463,7 +465,7 @@
 
   <p>CSS processes each property on each element separately. Following one property from its applicable declarations to its computed value shows where the cascade ends and where defaulting begins.</p>
 
-  <p>The stylesheet below supplies two <code>color</code> declarations for the save control. The <code>:root</code> rule also defines a custom property that descendants inherit. For the second trace, assume that no declaration from any origin supplies <code>border-style</code> for the save control.</p>
+  <p>The stylesheet below supplies two <code>color</code> declarations for the save control. The <code>:root</code> rule also defines a custom property that descendants inherit. In the second trace, no declaration from any origin supplies a <code>border-style</code> value for the save control.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -499,7 +501,7 @@
     <li><strong>Computation</strong> resolves dependencies in the specified value that do not require layout, producing the computed value.</li>
   </ol>
 
-  <p>A property trace can explain an unexpected value by locating the stage that produced it. Selector matching and conditions decide which declarations participate. The cascade chooses among those candidates. Defaulting then produces the specified value, normally from the cascaded value but through inheritance or the initial value when no cascaded value exists. It also resolves the CSS-wide keywords according to their rules. Computation then resolves dependencies such as the inherited custom property in <code>var(--accent)</code>.</p>
+  <p>When an element has an unexpected property value, the declaration the author expected may not apply. Its selector or an enclosing <code>@media</code> condition may not match. If several declarations do apply, their positions in the cascade order determine the winner. With no applicable declaration, the value comes from inheritance or the property's initial value. The browser then computes that value, resolving dependencies such as <code>var(--accent)</code> along the way.</p>
 
 </main>
 </div><!-- end .shell -->
