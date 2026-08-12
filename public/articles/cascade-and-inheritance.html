@@ -37,6 +37,9 @@
 <nav class="sidebar" id="sidebar">
   <a class="sidebar-back" href="index.html">← All articles</a>
 
+  <div class="sidebar-section">Choosing Values</div>
+  <a href="#applicable-declarations">Applicable Declarations</a>
+
   <div class="sidebar-section">Resolving Conflicts</div>
   <a href="#cascade">The Cascade</a>
   <a href="#origins-importance">Origins and Importance</a>
@@ -51,7 +54,7 @@
   <a href="#inheritance">Inheritance</a>
 
   <div class="sidebar-section">Applying It</div>
-  <a href="#tracing-a-property">Tracing a Property</a>
+  <a href="#value-processing">From Declarations to Computed Values</a>
 </nav>
 
 <main>
@@ -61,23 +64,25 @@
   <p class="subtitle">How a browser chooses among competing declarations and supplies values through inheritance.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~18 min read</span>
-    <div class="dot"></div><span>Last updated August 2026</span>
+    <div class="dot"></div><span>~19 min read</span>
+    <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
   <section id="intro">
-  <p>Two stylesheets can assign different values to the same property on the same element. A base stylesheet might set a card's text to a neutral gray, and a theme stylesheet might set the same card's text to the brand's navy color. The browser must therefore choose which value becomes the card's color.</p>
+  <p>CSS styles an element by assigning values to properties such as <code>color</code> and <code>padding</code>. Each assignment is a <strong>declaration</strong>. Authors usually group declarations in style rules, which apply them to matching elements. Several stylesheets and rules can contribute styles to the same element.</p>
 
-  <p>For a given property on an element, CSS may provide zero, one, or several applicable declarations. When no declaration applies, CSS obtains the value through <strong>inheritance</strong> or from the property's initial value. When exactly one declaration applies, the browser uses its value for the property. When several declarations compete, the <strong>cascade</strong> applies a fixed precedence order and selects one.</p>
+  <p>The browser must determine a value for every CSS property that applies to an element. Two stylesheets might assign different colors to the same card, while neither stylesheet assigns a border to the card's emphasized text. CSS must resolve both the competing values and the missing value.</p>
+
+  <p>For each property on an element, CSS collects the declarations that apply. The <strong>cascade</strong> orders those declarations and selects at most one value. If no declaration supplies a value, CSS fills the gap through defaulting, which uses <strong>inheritance</strong> or the property's initial value. Together, these processes produce a value whether CSS finds one or more applicable declarations or none.</p>
   </section>
 
   <!-- ═══════════════════════════════════════════════════
-       THE CASCADE
+       APPLICABLE DECLARATIONS
   ════════════════════════════════════════════════════ -->
-  <h2 id="cascade">The Cascade</h2>
-  <p class="lede">The browser resolves conflicts among declarations through an ordered sequence of comparisons.</p>
+  <h2 id="applicable-declarations">Applicable Declarations</h2>
+  <p class="lede">Selectors and conditions determine which declarations can supply a value for a property on an element.</p>
 
-  <p>A <strong>stylesheet</strong> can contain <strong>style rules</strong>, and each style rule can contain <strong>declarations</strong>. A style rule combines a <strong>selector</strong> with a block enclosed in braces. The selector determines which elements the rule can match. Each declaration in the block pairs a <strong>property</strong> with a <strong>value</strong>.</p>
+  <p>A style rule can contribute declarations only to elements its selector matches. A <strong>stylesheet</strong> can contain <strong>style rules</strong>, and each style rule can contain declarations. A style rule combines a <strong>selector</strong> with a block enclosed in braces. Each declaration in the block pairs a <strong>property</strong> with a <strong>value</strong>.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -97,11 +102,17 @@
 }</code></pre>
   </div>
 
-  <p>Each block in the example is a style rule. <code>.card</code> is the selector, while <code>color: gray</code> and <code>color: navy</code> are declarations. Within the first color declaration, <code>color</code> is the property and <code>gray</code> is the value. The cascade considers each declaration separately. The card can therefore take <code>color</code> from the second rule while keeping <code>padding</code> from the first because the browser resolves those properties separately.</p>
+  <p>Each block in the example is a style rule. <code>.card</code> is the selector, while <code>color: gray</code> and <code>color: navy</code> are declarations. Within the first color declaration, <code>color</code> is the property and <code>gray</code> is the value. CSS processes each property separately. The card can therefore take <code>color</code> from the second rule while keeping <code>padding</code> from the first.</p>
 
-  <p>Before comparing precedence, the browser determines which declarations apply. A declaration in a style rule must be valid, and the rule's selector must match the element. If the rule is inside a condition such as <code>@media</code>, that condition must also match. Declarations that pass these checks become candidates in the cascade.</p>
+  <p>Before comparing precedence, the browser determines which declarations apply. A declaration in a style rule must be valid, and the rule's selector must match the element. If the rule is inside a condition such as <code>@media</code>, that condition must also match. Each declaration that passes these checks contributes a <strong>declared value</strong> and becomes a candidate in the cascade.</p>
 
-  <p>After filtering, the browser compares candidate declarations in the cascade order. It stops when one declaration has higher precedence. If the candidates tie, the browser moves to the next comparison.</p>
+  <!-- ═══════════════════════════════════════════════════
+       THE CASCADE
+  ════════════════════════════════════════════════════ -->
+  <h2 id="cascade">The Cascade</h2>
+  <p class="lede">The browser resolves conflicts among candidate declarations through an ordered sequence of comparisons.</p>
+
+  <p>The cascade orders the candidate declarations for one property on one element and selects at most one <strong>cascaded value</strong>. One candidate wins without a comparison. When several candidates compete, the browser stops as soon as one has higher precedence. If they tie, it moves to the next comparison.</p>
 
   <p>The cascade compares declarations in this order.</p>
 
@@ -345,7 +356,7 @@
   <h2 id="inheritance">Inheritance</h2>
   <p class="lede">The cascade may provide a value for a property. If it does not, defaulting uses inheritance or the property's initial value.</p>
 
-  <p>Every applicable declaration contributes a <strong>declared value</strong> for its property. If the cascade supplies no value, defaulting uses <strong>inheritance</strong> or the property's <strong>initial value</strong>. Each property's definition states whether the property inherits. An inherited property then receives its parent's value, while a non-inherited property uses its initial value. The root element has no parent, so an inherited property on the root also uses its initial value.</p>
+  <p>If the cascade supplies no value, defaulting produces the property's <strong>specified value</strong> through inheritance or the property's <strong>initial value</strong>. Each property's definition states whether the property inherits. An inherited property then receives its parent's value, while a non-inherited property uses its initial value. The root element has no parent, so an inherited property on the root also uses its initial value.</p>
 
   <p>Text-related properties such as <code>color</code>, <code>font-family</code>, and <code>line-height</code> usually inherit because nested text should normally keep the surrounding text style. Authors can set these properties on a container instead of repeating them for every descendant that contains text.</p>
 
@@ -445,12 +456,14 @@
   </div>
 
   <!-- ═══════════════════════════════════════════════════
-       TRACING A PROPERTY
+       FROM DECLARATIONS TO COMPUTED VALUES
   ════════════════════════════════════════════════════ -->
-  <h2 id="tracing-a-property">Tracing a Property</h2>
-  <p class="lede">A property trace follows one property from applicable declarations to its specified and computed values.</p>
+  <h2 id="value-processing">From Declarations to Computed Values</h2>
+  <p class="lede">An end-to-end trace connects candidate collection, the cascade, defaulting, and computation.</p>
 
-  <p>The <code>:root</code> selector matches the document root. The <code>:root</code> rule sets a color that the save button would inherit if no declaration set <code>color</code> on the button itself. The two button rules set <code>color</code> directly, so both declarations enter the cascade. The selector in <code>base</code> contains one ID and three classes, while the selector in <code>components</code> contains one class.</p>
+  <p>CSS processes each property on each element separately. Following one property from its applicable declarations to its computed value shows where the cascade ends and where defaulting begins.</p>
+
+  <p>The stylesheet below supplies two <code>color</code> declarations for the save control. The <code>:root</code> rule also defines a custom property that descendants inherit. For the second trace, assume that no declaration from any origin supplies <code>border-style</code> for the save control.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -458,7 +471,7 @@
       <span class="code-filename">resolution.css</span>
       <span class="code-lang">CSS</span>
     </div>
-    <pre><code><span class="p">:root</span> { <span class="n">--accent</span>: <span class="cn">#9a5a22</span>; <span class="n">color</span>: <span class="cn">#1a1a1a</span>; }
+    <pre><code><span class="p">:root</span> { <span class="n">--accent</span>: <span class="cn">#9a5a22</span>; }
 
 <span class="p">@layer</span> <span class="n">base</span>, <span class="n">components</span>;
 
@@ -473,9 +486,11 @@
 }</code></pre>
   </div>
 
-  <p>Both declarations are normal author declarations in the same encapsulation context. They tie at the origin-and-importance and encapsulation-context comparisons. Neither declaration comes from a style attribute, so they also tie at the style-attribute comparison. The <code>components</code> layer was declared after <code>base</code>, so its declaration wins at the layer comparison. The cascade stops there without comparing specificity, scoping proximity, or source order. Because a declaration supplies the button's color, the button does not inherit <code>color</code> from <code>:root</code>.</p>
+  <p>For <code>color</code>, candidate collection finds the two declarations in <code>base</code> and <code>components</code>. They are normal author declarations in the same encapsulation context, and neither comes from a style attribute. The <code>components</code> layer was declared after <code>base</code>, so its declaration wins before specificity is compared. Its <code>var(--accent)</code> value becomes the cascaded and specified value. During computation, <code>var()</code> uses the inherited custom-property value, so the computed color represents <code>#9a5a22</code>. The save control does not inherit <code>color</code> itself because the cascade supplied a value for it.</p>
 
-  <p>A property trace follows one property from applicable declarations to its computed value in four stages.</p>
+  <p>With no <code>border-style</code> declaration, candidate collection finds nothing, so there is no cascaded value. Defaulting must still produce a specified value. Because <code>border-style</code> does not inherit, defaulting uses its initial value of <code>none</code>. Computation leaves that value unchanged.</p>
+
+  <p>Both traces follow the same four stages.</p>
 
   <ol>
     <li><strong>Candidate collection</strong> gathers valid declarations for that property that apply to the element. A candidate may come from a matching style rule or a <code>style</code> attribute. If a style rule is inside a condition such as <code>@media</code>, that condition must match.</li>
@@ -484,9 +499,7 @@
     <li><strong>Computation</strong> resolves dependencies in the specified value that do not require layout, producing the computed value.</li>
   </ol>
 
-  <p>A property trace shows why the browser chose an unexpected value. Selector matching decides which declarations participate. Layer order sets precedence among groups of declarations, while a scope limits selector matching to a region. Increasing specificity cannot change layer order, and <code>!important</code> cannot make a declaration apply when its selector does not match.</p>
-
-  <p>Low-specificity selectors make declarations within the same layer easier to override without adding IDs solely for that purpose. Layer order controls precedence between layers independently of selector specificity. <a href="css-architectures.html#methodologies">Block Element Modifier (BEM)</a>, for example, uses class-based names for blocks, elements, and modifiers. Combining BEM selectors with an explicit layer order makes precedence easier to trace across a CSS codebase.</p>
+  <p>A property trace can explain an unexpected value by locating the stage that produced it. Selector matching and conditions decide which declarations participate. The cascade chooses among those candidates. Defaulting then produces the specified value, normally from the cascaded value but through inheritance or the initial value when no cascaded value exists. It also resolves the CSS-wide keywords according to their rules. Computation then resolves dependencies such as the inherited custom property in <code>var(--accent)</code>.</p>
 
 </main>
 </div><!-- end .shell -->
