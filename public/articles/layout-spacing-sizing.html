@@ -76,7 +76,7 @@
 
   <p><strong>Sizing</strong> controls how much space a box may take and whether that space comes from its content, its surroundings, or a declared limit. <strong>Spacing</strong> controls the distance inside a box and between neighboring boxes. The surrounding layout provides the available space for a box, and the box's content contributes its required size. Changing either the available space or the content can change the box's final size. Within a fixed available width, for example, increasing the space inside a box leaves less room for its content and can cause text to wrap.</p>
 
-  <p>This article explains how CSS layout works and how to apply it to adaptable web pages. The focus is on how layout, sizing, and spacing work together, not on documenting every CSS property.</p>
+  <p>This article explains how CSS layout works and how to apply it to adaptable web pages. It covers how layout, sizing, and spacing work together.</p>
   </section>
 
   <!-- ═══════════════════════════════════════════════════
@@ -206,7 +206,7 @@
     <figcaption>The parent supplies available width to the card. The product name wraps within that width and contributes to the card's used height.</figcaption>
   </figure>
 
-  <p>Each parent lays out its own children using intrinsic size information from their content and any author-declared size constraints. The page layout places the navigation, catalog, and recommendation regions beside one another. The catalog then arranges its product cards into rows and columns. Each card positions its image, name, price, and link within the space the catalog provides.</p>
+  <p>The browser lays out each set of children using size information from the content and any author-declared constraints. It places the page regions, arranges the product cards within the catalog, and then lays out the image, name, price, and link inside each card.</p>
 
   <!-- ═══════════════════════════════════════════════════
        BOXES
@@ -245,7 +245,7 @@
   <p>An element does not always generate exactly one such box. A paragraph usually generates a surrounding box that contains line boxes, while its text is split into inline fragments when it wraps across those lines. A list item, for example, generates a marker box for its bullet or number alongside the box that holds its content. CSS layout operates on these generated boxes rather than on a developer-defined visual group such as “product card.” That grouping exists only in the developer's markup and mental model. The element tree establishes the document structure, while the box tree is the set of boxes that CSS layout actually measures and positions.</p>
   </div>
 
-  <p>The <code>box-sizing</code> property determines whether declared sizes apply to the content box or the border box. Its initial value is <code>content-box</code>. A declared width then measures the content area, while padding and border make the visible box wider. With <code>border-box</code>, the same declared width includes the content, padding, and border. Margin remains outside both measurements.</p>
+  <p>The <code>box-sizing</code> property determines whether declared sizes apply to the content box or the border box. Its initial value is <code>content-box</code> where the declared width applies to the content area. With <code>border-box</code>, the same declared width includes the content, padding, and border. Margin remains outside both measurements.</p>
 
   <p>The <code>box-sizing</code> value determines whether padding expands the declared width or reduces the space available to content. Consider a card with <code>width: 20rem</code> and <code>box-sizing: content-box</code>. Adding padding to it makes the card wider. The same card with <code>border-box</code> keeps a twenty-rem border box, so additional padding leaves less room for its content.</p>
 
@@ -261,7 +261,7 @@
 
   <p>The product card contains both kinds of box. Its container and product-name heading are block-level boxes that stack vertically. A link in its description is an inline-level box that sits among the surrounding words in this horizontal writing mode.</p>
 
-  <p>Every element has a value for the CSS <code>display</code> property, which controls the boxes it generates and how they participate in layout. A <code>&lt;div&gt;</code>, a <code>&lt;p&gt;</code>, and an <code>&lt;h1&gt;</code> default to <code>display: block</code>. A <code>&lt;li&gt;</code> defaults to <code>display: list-item</code>, which gives it a block-level box for its contents and a marker box. A <code>&lt;span&gt;</code>, an <code>&lt;a&gt;</code>, and a <code>&lt;strong&gt;</code> default to <code>display: inline</code>. These defaults reflect the elements' usual behavior. Headings begin a new block, while links and emphasized text remain within a line.</p>
+  <p>Every element has a value for the CSS <code>display</code> property, which controls the boxes it generates and how they participate in layout. A <code>&lt;div&gt;</code>, a <code>&lt;p&gt;</code>, and an <code>&lt;h1&gt;</code> default to <code>display: block</code>. A <code>&lt;li&gt;</code> defaults to <code>display: list-item</code>, which gives it a block-level box for its contents and a marker box. A <code>&lt;span&gt;</code>, an <code>&lt;a&gt;</code>, and a <code>&lt;strong&gt;</code> default to <code>display: inline</code>. These defaults reflect the elements' usual roles. Headings begin a new block, while links and emphasized text remain within a line.</p>
 
   <p>A box's size can also change the position of boxes that follow it. Each block-level box stacks below the one before it, so a taller heading pushes the paragraph after it further down the page. Each inline-level box sits in the same line as the one before it. A wider word or link therefore changes where the next fragment starts and can push later words onto a new line.</p>
 
@@ -618,7 +618,7 @@
 
   <h3>Breakpoints and their owner</h3>
 
-  <p>A <strong>breakpoint</strong> is the threshold at which a layout switches to a different arrangement, rather than simply reflowing within its current one. The appropriate threshold is the minimum width at which the new arrangement works, not the nominal width of a device category. CSS can test a page-level breakpoint with a media query or a component-level breakpoint with a container query.</p>
+  <p>A <strong>breakpoint</strong> is the threshold at which a layout switches to a different arrangement, rather than simply reflowing within its current one. The new arrangement determines the threshold because it needs enough width to work. Nominal device categories do not determine that point. CSS can test a page-level breakpoint with a media query or a component-level breakpoint with a container query.</p>
 
   <p>A viewport-width media query tests the page as a whole, so it suits page-level changes such as switching the regions from a stacked column to a side-by-side arrangement. The same viewport condition applies to cards in both regions, even when the catalog is wide and the recommendations are narrow. A viewport query cannot respond to the width of the card's containing region.</p>
 
