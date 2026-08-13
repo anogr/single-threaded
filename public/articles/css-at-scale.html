@@ -42,7 +42,6 @@
   <a href="#pain-points">The Pain Points</a>
 
   <div class="sidebar-section">Architectures &amp; Tools</div>
-  <a href="#architectures">Architectures and Tools</a>
   <a href="#methodologies">Methodologies</a>
   <a href="#preprocessors">Preprocessors</a>
   <a href="#css-in-js">CSS-in-JS</a>
@@ -62,25 +61,25 @@
   <p class="subtitle">How teams keep CSS maintainable as codebases, component counts, and contributor lists grow.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~18 min read</span>
+    <div class="dot"></div><span>~19 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
   <section id="intro">
   <p>A small stylesheet rarely needs much architecture. Its authors can remember the selectors, understand their order, and see where a change will land. That shared context fades as components and contributors multiply. Eventually, changing one class can affect a screen its author has never opened. <strong>CSS architecture</strong> exists to make those effects predictable again.</p>
 
-  <p>These problems arise because selectors share a global namespace, rules compete in the cascade, and inheritance crosses component boundaries.</p>
+  <p>These problems arise because selectors share a global namespace, rules compete in the cascade, and inheritance crosses component boundaries. The browser applies those rules to the document without knowing which component, file, or team owns them.</p>
 
-  <p>Cascade layers make priority explicit, <code>@scope</code> limits selector reach, and <a href="layout-spacing-sizing.html#responsive">container queries</a> let a component respond to its own available space. Build tools can still restrict which design tokens and selector patterns developers may use.</p>
+  <p>CSS architecture gives teams a way to make ownership and interactions explicit. This article explains how the main approaches create that predictability and compares their effects on developers, build tools, and browsers.</p>
   </section>
 
   <!-- ═══════════════════════════════════════════════════
        WHY IT BREAKS
   ════════════════════════════════════════════════════ -->
   <h2 id="why-it-breaks">The Scaling Problem</h2>
-  <p class="lede">Namespace sharing, the cascade, and inheritance are useful CSS mechanisms. As the number of authors and rules grows, the same mechanisms make interactions harder to predict.</p>
+  <p class="lede">Namespace sharing, the cascade, and inheritance are useful CSS mechanisms, but as the number of authors and rules grows, the same mechanisms make interactions harder to predict.</p>
 
-  <p>Selectors in an ordinary document share one global namespace. When several declarations set the same property on the same element, <a href="cascade-and-inheritance.html#cascade">the cascade</a> chooses one according to a defined order. Through <a href="cascade-and-inheritance.html#inheritance">inheritance</a>, some property values pass from ancestors to descendants. These mechanisms make CSS expressive, but their effects become harder to predict when many authors work against the same document.</p>
+  <p>A selector in an ordinary document can match elements anywhere in that document. Several selectors may therefore match the same element and assign different values to the same property. <a href="cascade-and-inheritance.html#cascade">The cascade</a> resolves that conflict according to a defined order. If a descendant has no declaration for an inherited property, <a href="cascade-and-inheritance.html#inheritance">inheritance</a> gives it the computed value from its parent even though the parent's selector does not match the descendant. As the number of rules and authors grows, tracing both direct matches and inherited values becomes harder.</p>
 
   <p>The browser does not associate a class name with the component that introduced it. A class selector can match elements throughout the document, regardless of which file, team, or component it was written for. A <code>.card</code> class in a checkout component and a <code>.card</code> class in a marketing component are the same selector as far as the browser is concerned. A rule written for either <code>.card</code> can therefore style both components. Neither team necessarily knows the other one exists.</p>
 
@@ -196,9 +195,18 @@
        ARCHITECTURES INTRO
   ════════════════════════════════════════════════════ -->
   <h2 id="architectures">Architectures and Tools</h2>
-  <p class="lede">The six dimensions show which problems each approach solves and which problems need another technique.</p>
+  <p class="lede">CSS approaches act at different stages of the styling workflow, so they solve different parts of the scaling problem.</p>
 
-  <p>BEM changes how developers name selectors, but the browser and build pipeline work as before. Runtime CSS-in-JS generates local class names, but it also makes style generation part of rendering. A project may combine naming rules with build-time token checks or styles calculated during rendering.</p>
+  <p>Some approaches tell developers how to name and order ordinary selectors. Others accept styling syntax that the browser does not understand and compile it to CSS, generate CSS from application code, or rewrite class names during the build. Browser features can also limit where selectors match without requiring generated names. The article groups these approaches into six families.</p>
+
+  <ul>
+    <li><a href="#methodologies">Methodologies</a> provide conventions for naming selectors, organizing rules, and controlling source order.</li>
+    <li><a href="#preprocessors">Preprocessors</a> add reusable syntax and compile it into ordinary CSS.</li>
+    <li><a href="#css-in-js">CSS-in-JS</a> places style definitions in JavaScript or TypeScript and generates CSS during the build or while the application renders.</li>
+    <li><a href="#utility-first">Utility-first CSS</a> generates small classes that developers combine in markup.</li>
+    <li><a href="#scoped-css">Scoped and hashed CSS</a> rewrites local selectors during the build to prevent class-name collisions.</li>
+    <li><a href="#native-scoping">Native component scoping</a> uses CSS and DOM features implemented by the browser to limit selector reach.</li>
+  </ul>
 
   <h3 id="methodologies">Methodologies</h3>
 
@@ -347,11 +355,15 @@
 
   <h3 id="utility-first">Utility-First CSS</h3>
 
-  <p><strong>Utility-first CSS</strong> puts small styling decisions directly in component markup. A card can combine classes such as <code>flex items-center gap-4 rounded-lg border</code>. Each class controls a narrow part of its appearance, so the component needs no separate semantic <code>.card</code> rule. Tailwind scans source files for those class names and generates the matching utility rules and variants.</p>
+  <p><strong>Utility-first CSS</strong> styles an element by combining classes that each control a small part of its appearance. Authors add these names to the HTML <code>class</code> attribute or the JSX <code>className</code> prop. A card might use <code>class="flex items-center gap-4 rounded-lg border"</code> without a separate <code>.card</code> rule.</p>
 
-  <p>Tailwind v4 introduced a new engine, integrated Lightning CSS, and moved common configuration into CSS. A basic project can begin with <code>@import "tailwindcss"</code> and define design tokens through <code>@theme</code>. JavaScript configuration remains available for compatibility, while the default setup reads common theme configuration from CSS.</p>
+  <p>Tailwind generates the stylesheet during the build. It reads HTML, JSX, and other source files as plain text and collects tokens that could be class names. If it recognizes <code>p-4</code>, it emits a <code>.p-4</code> rule that sets padding. A utility such as <code>p-8</code> is absent from the generated stylesheet when Tailwind does not find that name in the configured sources. Class names generally need to appear as complete tokens because the scanner does not evaluate JavaScript expressions.</p>
 
-  <p>A generated utility vocabulary avoids local class-name collisions and keeps selector specificity low. Tailwind also emits CSS from the candidates it discovers in source files, which limits unused output. Utility classes put more styling information in markup. Responsive states, interaction variants, and conditional classes can make a component's visual intent difficult to scan. Component helpers can keep long utility combinations out of repeated call sites. Teams must then decide where those helpers live and keep their class combinations consistent.</p>
+  <p>Utility names refer to values in Tailwind's theme. For example, <code>p-4</code> selects a step from the spacing scale, while a configured name such as <code>bg-brand</code> can refer to a project color. Prefixes add conditions to a utility. <code>hover:bg-brand</code> applies the background on hover, and a responsive prefix can place a utility inside a media query.</p>
+
+  <p>The shared vocabulary reduces the need for teams to invent local class names that might collide. Base utilities use single-class selectors, which keeps their specificity low, and source detection limits unused utility output. These benefits come from the generated stylesheet rather than from selector isolation. Global rules can still match the same elements.</p>
+
+  <p>The cost appears in the markup. A component can accumulate a long class list as it adds responsive changes, interaction states, and conditional styles. A reusable component or helper can keep repeated combinations in one place, but that component or helper then owns the class list and its variants.</p>
 
   <p>Tachyons established many of the same functional-CSS ideas earlier. Projects that already use Tachyons can keep its functional classes. Tailwind offers the larger contemporary ecosystem and a more extensive variant system.</p>
 
@@ -362,7 +374,7 @@
       </thead>
       <tbody>
         <tr>
-          <td>Tailwind v4</td>
+          <td>Tailwind</td>
           <td>Namespace collisions, specificity wars, and reduced unused framework output through source candidate detection</td>
           <td>Tooling coupling still ties styling to a build step, plus markup density</td>
           <td>Teams using component frameworks and a shared utility vocabulary</td>
