@@ -51,7 +51,7 @@
 
   <div class="sidebar-section">Trends &amp; Tradeoffs</div>
   <a href="#modern-trends">Modern Trends</a>
-  <a href="#tradeoffs">Tradeoffs</a>
+  <a href="#choosing-a-combination">Choosing a Combination</a>
 </nav>
 
 <main>
@@ -62,7 +62,7 @@
   <div class="byline">
     <span>Andreas Ögren</span>
     <div class="dot"></div><span>~19 min read</span>
-    <div class="dot"></div><span>Last updated July 2026</span>
+    <div class="dot"></div><span>Last updated August 2026</span>
   </div>
 
   <section id="intro">
@@ -290,7 +290,7 @@
 
   <h3 id="css-in-js">CSS-in-JS</h3>
 
-  <p><strong>CSS-in-JS</strong> covers two different implementation strategies. Runtime libraries such as styled-components and Emotion evaluate style definitions and coordinate generated class names while the application renders. Build-time libraries, often called zero-runtime CSS-in-JS, extract CSS ahead of execution. Vanilla Extract, Panda CSS, StyleX, and Linaria use this strategy. The browser receives a static stylesheet while application code refers to generated class names.</p>
+  <p><strong>CSS-in-JS</strong> covers two different implementation strategies. Runtime libraries such as styled-components and Emotion generate and insert rules while the application renders. Build-time libraries analyze style definitions and produce a stylesheet before the application runs. Vanilla Extract, Panda CSS, StyleX, and Linaria belong to this build-time family, although they differ in how much JavaScript they use to select or combine the generated class names. Vanilla Extract and Linaria are zero-runtime CSS-in-JS while Panda CSS and StyleX do have some runtime JS.</p>
 
   <p>The code for <a href="react-server-components.html">React Server Components</a> is not sent to the browser. A runtime CSS-in-JS library therefore needs framework support to collect styles during server rendering and to manage styles when interactive components run in the browser. Extracted CSS avoids that coordination because the stylesheet exists before either server or client components render.</p>
 
@@ -325,7 +325,7 @@
   <div class="table-wrap">
     <table>
       <thead>
-        <tr><th>Tool</th><th>Era</th><th>Helps with</th><th>Leaves unresolved</th><th>Best fit</th></tr>
+        <tr><th>Tool</th><th>Rule generation</th><th>Helps with</th><th>Leaves unresolved</th><th>Best fit</th></tr>
       </thead>
       <tbody>
         <tr>
@@ -337,14 +337,14 @@
         </tr>
         <tr>
           <td>Vanilla Extract / Panda CSS</td>
-          <td>Zero-runtime</td>
-          <td>Generated class names, typed theme contracts, no runtime style generation</td>
-          <td>Still requires a build step and tool integration</td>
+          <td>Build-time</td>
+          <td>Generated class names, typed theme contracts, and static CSS output</td>
+          <td>A build step and tool integration, plus a small runtime for some Panda APIs</td>
           <td>TypeScript codebases with a design system to enforce</td>
         </tr>
         <tr>
           <td>StyleX / Linaria</td>
-          <td>Zero-runtime</td>
+          <td>Build-time</td>
           <td>Generated class names and static CSS output</td>
           <td>Tool-specific constraints, a required extraction step, and varying theme guarantees</td>
           <td>Codebases that want static CSS with CSS-in-JS authoring</td>
@@ -468,129 +468,98 @@
        MODERN TRENDS
   ════════════════════════════════════════════════════ -->
   <h2 id="modern-trends">Modern Trends</h2>
-  <p class="lede">A project can extract component styles at build time, process the resulting CSS separately, and rely on browser features for layer order and selector scope.</p>
+  <p class="lede">CSS architecture has accumulated new options over time, while older approaches remain in use.</p>
 
-  <p><strong>Static extraction</strong> lets teams use CSS-in-JS authoring without generating styles at runtime. Some components in a server-first application never execute in the browser, so they cannot generate styles there at runtime. The extracted stylesheet exists before those components render. Applications may keep runtime libraries when existing components call styled-components or Emotion APIs, or when styles are calculated during rendering. The browser must then execute that styling code.</p>
+  <p>In the late 2000s and early 2010s, before component frameworks shaped frontend tooling, teams often managed large stylesheets with a naming methodology such as BEM and a preprocessor such as Sass or Less. The two techniques addressed different problems. BEM gave global selectors predictable names, while preprocessors compiled variables, nesting, mixins, and functions into browser-ready CSS. CSS Modules and component compilers later generated local class names for component styles, reducing how often teams needed a naming methodology for that job.</p>
+
+  <p>Runtime CSS-in-JS became prominent in React projects after styled-components appeared in 2016 because it fit the component model. Styled-components and Emotion kept style definitions beside components, generated local class names, and let component data determine declarations. But they required the browser to run JavaScript that generated and inserted CSS rules during rendering, which affected performance. And server rendering required style collection to insert styles with the corresponding HTML. Stylesheets whose rules already existed before rendering fit server-first React frameworks more easily.</p>
+
+  <p>Build-time CSS-in-JS keeps styles beside component code but creates the CSS rules during the build. Vanilla Extract, Panda CSS, StyleX, and Linaria write static CSS for the browser to load. Because the rules already exist, server rendering does not need to generate them and the browser can load them as an ordinary stylesheet.</p>
+
+  <p>Browser support for native CSS features improved during the same period. CSS custom properties brought reusable values into ordinary CSS, and native nesting brought nested selectors. <a href="cascade-and-inheritance.html#cascade-layers">Cascade layers</a> set the priority of rule groups. <a href="layout-spacing-sizing.html#responsive">Container size queries</a> let a component respond to the space provided by its container. <a href="cascade-and-inheritance.html#scope-rules">@scope</a> limits selector reach and <a href="web-components.html#shadow-dom">Shadow DOM</a> creates a stronger selector boundary. Together, these browser features cover several jobs that once required extra tooling. Utility vocabularies, generated class names, and build-time token checks still come from other parts of a CSS architecture.</p>
+
+  <p>The timeline aligns the introduction of selected methodologies and tools with the year each browser feature became available across major browsers.</p>
 
   <div class="figure-wrap">
     <div class="timeline-scroll">
-    <svg class="figure timeline-figure" viewBox="-20 -20 740 330" role="img" aria-label="Timeline from 2016 to 2026 showing overlapping tracks for runtime CSS-in-JS, build-time CSS extraction, and native CSS, with native milestones for cascade layers in 2022, container queries in 2023, and at-scope in 2025.">
-      <!-- shared time scale -->
-      <line class="figure-connector" x1="30" y1="126" x2="30" y2="174"/>
-      <line class="figure-connector" x1="250" y1="126" x2="250" y2="174"/>
-      <line class="figure-connector" x1="460" y1="126" x2="460" y2="174"/>
-      <line class="figure-connector" x1="655" y1="126" x2="655" y2="174"/>
-      <text class="figure-label" x="30" y="184" text-anchor="middle">2016</text>
-      <text class="figure-label" x="250" y="184" text-anchor="middle">2020</text>
-      <text class="figure-label" x="460" y="184" text-anchor="middle">2022</text>
-      <text class="figure-label" x="650" y="184" text-anchor="end">2026+</text>
-
-      <!-- overlapping tracks -->
-      <rect class="figure-node" x="30" y="130" width="625" height="8"/>
-      <rect class="figure-node is-clay" x="250" y="146" width="405" height="8"/>
-      <rect class="figure-node is-info" x="460" y="162" width="195" height="8"/>
-
-      <!-- box 1: runtime, above scale, left -->
-      <line class="figure-connector" x1="145" y1="104" x2="145" y2="130"/>
-      <rect class="figure-node" x="40" y="26" width="210" height="78"/>
-      <text class="figure-label is-accent-text" x="54" y="50">Runtime CSS-in-JS</text>
-      <text class="figure-label" x="54" y="68">styled-components, Emotion</text>
-      <text class="figure-label" x="54" y="82">Runtime style generation,</text>
-      <text class="figure-label" x="54" y="96">server-rendering integration</text>
-
-      <!-- box 2: zero-runtime, below scale, center -->
-      <line class="figure-connector" x1="355" y1="154" x2="355" y2="188"/>
-      <rect class="figure-node" x="262" y="188" width="210" height="78"/>
-      <text class="figure-label" x="276" y="212">Zero-runtime CSS-in-JS</text>
-      <text class="figure-label" x="276" y="228">Vanilla Extract, Panda, StyleX</text>
-      <text class="figure-label" x="276" y="244">Compile-time output,</text>
-      <text class="figure-label" x="276" y="260">no client style generation</text>
-
-      <!-- box 3: native, above scale, right -->
-      <line class="figure-connector" x1="557" y1="104" x2="557" y2="162"/>
-      <rect class="figure-node" x="452" y="26" width="205" height="78"/>
-      <text class="figure-label is-info-text" x="466" y="50">Native CSS</text>
-      <text class="figure-label" x="466" y="68">Cascade layers · 2022</text>
-      <text class="figure-label" x="466" y="83">Container queries · 2023</text>
-      <text class="figure-label" x="466" y="98">@scope · 2025</text>
-    </svg>
-    </div>
-  <figcaption>The overlapping tracks show that runtime CSS-in-JS, build-time extraction, and native CSS coexist through 2026.</figcaption>
-  </div>
-
-  <p>Site-wide stylesheets can define resets, tokens, typography, and shared utilities. Individual components can use CSS Modules, <code>@scope</code>, or static extraction for their own rules. The browser combines both sets of declarations in the same cascade.</p>
-
-  <p>The CSS generated by Sass, Tailwind, a CSS Modules build, or a CSS-in-JS extractor can pass through a final processor before deployment. Lightning CSS can rewrite newer syntax for selected browsers, add vendor prefixes, and minify the resulting stylesheet. PostCSS parses a CSS file and runs the plugins configured for that project. Autoprefixer, for example, adds vendor prefixes. Adding or replacing the final processor does not require developers to rewrite their SCSS, utility classes, or CSS Module files.</p>
-
-  <p>Cascade layers let authors declare priority groups that resolve before specificity within those groups. If the order is reset, base, utilities, components, and overrides, a normal rule in the later overrides layer can outrank a more specific rule in reset.</p>
-
-  <div class="code-block">
-    <div class="code-header">
-      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-filename">app.css</span>
-      <span class="code-lang">CSS</span>
-    </div>
-    <pre><code><span class="p">@layer</span> <span class="n">reset</span>, <span class="n">base</span>, <span class="n">utilities</span>, <span class="n">components</span>, <span class="n">overrides</span>;
-
-<span class="p">@layer</span> <span class="n">reset</span> {
-  <span class="n">#app button</span> { <span class="n">all</span>: <span class="cn">unset</span>; }
-}
-
-<span class="p">@layer</span> <span class="n">overrides</span> {
-  <span class="n">button</span> { <span class="n">color</span>: <span class="cn">var(--accent)</span>; }
-  <span class="cm">/* wins over the ID selector above because @layer overrides
-     was declared later */</span>
-}</code></pre>
-  </div>
-
-  <p>Layer order decides which named layer wins before the browser compares selector specificity. Specificity still matters between competing rules inside the same layer. The example and figure use normal declarations. Important declarations reverse the order of named layers, while normal declarations outside any layer outrank layered normal declarations.</p>
-
-  <div class="figure-wrap">
-    <svg class="figure" viewBox="-20 -20 740 375" role="img" aria-label="Diagram of five CSS cascade layers stacked in declaration order from at-layer reset at the top to at-layer overrides at the bottom, showing that for normal declarations a later layer wins over an earlier one regardless of selector specificity.">
+    <svg class="figure timeline-figure" viewBox="0 0 700 380" role="img" aria-label="Shared chronological timeline of selected CSS milestones from 2006 through 2025. It aligns tools and methodologies with browser features that became available in the same year.">
       <defs>
-        <marker id="fig2-arrow" viewBox="0 0 10 10" markerWidth="6" markerHeight="6" refX="10" refY="5" orient="auto">
-          <polygon class="figure-arrow" points="0 0, 10 5, 0 10"/>
+        <marker id="modern-timeline-arrow" viewBox="0 0 10 10" markerWidth="6" markerHeight="6" refX="10" refY="5" orient="auto">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--text-faint)"/>
         </marker>
       </defs>
 
-      <rect class="figure-node" x="40" y="24" width="480" height="46"/>
-      <text class="figure-label" x="58" y="45">@layer reset</text>
-      <text class="figure-label" x="58" y="61">normalize, element resets</text>
+      <text class="figure-title" x="20" y="20">Year</text>
+      <text class="figure-title" x="145" y="20">Tools and methodologies</text>
+      <text class="figure-title" x="440" y="20">Browser features</text>
 
-      <rect class="figure-node" x="40" y="82" width="480" height="46"/>
-      <text class="figure-label" x="58" y="103">@layer base</text>
-      <text class="figure-label" x="58" y="119">tokens, element defaults</text>
+      <rect class="figure-panel" x="8" y="32" width="684" height="330"/>
+      <line class="figure-guide" x1="125" y1="32" x2="125" y2="362"/>
+      <line class="figure-guide" x1="420" y1="32" x2="420" y2="362"/>
+      <line class="figure-connector" x1="105" y1="46" x2="105" y2="350" marker-end="url(#modern-timeline-arrow)"/>
 
-      <rect class="figure-node" x="40" y="140" width="480" height="46"/>
-      <text class="figure-label" x="58" y="161">@layer utilities</text>
-      <text class="figure-label" x="58" y="177">shared utility rules</text>
+      <line class="figure-guide" x1="8" y1="77" x2="692" y2="77"/>
+      <line class="figure-guide" x1="8" y1="111" x2="692" y2="111"/>
+      <line class="figure-guide" x1="8" y1="145" x2="692" y2="145"/>
+      <line class="figure-guide" x1="8" y1="179" x2="692" y2="179"/>
+      <line class="figure-guide" x1="8" y1="213" x2="692" y2="213"/>
+      <line class="figure-guide" x1="8" y1="247" x2="692" y2="247"/>
+      <line class="figure-guide" x1="8" y1="281" x2="692" y2="281"/>
+      <line class="figure-guide" x1="8" y1="315" x2="692" y2="315"/>
 
-      <rect class="figure-node" x="40" y="198" width="480" height="46"/>
-      <text class="figure-label" x="58" y="219">@layer components</text>
-      <text class="figure-label" x="58" y="235">hand-written component styles</text>
+      <text class="figure-label" x="22" y="64">2006</text>
+      <rect class="figure-node is-muted" x="100" y="55" width="10" height="10"/>
+      <text class="figure-label is-accent-text" x="145" y="64">Sass</text>
 
-      <rect class="figure-node" x="40" y="256" width="480" height="46"/>
-      <text class="figure-label is-accent-text" x="58" y="277">@layer overrides</text>
-      <text class="figure-label is-accent-text" x="58" y="293">later normal layer wins before specificity</text>
+      <text class="figure-label" x="22" y="98">2009</text>
+      <rect class="figure-node is-muted" x="100" y="89" width="10" height="10"/>
+      <text class="figure-label is-accent-text" x="145" y="98">BEM · Less</text>
 
-      <path class="figure-connector" d="M 520 47 H 600 V 279 H 520" marker-end="url(#fig2-arrow)"/>
-      <text class="figure-note" x="600" y="16" text-anchor="middle">declared first</text>
-      <text class="figure-note" x="600" y="316" text-anchor="middle">last normal layer wins</text>
+      <text class="figure-label" x="22" y="132">2015</text>
+      <rect class="figure-node is-muted" x="100" y="123" width="10" height="10"/>
+      <text class="figure-label is-accent-text" x="145" y="132">CSS Modules</text>
+
+      <text class="figure-label" x="22" y="166">2016</text>
+      <rect class="figure-node is-muted" x="100" y="157" width="10" height="10"/>
+      <text class="figure-label is-accent-text" x="145" y="166">styled-components</text>
+
+      <text class="figure-label" x="22" y="200">2017</text>
+      <rect class="figure-node is-muted" x="100" y="191" width="10" height="10"/>
+      <text class="figure-label is-accent-text" x="145" y="200">Tailwind CSS</text>
+      <text class="figure-label is-info-text" x="440" y="200">Custom properties</text>
+
+      <text class="figure-label" x="22" y="234">2021</text>
+      <rect class="figure-node is-muted" x="100" y="225" width="10" height="10"/>
+      <text class="figure-label is-accent-text" x="145" y="234">Vanilla Extract</text>
+
+      <text class="figure-label" x="22" y="268">2022</text>
+      <rect class="figure-node is-muted" x="100" y="259" width="10" height="10"/>
+      <text class="figure-label is-info-text" x="440" y="268">Cascade layers</text>
+
+      <text class="figure-label" x="22" y="302">2023</text>
+      <rect class="figure-node is-muted" x="100" y="293" width="10" height="10"/>
+      <text class="figure-label is-accent-text" x="145" y="302">Panda CSS · StyleX open source</text>
+      <text class="figure-label is-info-text" x="440" y="302">Container queries · Native nesting</text>
+
+      <text class="figure-label" x="22" y="336">2025</text>
+      <rect class="figure-node is-muted" x="100" y="327" width="10" height="10"/>
+      <text class="figure-label is-info-text" x="440" y="336">@scope</text>
     </svg>
-    <figcaption>For normal declarations, layer order resolves priority before selector specificity. A low-specificity rule in <code>@layer overrides</code> therefore beats a high-specificity ID selector in the earlier <code>@layer reset</code>.</figcaption>
+    </div>
+  <figcaption>Simple overview of milestone years when methodologies and tools were first released. Dates for browser features mark Baseline availability across major browsers.</figcaption>
   </div>
 
-  <p>Container queries let a component respond to its container size, while <code>@scope</code> limits selectors to a subtree. Neither feature requires JavaScript or generated class names. Build tools can still reject unknown token names, generate utility classes, extract CSS from TypeScript, or rewrite newer syntax for older browsers. A project can add a tool when it needs one of those checks or transformations.</p>
+  <p>Current projects often combine techniques introduced in different periods because the techniques can control different parts of the styling workflow. Teams can choose separately where styles are authored, when CSS is generated, and how selector reach and rule priority are controlled.</p>
 
   <!-- ═══════════════════════════════════════════════════
-       TRADEOFFS
+       CHOOSING A COMBINATION
   ════════════════════════════════════════════════════ -->
-  <h2 id="tradeoffs">Tradeoffs</h2>
-  <p class="lede">Improving one dimension can leave another unchanged or add a cost elsewhere.</p>
+  <h2 id="choosing-a-combination">Choosing a Combination</h2>
+  <p class="lede">A combination is easier to maintain when each technique has a distinct responsibility.</p>
 
-  <p>A naming convention becomes harder to enforce as more contributors add selectors. An application that renders HTML on the server and hydrates it in the browser needs runtime CSS-in-JS to produce compatible class names and style order in both places. A design system with typed token names can reject an unknown spacing or color token during development. Existing code determines how many stylesheets and components a migration must change.</p>
+  <p>The six dimensions introduced earlier provide a basis for choosing a combination. One technique may prevent namespace collisions, while another enforces token names or controls cascade priority. Each may also add a build step, runtime work, or migration cost. A combination should address the problems present in the project without making two systems control the same behavior.</p>
 
-  <p>A project can assign each problem to a separate technique. Cascade layers can order third-party and application CSS, CSS Modules can generate local class names, and custom properties can carry shared token values. If cascade layers already control priority, adding another ordering convention increases the rules contributors must learn without changing which declaration wins.</p>
+  <p>For example, cascade layers can order third-party and application CSS, CSS Modules can generate local class names, and custom properties can carry shared token values. Those responsibilities do not overlap. If cascade layers already control priority, adding another ordering convention increases the rules contributors must learn without changing which declaration wins.</p>
 
   <div class="table-wrap">
     <table>
@@ -617,9 +586,7 @@
     </table>
   </div>
 
-  <p>Cascade layers define priority, <code>@scope</code> limits selector reach, and container queries provide component-level responsiveness. None of those browser features checks token names or generates a CSS file. TypeScript-based styling tools can reject unknown tokens, extractors can move component styles into static stylesheets, and CSS processors can rewrite syntax for older browsers.</p>
-
-  <p>Contributors should be able to identify which file owns a rule and which declaration will win. A team that values utility composition may prefer Tailwind. A typed design system may justify Vanilla Extract or Panda CSS. An established Sass codebase can adopt cascade layers without rewriting its SCSS. In every case, contributors need to know where a new rule belongs and how to override it without increasing selector weight.</p>
+  <p>The existing codebase, application framework, and supported browsers narrow the choice. Tailwind supports a workflow in which contributors compose styles from utilities in markup. Vanilla Extract or Panda CSS can enforce token names in a typed design system. An established Sass codebase can add cascade layers without rewriting its SCSS. The migration cost depends on how many stylesheets and components the change touches. The resulting architecture should make it clear where a new rule belongs and how to override it without increasing selector weight.</p>
 
 </main>
 </div><!-- end .shell -->
