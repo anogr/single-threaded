@@ -564,9 +564,9 @@
   <h2 id="spacing">Spacing Expresses Ownership and Grouping</h2>
   <p class="lede">Spacing affects both the room available in a layout and whether readers perceive neighboring content as a group.</p>
 
-  <p>Readers perceive nearby elements as a group and elements separated by more space as different groups. Placing a label near its value groups them visually, while a larger gap separates that pair from the next group. <a href="ux-principles.html#hierarchy">UX Principles</a> explains why proximity works this way. The rule should belong to the element that controls the distance. That ownership keeps the spacing consistent when content wraps, the component is reused, or the design changes.</p>
+  <p>Spacing changes both the room available to content and the relationships readers perceive. Readers group a label with a nearby value, while a larger distance separates that pair from the next group. <a href="ux-principles.html#hierarchy">UX Principles</a> explains why proximity works this way. The element responsible for a relationship should also control the CSS declaration that creates the distance. A component therefore owns the spacing among its internal parts, while its parent owns the spacing between sibling components. Keeping each declaration with its owner preserves those relationships when content wraps, a component is reused, or the design changes.</p>
 
-  <p>Padding creates space between a box's content and its border. That space is entirely internal to the box. On the product card, the card's own styles therefore set the padding, not a rule belonging to the catalog around it. With <code>border-box</code>, increasing padding inside a fixed width leaves less room for the content and can cause the text to wrap onto more lines.</p>
+  <p>Padding creates space between a box's content and its border. That space is entirely internal to the box. On the product card, the card's own styles therefore set the padding. With <code>border-box</code>, increasing padding inside a fixed width leaves less room for the content and can cause the text to wrap onto more lines.</p>
 
   <p>The <code>gap</code> property creates gutters between grid tracks, between flex items or lines, and between columns in multi-column layout. This distance belongs to the container, since only the container's own layout determines how its children relate to one another. For example, the catalog can change the distance between cards without adding sibling-dependent rules to each card.</p>
 
@@ -614,21 +614,19 @@
   <h2 id="responsive">Responsive Rules Follow Their Owner</h2>
   <p class="lede">Continuous changes in available space often need only flexible sizing. A media or container query is needed when the arrangement itself must change.</p>
 
-  <p>Responsive rules belong with the layout they change. Flexible sizes and wrapping already respond continuously to available space. A breakpoint is needed only when the arrangement must switch at a threshold. The page or component responsible for that arrangement should define the breakpoint.</p>
+  <p>Responsive design allows a layout to adapt when its available space changes. Flexible sizing and wrapping can absorb some changes without switching to a different arrangement. When the navigation, catalog, and recommendations no longer fit beside one another, the page layout can stack those regions instead. The element that arranges a set of children should also own the rule that changes their arrangement. The page therefore controls changes among page regions, while a component controls changes among its internal parts.</p>
 
   <h3>Breakpoints and their owner</h3>
 
   <p>A <strong>breakpoint</strong> is the threshold at which a layout switches to a different arrangement, rather than simply reflowing within its current one. The new arrangement determines the threshold because it needs enough width to work. Nominal device categories do not determine that point. CSS can test a page-level breakpoint with a media query or a component-level breakpoint with a container query.</p>
 
-  <p>A viewport-width media query tests the page as a whole, so it suits page-level changes such as switching the regions from a stacked column to a side-by-side arrangement. The same viewport condition applies to cards in both regions, even when the catalog is wide and the recommendations are narrow. A viewport query cannot respond to the width of the card's containing region.</p>
-
-  <p>A <strong>container size query</strong> instead tests the size of a nearby ancestor declared as a query container. A descendant can then change its own styles according to the space that ancestor actually provides, regardless of where in the page that ancestor sits. This keeps the page responsible for allocating space to a region, while the card inside it stays responsible for deciding how its own elements use whatever space it receives.</p>
+  <p>A viewport-width <strong>media query</strong> tests a condition against the width of the page's viewport, so it suits page-level changes such as switching the regions from a stacked column to a side-by-side arrangement. A <strong>container size query</strong> instead tests the size of a nearby ancestor declared as a query container. A descendant can then change its own styles according to the space that ancestor actually provides, regardless of where in the page that ancestor sits. This keeps the page responsible for allocating space to a region, the region is responsible for arranging the cards, and a card stays responsible for deciding how its own elements use whatever space it receives.</p>
 
   <p>The card itself can act as that ancestor, establishing an inline-size query container with <code>container-type: inline-size</code>. The card layout starts with one grid column, and an <code>@container</code> rule can add an image column once the card's own content box has enough inline space. The query condition therefore depends only on the space needed by the card's two-column layout, not on the region that contains it.</p>
 
   <h3>Continuous adaptation</h3>
 
-  <p>Some layouts need no breakpoint because their sizes and wrapping already change continuously with available space. Text wraps within its available inline size. A flex container can form another line, and a grid with repeating columns can create only as many as fit. Minimum and maximum sizes limit that continuous reflow, and the declarations remain on the box they size.</p>
+  <p>Some layouts need no breakpoint because their sizes and wrapping already respond continuously to available space. Text wraps as its available inline size narrows. A wrapping flex container moves items to another line when they no longer fit, while a grid with repeating columns reduces the number of columns. Minimum and maximum sizes define the useful range for that adaptation. A minimum keeps an item from becoming too narrow. Once items reach that limit, the flex or grid layout fits fewer of them on each line instead of shrinking them further. A maximum keeps an item from stretching beyond the width the design can use. These declarations stay with the box or layout whose size they constrain.</p>
 
   <p>The <code>clamp()</code> function combines a preferred value with lower and upper bounds, as in <code>clamp(1rem, 4vw, 2rem)</code>. The computed value can change continuously but never falls below 1rem or rises above 2rem. If the preferred value includes a viewport-percentage unit such as <code>vw</code>, the result follows the viewport width until it reaches one of those bounds. The <code>clamp()</code> declaration belongs to the element whose size it controls.</p>
 
@@ -644,7 +642,7 @@
   <h2 id="patterns">Composition Patterns Give Recurring Relationships a Name</h2>
   <p class="lede">A name gives a team a shared term for a recurring layout pattern. Teams can implement that pattern as a reusable primitive.</p>
 
-  <p>A <strong>layout primitive</strong> is a reusable implementation of a recurring spatial relationship without product meaning. Andy Bell and Heydon Pickering's <em>Every Layout</em> collects a well-known set of these, each named for the relationship it preserves. A Stack places children one after another along the block axis with a controlled gap, and a Cluster arranges children along the inline axis and lets them wrap. Sidebar, Switcher, and Center preserve three other useful relationships.</p>
+  <p>A <strong>layout primitive</strong> is a reusable implementation of a recurring spatial relationship without product meaning. Andy Bell and Heydon Pickering's <em>Every Layout</em> collects a well-known set of these, each named for the relationship it preserves. A <strong>Stack</strong> places children one after another along the block axis with a controlled gap, and a <strong>Cluster</strong> arranges children along the inline axis and lets them wrap. Sidebar, Switcher, and Center preserve three other useful relationships.</p>
 
   <ul>
     <li><strong>Sidebar</strong> pairs a fixed-width region with a flexible region. They share a row until the flexible region becomes narrower than a set threshold. When that happens, both regions stack at full width.</li>
@@ -696,7 +694,7 @@
     <figcaption>Sidebar splits space asymmetrically between a fixed and a flexible region. Switcher splits it symmetrically among equal children. Both collapse to a full-width stack once the container becomes too narrow for their side-by-side arrangement.</figcaption>
   </figure>
 
-  <p>Other primitives cover different layout relationships. Cover centers a piece of content vertically within a minimum-height container while pinning header and footer content to the top and bottom, which suits a full-height hero section. For a responsive multi-column layout, Grid adds or removes columns as space changes without an explicit breakpoint. Reel keeps its children in a single horizontally scrolling row instead of wrapping them. Imposter uses absolute positioning and the containing-block mechanism covered earlier to center an element over its nearest positioned ancestor.</p>
+  <p>Other primitives cover different layout relationships. <strong>Cover</strong> centers a piece of content vertically within a minimum-height container while pinning header and footer content to the top and bottom, which suits a full-height hero section. For a responsive multi-column layout, <strong>Grid</strong> adds or removes columns as space changes without an explicit breakpoint. <strong>Reel</strong> keeps its children in a single horizontally scrolling row instead of wrapping them. <strong>Imposter</strong> uses absolute positioning and the containing-block mechanism covered earlier to center an element over its nearest positioned ancestor.</p>
 
   <p>These patterns do not replace the earlier ownership rule. Their names help a team recognize recurring relationships and reuse the same declarations instead of rebuilding them.</p>
 
@@ -708,7 +706,7 @@
 
   <p>The catalog controls the grid and gaps between cards, while each card controls the arrangement and padding inside its border. The catalog should not position a card's product name, and the card should not add an outer margin that assumes which siblings surround it.</p>
 
-  <p>Whether implemented as a CSS class or another small abstraction, a primitive should contain only the declarations for its recurring layout behavior. The surrounding markup still determines which elements participate and what those elements mean. A Stack may control direction and gap, but it should not assume that its first child is a product name or that its last child is a purchase action.</p>
+  <p>A primitive may be implemented as a CSS class or another small abstraction. It should contain only the declarations for its recurring layout behavior. The surrounding markup still determines which elements participate and what those elements mean. A Stack may control direction and gap, but it should not assume that its first child is a product name or that its last child is a purchase action.</p>
 
   <p>A relationship that appears once can remain a local CSS rule. A shared rule becomes useful when the same Stack, Cluster, grid, or spacing relationship recurs and should change consistently. <a href="design-systems.html">Design Systems</a> explains how organizations package those rules alongside tokens and component libraries.</p>
 
