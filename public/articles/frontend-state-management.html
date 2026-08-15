@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frontend State Management — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+<style>
+  /*
+   * Article-specific styles only.
+   */
+  .figure-node.is-danger {
+    fill: color-mix(in srgb, var(--red) var(--figure-semantic-wash), transparent);
+    stroke: var(--red);
+  }
+
+  .mutation-figure-mobile,
+  .state-machine-figure-mobile {
+    display: none;
+  }
+
+  .state-machine-start {
+    fill: var(--text-dim);
+  }
+
+  @media (max-width: 700px) {
+    .mutation-figure-desktop,
+    .state-machine-figure-desktop {
+      display: none;
+    }
+
+    .mutation-figure-mobile,
+    .state-machine-figure-mobile {
+      display: block;
+    }
+  }
+</style>
+</head>
+
+<body>
+
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Articles</span></a>
+  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+
+  <div class="sidebar-section">Foundations</div>
+  <a href="#overview">The state management problem</a>
+  <a href="#ownership">Authority and lifetime</a>
+  <a href="#canonical-state">Canonical state and derived values</a>
+
+  <div class="sidebar-section">Mechanisms</div>
+  <a href="#placement">State placement and reset</a>
+  <a href="#browser-state">Browser state and persistence</a>
+  <a href="#transitions">Modeling state changes</a>
+  <a href="#server-state">Server state synchronization</a>
+  <a href="#shared-client-state">Shared client state</a>
+  <a href="#signals">Propagation and rendering</a>
+
+  <div class="sidebar-section">Decision Guide</div>
+  <a href="#libraries">State management libraries</a>
+  <a href="#decision-framework">Choosing an approach</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">Frontend Architecture · State Management</div>
+  <h1>Frontend State Management</h1>
+  <p class="subtitle">How to decide what a frontend should remember and where each value belongs.</p>
+  <div class="byline">
+    <span>Andreas Ögren</span>
+    <div class="dot"></div><span>~36 min read</span>
+    <div class="dot"></div><span>Last updated August 2026</span>
+  </div>
+
+  <section id="overview">
+    <p>A storefront product screen can show a price loaded from a server, a filter encoded in the URL, an unsaved quantity entered by the user, and a cart total calculated from the price and quantity. Each value can change, but for a different reason. The seller changes the price, browser navigation changes the filter, the user edits the quantity, and the total changes because its inputs changed. Problems begin when the application stores these values as though they were interchangeable or keeps several writable copies that can disagree.</p>
+
+    <p><strong>Frontend state</strong> is a changing value that the interface must read again to render correctly or respond to an interaction. <strong>Frontend state management</strong> decides which values must be remembered, where the current value comes from, how long it must survive, which changes are allowed, and which parts of the interface must respond after a change. This work covers values created by the application, values controlled by the browser, and local copies of data held by a server. A library can store and distribute values, but the product's requirements determine what those values mean.</p>
+
+    <p>The storefront in the first paragraph is the example this article returns to throughout. Its product data comes from a server, its search filter participates in browser navigation, its cart holds a quantity the visitor is still editing, and its total is calculated rather than stored. Understanding why each of these values behaves differently is the foundation for every decision that follows, including which framework feature or library ends up managing it.</p>
+  </section>
+
+  <h2 id="ownership">Authority and Lifetime</h2>
+  <p class="lede">The first distinction is not where a value is stored, but who can settle the value.</p>
+
+  <h3>Server and client authority</h3>
+
+  <p><strong>Authority</strong> identifies the source or set of rules allowed to read and update a value. A product price, account balance, and shipping status are normally controlled by a server. The browser can display a local copy, but another person or process may change the server's value without changing that copy. A <strong>snapshot</strong> records a value at one point in time. A <strong>cache</strong> keeps a snapshot so that it can be reused instead of loaded again. The snapshot becomes <strong>stale</strong> when the authoritative source holds a newer value.</p>
+
+  <p>Changing the browser's copy does not transfer authority from the server. Suppose the cart contains one item and the user changes the quantity to two. The interface may show two immediately while the request is still pending, but that value is only a prediction. The server may accept two, replace it with a permitted quantity, or reject the request. The frontend therefore needs rules for each outcome before it presents a pending value as though it were confirmed. <strong>Synchronization</strong> is the work of bringing a local copy back into agreement with its authority after either one changes.</p>
+
+  <p><strong>Client-owned state</strong> describes a value whose current truth does not depend on a server response. Whether a disclosure is open, which tab is active inside a widget, and what the user has typed into an unsent form can all be decided in the browser. A theme preference or guest cart is also client-owned when the product deliberately keeps it on that device.</p>
+
+  <h3>Lifetime and product boundaries</h3>
+
+  <p><strong>Lifetime</strong> describes which event ends a value and which boundaries it must survive. The open state of a disclosure may end when that component is removed from the page. A filter in the URL survives a reload and remains part of browser history. A preference saved in the browser local storage can survive a later visit, while a preference saved to an account can follow the user to another device. A value kept longer than the interaction requires creates extra work because old copies must eventually be expired or removed.</p>
+
+  <p>The same feature can have different authority in different products. A guest cart may belong to one browser, while a signed-in cart may be controlled by the server so that it follows the account across devices. Product requirements establish that difference.</p>
+
+  <h2 id="canonical-state">Canonical State and Derived Values</h2>
+  <p class="lede">Once the source and lifetime are known, the application can decide which facts must be stored and which values can be calculated from them.</p>
+
+  <h3>One canonical representation</h3>
+
+  <p>A <strong>canonical representation</strong> is the one writable form of a value the application treats as the current fact within a boundary. A quantity and unit price may be canonical inputs to a cart row. The displayed line total is not another fact. It is a view of those inputs.</p>
+
+  <p><strong>Derived state</strong> is calculated from canonical values rather than updated through a separate write. A cart total comes from its lines, and a filtered product list comes from the products and the current filter. Validation summaries and indicators that show which actions the user may request can be calculated in the same way. Such an indicator only controls what the frontend presents. The server must still authorize every protected operation. Cheap calculations can run whenever the interface renders. <strong>Memoization</strong> retains the result of an expensive calculation and reuses it only while the inputs remain the same.</p>
+
+  <p>Duplicate writable representations create a synchronization problem because either copy can change first. If a filter is stored both in component memory and in the URL, Back navigation can change the URL while the component still holds the previous filter. A server record copied into another writable object has the same problem after a later request returns newer data or a write succeeds. Without a rule that chooses which copy wins, both copies can look valid to the code that owns them while showing different facts to the user.</p>
+
+  <h3>Intentional working copies and forms</h3>
+
+  <p>An <strong>edit buffer</strong> is different from an accidental duplicate, because the application creates it on purpose and knows exactly when it starts and ends. A form is a common example. It begins by copying a server snapshot into a local draft that the visitor can freely change. Submitting the form sends that draft back to the server as a write.</p>
+
+  <p>A form does not require a second application-held value for every control. In an <strong>uncontrolled control</strong>, the value held by the browser is the live draft. The application can supply an initial value, then read the current value when it handles submission or another relevant event. In a <strong>controlled control</strong>, the application-held draft is canonical for the interaction, and the application writes that value back to the control after each edit. A controlled value is useful when validation, calculated output, or another part of the interface must respond to every change. An uncontrolled value avoids a synchronized copy when the browser's form behavior already meets the requirement.</p>
+
+  <p><strong>Form state</strong> includes the draft together with information about the interaction around it. A touched field commonly records that the visitor has focused and left it, while a dirty field records that the visitor has edited it. Validation results are derived from the current draft and validation rules. Submission status records whether a write has not started, is pending, succeeded, or failed. Keeping these values in one form model does not make them the same kind of state. Each should change only in response to its own source. If a newer server snapshot arrives while the draft is open, the form also needs a product rule that keeps the draft, resets it, merges compatible changes, or asks the visitor to resolve the conflict.</p>
+
+  <div class="callout warn">
+    <div class="callout-title">Every writable copy needs a synchronization rule</div>
+    <p>A copy may be useful for editing, immediate feedback, continuing work without a network connection, or avoiding repeated calculation. Its design is incomplete until the application defines when the copy is created, what can change it, which source wins when the values differ, and when the copy is removed.</p>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Storefront value</th><th>Authority</th><th>Canonical representation</th><th>Stored, copied, or derived</th><th>Relevant lifetime</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Product price</td><td>Server</td><td>Server record</td><td>Copied into a cached frontend snapshot</td><td>Until the screen or cache discards the copy, which may be after it becomes stale</td></tr>
+        <tr><td>Search filter</td><td>Current browser navigation entry</td><td>URL path or search parameter</td><td>Stored canonically in the URL</td><td>Navigation history and shared links</td></tr>
+        <tr><td>Unsubmitted quantity</td><td>User's current edit</td><td>One form edit buffer</td><td>Stored as an intentional draft</td><td>Until submission, reset, or component removal</td></tr>
+        <tr><td>Guest cart</td><td>Client-owned cart model</td><td>One in-memory cart</td><td>Stored in memory and optionally copied to browser storage</td><td>One page, the current visit, or a later visit</td></tr>
+        <tr><td>Cart total</td><td>No independent authority</td><td>No writable representation</td><td>Derived from quantity and price</td><td>Recomputed when an input changes</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="placement">State Placement and Reset</h2>
+  <p class="lede">Placement chooses the boundary that holds a value or one of its copies.</p>
+
+  <h3>Component and subtree placement</h3>
+
+  <p><strong>Placement</strong> is the choice of which application boundary holds a value or one of its copies. A server record, navigation entry, browser storage area, component instance, and component subtree are different placements with different lifetimes and readers. <strong>Component placement</strong> narrows that decision to the component or subtree that owns a client-side value. State used by one component can remain with that component. When two branches of the component tree must change together, their shared value moves to the closest common owner that can update both. Component frameworks often call this movement <strong>lifting state</strong>. The state moves only as far as coordination requires, because a higher owner affects unrelated descendants.</p>
+
+  <p><strong>Context</strong> is React's mechanism for making a value available to descendants without every intermediate component forwarding it. Other frameworks provide mechanisms with the same purpose. A <strong>provider</strong> establishes the subtree that can read the value. Context solves distribution, but it does not define which writes are allowed or let each reader subscribe to only part of one context value. One provider works well for a stable theme, locale, or coordinated screen state. A frequently changing object with unrelated readers may need a notification mechanism that can update one reader without updating them all.</p>
+
+  <h3>Initialization, preservation, and reset</h3>
+
+  <p><strong>State identity</strong> connects a local value to one particular owner instance. A framework preserves the value as long as it considers the owner to be the same instance. Otherwise, it will replace the instance and initialize a new one with a fresh value. A <strong>reset</strong> deliberately ends the old instance or restores its initial snapshot. In React, a component's type and position provide its default identity, while a key can distinguish two instances rendered in the same position.</p>
+
+  <p><strong>Initialization</strong> chooses the snapshot an owner starts with. Copying a value supplied by a parent or server into local state only during initialization creates a copy that will not follow later updates. If the local value should always follow that input, it should be derived. If it is an edit buffer, the application needs the draft rule defined earlier, including what happens when a newer source value arrives. Initialization and reset are therefore part of the value's lifetime rather than incidental framework behavior.</p>
+
+  <h2 id="browser-state">Browser State and Persistence</h2>
+  <p class="lede">The browser both controls live interface values and offers storage that can outlive the page.</p>
+
+  <h3>Browser-controlled state</h3>
+
+  <p><strong>Browser-controlled state</strong> is a value that can change through browser behavior rather than only through an application write. Back and Forward navigation can replace the current URL. A CSS media query is a condition based on properties such as viewport width or a device preference, and the browser reevaluates it when that property changes. The browser also tracks focus, text selection, scroll position, and native form-control values. The Document Object Model (DOM), which exposes the current document structure and element properties, makes many of these values available to application code. The frontend reads the browser's current value or subscribes to the relevant browser event when the interface must respond to a change.</p>
+
+  <p>Browser-controlled state is different from client-owned state stored in the browser. The browser controls the current focus and navigation entry even when application code can request a change. A guest cart saved in browser storage is controlled by the application's cart rules. Mirroring either kind of value in another store creates a synchronization obligation, but the direction differs. A browser-controlled value must be reread after browser events, while a persisted client-owned value needs rules for loading, saving, converting old stored formats, and resolving conflicts between copies.</p>
+
+  <h3>URL and navigation</h3>
+
+  <p>Values that identify a navigable view often belong in the URL. A search term, sort order, page number, or selected tab can then survive a refresh, participate in browser history, and travel in a shared link. The application should read the current URL as the canonical representation after every navigation. If it also copies the same filter into component state, it needs a rule for Back and Forward navigation and for links opened with a different filter.</p>
+
+  <h3>Browser persistence and server boundaries</h3>
+
+  <p><strong>Persistence</strong> retains a value after the code that created it has stopped running. Client-owned state can therefore outlive a page without becoming part of navigation. Web Storage retains small string values such as preferences or drafts, while IndexedDB stores larger structured records and data needed without a network connection. The stored value is another copy that can disagree with the value the application starts with. On startup, the application must decide which copy wins. When the stored format changes, older records must be converted to the new format or discarded, and another open tab may need to receive changes. A <a href="rendering-strategies.html">server-rendered page</a> cannot read browser-only storage before it reaches the browser, so the initial server output needs a deliberate fallback.</p>
+
+  <p>A cookie fits a value that the browser must send with matching requests. A session cookie commonly contains a random identifier that the server uses to find a server-side session. The identifier itself need not reveal the session data. The cookie stays in the browser that stores it, while account data on the server can follow a signed-in user across devices after each device creates its own session. Browser storage that application code can read should not be the authority for sensitive credentials or shared records. Keeping a value in the browser makes it durable, but it does not make the browser an authority the server can trust.</p>
+
+  <p>The placements covered across the last two sections can now be compared by the boundary each one serves. Component and provider placement coordinate live interface code. The URL, browser storage, and a cookie-backed server session preserve values across navigation, reload, later visits, or server requests in different combinations.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Placement</th><th>Useful when</th><th>Main constraint</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Component state</td><td>One local interaction owns the value</td><td>Usually resets with that component instance</td></tr>
+        <tr><td>Shared parent or provider</td><td>A bounded subtree coordinates the value</td><td>The provider defines which descendants receive updates</td></tr>
+        <tr><td>URL</td><td>The value identifies a navigable or shareable view</td><td>The application must define its encoding and its Back and Forward behavior</td></tr>
+        <tr><td>Web Storage or IndexedDB</td><td>Client-owned data must survive reloads or remain available without a network connection</td><td>Initialization, stored-format conversion, expiry, and synchronization are application work</td></tr>
+        <tr><td>Cookie plus server-side data</td><td>The server must associate a browser request with session or account state</td><td>The cookie is browser-scoped, while the server record supplies shared authority</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="transitions">Modeling State Changes</h2>
+  <p class="lede">State should never be allowed to be set to invalid values.</p>
+
+  <h3>Setters, events, and reducers</h3>
+
+  <p>Everything so far has been about what a snapshot contains and where it lives. The next question is how the application gets from one valid snapshot to the next, a change called a <strong>state transition</strong>. The simplest way to make one is a <strong>setter</strong>, a function that just replaces one value with another. A setter is all a disclosure needs in order to open, because that changes one value that nothing else depends on. Several fields that must change together need one operation that calculates their next values as a unit. If a change is valid only after an earlier one, the current state must determine whether the change is allowed. Both cases need an explicit transition rule rather than independent setters.</p>
+
+  <p>An <strong>event</strong> describes something that happened, such as the user changing a quantity. A <strong>reducer</strong> is a function that receives the current snapshot and an event, then returns the next snapshot. An event named <code>quantityChanged</code> describes the occurrence rather than naming individual fields to set. Because one reducer handles the related fields, it can update the quantity, pending status, and validation message as one transition without exposing an intermediate combination. A reducer can belong to one component, a provider, or a shared application store. The explicit transition rule provides the benefit at each of those scopes.</p>
+
+  <h3>Representing legal modes</h3>
+
+  <p>The shape of the snapshot can prevent invalid combinations before any transition runs. Four booleans named <code>isIdle</code>, <code>isSaving</code>, <code>isSaved</code>, and <code>hasError</code> allow the interface to be idle and saving at the same time. One <code>status</code> field can instead select exactly one mode, and each mode can contain only the data it needs. A <strong>TypeScript union type</strong> describes a value that may have one of several defined shapes. The union below gives each save mode its own shape, so the state cannot contain fields that belong to two modes at once.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">cart-save-state.ts</span>
+      <span class="code-lang">TypeScript</span>
+    </div>
+    <pre><code><span class="kw">type</span> <span class="type">SaveState</span> =
+  | { status: <span class="s">'idle'</span> }
+  | { status: <span class="s">'saving'</span>; requestId: <span class="type">string</span> }
+  | { status: <span class="s">'saved'</span>; confirmedAt: <span class="type">number</span> }
+  | { status: <span class="s">'failed'</span>; message: <span class="type">string</span> };</code></pre>
+  </div>
+
+  <p>A <strong>state machine</strong> defines the available modes and specifies which events are allowed in each mode. A reducer explains how an event produces the next snapshot. A state machine also makes the legal event sequence part of the model. A checkout can accept payment only after it has a valid address, and a media player can pause only while it is playing. The machine does not replace the address, payment details, or media data. It organizes the control state that determines which step can happen next.</p>
+
+  <p>A state-machine diagram draws each mode as a node and each legal transition as an arrow. A filled circle points to the initial mode. The arrow's label begins with the event that requests the transition. A <strong>guard</strong> is a condition in square brackets that must be true before the transition can run. Text after a slash names an <strong>action</strong> performed when the transition is taken. An event with no arrow from the current mode is not a legal transition from that mode.</p>
+
+  <figure class="figure-wrap">
+    <svg class="figure state-machine-figure-desktop" viewBox="0 0 720 450" role="img" aria-label="A save-state machine starts in idle. A valid save request sends a request and moves to saving. Success moves to saved, failure moves to failed, and retry sends another request and returns to saving. There is no transition directly from idle to saved." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="state-machine-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <polygon class="figure-arrow" points="0 0, 10 5, 0 10"/>
+        </marker>
+      </defs>
+
+      <text class="figure-title" x="36" y="34">Save-state transitions</text>
+
+      <circle class="state-machine-start" cx="24" cy="160" r="5"/>
+      <line class="figure-connector" x1="30" y1="160" x2="68" y2="160" marker-end="url(#state-machine-arrow)"/>
+
+      <rect class="figure-node is-muted" x="70" y="130" width="130" height="60"/>
+      <text class="figure-title" x="135" y="166" text-anchor="middle">idle</text>
+
+      <rect class="figure-node is-gold" x="295" y="130" width="150" height="60"/>
+      <text class="figure-title" x="370" y="166" text-anchor="middle">saving</text>
+
+      <rect class="figure-node is-info" x="545" y="130" width="130" height="60"/>
+      <text class="figure-title" x="610" y="166" text-anchor="middle">saved</text>
+
+      <rect class="figure-node is-danger" x="295" y="290" width="150" height="60"/>
+      <text class="figure-title" x="370" y="326" text-anchor="middle">failed</text>
+
+      <line class="figure-connector" x1="200" y1="160" x2="295" y2="160" marker-end="url(#state-machine-arrow)"/>
+      <text class="figure-label" x="247" y="82" text-anchor="middle">saveRequested</text>
+      <text class="figure-label" x="247" y="101" text-anchor="middle">[form is valid]</text>
+      <text class="figure-label" x="247" y="120" text-anchor="middle">/ send request</text>
+
+      <line class="figure-connector" x1="445" y1="160" x2="545" y2="160" marker-end="url(#state-machine-arrow)"/>
+      <text class="figure-label" x="495" y="146" text-anchor="middle">saveSucceeded</text>
+
+      <line class="figure-connector" x1="370" y1="190" x2="370" y2="290" marker-end="url(#state-machine-arrow)"/>
+      <text class="figure-label" x="385" y="245">saveFailed</text>
+
+      <path class="figure-connector" d="M 295 320 C 220 320, 220 180, 295 180" marker-end="url(#state-machine-arrow)"/>
+      <text class="figure-label" x="210" y="253" text-anchor="middle">retryRequested</text>
+      <text class="figure-label" x="210" y="272" text-anchor="middle">/ send request</text>
+
+      <rect class="figure-panel is-dashed" x="70" y="385" width="605" height="42"/>
+      <text class="figure-note" x="372" y="411" text-anchor="middle">No arrow from idle to saved means saveSucceeded is not legal while idle.</text>
+    </svg>
+
+    <svg class="figure state-machine-figure-mobile" viewBox="0 0 340 510" role="img" aria-label="A save-state machine starts in idle. A valid save request sends a request and moves to saving. Success moves to saved, failure moves to failed, and retry sends another request and returns to saving. There is no transition directly from idle to saved." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="state-machine-arrow-mobile" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <polygon class="figure-arrow" points="0 0, 10 5, 0 10"/>
+        </marker>
+      </defs>
+
+      <text class="figure-title" x="20" y="27">Save-state transitions</text>
+
+      <circle class="state-machine-start" cx="170" cy="46" r="5"/>
+      <line class="figure-connector" x1="170" y1="52" x2="170" y2="75" marker-end="url(#state-machine-arrow-mobile)"/>
+
+      <rect class="figure-node is-muted" x="105" y="76" width="130" height="56"/>
+      <text class="figure-title" x="170" y="109" text-anchor="middle">idle</text>
+
+      <line class="figure-connector" x1="170" y1="132" x2="170" y2="210" marker-end="url(#state-machine-arrow-mobile)"/>
+      <text class="figure-label" x="183" y="153">saveRequested</text>
+      <text class="figure-label" x="183" y="172">[form is valid]</text>
+      <text class="figure-label" x="183" y="191">/ send request</text>
+
+      <rect class="figure-node is-gold" x="105" y="211" width="130" height="56"/>
+      <text class="figure-title" x="170" y="244" text-anchor="middle">saving</text>
+
+      <path class="figure-connector" d="M 140 267 L 75 340" marker-end="url(#state-machine-arrow-mobile)"/>
+      <text class="figure-label" x="48" y="292">saveSucceeded</text>
+
+      <path class="figure-connector" d="M 200 267 L 265 340" marker-end="url(#state-machine-arrow-mobile)"/>
+      <text class="figure-label" x="226" y="292">saveFailed</text>
+
+      <rect class="figure-node is-info" x="15" y="341" width="120" height="56"/>
+      <text class="figure-title" x="75" y="374" text-anchor="middle">saved</text>
+
+      <rect class="figure-node is-danger" x="205" y="341" width="120" height="56"/>
+      <text class="figure-title" x="265" y="374" text-anchor="middle">failed</text>
+
+      <path class="figure-connector" d="M 325 369 C 338 369, 338 239, 235 239" marker-end="url(#state-machine-arrow-mobile)"/>
+      <text class="figure-label" x="250" y="419" text-anchor="middle">retryRequested</text>
+      <text class="figure-label" x="250" y="438" text-anchor="middle">/ send request</text>
+
+      <rect class="figure-panel is-dashed" x="15" y="462" width="310" height="32"/>
+      <text class="figure-note" x="170" y="482" text-anchor="middle">No idle &rarr; saved arrow means the event is illegal.</text>
+    </svg>
+
+    <figcaption>The current mode determines which event arrows are available. A valid save request can leave idle, but a success event cannot skip directly from idle to saved.</figcaption>
+  </figure>
+
+  <h3>Asynchronous work and side effects</h3>
+
+  <p>Asynchronous work can complete in a different order from the events that started it. Suppose the user searches for “shoe” and then immediately searches for “shirt.” If the shoe request finishes last, blindly accepting its result replaces the newer shirt results with older work. The application can cancel the first request, attach an identifier to each request, or compare a version before accepting a response. A library that manages overlapping requests makes the same decision through its cancellation or replacement policy.</p>
+
+  <p>A state transition and a <strong>side effect</strong> have different jobs. A side effect communicates with or changes something outside the calculation of the next snapshot. For example, network code can send a save request while a reducer can move the save state from idle to saving. This separation lets the reducer be tested with plain inputs and outputs, while retry and cancellation are part of the network policy.</p>
+
+  <h2 id="server-state">Server State Synchronization</h2>
+  <p class="lede">Server-owned data turns frontend state management into synchronization between an authoritative value and one or more local snapshots.</p>
+
+  <h3>Queries and cache freshness</h3>
+
+  <p>A <strong>query</strong> is a read of server-owned data described by its inputs, such as a product identifier or a set of search filters. A <strong>server-state cache</strong> stores the latest query result so that another consumer can reuse it. The result is stored under a <strong>query key</strong> that represents every input capable of changing the result. A filtered product list and an unfiltered list therefore need different keys even if the same server function handles both reads.</p>
+
+  <p>A server-state cache has to track more about each query than just its most recent result. For a given query key, it separately records whether any data exists yet, whether a request for it is currently running, whether the data it already has might be out of date, and whether the entry is still worth keeping around at all. These facts genuinely overlap in practice. A screen can be showing data that loaded successfully, and is still perfectly renderable, while also being stale in the sense defined earlier, with a background request already underway to replace it. <strong>Invalidation</strong> is the act of marking a stored result as needing to be checked against the server again. Invalidating an entry does not have to mean deleting it. The visitor can keep looking at the old result right up until the new one arrives.</p>
+
+  <p><strong>Freshness</strong> is the period during which the product is willing to use cached data without checking the server again. A currency quote may need a short period, while a country list can remain current for much longer. <strong>Revalidation</strong> runs the query again to check whether the server has a newer result. It can happen after time passes, when the window regains focus, when the network reconnects, or after a related write. If several consumers request the same key at the same time, the cache can send one network request and share its result. This behavior is called request deduplication.</p>
+
+  <h3>Query results and record identity</h3>
+
+  <p>A query-keyed cache treats each result as the snapshot for one query key. The same product can therefore appear in a search result, a category result, and a product-detail result. A successful price change does not automatically identify every cached result that contains that product. The application or library must update those results, invalidate the affected keys, or revalidate a broader key group defined by the cache.</p>
+
+  <p>A <strong>normalized cache</strong> separates records from the query results that refer to them. It gives a record a stable cache identifier, stores one cached record under that identifier, and lets several query results point to it. A later response for the same identifier can merge fields into that record and notify readers that depend on it. This model reduces duplicate cached records, but it requires identity and field-merge rules.</p>
+
+  <h3>Mutations and concurrency</h3>
+
+  <p>A <strong>mutation</strong> is a request intended to change server-owned data. The browser can wait for confirmation before changing the interface, or it can use an <strong>optimistic update</strong> when immediate feedback is valuable and failure can be handled safely. An optimistic update shows the expected result locally, keeps enough information to recover, and then sends the mutation. The temporary value is an <strong>optimistic overlay</strong> placed over the last confirmed snapshot. If the server accepts the mutation, its response confirms or replaces the overlay and related queries can be invalidated. If the server rejects the mutation, the browser removes the overlay or replaces it with the value returned by the server, then presents an error.</p>
+
+  <figure class="figure-wrap">
+    <svg class="figure mutation-figure-desktop" viewBox="-20 -20 740 390" role="img" aria-label="An optimistic cart mutation begins with a confirmed cached cart, adds a temporary optimistic overlay while the request is pending, then either replaces the cache with the server-confirmed result or removes the overlay and restores the previous view after rejection." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="mutation-arrow" viewBox="0 0 10 10" markerWidth="6" markerHeight="6" refX="10" refY="5" orient="auto">
+          <polygon class="figure-arrow" points="0 0, 10 5, 0 10"/>
+        </marker>
+      </defs>
+
+      <rect class="figure-node" x="20" y="30" width="180" height="64"/>
+      <text class="figure-label" x="110" y="56" text-anchor="middle">Confirmed cache</text>
+      <text class="figure-label" x="110" y="76" text-anchor="middle">quantity 1</text>
+
+      <line class="figure-connector" x1="200" y1="62" x2="270" y2="62" marker-end="url(#mutation-arrow)"/>
+      <text class="figure-label" x="235" y="51" text-anchor="middle">edit</text>
+
+      <rect class="figure-node is-gold" x="270" y="20" width="200" height="84"/>
+      <text class="figure-label" x="370" y="47" text-anchor="middle">Optimistic overlay</text>
+      <text class="figure-label" x="370" y="67" text-anchor="middle">quantity 2</text>
+      <text class="figure-label" x="370" y="87" text-anchor="middle">request pending</text>
+
+      <line class="figure-connector" x1="470" y1="48" x2="535" y2="48" marker-end="url(#mutation-arrow)"/>
+      <text class="figure-label" x="503" y="37" text-anchor="middle">accept</text>
+      <rect class="figure-node is-info" x="535" y="20" width="145" height="64"/>
+      <text class="figure-label" x="607" y="46" text-anchor="middle">Confirmed result</text>
+      <text class="figure-label" x="607" y="66" text-anchor="middle">quantity 2</text>
+
+      <line class="figure-connector" x1="370" y1="104" x2="370" y2="174" marker-end="url(#mutation-arrow)"/>
+      <text class="figure-label" x="385" y="143">reject</text>
+
+      <rect class="figure-node is-danger" x="270" y="174" width="200" height="70"/>
+      <text class="figure-label" x="370" y="201" text-anchor="middle">Overlay removed</text>
+      <text class="figure-label" x="370" y="221" text-anchor="middle">error retained for the UI</text>
+
+      <line class="figure-connector" x1="270" y1="209" x2="200" y2="209" marker-end="url(#mutation-arrow)"/>
+      <rect class="figure-node" x="20" y="177" width="180" height="64"/>
+      <text class="figure-label" x="110" y="203" text-anchor="middle">Previous cache visible</text>
+      <text class="figure-label" x="110" y="223" text-anchor="middle">quantity 1</text>
+
+      <text class="figure-label" x="350" y="288" text-anchor="middle">The optimistic value is a temporary layer, not a new authority.</text>
+      <text class="figure-label" x="350" y="308" text-anchor="middle">The server response settles or removes that layer.</text>
+    </svg>
+
+    <svg class="figure mutation-figure-mobile" viewBox="0 0 340 590" role="img" aria-label="An optimistic cart mutation begins with a confirmed cached cart, adds a temporary optimistic overlay while the request is pending, then either replaces the cache with the server-confirmed result or removes the overlay and restores the previous view after rejection." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="mutation-arrow-mobile" viewBox="0 0 10 10" markerWidth="6" markerHeight="6" refX="10" refY="5" orient="auto">
+          <polygon class="figure-arrow" points="0 0, 10 5, 0 10"/>
+        </marker>
+      </defs>
+
+      <rect class="figure-node" x="70" y="20" width="200" height="60"/>
+      <text class="figure-label" x="170" y="45" text-anchor="middle">Confirmed cache</text>
+      <text class="figure-label" x="170" y="64" text-anchor="middle">quantity 1</text>
+
+      <line class="figure-connector" x1="170" y1="80" x2="170" y2="118" marker-end="url(#mutation-arrow-mobile)"/>
+      <text class="figure-label" x="184" y="103">edit</text>
+
+      <rect class="figure-node is-gold" x="60" y="118" width="220" height="76"/>
+      <text class="figure-label" x="170" y="144" text-anchor="middle">Optimistic overlay</text>
+      <text class="figure-label" x="170" y="163" text-anchor="middle">quantity 2</text>
+      <text class="figure-label" x="170" y="182" text-anchor="middle">request pending</text>
+
+      <line class="figure-connector" x1="170" y1="194" x2="170" y2="226"/>
+      <line class="figure-connector" x1="90" y1="226" x2="250" y2="226"/>
+      <line class="figure-connector" x1="90" y1="226" x2="90" y2="258" marker-end="url(#mutation-arrow-mobile)"/>
+      <line class="figure-connector" x1="250" y1="226" x2="250" y2="258" marker-end="url(#mutation-arrow-mobile)"/>
+      <text class="figure-label" x="66" y="246">accept</text>
+      <text class="figure-label" x="260" y="246">reject</text>
+
+      <rect class="figure-node is-info" x="15" y="258" width="150" height="66"/>
+      <text class="figure-label" x="90" y="285" text-anchor="middle">Confirmed result</text>
+      <text class="figure-label" x="90" y="304" text-anchor="middle">quantity 2</text>
+
+      <rect class="figure-node is-danger" x="175" y="258" width="150" height="66"/>
+      <text class="figure-label" x="250" y="285" text-anchor="middle">Overlay removed</text>
+      <text class="figure-label" x="250" y="304" text-anchor="middle">error retained</text>
+
+      <line class="figure-connector" x1="250" y1="324" x2="250" y2="362" marker-end="url(#mutation-arrow-mobile)"/>
+      <rect class="figure-node" x="175" y="362" width="150" height="66"/>
+      <text class="figure-label" x="250" y="389" text-anchor="middle">Previous cache visible</text>
+      <text class="figure-label" x="250" y="408" text-anchor="middle">quantity 1</text>
+
+      <text class="figure-label" x="170" y="482" text-anchor="middle">The optimistic value is temporary.</text>
+      <text class="figure-label" x="170" y="503" text-anchor="middle">The server response confirms it</text>
+      <text class="figure-label" x="170" y="524" text-anchor="middle">or removes it.</text>
+    </svg>
+    <figcaption>An optimistic update has two possible completion paths. Both preserve the distinction between the server's confirmed value and the browser's temporary prediction.</figcaption>
+  </figure>
+
+  <p>A <strong>race condition</strong> occurs when the result depends on which of two overlapping operations reaches the server last. Suppose two devices load cart version 10 and both send a new quantity. If the server accepts both writes without checking what each edit was based on, the later request silently replaces the earlier change. This is a <strong>lost update</strong>. Ignoring an old response in one browser can prevent that browser from displaying stale data, but it cannot protect the server record. Version-based <strong>optimistic concurrency control</strong> adds that protection. Each write includes the version it edited, and the server applies the write only if that version is still current. After the first write advances the record to version 11, the server rejects the second write based on version 10. The frontend can then reload the current value, merge compatible edits, or ask the user to resolve the conflict.</p>
+
+  <h3>Data loading and rendering boundaries</h3>
+
+  <p>A <strong>query library</strong> automates loading, retaining, refreshing, and writing cached server data without changing who owns that data. The application defines how cached entries are identified and when queries, mutations, and revalidation should run. GraphQL lets a client describe the fields it wants from a server, and GraphQL clients can apply similar cache policies to those results. Some application frameworks treat each navigable URL pattern as a <strong>route</strong>. They can attach a <strong>loader</strong> to that route so that navigation runs the required reads, and an <strong>action</strong> that handles writes submitted through it. <a href="react-server-components.html">React Server Components</a> provide another boundary by rendering selected components in a server environment before their output reaches the client tree. A client query cache remains useful when data must refresh without navigation, support an optimistic interaction, or remain synchronized while the route stays open.</p>
+
+  <p>Server rendering can also create the initial snapshot for a client cache. <a href="rendering-strategies.html#islands">Hydration</a> is the step in which client code attaches behavior to server-rendered output. The server output and the first client render must use the same snapshot during that handoff. Afterward, one policy must determine how the data is revalidated. If a client cache refreshes independently, server-rendered output that summarizes the same record can remain older until that server content is rendered again.</p>
+
+  <h3>Live, offline, and local-first synchronization</h3>
+
+  <p>Live updates and offline writes extend the same synchronization problem. In a live connection, the server can send an event without waiting for a new browser request. The event can mark a cached result as out of date or provide data that updates the local snapshot. When the browser is offline, a <strong>mutation queue</strong> records intended writes and sends them after the server becomes reachable.</p>
+
+  <p>A <strong>local-first</strong> design gives the device's copy a different role. Each device can accept writes while disconnected, and synchronization merges the device copies later. The merge rules must ensure that devices reach the same result after they have received the same edits. A server may help exchange and back up those edits, but it does not have to confirm every write before the interface treats it as complete. Local-first state therefore replaces single-server authority with explicit rules for copying edits between devices and merging concurrent changes.</p>
+
+  <h2 id="shared-client-state">Shared Client State</h2>
+  <p class="lede">Once server data, URL values, persistent browser data, and calculated values have their own homes, fewer values need a general mechanism for sharing client-owned state.</p>
+
+  <h3>Narrow ownership boundaries</h3>
+
+  <p><strong>Shared client state</strong> is client-owned state that more than one part of the application must read or change. The value can still remain in local framework state when those parts share a nearby component owner. A product filter panel, for example, can keep its temporary expanded sections inside the panel even if several child components render them. The state needs to move higher only when components outside that boundary must coordinate the same interaction.</p>
+
+  <p>A reducer and Context can manage a complex screen when its readers fit one subtree. The reducer owns the transition rules, while Context gives descendants the current snapshot and update functions. In React, a consumer receives a new context value whenever its provider's value changes. If one provider object contains both a stable theme and a frequently changing cart, a cart change can therefore give theme readers work they do not need. Splitting unrelated values into separate contexts or using reader-specific notification mechanisms creates narrower update boundaries.</p>
+
+  <h3>Stores, atoms, and machines</h3>
+
+  <p>An <strong>external store</strong> keeps state outside the component tree and exposes operations for reading, writing, and observing it. A <strong>subscription</strong> registers code to run when the store changes. Some stores route named events through reducers. They may also run <strong>middleware</strong>, code that observes an event, starts asynchronous work, or prevents work from reaching another step. Other stores expose direct update functions instead. In either style, a <strong>selector</strong> reads one chosen part of the store so that a consumer does not need the whole snapshot.</p>
+
+  <p>An <strong>atom</strong> is a named unit of state that can be read, written to, or calculated from other atoms. An atom library exposes those units and their dependency relationships directly, while a store exposes a snapshot and usually lets consumers select parts of it. One atom might hold the cart's lines while a second calculates the total from them. A store can represent the same design with a cart snapshot and a total selector. Either approach can hold one small value or a whole feature, and either can be limited to a subtree or shared more widely. The architectural difference lies in how the values, calculations, and subscriptions are addressed rather than how large the state must be.</p>
+
+  <p>The method should match the kind of coordination the state requires. A cart that must change its lines, pending status, and error state together fits a reducer or one store. Independent preferences and calculations that depend on selected preferences can fit atoms because each relationship can be expressed separately. A checkout whose steps allow different events fits a state machine because legal order is the main problem. The remaining choice depends on how the team needs to inspect and test changes and whether code outside the component tree must read the state.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Method</th><th>Primary job</th><th>Good fit</th><th>Tradeoff</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Local state</td><td>Remember one interaction</td><td>Component or small coordinated subtree</td><td>Must be lifted when ownership expands</td></tr>
+        <tr><td>Reducer and Context</td><td>Centralize transitions and distribute a snapshot</td><td>Complex screen with a clear provider boundary</td><td>All readers of one Context receive its changed value</td></tr>
+        <tr><td>External store</td><td>Provide shared reads, writes, and selectors</td><td>One shared model with readers across distant components or non-component code</td><td>Adds initialization, cleanup, and debugging rules</td></tr>
+        <tr><td>Atoms</td><td>Compose independently subscribable units</td><td>Values with separate readers and calculations that depend on one another</td><td>Relationships can become difficult to discover without conventions</td></tr>
+        <tr><td>State machine</td><td>Constrain modes and legal transitions</td><td>Ordered workflow with meaningful event order</td><td>Unnecessary structure for independent values</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="signals">Propagation and Rendering</h2>
+  <p class="lede">After deciding what a value means and where it lives, the remaining question is which readers must run when it changes.</p>
+
+  <h3>Notification boundaries</h3>
+
+  <p>A <strong>propagation mechanism</strong> connects a changing source to the code that reads it and determines which readers are notified after a change. A component subscribed to the entire cart receives a notification when any cart field changes, even if it renders only the total. A selective subscription can instead observe only the calculated total which may reduce rendering work.</p>
+
+  <h3>React rendering and external stores</h3>
+
+  <p>React schedules the component that owns changed state or subscribes to a changed external snapshot. During <strong>rendering</strong>, React calls components to calculate the next interface output. During the <strong>commit</strong> phase, it applies the required changes to the DOM. A memoized component can reuse earlier work when its inputs have not changed. React Compiler is a build-time tool that can add similar reuse automatically. React still organizes the update around component rendering and subscriptions.</p>
+
+  <p>React's <code>useSyncExternalStore</code> connects an external store through two functions. A snapshot function returns the current immutable snapshot, and a subscription function tells React when to read it again. Repeated reads must return the same snapshot until the store changes. This base contract observes the returned snapshot as a whole. A selector-aware store binding can add a selector and equality check so that one consumer renders again only when its selected value changes.</p>
+
+  <p>A <strong>React Transition</strong> marks an update as non-urgent so that React can prepare it without blocking urgent input. Before React commits a Transition update that read from an external store, it reads the store snapshot again. If the value changed during that work, React restarts the update as blocking and uses the latest snapshot. The snapshot and subscription contract therefore prevents the committed interface from combining two versions of the external store.</p>
+
+  <h3>Signals and fine-grained updates</h3>
+
+  <p>A <strong>signal</strong> is a reactive value that tracks which computations or UI regions read it. When it changes, the framework can update those dependents directly instead of beginning at a component boundary. The Solid framework uses those recorded dependencies to update the affected output, Angular records signal reads while evaluating a component template, then marks that component to be evaluated again after a change, and Svelte achieves similar read/write tracking through compiler-recognized runes and reactive proxy objects. All three track dependencies through reads, but each framework schedules the resulting work and updates the DOM in its own way.</p>
+
+  <p>Signals can hold local or shared state, and a store can expose equally selective subscriptions. Selective notification therefore does not answer the earlier ownership questions. A product record represented by a signal is still controlled by the server. A URL filter represented inside a store still needs to follow browser history, so the store cannot silently replace the URL as its canonical representation.</p>
+
+  <p>Once ownership and state transitions are correct, propagation becomes a performance question. Selective subscriptions reduce the number of notified readers. Memoization avoids repeating a calculation or component render when its inputs are unchanged. <strong>Fine-grained reactivity</strong> records dependencies at individual value reads rather than at a larger component or store boundary. A <strong>profiler</strong> records how much rendering work an update performs and how long that work takes. Its measurements show which updates cost enough to justify a narrower mechanism.</p>
+
+  <h2 id="libraries">State Management Libraries</h2>
+  <p class="lede">Libraries package different combinations of the mechanisms above, so they are easier to compare after authority, lifetime, transitions, and propagation are understood.</p>
+
+  <p>A state management library can provide a place to keep values, rules for changing them, and a way to notify readers. It cannot decide whether a value belongs to the server, the URL, persistent browser storage, or the current interface. That decision comes first. The comparisons below cover active, established choices that represent the main architectural models.</p>
+
+  <h3>What UI libraries already manage</h3>
+
+  <p>A UI library already provides state for the interface it renders. Its primitives usually cover component-owned values, calculated values, and sharing within a component subtree. They differ most in where reactive dependencies are recorded and how an update reaches the DOM. An external state library becomes useful when the required lifetime crosses that natural owner, non-component code needs the same state, transitions need stronger conventions, or the state is a server cache with its own synchronization policy.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>UI library</th><th>State it handles</th><th>Sharing boundary</th><th>How updates propagate</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>React</td><td><code>useState</code> holds component state, while <code>useReducer</code> centralizes related transitions. Derived values are calculated during.</td><td>Parent components can pass values explicitly. Context exposes a value from a provider to its descendant subtree.</td><td>A state owner or subscribed consumer renders again. Every consumer of one Context receives its changed value, while separate contexts can create narrower boundaries.</td></tr>
+        <tr><td>Vue</td><td><code>ref</code> and <code>reactive</code> hold reactive values. <code>computed</code> represents derived values.</td><td>A shared function or module can expose state directly. <code>provide</code> and <code>inject</code> limit access to a subtree.</td><td>Vue records reactive properties read by a component or computed value, then updates the dependent work when those properties change.</td></tr>
+        <tr><td>Angular</td><td>Signals hold values and computed signals derive values. Signals can live in a component or a shared service.</td><td>The component tree and the service's configured scope determine which consumers receive it and how long it lives.</td><td>Angular tracks signals read by a template. A changed signal marks the consuming component for another evaluation.</td></tr>
+        <tr><td>Svelte</td><td><code>$state</code> creates reactive values and proxies, while <code>$derived</code> calculates values. Reactive state can also live in a <code>.svelte.js</code> or <code>.svelte.ts</code> module.</td><td>Modules share state across importers. Context gives state to one descendant subtree.</td><td>The compiler and reactive proxies track the values and properties used by the interface. Svelte stores remain useful for complex asynchronous streams or manual subscription control.</td></tr>
+        <tr><td>Solid</td><td><code>createSignal</code> holds individual values, <code>createMemo</code> derives them, and <code>createStore</code> manages structured reactive data.</td><td>A signal or store can remain local, live in a shared module, or pass through Context to a subtree.</td><td>Solid records which calculations read each signal or store property, then reruns the affected calculation or DOM update rather than rendering a component tree again.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>These built-in mechanisms manage client-owned interface state. They do not add persistence, browser-history semantics, or server-cache rules on their own. Vue, Angular, Svelte, and Solid can also create reactive state outside a component without another package. React has no equivalent built-in primitive outside its component tree, so an external React store connects through the snapshot and subscription contract described earlier.</p>
+
+  <h3>Client-state libraries</h3>
+
+  <p>Client-state libraries manage values whose transition rules belong to the frontend. A reducer store emphasizes named events and one explicit transition path. A direct store exposes update functions, while an atom library makes independently addressable values and their dependencies the primary interface. State-machine libraries add legal event order. These models differ in which rules they make explicit and which conventions the team must supply.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Library</th><th>State and update model</th><th>Propagation and tooling</th><th>Best fit and main cost</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><a href="https://redux-toolkit.js.org/">Redux Toolkit</a></td><td>One store is divided into feature-owned sections. Actions request changes, reducers calculate the next state, and middleware handles outside work.</td><td>Selectors connect UI readers. Redux DevTools records the action and snapshot history.</td><td>Fits substantial shared state that benefits from uniform transitions and team conventions. Its explicit model adds concepts and indirection.</td></tr>
+        <tr><td><a href="https://zustand.docs.pmnd.rs/">Zustand</a></td><td>One or more stores expose state through <code>set</code>, <code>get</code>, and direct update functions. Middleware can add persistence or DevTools.</td><td>React consumers select the fields they need. A framework-independent API works outside React.</td><td>Fits direct shared reads and writes with little setup. Teams must define their own store boundaries and update conventions.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Other libraries implement models already explained rather than adding new architectural categories. <a href="https://jotai.org/">Jotai</a> implements atoms in React, while <a href="https://stately.ai/docs">XState</a> packages state machines. <a href="https://pinia.vuejs.org/">Pinia</a> adds store conventions to Vue, and <a href="https://ngrx.io/">NgRx</a> provides reducer-store and signal-store models for Angular.</p>
+
+  <h3>Server-state libraries</h3>
+
+  <p>Server-state libraries manage cached snapshots whose authority remains on a server. Their job includes request coordination, freshness, invalidation, retries, and mutation outcomes rather than the frontend's general transition rules. An application can therefore use one of these caches alongside local framework state or a client-state library.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Library</th><th>Cache model</th><th>Synchronization and tooling</th><th>Best fit and main cost</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><a href="https://tanstack.com/query/latest">TanStack Query</a></td><td>Query keys identify cached results from REST or other asynchronous sources.</td><td>Queries, mutations, freshness, invalidation, retries, and removal of unused entries are built in. Adapters connect the cache to several UI frameworks.</td><td>Fits general server state without requiring a client-state store. Query keys and invalidation rules still need deliberate design.</td></tr>
+        <tr><td><a href="https://redux-toolkit.js.org/rtk-query/overview">RTK Query</a></td><td>Declared server operations create query-keyed cache entries inside Redux.</td><td>Generated queries and mutations maintain the cache through Redux actions and expose framework bindings.</td><td>Fits applications already using Redux Toolkit or wanting a declared API layer. Redux is extra machinery when it serves no other purpose.</td></tr>
+        <tr><td><a href="https://www.apollographql.com/docs/react/">Apollo Client</a></td><td>GraphQL operations populate a normalized cache that identifies objects and merges fields across queries.</td><td>Queries notify consumers when relevant cached records change, while mutation and merge policies control cache updates. Apollo DevTools exposes operations and records.</td><td>Fits GraphQL clients that benefit from an identity-based graph cache. Identity and merge policies add configuration.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Redux became the de facto general state layer for many React applications because it provided one inspectable model for shared snapshots, events, reducers, middleware, selectors, and debugging. Its popularity as the automatic default declined as UI libraries handled more local and subtree state and specialized libraries such as Apollo, React Query, SWR, and Urql took responsibility for server-data fetching and caching. Redux Toolkit still fits applications that benefit from a consistent event vocabulary, centralized transition rules, middleware shared across features, and one inspectable action history.</p>
+
+  <h2 id="decision-framework">Choosing an Approach</h2>
+  <p class="lede">The questions below put the earlier decisions in dependency order. One screen can still use several state mechanisms.</p>
+
+  <p>The first question is whether a value must be stored at all. A value that can be calculated from current inputs should be derived. Values that must be stored needs an authority and a required lifetime, which narrow its placement. The next question identifies which readers and writers must change together. Only after those questions are answered do transition complexity and rendering cost determine whether a reducer, store, atom, machine, or more selective subscription is useful.</p>
+
+  <ol>
+    <li><strong>Representation:</strong> Is this a canonical fact, an intentional temporary copy, or a derived view?</li>
+    <li><strong>Authority:</strong> Which system or set of rules may confirm, replace, or merge it?</li>
+    <li><strong>Lifetime:</strong> Should it survive a component reset, navigation, reload, later visit, or device change?</li>
+    <li><strong>Coordination:</strong> Which consumers read it, and which actor is allowed to change it?</li>
+    <li><strong>Transitions:</strong> Are direct writes sufficient, or do events, rules that must always hold, and asynchronous outcomes need an explicit model?</li>
+    <li><strong>Propagation:</strong> Which consumers must run after a change, and is the measured cost large enough to require narrower subscriptions?</li>
+  </ol>
+
+  <p>The storefront example uses several answers at once. The current URL is the canonical representation of the search filter. A query cache or route loader holds product snapshots controlled by the server. One component owns an unsaved quantity. A signed-in cart combines a server-controlled record with a temporary optimistic overlay in the browser. The total is calculated from whichever cart snapshot the interface is currently presenting.</p>
+
+  <p>The screen therefore needs several state mechanisms, each with a different responsibility. Every value has an explicit authority and lifetime, and every additional copy is either temporary or synchronized through a stated rule. Each mechanism can then be tested against that responsibility. A library implements one part of the design instead of becoming the default location for every changing value.</p>
+
+</main>
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+
+</body>
+</html>
