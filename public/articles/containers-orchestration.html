@@ -10,8 +10,19 @@
 <style>
   /* Article-specific only. Shared patterns (cards, callouts, code blocks,
      sidebar, tables) come from articles.css. */
+  .state-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 20px 0;
+  }
+
   @media (max-width: 900px) {
     #helm { scroll-margin-top: 76px; }
+  }
+
+  @media (max-width: 600px) {
+    .state-options { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -33,7 +44,7 @@
   <div class="sidebar-section">Foundations</div>
   <a href="#why-containers">Why Containers</a>
   <a href="#what-is-a-container">What a Container Is</a>
-  <a href="#images">Images &amp; Supply Chain</a>
+  <a href="#images">Supply Chain</a>
 
   <div class="sidebar-section">Orchestration</div>
   <a href="#why-orchestration">Why Orchestration</a>
@@ -47,32 +58,30 @@
   <div class="sidebar-section">Operating It</div>
   <a href="#deployment-strategies">Deployment Strategies</a>
   <a href="#scaling">Scaling</a>
-  <a href="#limits">What It Doesn't Solve</a>
+  <a href="#limits">The Surrounding Platform</a>
 
-  <div class="sidebar-section">Decision Guide</div>
-  <a href="#choosing-platform">Choosing a Platform</a>
 </nav>
 
 <main>
 
-  <div class="eyebrow">Infrastructure · Deployment</div>
+  <div class="eyebrow">Software Architecture · Deployment</div>
   <h1>Containers and Orchestration</h1>
   <p class="subtitle">How container images become running workloads, how Kubernetes coordinates them, and when a simpler platform fits better.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~23 min read</span>
+    <div class="dot"></div><span>~26 min read</span>
     <div class="dot"></div><span>Last updated August 2026</span>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <section id="intro">
-  <p>Applications depend on more than their own source code. A deployment also needs a runtime, system libraries, and configuration that agree with the environment used for testing. Installing those pieces separately on each machine leaves room for drift, even when the setup begins from the same instructions.</p>
+    <p>Applications depend on more than their source code. They need runtimes, system libraries, configuration, and other dependencies. When these pieces are installed separately on each machine, differences between development, testing, and production can cause an application to behave differently after deployment.</p>
 
-  <p>Containers solve that problem by packaging an application with everything it depends on into one portable image, so the same image behaves the same way wherever it runs. Docker is the platform most teams use to build and run those images, and it's the one this article refers to throughout.</p>
+    <p>A <strong>container image</strong> packages an application with the files and dependencies it needs to run. A team can build and test an image once, then use the same artifact across environments. When the image is started, it runs as a container, using the host's kernel while remaining isolated from other processes. This article uses Docker to build images and run containers.</p>
   
-  <p>Once containers are spread across several hosts, someone or something still has to decide where each one runs and step in when one fails. Other services need a reliable way to find it, and rolling out a new version means replacing containers without taking the application down.</p>
+  <p>Running a few containers on one machine is relatively straightforward. Across multiple machines, workloads need to be placed where resources are available, restarted after failures, connected so they can find one another, and updated without unnecessarily interrupting users. An <strong>orchestrator</strong> automates these tasks across a pool of machines called a <strong>cluster</strong>.</p>
 
-  <p>An orchestrator is software that takes on these responsibilities, coordinating placement, recovery, discovery, and rollouts across a pool of machines. Kubernetes is the orchestrator this article focuses on. It gives teams one consistent API for describing what a workload needs, but operating it also means running a cluster and the platform services around it. A smaller deployment may not need any of that. Running containers on a single host or through a managed container service can be simpler than operating a cluster.</p>
+  <p>Kubernetes is an orchestrator for running and managing containerized workloads. Teams describe the workloads and resources they want through the Kubernetes API, and Kubernetes continually works to keep the cluster in that desired state. This article follows that path from Docker and containers through Kubernetes and Helm, then explains which responsibilities remain outside Kubernetes.</p>
   </section>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -82,15 +91,15 @@
   <p>Traditional server deployments install an application directly onto a long-lived machine. Patches, emergency edits, and dependency upgrades accumulate over time, so machines that began from the same setup can diverge. <strong>Environment drift</strong> is the resulting difference between environments that were intended to behave alike.</p>
 
   <h3>Virtual machines</h3>
-  <p>A <strong>virtual machine (VM)</strong> packages a complete guest operating system on a hypervisor, software that divides one physical machine's CPU, memory, and storage among several guests. Because the guest operating system travels inside the VM, moving it to a new host reproduces the same environment instead of depending on whatever that host has installed. This reduces environment drift compared to installing directly on a physical machine, since the VM carries its own operating system wherever it goes.</p>
+  <p>A <strong>virtual machine (VM)</strong> packages a complete guest operating system on a hypervisor, software that divides one physical machine's CPU, memory, and storage among several guests. The guest operating system travels inside the VM, so moving the VM to a new host reproduces the same environment. This reduces environment drift compared with installing an application directly on a physical machine.</p>
 
   <h3>Containers</h3>
-  <p>A <strong>container</strong> packages just the application and its own dependencies, not an entire operating system, and it runs as an isolated process on the host's existing kernel rather than inside a guest OS of its own. Compared to a VM, a container is faster to start and lighter on storage and memory, since there's no guest operating system to start or store. The downside is that isolation comes from the kernel itself rather than from a hypervisor. Sharing a kernel provides weaker isolation than hardware virtualization, which matters most when mutually untrusted tenants share the same host.</p>
+  <p>A <strong>container</strong> packages the application and its dependencies and runs them as isolated processes on the host's existing kernel. A VM runs its own guest operating system, while a container shares the host kernel. Without a guest OS to start or store, a container usually starts faster and uses less storage and memory. Kernel sharing provides less isolation than hardware virtualization, but that mostly matters when mutually untrusted tenants share the same host.</p>
 
-  <p>The figure compares a VM with the common Linux process-isolation model. The container side shows one host kernel beneath every container. Windows and hypervisor-isolated containers use different boundaries, which the next section describes.</p>
+  <p>The figure compares a VM with the common Linux process-isolation model. Each container has its own namespace and cgroup membership, implemented by the shared host kernel. Windows and hypervisor-isolated containers use different boundaries, which the next section describes.</p>
 
   <figure class="figure-wrap">
-    <svg class="figure" viewBox="-20 -20 600 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Layered comparison of a virtual machine stack and a container stack. A dashed line on each side separates what belongs to one instance from the shared host infrastructure beneath it. On the virtual-machine side, each app and its guest operating system sit above the line, while the hypervisor, host OS, and hardware are shared beneath every VM. On the container side, each app sits above the line, while one container runtime and the host kernel are shared beneath every container.">
+    <svg class="figure" viewBox="-20 -20 600 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Layered comparison of a virtual machine stack and a container stack. A dashed line on each side separates what belongs to one instance from the shared host infrastructure beneath it. On the virtual-machine side, each app and its guest operating system sit above the line. On the container side, each app and its isolation configuration sit above the line. The runtime, host operating system, and hardware are shared beneath the containers.">
 
       <rect class="figure-panel is-info" x="8" y="8" width="268" height="272"/>
       <text class="figure-heading is-info-text" x="142" y="28" text-anchor="middle">Virtual machines</text>
@@ -128,10 +137,12 @@
       <rect class="figure-node" x="422" y="44" width="118" height="30"/>
       <text class="figure-label" x="481" y="63" text-anchor="middle">App B</text>
 
-      <line class="figure-connector is-dashed" x1="296" y1="82" x2="540" y2="82"/>
+      <rect class="figure-node" x="296" y="90" width="118" height="30"/>
+      <text class="figure-label" x="355" y="109" text-anchor="middle">Isolation A</text>
+      <rect class="figure-node" x="422" y="90" width="118" height="30"/>
+      <text class="figure-label" x="481" y="109" text-anchor="middle">Isolation B</text>
 
-      <rect class="figure-node" x="296" y="90" width="244" height="30"/>
-      <text class="figure-label" x="418" y="109" text-anchor="middle">Namespaces &amp; cgroups</text>
+      <line class="figure-connector is-dashed" x1="296" y1="128" x2="540" y2="128"/>
 
       <rect class="figure-node" x="296" y="136" width="244" height="30"/>
       <text class="figure-label is-accent-text" x="418" y="155" text-anchor="middle">Container Runtime</text>
@@ -144,32 +155,32 @@
 
       <text class="figure-label" x="418" y="273" text-anchor="middle">one kernel, shared by every container</text>
     </svg>
-    <figcaption>The dashed line marks where each instance ends. A VM's app and guest OS sit above it, and the hypervisor, host OS, and hardware below are shared across every VM on the host. A container's app sits above the same kind of line, sharing one runtime and kernel with every other container below it.</figcaption>
+    <figcaption>The dashed line marks where each instance ends. A VM contains an app and guest OS. A container contains the app's processes and its namespace and cgroup configuration. Each isolation block represents the namespaces and cgroup membership that give its container a separate view of system resources and constrain its resource use. Containers share the runtime and host kernel beneath the line.</figcaption>
   </figure>
 
   <h3>Immutable infrastructure</h3>
-  <p>An <strong>image</strong> is a read-only package that includes everything needed to run a container, like files, binaries, libraries, and configuration. Starting an image creates a container with a writable layer and one or more running processes.</p>
+  <p>An <strong>image</strong> is a read-only package that includes everything needed to run a container, including files, binaries, libraries, and process configuration. Starting an image creates a container, a running instance with its own writable layer and one or more processes. The image underneath stays unchanged, so the same image can start any number of containers without affecting one another.</p>
   
-  <p>Because starting a new container is fast and cheap, container deployments usually replace an instance instead of changing it in place. A team builds and tests a new image, then starts new containers from that exact image and removes the old ones, so the artifact that passed testing is the same one that ends up running. Nothing is reinstalled, patched, or reconfigured by hand once a container is running, so drift has no chance to accumulate. Runtime changes live in a versioned build definition instead of in edits applied to a live machine, which is what makes this pattern <strong>immutable infrastructure</strong>.</p>
+  <p>Container deployments usually apply application and dependency changes by replacing an instance. Starting a container is fast and inexpensive enough for this model. A team builds and tests a new image, starts containers from the new image, and removes the old containers. The artifact that passed testing is therefore the one that runs in production. Runtime changes are recorded in a versioned build definition and applied through a replacement image. This replacement model is known as <strong>immutable infrastructure</strong>.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="what-is-a-container">What a Container Is</h2>
-  <p class="lede">An image supplies the filesystem and process configuration. A container runtime turns that description into an isolated process.</p>
+  <p class="lede">An image supplies the filesystem and process configuration. A container runtime starts an isolated process based on the image.</p>
 
 
-  <p><strong>Docker</strong> is the most popular containerization platform. It pairs a command-line client with a background daemon that builds images and starts containers from them. Docker Hub, its public registry, lets teams publish and pull those images. Docker did not invent the kernel isolation mechanisms containers rely on, but it packaged them behind one accessible workflow along with a layered filesystem for images. Docker, CoreOS, and other container projects founded the Open Container Initiative (OCI) in 2015 to provide a standard for containers.</p>
+  <p><strong>Docker</strong> is a widely used containerization platform. It pairs a command-line client with a background daemon that builds images and starts containers from them. Docker Hub is its public registry, a service that stores images so teams can publish and retrieve them. Docker did not invent the kernel isolation mechanisms containers rely on, but it packaged them behind one accessible workflow along with a layered filesystem for images, turning tools that once required deep Linux systems knowledge into commands any developer could run.</p>
 
-  <p>OCI publishes separate specifications for images, runtime bundles, and distribution. The image specification describes the manifest, configuration, and filesystem layers. The runtime specification describes the bundle and lifecycle expected by a low-level runtime. These standards let different projects build, distribute, and run the same image format.</p>
+  <p>As containers caught on, tool developers needed a way to build and run images without tying every tool to Docker specifically. Docker, CoreOS, and other container projects founded the Open Container Initiative (OCI) in 2015 to standardize container images and runtimes. OCI specifications define the image format, the configuration and lifecycle expected by a low-level runtime, and the protocol used to distribute images. Independent tools can exchange these standardized artifacts without depending on Docker.</p>
 
-  <p>A <strong>container runtime</strong> is the software that starts a container from an image and enforces its isolation using the host kernel. On Linux, <strong>namespaces</strong> give a process a scoped view of resources such as process identifiers, mounts, users, and network interfaces. <strong>Control groups</strong> (cgroups) account for and constrain resources such as CPU and memory. Capabilities, seccomp profiles, mandatory access controls, and runtime configuration add further restrictions. The resulting isolation depends on the runtime configuration and the security of the shared kernel.</p>
+  <p>A <strong>container runtime</strong> is the software that starts a container from an image and enforces its isolation using the host kernel. Several Linux kernel features work together to achieve this isolation. <strong>Namespaces</strong> give a process a scoped view of resources such as process identifiers, mounts, users, and network interfaces, so it sees what looks like its own machine even though it is running alongside others. <strong>Control groups</strong> (cgroups) account for and constrain resources such as CPU and memory, so one container cannot starve the others. <strong>Capabilities</strong> divide privileged operations into smaller permissions, <strong>seccomp profiles</strong> filter system calls, and <strong>mandatory access controls</strong> apply security rules to processes and files. The resulting isolation depends on these settings and the security of the shared kernel.</p>
 
-  <p>Windows supports process isolation and Hyper-V isolation. Hyper-V isolation gives each container a lightweight VM and its own kernel. Kubernetes support for Windows containers is limited to process isolation on Windows nodes. The shared-kernel examples below use Linux terms such as namespaces and cgroups.</p>
+  <p>Windows supports process isolation and Hyper-V isolation. Hyper-V isolation gives each container a lightweight VM and its own kernel, trading away some of the speed and density benefits of a shared kernel for stronger isolation between containers. Kubernetes support for Windows containers is limited to process isolation on Windows nodes. The shared-kernel examples below use Linux terms such as namespaces and cgroups.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="images">Images as a Supply Chain Artifact</h2>
+  <h2 id="images">Supply Chain</h2>
   <p class="lede">An image digest gives the build, registry, and deployment stages one identity for the packaged software.</p>
 
-  <p>A <strong>Dockerfile</strong> is a text file that lists, in order, the instructions used to assemble an image. Instructions such as <code>FROM</code>, <code>COPY</code>, and <code>RUN</code> each add a new filesystem layer on top of the one before it, whether that means selecting a base image, copying in files, or running a command. The builder executes the file from top to bottom, so the sequence of instructions in the file is also the sequence of layers in the resulting image.</p>
+  <p>A <strong>Dockerfile</strong> is a text file that lists, in order, the instructions used to assemble an image. <code>FROM</code> selects a base image, and instructions such as <code>COPY</code> and <code>RUN</code> create filesystem layers on top of it. Instructions such as <code>WORKDIR</code> and <code>CMD</code> set image configuration. The builder processes the instructions from top to bottom, so each step operates on the result of the steps before it.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -186,7 +197,7 @@
 <span class="kw">RUN</span> npm run build
 <span class="kw">RUN</span> npm prune --omit=dev
 
-<span class="cm"># Stage 2: runtime, nothing but the build output</span>
+<span class="cm"># Stage 2: runtime dependencies and build output</span>
 <span class="kw">FROM</span> <span class="s">node:24-alpine</span>
 <span class="kw">WORKDIR</span> <span class="s">/app</span>
 <span class="kw">COPY</span> <span class="s">--from=</span><span class="cn">build</span> <span class="s">/app/dist ./dist</span>
@@ -198,16 +209,16 @@
 
   <p>The builder reuses a cached result when an instruction and its inputs match an earlier build. Once an instruction misses the cache, every instruction after it reruns as well, even when its own inputs haven't changed. The example takes advantage of this by installing dependencies with <code>npm ci</code> before copying in the application source, so an edit to the source code does not invalidate the cached dependency layer. Placing stable steps like dependency installation before frequently changing ones like copying source files preserves more of the cache and shortens rebuilds. The exported image stores each of these steps as a read-only filesystem layer, and registries and hosts can share identical layers across separate images.</p>
 
-  <p>A <a href="ci-cd-devops.html">CI/CD pipeline</a> can build the image in a controlled environment, run tests, scan it, attach provenance or a signature, and publish it to a registry. A cryptographic <strong>digest</strong> identifies the published manifest and selects the exact image content for later environments. Trust depends on the verified build process and the evidence attached to that digest.</p>
+  <p>A <a href="ci-cd-devops.html">CI/CD pipeline</a> builds the image in a controlled, repeatable environment, runs automated tests and security scans, attaches a provenance record describing how the build was produced or a cryptographic signature, and publishes the image to a registry. An <strong>image manifest</strong> lists the image's configuration and filesystem layers. A cryptographic <strong>digest</strong> identifies the manifest and selects the exact image content for later environments.</p>
 
   <p>The image supports several architectural controls:</p>
 
   <ul>
-    <li><strong>Repeatability.</strong> A digest selects the same image content wherever the target platform can run it. Runtime configuration and host-kernel behavior can change how that content behaves.</li>
+    <li><strong>Repeatability.</strong> A digest selects the same image content wherever it is deployed, although runtime configuration and host operating system behavior can still affect execution.</li>
     <li><strong>Immutability.</strong> Image content is read-only. Tags are mutable references, so a digest provides the stable identity for promotion and verification.</li>
     <li><strong>Versioning.</strong> Tags provide readable labels, while digests provide an exact answer to which image content a deployment selected.</li>
     <li><strong>Promotion through environments.</strong> Staging and production can select the same digest. Using one digest avoids a rebuild that might silently choose a different dependency version.</li>
-    <li><strong>Vulnerability scanning.</strong> A scanner compares the packages it detects with vulnerability data. Its report covers those detected packages and known vulnerabilities. Application behavior and runtime configuration need separate assessment.</li>
+    <li><strong>Vulnerability scanning.</strong> A scanner compares the packages it detects with vulnerability data. Its report covers those detected packages and known vulnerabilities.</li>
     <li><strong>Supply-chain integrity.</strong> Signatures and provenance can bind an image digest to a build identity. A software bill of materials (SBOM) records components for later analysis.</li>
   </ul>
 
@@ -217,94 +228,43 @@
   <h2 id="why-orchestration">Why Orchestration Exists</h2>
   <p class="lede">Across several hosts, a deployment needs placement, replacement, and stable routes to healthy instances.</p>
 
-  <p>One host can run several containers under a process manager or Docker Compose. A multi-host deployment adds placement and coordination problems. Each workload needs capacity, failed instances need replacement, and clients need a stable route even as individual instances move.</p>
+  <p>A process manager, Docker Compose, or a similar tool can run containers on a single host, handle restarts, and let containers reach each other. Once an application spans multiple machines, new coordination problems appear. Workloads need placement on hosts with enough capacity, failed instances need automatic replacement, and clients need a stable way to reach a service even as its containers stop, restart, or move.</p>
 
-  <p>An <strong>orchestrator</strong> maintains a declared workload across a pool of machines. It schedules work according to available resources and placement rules, then watches the result and reacts when something goes wrong, replacing a failed instance and updating its routing so traffic still reaches a healthy one. Successful recovery requires spare capacity, correct health checks, and applications that tolerate replacement.</p>
+  <p>An <strong>orchestrator</strong> addresses these problems by managing a cluster as one pool of resources. Teams declare the desired state of an application, including how many instances to run, how much CPU and memory each one needs, and where they may be placed. The orchestrator continuously compares that declaration with the cluster's actual state. When a host fails, it reschedules the affected workloads onto another one. When an instance becomes unhealthy, it replaces that instance. An autoscaler can increase the declared number of instances as demand grows.</p>
 
-  <p>Docker Swarm, HashiCorp Nomad, and Kubernetes all coordinate container workloads across machines. Their APIs, scheduling features, and operating models differ.</p>
+  <p>Docker Swarm, HashiCorp Nomad, and Kubernetes all coordinate container workloads across multiple hosts. They share the goal of maintaining desired applications and automating operational tasks, but they differ significantly in their APIs, scheduling capabilities, ecosystem maturity, and operational complexity.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="core-objects">Core Objects</h2>
   <p class="lede">Each Kubernetes object describes one part of a running workload or the behavior around it.</p>
 
-  <p>Running an application on Kubernetes means creating API objects that describe the workload and its supporting behavior. The objects below cover the main path from a container image to a reachable application.</p>
+  <p>An orchestrator maintains a declared state, and Kubernetes represents it as a set of API objects. A team creates these objects to describe what it wants, such as how many instances of an application should be run and how they should be reachable, and Kubernetes continuously works to make the cluster's actual state match the declared state. Each object type is responsible for one part of that description, from running a set of containers to routing traffic to them.</p>
 
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr><th>Problem</th><th>Object</th><th>What it does</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>Run one or more related containers</td><td><strong>Pod</strong></td><td>The smallest deployable unit. Its containers are scheduled together and share network and selected storage resources.</td></tr>
-        <tr><td>Maintain replicas and roll out a stateless workload</td><td><strong>Deployment</strong></td><td>Manages ReplicaSets, replaces missing Pods, and controls the transition between Pod templates.</td></tr>
-        <tr><td>Give a workload a stable network identity</td><td><strong>Service</strong></td><td>Represents a changing group of Pods behind stable discovery, so clients do not track individual Pod addresses.</td></tr>
-        <tr><td>Describe external HTTP routing</td><td><strong>Ingress or Gateway API resources</strong></td><td>Declare how hostnames and paths reach Services. A controller must implement the routing.</td></tr>
-        <tr><td>Scope names and policy</td><td><strong>Namespace</strong></td><td>Groups namespaced objects so access rules, quotas, and other policies can target them.</td></tr>
-        <tr><td>Provide configuration to workloads</td><td><strong>ConfigMap</strong></td><td>Stores non-sensitive configuration separately from the container image, allowing the same image to be deployed with different settings. Sensitive values belong in a Secret instead.</td></tr>
-      </tbody>
-    </table>
-  </div>
+  <h3>Pod</h3>
+  <p>A <strong>Pod</strong> is the smallest deployable unit in Kubernetes. It groups one or more containers that are scheduled together, share a network namespace, and can share selected storage volumes. Most Pods run a single container. A Pod holds more than one when those containers need to run on the same machine and share that network or storage, such as the <strong>sidecar pattern</strong>, where a supporting container extends the main application by proxying its network traffic or synchronizing files with it. Even inside a shared Pod, each container keeps its own filesystem and resource settings.</p>
 
-  <p>A Pod can contain several tightly coupled containers. In the <strong>sidecar pattern</strong>, a supporting container extends the main application, perhaps by proxying its network traffic or synchronizing files. Containers in the Pod share its network namespace and can mount shared volumes. Each container keeps its own filesystem and resource settings.</p>
+  <p>Pods are disposable. Kubernetes replaces a failed or evicted Pod with a new one that has a new IP address and identity, rather than restarting the old Pod in place. An <strong>eviction</strong> deliberately removes a Pod from a node, often because the node is short of resources or needs maintenance. Applications run through objects that create and replace Pods as needed.</p>
 
-  <p>Controllers normally create application Pods from templates. A Deployment is appropriate for the stateless service below because it maintains replicas and manages rollouts. The Service then selects those Pods by label and gives clients a stable destination.</p>
+  <h3>Deployment</h3>
+  <p>A <strong>Deployment</strong> manages a set of identical Pods for a stateless application, whose durable data lives outside its instances. It creates the requested number of Pod replicas from one template and replaces any that fail, keeping the declared number of instances running without manual intervention. A Deployment does this through a <strong>ReplicaSet</strong>, an object that keeps a fixed number of Pods matching one template running. The Deployment creates a new ReplicaSet for each Pod template and shifts replicas from the old one to the new one during a rollout.</p>
 
-  <div class="code-block">
-    <div class="code-header">
-      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-filename">deployment.yaml</span>
-      <span class="code-lang">YAML</span>
-    </div>
-    <pre><code><span class="cn">apiVersion</span>: apps/v1
-<span class="cn">kind</span>: <span class="s">Deployment</span>
-<span class="cn">metadata</span>:
-  <span class="cn">name</span>: <span class="s">web</span>
-<span class="cn">spec</span>:
-  <span class="cn">replicas</span>: <span class="m">3</span>
-  <span class="cn">selector</span>:
-    <span class="cn">matchLabels</span>:
-      <span class="cn">app</span>: <span class="s">web</span>
-  <span class="cn">template</span>:
-    <span class="cn">metadata</span>:
-      <span class="cn">labels</span>:
-        <span class="cn">app</span>: <span class="s">web</span>
-    <span class="cn">spec</span>:
-      <span class="cn">containers</span>:
-        - <span class="cn">name</span>: <span class="s">web</span>
-          <span class="cn">image</span>: <span class="s">registry.example.com/web:1.4.2</span>
-          <span class="cn">resources</span>:
-            <span class="cn">requests</span>:
-              <span class="cn">cpu</span>: <span class="s">"250m"</span>
-              <span class="cn">memory</span>: <span class="s">"256Mi"</span>
-            <span class="cn">limits</span>:
-              <span class="cn">cpu</span>: <span class="s">"500m"</span>
-              <span class="cn">memory</span>: <span class="s">"512Mi"</span>
-<span class="cm">---</span>
-<span class="cn">apiVersion</span>: v1
-<span class="cn">kind</span>: <span class="s">Service</span>
-<span class="cn">metadata</span>:
-  <span class="cn">name</span>: <span class="s">web</span>
-<span class="cn">spec</span>:
-  <span class="cn">selector</span>:
-    <span class="cn">app</span>: <span class="s">web</span>
-  <span class="cn">ports</span>:
-    - <span class="cn">port</span>: <span class="m">80</span>
-      <span class="cn">targetPort</span>: <span class="m">8080</span></code></pre>
-  </div>
+  <h3>Service</h3>
+  <p>A <strong>Service</strong> gives a changing set of Pods one stable network identity. A Deployment creates replacement Pods with new IP addresses, so clients need an address independent of any individual Pod. A Service selects Pods by <strong>label</strong>, a key-value tag attached to a Kubernetes object, and exposes them behind one stable address.</p>
 
-  <p>Kubernetes reads the requests in the <code>resources</code> block when it places each Pod. The Service finds the Pods through the <code>app: web</code> label shared by its selector and the Pod template.</p>
+  <h3>Gateway API and Ingress</h3>
+  <p>The <strong>Gateway API</strong> describes how traffic enters a cluster and reaches Services. A <strong>Gateway</strong> represents the traffic-handling infrastructure, while an <strong>HTTPRoute</strong> maps hostnames and paths to Services. A compatible controller reads these resources and configures a load balancer or reverse proxy. Gateway API is installed as an add-on and supports features such as traffic weighting. Its resource model separates the concerns of infrastructure providers, cluster operators, and application developers. The older Ingress API provides simpler HTTP routing and is still common in existing clusters, though its API is frozen.</p>
 
-  <p>Other workload controllers manage different lifecycles. A <strong>Job</strong> runs Pods until a task completes, and a <strong>CronJob</strong> creates Jobs on a schedule. A <strong>DaemonSet</strong> places a Pod on every eligible node, or on a selected subset, for node-local functions such as networking and log collection.</p>
+  <p>Several supporting objects scope and configure these four. A <strong>Namespace</strong> groups related objects under one set of names and policies, letting a cluster host multiple teams, applications, or environments without name collisions. A <strong>ResourceQuota</strong> can cap the aggregate resources and object counts allowed within a Namespace. A <strong>ConfigMap</strong> stores non-sensitive configuration separately from the container image, so the same image can run with different settings in each environment. A <strong>Secret</strong> holds sensitive configuration separately since its security depends on access controls and encryption settings.</p>
 
-  <p>A Namespace scopes object names and policy targets. A <strong>ResourceQuota</strong> can cap aggregate resources and object counts within that scope.</p>
+  <p>Other objects manage workloads with a different lifecycle than a Deployment's stateless replicas. A <strong>Job</strong> runs Pods until a task completes, and a <strong>CronJob</strong> creates Jobs on a schedule. A <strong>DaemonSet</strong> places one Pod on every eligible node, or on a selected subset, for node-local functions such as networking and log collection.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="architecture">Control Plane and Worker Nodes</h2>
   <p class="lede">Kubernetes separates cluster coordination from the machines that run application containers.</p>
 
-  <p>A Kubernetes cluster separates coordination from workload execution. The <strong>control plane</strong> exposes the API, stores cluster data, schedules Pods, and runs controllers. <strong>Worker nodes</strong> provide the compute on which application Pods run. Small and development clusters can place both roles on one machine. The responsibilities stay separate even when the components share a host.</p>
+  <p>A Kubernetes cluster separates coordination from workload execution, so problems in a running application are less likely to affect the components that keep the whole cluster running. The <strong>control plane</strong> exposes the API, stores cluster data, schedules Pods, and runs controllers. <strong>Worker nodes</strong> provide the compute on which application Pods run. Small and development clusters can place both roles on one machine but the responsibilities are separated even when the components share a host.</p>
 
-  <p>The API server accepts and validates requests that read or change cluster state. It stores that state in etcd. The scheduler selects a node for each unscheduled Pod. Controllers compare the requested state with the observed state and act on any difference. This control loop is <strong>reconciliation</strong>, and it runs again whenever cluster conditions change.</p>
+  <p>The API server accepts and validates requests that read or change cluster state, and stores that state in <strong>etcd</strong>, a distributed key-value database. The scheduler watches for Pods that have been created but have no assigned node, and picks one for each. Controllers continuously compare what has been created with what was requested and correct any difference, such as recreating a Pod that disappeared. This repeating comparison is <strong>reconciliation</strong>.</p>
 
   <p>A worker node runs the components that turn an assigned Pod specification into containers and network routes:</p>
   <ul>
@@ -377,10 +337,10 @@
 
       <text class="figure-label" x="420" y="306" text-anchor="middle">application Pods</text>
     </svg>
-    <figcaption>The control plane coordinates desired state. Worker nodes run Pods through a kubelet and container runtime. A networking dataplane connects them.</figcaption>
+    <figcaption>The control plane coordinates desired state. Worker nodes run Pods through a kubelet and container runtime. Networking components connect them.</figcaption>
   </figure>
 
-  <p>Updating a Deployment changes the desired Pod template through the API server. The Deployment controller creates a new ReplicaSet, the scheduler assigns its pending Pods to nodes, and each node's kubelet asks the local runtime to start them. Several independent control loops cooperate to perform the deployment.</p>
+  <p>Updating a Deployment changes the desired Pod template through the API server. The Deployment controller creates a new ReplicaSet, the scheduler assigns its pending Pods to nodes, and each node's kubelet asks the local runtime to start them. Thus, several independent control loops cooperate to perform the deployment.</p>
 
   <div class="callout info">
     <div class="callout-title">Control-plane responsibility in managed Kubernetes</div>
@@ -391,13 +351,16 @@
   <h2 id="helm">Helm Charts and Releases</h2>
   <p class="lede">Helm renders a configurable set of Kubernetes resources and tracks each installed instance.</p>
 
-  <p>Raw manifests work well when an application has few resources and one configuration. Across several environments, most of the YAML stays the same and a small set of settings changes. Copying the files makes those shared parts harder to maintain. <a href="https://helm.sh/docs/intro/introduction/"><strong>Helm</strong></a> adds a templating and packaging layer for the resources. Kubernetes then validates, admits, and reconciles the rendered objects in the usual way.</p>
+  <p>A <strong>Kubernetes manifest</strong> is a YAML or JSON document that declares one or more API objects. Raw manifests work well when an application has only a few resources and one configuration. Across several environments, most of the YAML stays the same and a small set of settings changes. Copying the YAML gives those shared parts room to diverge. <a href="https://helm.sh/docs/intro/introduction/"><strong>Helm</strong></a> adds a templating and packaging layer for the resources. Helm renders the templates into standard manifests and submits the resulting resources to the Kubernetes API. Kubernetes then validates, accepts, and reconciles the rendered objects in the usual way.</p>
 
-  <p>A <strong>chart</strong> is a versioned package of files that describe a related set of Kubernetes resources. Its required <code>Chart.yaml</code> file identifies the chart and its version. The <code>templates/</code> directory contains manifest templates. A <code>values.yaml</code> file supplies their default inputs. The chart can keep the web Deployment and Service together and expose settings such as the image tag, replica count, and Service port.</p>
+  <h3>Helm chart</h3>
+  <p>A <strong>Helm chart</strong> is a versioned package of files that describe a related set of Kubernetes resources. Its required <code>Chart.yaml</code> file identifies the chart and its version. The <code>templates/</code> directory contains manifest templates, and a <code>values.yaml</code> file supplies their default inputs. The key idea to make charts reusable by separating templates from values. The chart can keep the YAML files for the Deployment and Service together as one package, while exposing the image tag, replica count, and Service port as settings for each environment.</p>
 
-  <p>A <strong>values file</strong> supplies configuration for one use of the chart. Helm merges user-supplied values over the chart's defaults, then evaluates the templates to produce concrete manifests. Separate values files can select development and production settings without copying the whole resource set. Teams review and validate the rendered output with the same policy checks they use for handwritten YAML.</p>
+  <h3>Values file</h3>
+  <p>The values file supplies configuration for one use of the chart. Helm merges user-supplied values over the chart's defaults, then evaluates the templates to produce concrete manifests. Separate values files can select development and production settings without copying the whole resource set. Teams review and validate the rendered output with the same policy checks they use for handwritten YAML.</p>
 
-  <p>Installing a chart creates a <strong>release</strong>, which is one named instance of that chart in a cluster namespace. The same chart can produce several independent releases with different names and values. Helm records the chart, configuration, and rendered resources for each release revision. A chart version identifies the package. A release revision identifies a point in the history of one installation.</p>
+  <h3>Releases</h3>
+  <p>Installing a chart creates a <strong>release</strong>, which is one named instance of that chart in a cluster namespace. One chart can produce several independent releases with different names and values, such as installing the same application separately for a staging namespace and a production namespace. Helm records the chart, configuration, and rendered resources for each release revision. A chart version identifies the package while a release revision identifies a point in the history of one installation.</p>
 
   <p>An upgrade renders the selected chart and values for an existing release, updates the affected Kubernetes resources, and records a new revision. A rollback selects an earlier release revision and applies its resource definitions as another revision. The rollback can restore an earlier Deployment image or configuration. Helm has no record of database migrations, messages sent to other systems, or other side effects outside the Kubernetes resources. Application changes need compatibility and recovery plans for those effects.</p>
 
@@ -405,21 +368,21 @@
   <h2 id="scheduling">Scheduling and Resource Management</h2>
   <p class="lede">The scheduler uses resource requests and placement rules to select a node. The node enforces resource limits at runtime.</p>
 
-  <p>Each container can declare a <strong>request</strong> and a <strong>limit</strong> for resources such as CPU and memory. The scheduler adds the requests for a Pod and chooses a node with enough allocatable capacity. A request reserves scheduling capacity without capping actual use. On Linux, the runtime normally maps limits to cgroups. The kernel throttles CPU use at the limit. Memory enforcement is reactive and may end with the kernel killing a process.</p>
+  <p>A node's CPU and memory are finite, and several Pods usually share the same one, so Kubernetes needs to know how much each container needs before deciding where to place it, and needs a way to stop one container from using more than its share once it is running. Each container can declare a <strong>request</strong> and a <strong>limit</strong> for resources such as CPU and memory. A request reserves capacity for scheduling. The scheduler adds the requests for a Pod and chooses a node with enough allocatable capacity. A limit constrains runtime use. On Linux, the container runtime normally maps limits to cgroups. The kernel enforces a CPU limit by throttling the process. When a process tries to allocate memory above its limit, the kernel may terminate it through an out-of-memory kill.</p>
 
-  <p>Placement is a bin-packing problem because every Pod has a shape and every node has finite capacity. Taints and tolerations reserve nodes or keep unsuitable workloads away. Node affinity selects machine characteristics, while Pod affinity and anti-affinity influence whether workloads run together or apart. Topology spread constraints provide a more direct way to distribute replicas across nodes, zones, or other failure domains.</p>
+  <p>Kubernetes schedules a Pod only on nodes that have enough available resources and that satisfy the Pod's placement rules. A <strong>taint</strong> repels Pods from a node unless they carry a matching <strong>toleration</strong>. Combining that pair with node affinity can reserve nodes for particular workloads, such as keeping ordinary applications off GPU nodes. <strong>Node affinity</strong> requires or prefers nodes with selected labels. <strong>Pod affinity</strong> and <strong>anti-affinity</strong> place workloads near each other or keep them apart. <strong>Topology spread constraints</strong> distribute replicas across failure domains, parts of the cluster such as nodes or zones that can fail independently.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="networking">Networking</h2>
   <p class="lede">Kubernetes networking covers Pod addresses, stable Service discovery, and traffic entering the cluster.</p>
 
-  <p>Pod networking gives workloads addresses for direct communication. Kubernetes expects each Pod to receive an IP on the cluster network, and a network plugin connects those addresses across nodes. Pods can communicate without address translation between them. The underlying dataplane may use routing, overlays, or tunnels to provide that behavior.</p>
+  <p>A cluster's networking has to let external traffic into the cluster and route traffic between Pods as they are replaced. Kubernetes gives every Pod its own IP on a shared cluster network. A <strong>Container Network Interface (CNI)</strong> plugin assigns Pod addresses and connects them across nodes. Pods can then communicate without address translation between them, so a Pod's address looks the same to itself and to every other Pod in the cluster.</p>
 
-  <p>Pods accept network traffic when no matching policy restricts them. A <strong>NetworkPolicy</strong> declares the allowed ingress or egress for selected Pods. Enforcement requires a network plugin that supports the API. Namespaces provide no automatic network isolation, so workloads that cross trust boundaries need an explicit policy design.</p>
+  <p>By default, every Pod accepts network traffic from any other Pod in the cluster. A <strong>NetworkPolicy</strong> turns this default-open behavior into an explicit allow list by declaring the permitted incoming traffic (<strong>ingress</strong>) or outgoing traffic (<strong>egress</strong>) for selected Pods. Namespaces provide no automatic network isolation. Workloads that cross trust boundaries need explicit policies and a CNI plugin that enforces them.</p>
 
-  <p>Service networking gives clients a stable destination for replaceable Pods. A Service represents a changing set of endpoints and usually provides a virtual IP plus DNS discovery. kube-proxy implements the forwarding rules on many clusters. Alternative dataplanes can provide the same Service behavior. A stable Service in front of changing Pods matches the <a href="web-networking.html#load-balancing">load-balancing pattern</a> from Web Application Networking.</p>
+  <p>Replacement Pods receive new addresses, so a client that remembered one would eventually try to reach a Pod that no longer exists. Service networking solves this by giving clients a stable destination for replaceable Pods. A Service represents a changing set of endpoints and usually provides a virtual IP plus DNS discovery. kube-proxy implements the forwarding rules on many clusters. Alternative dataplanes can provide the same Service behavior. A stable Service in front of changing Pods matches the <a href="web-networking.html#load-balancing">load-balancing pattern</a> from Web Application Networking.</p>
 
-  <p>Edge routing brings external traffic into the cluster. A Service of type <code>LoadBalancer</code> can expose a network service directly. Ingress and Gateway API resources describe protocol-aware HTTP routes from hostnames and paths to Services. A separate controller implements those rules. The Kubernetes project has frozen the Ingress API and recommends Gateway for new capabilities. Both provide the <a href="web-networking.html#reverse-proxy">reverse proxy</a> role at the cluster boundary.</p>
+  <p>Edge routing sends external traffic into the cluster. A Service of type <code>LoadBalancer</code> can expose one network service directly. Providing every HTTP-facing Service with its own load balancer becomes expensive and difficult to manage as the number of applications grows. Ingress and Gateway API resources let many Services share one entry point and describe HTTP routes from hostnames and paths to Services. These entry points commonly terminate TLS, where the controller decrypts the incoming connection using a certificate stored in a Secret, then forwards the request to a Service. A separate controller implements the declared rules. The Kubernetes project has frozen the Ingress API and recommends Gateway for new capabilities. Both provide the <a href="web-networking.html#reverse-proxy">reverse proxy</a> role at the cluster boundary.</p>
 
   <figure class="figure-wrap">
     <svg class="figure" viewBox="-20 -20 600 372" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Traffic path from an external client through an Ingress to a Service and out to three Pods, with a separate direct connection shown between two Pods over the flat pod network">
@@ -471,20 +434,20 @@
 
       <text class="figure-label" x="280" y="312" text-anchor="middle">Every Pod gets a routable IP on a flat cluster network.</text>
     </svg>
-    <figcaption>An edge-routing controller sends external traffic to a Service. Pods also communicate directly over the cluster network.</figcaption>
+    <figcaption>An edge-routing controller sends external traffic to a Service. Pods communicate directly over the cluster network.</figcaption>
   </figure>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="state">State and Storage</h2>
-  <p class="lede">Kubernetes can preserve storage and workload identity. Database correctness also depends on the software that manages the data.</p>
+  <p class="lede">Kubernetes can preserve storage and workload identity.</p>
 
-  <p>Deployment Pods are designed to be replaceable. A stateless replica can move because durable data lives elsewhere. Stateful software adds requirements around persistent storage, stable identity, ordering, replication, backup, and recovery. Kubernetes provides primitives for storage and identity. The application or a database operator implements the database-specific behavior.</p>
+  <p>Deployment Pods are designed to be replaceable. This works well for stateless applications because their durable data is stored elsewhere, so a failed Pod can be replaced on another node. Stateful applications, such as databases, have additional requirements because their data must survive Pod replacement. Individual replicas may need stable identities, and operations such as replication, backup, and recovery must preserve the data correctly. Kubernetes provides the building blocks for persistent storage and stable identity. The application or a <strong>database operator</strong>, a controller that automates database-specific operations, handles the remaining behavior.</p>
 
-  <p>A <strong>PersistentVolume</strong> represents storage available to the cluster, and a <strong>PersistentVolumeClaim</strong> requests storage for a workload. A Container Storage Interface (CSI) driver connects Kubernetes to a storage system. A <strong>StatefulSet</strong> gives Pods stable ordinal identities and ordered lifecycle behavior. When its template includes volume claim templates, each Pod receives a claim that persists across Pod replacement.</p>
+  <p>A <strong>PersistentVolume</strong> represents storage available to the cluster, while a <strong>PersistentVolumeClaim</strong> is a request for storage that a workload can use. Kubernetes binds the claim to suitable storage, which may be provisioned dynamically through a Container Storage Interface driver that connects Kubernetes to the underlying storage system. A <strong>StatefulSet</strong> gives its Pods stable identities and supports ordered deployment, scaling, and termination. When a StatefulSet defines volume claim templates, Kubernetes creates a separate PersistentVolumeClaim for each Pod, allowing its storage to persist when that Pod is replaced.</p>
 
-  <p>A <strong>StorageClass</strong> describes a class of storage and its provisioner. Dynamic provisioning can create a volume when a claim requests that class, avoiding manual pre-provisioning. The storage provider and workload design determine retention, topology, access mode, backup, and restore behavior.</p>
+  <p>A <strong>StorageClass</strong> defines a type of storage and how it should be provisioned. When a PersistentVolumeClaim requests that class, Kubernetes can dynamically provision a suitable volume on demand. Details such as where the storage can be attached, how it can be accessed, whether it is retained after release, and how backup and restore work depend on the StorageClass configuration, storage provider, and workload design.</p>
 
-  <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:20px 0;">
+  <div class="state-options">
     <div class="card teal">
       <div class="card-label">In-Cluster</div>
       <div class="card-title">Run stateful workloads on Kubernetes</div>
@@ -497,17 +460,17 @@
     </div>
   </div>
 
-  <p>Stateless workloads align naturally with replaceable Pods. Stateful workloads can also run well on Kubernetes when a team has an appropriate storage system and an operator that understands the application's lifecycle. A managed external service moves part of that operational work to the provider. The choice concerns who operates the data system as much as where its storage is attached.</p>
+  <p>Stateless workloads fit naturally with Kubernetes because their Pods can be replaced without preserving local state. Stateful workloads can run effectively on Kubernetes when reliable storage is available and the application or an operator can manage replication, backup, recovery, and upgrades. A managed external service shifts much of this operational responsibility to the service provider. The choice is therefore not just about where the data is stored, but also about who is responsible for operating and protecting it.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="deployment-strategies">Deployment and Rollout Strategies</h2>
   <p class="lede">A rollout strategy balances downtime, temporary resource use, and exposure to a faulty version.</p>
 
-  <p>Kubernetes uses probe results to decide when a new container can receive traffic and when the kubelet should restart it. A <strong>startup probe</strong> delays the other checks until initialization completes. A <strong>readiness probe</strong> controls whether Services send traffic to the Pod. A <strong>liveness probe</strong> tells the kubelet when to restart a container.</p>
+  <p>Kubernetes uses probe results to decide when a new container can receive traffic and when the kubelet should restart it. A <strong>startup probe</strong> delays the other checks until initialization completes, giving a slow-starting application room to boot without being mistaken for unhealthy. A <strong>readiness probe</strong> controls whether Services send traffic to the Pod. A container can be running normally but not yet ready for requests, such as while it is still warming a cache, so failing this probe pulls it out of rotation without restarting it. A <strong>liveness probe</strong> tells the kubelet when to restart a container, for cases where the process is technically still running but stuck in a way only a restart can fix.</p>
 
-  <p>A Deployment uses <strong>RollingUpdate</strong> unless configured with the Recreate strategy. The controller scales up a new ReplicaSet and scales down the old one within the <code>maxSurge</code> and <code>maxUnavailable</code> bounds. Availability during the rollout depends on those bounds, readiness probes, available capacity, and application compatibility.</p>
+  <p>When an application is updated, Kubernetes needs to replace the old Pods without unnecessarily interrupting service. By default, a Deployment uses a <strong>RollingUpdate</strong>, which gradually scales up a new ReplicaSet and scales down the old one within the <code>maxSurge</code> and <code>maxUnavailable</code> bounds. Alternatively, the <strong>Recreate</strong> strategy removes the old Pods before creating the new ones, which can cause a period of unavailability.</p>
 
-  <p>Rolling, blue-green, and canary rollouts describe how workloads and traffic move from one version to the next. Kubernetes provides the objects and controllers used to implement each pattern.</p>
+  <p>Applications can use broader rollout patterns to control how new versions are introduced and receive traffic. <strong>Rolling</strong>, <strong>blue-green</strong>, and <strong>canary</strong> rollouts make different trade-offs between availability, resource usage, rollback speed, and the risk of exposing users to a faulty release.</p>
 
   <div class="table-wrap">
     <table>
@@ -517,68 +480,47 @@
       <tbody>
         <tr><td>Gradual replacement with controlled availability</td><td>Rolling update</td><td>A Deployment scales old and new ReplicaSets within the configured surge and unavailability bounds.</td></tr>
         <tr><td>Quickly reverse the traffic cutover</td><td>Blue-green</td><td>Two versions run side by side. Traffic can switch back quickly when their state changes are compatible.</td></tr>
-        <tr><td>Reduce the blast radius of a risky change</td><td>Canary</td><td>The new version receives a small slice of real traffic first. Its share increases after health and behavior checks pass.</td></tr>
+        <tr><td>Limit exposure to a risky change</td><td>Canary</td><td>The new version receives a small slice of real traffic first. Its share increases after health and behavior checks pass.</td></tr>
       </tbody>
     </table>
   </div>
 
-  <p>A Deployment implements rolling replacement natively. Blue-green needs parallel versions and a mechanism for redirecting traffic. A traffic-weighted canary needs a capable gateway, ingress controller, service mesh, or rollout controller. Scaling ReplicaSets only changes endpoint counts. Exact request shares require a traffic layer that supports weights.</p>
+  <p>Kubernetes provides different levels of native support for these patterns. A Deployment implements rolling replacement directly through RollingUpdate. Blue-green and canary need additional mechanisms to control which version receives traffic. Blue-green can switch traffic between parallel versions using resources such as Services. Precise canary traffic weighting requires a capable gateway, ingress controller, service mesh that manages service-to-service traffic, or rollout controller.</p>
 
-  <p>Infrastructure maintenance creates a different kind of interruption. A <strong>PodDisruptionBudget</strong> limits how many replicas may be unavailable through voluntary evictions, such as a node drain. The budget can make a drain wait. Involuntary failures or a shortage of replacement capacity can make the workload unavailable.</p>
+  <p>Infrastructure maintenance creates a different kind of interruption. A <strong>PodDisruptionBudget</strong> (PDB) limits how many Pods may be unavailable during voluntary disruptions, such as draining a node by safely evicting its workloads for maintenance. If another eviction would violate the budget, the drain may have to wait. A PDB does not prevent involuntary failures, such as a node failure, and cannot maintain availability when the cluster lacks capacity for replacement Pods.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="scaling">Scaling</h2>
   <p class="lede">Workload replicas, Pod resources, and cluster nodes scale through separate control loops.</p>
 
-  <p>Horizontal scaling changes the number of instances. Vertical scaling changes the resources available to an instance. Kubernetes supports both, although adding replicas only increases capacity when the application can divide work among them.</p>
+  <p><strong>Horizontal scaling</strong> changes the number of workload instances. <strong>Vertical scaling</strong> changes the resources available to each instance. Their effectiveness depends on how the application uses those resources. Horizontal scaling increases capacity by adding replicas, so the application's work must be distributable among them. A stateless web server handling many independent requests is a natural fit. A single job that cannot divide its work gains little from additional replicas.</p>
 
-  <p>A <strong>HorizontalPodAutoscaler</strong> periodically changes a scalable workload's desired replica count from observed resource, custom, or external metrics. CPU and memory utilization depend on a metrics API and meaningful resource requests. Replica count follows the configured metrics. Traffic affects scaling only when one of those metrics reflects the demand.</p>
+  <p>It is impractical to manually adjust replica counts as demand changes, so Kubernetes can automate the process. A <strong>HorizontalPodAutoscaler</strong> periodically adjusts a scalable workload's desired replica count from observed metrics. These can describe resources such as CPU and memory or application demand such as request rate and queue length. CPU and memory scaling relies on a cluster metrics API and appropriate resource requests.</p>
 
-  <p>More Pods require enough node capacity. A node autoscaler can add capacity when Pods are unschedulable and remove suitable underused nodes according to its implementation and provider integration. Workload and node scaling use independent control loops. Scale-up time includes Pod startup and any delay while new nodes become ready.</p>
+  <p>Additional Pods require somewhere to run. A node autoscaler can add nodes when Pods cannot be scheduled because the cluster lacks suitable capacity. It can remove eligible underused nodes according to its implementation and provider integration. Pod and node autoscaling operate through separate control loops, so scaling may take longer when Kubernetes must first provision a node and then start the new Pods.</p>
 
-  <p>A <strong>VerticalPodAutoscaler</strong> (VPA) recommends or applies new resource requests. Its update mode determines how recommendations reach running Pods. Recreate mode evicts Pods so their workload controller creates replacements. In-place modes can resize running Pods when the cluster and VPA features support the change. Horizontal and vertical autoscaling need coordinated metrics because both controllers can otherwise react to the same resource signal.</p>
-
-  <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="limits">What Kubernetes Doesn't Solve</h2>
-  <p class="lede">Kubernetes supplies workload orchestration primitives. A production platform adds application telemetry, security policy, delivery, and recovery.</p>
-
-  <p>Kubernetes exposes workload and node status, events, and component metrics. Understanding application behavior requires logs, application metrics, traces, dashboards, and alerting. The team chooses and operates that observability stack alongside the cluster.</p>
-
-  <p>A <strong>Secret</strong> object separates sensitive data from ordinary configuration. Its values are base64 encoded, and etcd stores them unencrypted by default. Teams configure encryption at rest and design access control, rotation, external secret stores, and application handling separately. Pod Security Admission enforces standardized Pod restrictions. Organization-specific rules, such as approved registries or required labels, need admission policies or a policy engine.</p>
-
-  <p>Image building, vulnerability risk decisions, backup, and disaster recovery belong to systems outside the workload controllers. A <a href="ci-cd-devops.html">CI/CD pipeline</a>, registry controls, storage tooling, and operational processes provide those functions.</p>
-
-  <p>A production platform connects the cluster API with delivery, identity, policy, observability, and recovery systems. Kubernetes coordinates the running containers inside that larger operating environment.</p>
+  <p><strong>VerticalPodAutoscaler</strong> (VPA) is a separately installed controller that chooses CPU and memory requests for Pods. It uses observed resource usage to recommend or apply new requests as workload needs change. Its update mode determines how recommendations reach running Pods. <code>Recreate</code> evicts a Pod so its workload controller can replace it. When supported by the installed VPA and cluster, <code>InPlaceOrRecreate</code> attempts an in-place resize and falls back to replacement when necessary. Horizontal and vertical autoscaling need careful configuration when they respond to the same resource metrics because their control loops can interact and produce unstable scaling behavior.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="choosing-platform">Choosing the Right Platform</h2>
-  <p class="lede">The decision depends on whether Kubernetes solves enough recurring coordination problems to justify the platform work around it.</p>
+  <h2 id="limits">The Platform Around Kubernetes</h2>
+  <p class="lede">A production platform combines Kubernetes with application telemetry, security policy, delivery, and recovery systems.</p>
 
-  <p>Kubernetes brings a large API surface and several distributed control loops. Managed control planes operate some of those components. Teams continue to own workload design and some combination of upgrades, policy, networking, observability, and incident diagnosis. Scheduling, independent scaling, standard workload APIs, or a shared platform can justify that work when they solve recurring problems.</p>
+  <h3>Observability</h3>
+  <p>Kubernetes can tell you whether workloads and nodes are running, and it exposes status, events, and system metrics. That information helps diagnose the cluster, but it does not explain everything happening inside an application. Teams need logs, application metrics, traces, dashboards, and alerts to understand application behavior. Kubernetes can integrate with these tools as part of a complete observability system.</p>
 
-  <p>Local Kubernetes is useful when development needs to exercise manifests, controllers, or other cluster behavior. Docker Compose or a direct container runtime usually gives a faster loop for applications that only need their containers and dependencies.</p>
+  <h3>Secrets</h3>
+  <p>Applications need a safe way to receive passwords, API keys, and other sensitive values. Kubernetes provides Secrets to keep these values separate from ordinary configuration. The <code>data</code> field in a Secret manifest uses base64 encoding, which provides no encryption. Teams must decide who can access secrets, how they are encrypted at rest and rotated, and whether they should come from an external secret store.</p>
 
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr><th>Situation</th><th>Fits well</th><th>Why</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>One application on one host</td><td>Docker Compose or a system service</td><td>Coordinates several local containers without introducing a cluster control plane.</td></tr>
-        <tr><td>A fixed set of services across a few hosts</td><td>A simpler orchestrator or managed container service</td><td>Provides scheduling and recovery with fewer APIs and integrations to operate.</td></tr>
-        <tr><td>Many services, multiple teams, need to scale independently</td><td>Kubernetes</td><td>Shared scheduling, recovery, and workload APIs can repay the cost of operating the platform.</td></tr>
-        <tr><td>Workloads that spike or run occasionally</td><td>Serverless or managed containers</td><td>Moves node management and much of the scaling behavior to a provider, with platform-specific limits and pricing.</td></tr>
-        <tr><td>Mostly managed cloud services</td><td>No orchestrator</td><td>A small number of custom workloads may not justify a separate orchestration platform.</td></tr>
-      </tbody>
-    </table>
-  </div>
+  <h3>Admission policy</h3>
+  <p>Kubernetes can restrict what Pods are allowed to do through <strong>Pod Security Admission</strong>, which applies built-in security profiles when a Pod is created. Organizations often need additional rules specific to their environment, such as requiring particular labels or allowing images only from approved registries. Admission policies or a separate policy engine can enforce rules defined by the organization.</p>
 
-  <div class="callout info">
-    <div class="callout-title">When managed Kubernetes helps</div>
-    <p>Amazon EKS, Google Kubernetes Engine, and Azure Kubernetes Service operate the control plane. Managed Kubernetes fits teams that need the Kubernetes API and want the provider to own those components. Node management, networking integration, upgrade automation, and security defaults differ across services.</p>
-  </div>
+  <h3>Build and delivery</h3>
+  <p>A <a href="ci-cd-devops.html">CI/CD pipeline</a> builds container images. The pipeline, image registry, vulnerability scanning tools, and the team's release process determine whether an image is safe to deploy. Kubernetes receives the resulting image and manages the workload that runs it.</p>
 
-  <p>A team can begin with one host or a managed container service and adopt Kubernetes when coordination problems appear. Some products never reach that point. Current reliability, scaling, and governance requirements determine the smallest workable model. When later migration is plausible, portable images and clear data and network boundaries keep that option open.</p>
+  <h3>Backup and recovery</h3>
+  <p>Kubernetes can attach persistent storage to workloads. Teams need a backup and disaster recovery strategy that defines what data to back up, where copies are stored, how long they are retained, and how applications and data are restored after a failure. Storage and backup tools implement those decisions.</p>
+
+  <p>A production Kubernetes platform includes more than the cluster itself. Kubernetes provides the API and controllers that coordinate workloads. Surrounding systems handle delivery, identity, policy, observability, secrets, and recovery.</p>
 
 </main>
 </div><!-- end .shell -->
