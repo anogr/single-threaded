@@ -8,8 +8,21 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="articles.css">
 <style>
-  /* Article-specific only. Shared patterns (cards, callouts, code blocks,
-     sidebar, tables) come from articles.css. */
+  /* Article-specific only. Shared patterns come from articles.css. */
+  @media (max-width: 700px) {
+    .testing-pyramid .figure-title {
+      font-size: 16px;
+    }
+
+    .testing-pyramid .figure-label {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .testing-pyramid .figure-note {
+      font-size: 16px;
+    }
+  }
 </style>
 </head>
 
@@ -17,7 +30,7 @@
 
 <header class="mobile-header">
   <a class="mobile-logo" href="index.html">Single Threaded <span>— Articles</span></a>
-  <button class="hamburger" id="nav-toggle" aria-label="Open navigation">&#9776;</button>
+  <button class="hamburger" id="nav-toggle" type="button" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false">&#9776;</button>
 </header>
 
 <div class="nav-overlay" id="nav-overlay"></div>
@@ -27,313 +40,431 @@
 <nav class="sidebar" id="sidebar">
   <a class="sidebar-back" href="index.html">← All articles</a>
 
-  <div class="sidebar-section">The Pyramid</div>
-  <a href="#pyramid">The Testing Pyramid</a>
-  <a href="#unit-tests">Unit Tests</a>
-  <a href="#integration-tests">Integration &amp; Contract Tests</a>
-  <a href="#e2e-tests">End-to-End Tests</a>
+  <div class="sidebar-section">Strategy</div>
+  <a href="#testing-map">A Map of Testing</a>
+  <a href="#risk">Risk-Based Test Selection</a>
+  <a href="#development-practices">Development Practices</a>
 
-  <div class="sidebar-section">Writing Testable Code</div>
-  <a href="#writing-tests">Writing a Good Test</a>
-  <a href="#testability">Testability</a>
-  <a href="#mocking">Mocking</a>
+  <div class="sidebar-section">Test Scope and Purpose</div>
+  <a href="#levels">Test Levels</a>
+  <a href="#quality-attributes">Functional Behavior and Quality Attributes</a>
+  <a href="#change-release">Change and Release Tests</a>
 
-  <div class="sidebar-section">Tools &amp; Practice</div>
-  <a href="#unit-tools">Unit &amp; Component Tools</a>
-  <a href="#e2e-tools">End-to-End Tools</a>
-  <a href="#automation">What's Worth Automating</a>
-  <a href="#pipeline">Local Dev &amp; CI</a>
+  <div class="sidebar-section">Design and Automation</div>
+  <a href="#portfolio">The Test Portfolio</a>
+  <a href="#effective-tests">Effective Test Design</a>
+  <a href="#testability">Testability in Software Design</a>
+  <a href="#test-doubles">Test Doubles</a>
+  <a href="#automation">Automation Decisions</a>
+
+  <div class="sidebar-section">Tools and Delivery</div>
+  <a href="#tools">Testing Tools by Job</a>
+  <a href="#feedback-loops">Feedback Loops</a>
+  <a href="#build-strategy">Putting the Strategy Together</a>
 </nav>
 
 <main>
 
   <div class="eyebrow">Delivery · Testing</div>
   <h1>Testing Strategy</h1>
-  <p class="subtitle">The testing pyramid, what's worth automating, and when manual testing still earns its place.</p>
+  <p class="subtitle">How risk, test levels, automation, and specialist tools combine into a testing strategy from local feedback to production.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~19 min read</span>
+    <div class="dot"></div><span>~30 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════
-       INTRO
-  ════════════════════════════════════════════════════ -->
   <section id="intro">
-    <p>A <strong>testing strategy</strong> is a deliberate plan for where testing effort goes, based on the risk a piece of code carries, the cost of testing it, and how quickly a test gives feedback. It is not a rule that says write more tests. A team can have excellent coverage on the wrong layer and still ship regressions weekly, because the tests that exist run slowly, cover the wrong paths, or duplicate each other at three different levels.</p>
-    <p>This article covers the shapes tests come in, what separates code that's easy to test from code that fights back, and where mocking and manual testing fit around the automated core.</p>
+    <p>A <strong>testing strategy</strong> is a plan for building confidence in software quality. It directs testing effort toward failures with meaningful consequences and ensures useful evidence is available when decisions need to be made. An extensive test suite can still leave important risks unexamined, particularly when its tests do not reflect how the software is expected to behave or fail.</p>
+
+    <p>Testing takes many forms, from automated checks to human evaluation. Developers and testers contribute different kinds of evidence throughout delivery, often at different stages and with different strengths. A coherent strategy brings that evidence together while making clear what each method can reveal and where its limits lie.</p>
+
+    <p>The goal is not to test everything in every possible way. It is to choose methods that address meaningful risks and provide evidence when it can still influence a decision. A good strategy makes those choices deliberate.</p>
   </section>
 
-  <!-- ═══════════════════════════════════════════════════
-       PYRAMID
-  ════════════════════════════════════════════════════ -->
-  <h2 id="pyramid">The Testing Pyramid</h2>
-  <p class="lede">Three layers, each trading speed for realism.</p>
+  <h2 id="testing-map">A Map of Software Testing</h2>
+  <p class="lede">Four independent questions describe a test more clearly than one label can.</p>
 
-  <p>The <strong>testing pyramid</strong> groups automated tests into three layers by how much of the system they exercise:</p>
-  <ul>
-    <li><strong>Unit tests</strong> sit at the base, checking one function or module in isolation.</li>
-    <li><strong>Integration tests</strong> sit in the middle, checking that several pieces work together.</li>
-    <li><strong>End-to-end tests</strong> sit at the top, driving the whole system the way a real user would.</li>
-  </ul>
-  <p>The pyramid shape is the point: many cheap, fast tests at the bottom, fewer slow, expensive ones at the top.</p>
+  <p>Terms such as <strong>unit test</strong>, <strong>automated test</strong>, and <strong>acceptance test</strong> describe different aspects of testing. A clearer description asks how the test is performed, how much of the system participates, what the test is intended to establish, and where it provides feedback in the delivery process.</p>
+
+  <h3>Execution method</h3>
+  <p><strong>Execution method</strong> describes how evidence is obtained. <strong>Dynamic testing</strong> runs software and observes its behavior. Most dynamic testing in software development is automated. <strong>Automated tests</strong> supply inputs, observe results, and compare them with programmed expectations. They support repeatable testing throughout development and delivery, from fast checks of isolated code to tests that exercise complete workflows. Dynamic testing can also be performed by a person. <strong>Scripted manual testing</strong> follows prepared procedures and expected results, while <strong>exploratory testing</strong> combines learning, test design, and execution as a person investigates the software. Other methods do not execute the software. Reviews rely on human examination of requirements, designs, or code, while static analysis tools such as type checkers and linters inspect artifacts automatically.</p>
+
+  <h3>Scope</h3>
+  <p><strong>Scope</strong> describes how much of the system participates in a test. A test might exercise a small piece of logic in isolation, several collaborating components, or a complete workflow across system boundaries. Scope affects which failures a test can expose, how easily a failure can be isolated, and how much surrounding infrastructure the test depends on.</p>
+
+  <h3>Purpose</h3>
+  <p><strong>Purpose</strong> describes what the testing is intended to establish. A test might examine functional behavior, accessibility, security, performance, recovery, or another property that matters to the system. The purpose determines which risk or quality concern the evidence is meant to address.</p>
+
+  <h3>Placement</h3>
+  <p><strong>Placement</strong> describes where testing provides feedback in the delivery process. The same behavior can be examined while code is being written, during continuous integration, before release, or in a production-like environment. Earlier feedback can make defects cheaper to correct, while later evaluation can reveal behavior that depends on integration, configuration, infrastructure, or realistic use.</p>
+
+  <p>The same workflow can be tested in different ways for different purposes. An automated checkout test might add a product, enter payment details, and confirm that an order is created. A person could exercise the same workflow using only a keyboard to evaluate its accessibility. Both tests may cover much of the same system and run at the same point in delivery while differing in execution method and purpose.</p>
+
+  <p>Every dynamic test needs a basis for deciding whether the observed result is acceptable. This basis is the <strong>test oracle</strong>. If a test checks an invoice total, for example, it needs an independent basis for determining what the total should be. That basis might come from a business rule or a calculation performed separately from the implementation. If the test calculates the expected total using the same incorrect rule as the application, both can agree while still producing the wrong result.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Aspect</th>
+          <th>Question</th>
+          <th>Examples</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Execution method</td>
+          <td>How is evidence obtained?</td>
+          <td>Review, scripted manual testing, exploratory testing, static automated analysis, dynamic automated testing</td>
+        </tr>
+        <tr>
+          <td>Scope</td>
+          <td>How much of the system participates?</td>
+          <td>Isolated logic, component, connected components, complete system</td>
+        </tr>
+        <tr>
+          <td>Purpose</td>
+          <td>What is the test intended to establish?</td>
+          <td>Behavior, performance, security, accessibility, recovery</td>
+        </tr>
+        <tr>
+          <td>Placement</td>
+          <td>When does the evidence arrive?</td>
+          <td>During development, commit, automated pipeline, pre-release, production</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="risk">Risk-Based Test Selection</h2>
+  <p class="lede">A testing strategy starts with significant risks and the evidence needed to detect them.</p>
+
+  <p><strong>Risk-based testing</strong> gives more attention to failures that are likely or would have serious consequences. A failed payment, for example, can lose revenue or charge a customer incorrectly. Risk can be higher where software changes frequently, depends on an unreliable boundary, or has failed before. Identifying these risks gives the team a reason for each test before choosing how to perform it.</p>
+
+  <p>Consider the risk of charging a customer twice when a payment request is retried. Evidence that a normal payment succeeds is insufficient. The team needs to observe what happens when the first request succeeds but its response is lost and the request is sent again. A test can reproduce that condition and verify that only one charge is created. A different payment risk, such as an incorrect total, requires different inputs and a different oracle. No single payment test provides evidence about every important failure.</p>
+
+  <p>A <strong>test condition</strong> makes this reasoning explicit by stating the situation to examine and the result that should be observed. “The customer is charged once when a successful payment request is retried” is more useful than “test payment retries.” It identifies the relevant state and expected result clearly enough to guide the design of the test.</p>
+
+  <p>A lightweight test plan collects the important test conditions for a change and identifies which evidence is needed before release. Writing these conditions early can expose missing requirements and risky assumptions while there is still time to change the design. The plan makes uncovered risks visible so the team can decide whether further testing or another form of mitigation is needed.</p>
+
+  <h2 id="development-practices">Testing in Development and Collaboration</h2>
+  <p class="lede">Tests and examples can clarify expected behavior before and during implementation.</p>
+
+  <p><strong>Test-driven development (TDD)</strong> is a programming practice in which a developer writes a small failing test, writes enough code to pass it, and then improves the design while keeping the tests passing. This short cycle uses tests to guide implementation and creates focused regression checks as the code develops. TDD has had considerable influence on software development practice, particularly the idea that tests can help shape code rather than merely check finished code. Teams may adopt that idea without consistently following the full TDD cycle.</p>
+
+  <p><strong>Acceptance test-driven development (ATDD)</strong> uses examples to establish the conditions for accepting a change before implementation begins. Business, development, and testing perspectives contribute to those examples so that important expectations become explicit. Selected examples can become automated acceptance tests through an interface that provides reliable evidence. The main contribution of ATDD is establishing a shared understanding of acceptance before implementation makes assumptions more expensive to change.</p>
+
+  <p><strong>Behavior-driven development (BDD)</strong> uses concrete examples to discover and describe how a system should behave. Business and technical participants develop those examples together to resolve ambiguity and build a shared understanding of the required behavior. The words Given, When, and Then can give an example a readable structure. <em>Given a payment has succeeded, when the request is retried, then the customer is not charged again.</em> Selected examples can be connected to automated tests. BDD puts the discussion of observable behavior at the center of development rather than treating examples primarily as test cases.</p>
+
+  <p>These practices use tests and examples at different points in development, but they share an emphasis on making expectations concrete. For a payment retry, the expected outcome might be that the customer is charged exactly once even when a successful request is repeated. Product knowledge establishes that expectation, implementation knowledge identifies where duplicate processing can occur, and testing knowledge helps reproduce the interruption and observe the result. The result is a specific condition that can guide implementation and later provide evidence that the expected behavior holds.</p>
+
+  <h2 id="levels">Test Levels from Units to Complete Systems</h2>
+  <p class="lede">Test level describes the boundary around the software that participates in a test.</p>
+
+  <p>A <strong>test level</strong> describes how broadly a test exercises the system. A narrow boundary supports fast feedback and makes failures easier to locate. A wider boundary includes interactions that narrower tests deliberately exclude. The useful boundary depends on the risk and the evidence needed.</p>
+
+  <p>Teams use different names for the same kind of tests. We will use unit, component, integration, and system to describe increasingly broad test boundaries. Other common labels describe something different. An API test identifies the entry point, a contract test examines an agreement at a boundary, an end-to-end test emphasizes a complete journey, and acceptance testing describes whether the result is fit for stakeholder use.</p>
+
+  <h3 id="unit-component">Unit and Component Tests</h3>
+
+  <p>A <strong>unit test</strong> exercises a small, deliberately isolated part of the software. The unit may be a function, class, module, or another boundary chosen by the codebase. Unit tests usually control dependencies that would make execution slow, unpredictable, or difficult to reproduce. Their narrow scope supports fast feedback and precise failures.</p>
+
+  <p>A <strong>component test</strong> exercises a larger part of the software while controlling systems outside its boundary. For example, a frontend component test might render a page with its real routing and state management while supplying controlled responses for external requests. Component tests allow related parts to interact without requiring the complete system to be deployed.</p>
+
+  <p>Unit and component tests are useful when the important behavior fits inside a narrow boundary. Tests with wider boundaries are needed when the risk depends on collaboration between parts.</p>
+
+  <h3 id="integration-contract-api">Integration, API, and Contract Tests</h3>
+
+  <p>An <strong>integration test</strong> examines whether parts work together through a real connection between them. Application code running against a real database is one example. Dependencies outside the integration being examined can be controlled so that the test focuses on the connection.</p>
+
+  <p>An <strong>application programming interface (API) test</strong> enters the system through a programmatic interface. The label identifies the entry point, not the scope. A test of one HTTP handler with controlled collaborators may have component scope, while a request sent to a deployed service with its real database may have system scope.</p>
+
+  <p>A <strong>contract test</strong> checks whether software on either side of a boundary agrees about their interaction. It can verify that requests, responses, or messages conform to an agreed structure and meaning. Consumer-driven contract testing derives those expectations from the interactions required by a consumer and verifies that the provider continues to satisfy them. Contract tests are especially useful for detecting incompatible changes between independently developed services.</p>
+
+  <h3 id="system-e2e-acceptance">System, End-to-End, and Acceptance Tests</h3>
+
+  <p>In this article, a <strong>system test</strong> exercises the complete integrated system against specified behavior. The entry point can be a browser, API, command line, message, or device interface. A system test can examine a narrow rule or a longer workflow. Its defining property is the complete system boundary.</p>
+
+  <p>An <strong>end-to-end test</strong> follows a journey through the participating system from an external interface. System and end-to-end boundaries may coincide, but end-to-end emphasizes the path through them. A browser test might sign in, add an item, pay, and verify the resulting order. This provides evidence that the parts required for that journey are assembled and configured well enough for the journey to succeed.</p>
+
+  <p><strong>Acceptance testing</strong> evaluates whether stakeholders can accept a feature or system. Acceptance criteria may be checked at unit, API, or browser level, while user acceptance testing may involve business representatives working through realistic scenarios. Fitness for use defines the acceptance decision, while the technical boundary can vary.</p>
+
+  <h2 id="quality-attributes">Functional Behavior and Quality Attributes</h2>
+  <p class="lede">Testing checks both what the system does and how well it behaves.</p>
+
+  <p><strong>Functional testing</strong> checks whether the system behaves according to its rules and user needs. A test might verify that a discount is calculated correctly, an unauthorized action is rejected, or an order is created after payment. Functional tests can run at any test level. The useful boundary depends on where the behavior is implemented and which interactions could cause it to fail.</p>
+
+  <p>A <strong>quality attribute</strong> describes how well a system behaves under a relevant condition. Performance under peak traffic, protection against unauthorized access, keyboard operation, and recovery from a failed dependency are examples. Testing a quality attribute requires an observable expectation, such as a response-time threshold, an accessibility requirement, or a recovery target. Without such an oracle, a broad goal such as “the system should be fast” cannot produce a meaningful test result.</p>
+
+  <h3>Performance</h3>
+  <p><strong>Performance testing</strong> measures behavior under a defined workload. Response time and throughput might be checked at expected traffic, while heavier workloads can reveal where capacity begins to fail. Longer runs can expose gradual degradation such as resource exhaustion. Tools such as <a href="https://grafana.com/docs/k6/latest/">k6</a> generate controlled workloads and evaluate performance thresholds.</p>
+
+  <h3>Security</h3>
+  <p><a href="web-security-principles.html"><strong>Security testing</strong></a> examines whether the system protects data and operations against misuse. Automated analysis can detect known weaknesses in source code, dependencies, configuration, or a running application. For web applications, tools such as <a href="https://www.zaproxy.org/">ZAP</a> probe a running application for common vulnerabilities. Other security testing exercises abuse cases derived from the system's design and threat model. Security testing therefore combines repeatable automated checks with investigation of how the application could be misused.</p>
+
+  <h3>Accessibility</h3>
+  <p><a href="web-accessibility.html"><strong>Accessibility testing</strong></a> examines whether people with disabilities can perceive, operate, and understand the interface. Automated tools such as <a href="https://github.com/dequelabs/axe-core">axe-core</a> can detect many rule-based problems in rendered markup. Other requirements depend on interaction and meaning, so keyboard operation, screen-reader use, zoom and reflow, and human evaluation provide important evidence.</p>
+
+  <h3>Other Quality Risks</h3>
+  <p>Other risks require targeted testing when they can affect the application. <strong>Compatibility testing</strong> checks behavior in supported browsers, devices, and operating systems where platform differences could affect the result. <strong>Resilience and recovery testing</strong> introduces failures and observes whether the system stays safe and recovers correctly. Applications with important state transitions may need tests for concurrency, data integrity, and migrations. Locale, time zone, and visual rendering deserve similar attention when they can change an important outcome. These tests should be selected because a specific risk requires their evidence, not because every application needs every testing category.</p>
+
+  <h2 id="change-release">Tests for Changes and Releases</h2>
+  <p class="lede">After a change, testing provides evidence that the change works and that the software is ready to move forward.</p>
+
+  <p>Tests used after a change often reuse the same levels and quality checks described earlier, but serve a different purpose. <strong>Confirmation testing</strong> repeats the condition that exposed a defect to verify that the correction works. <strong>Regression testing</strong> checks previously working behavior for unintended effects of the change. A test created to confirm a defect correction often remains as a regression test when the same failure could return.</p>
+
+  <p>A <strong>smoke test</strong> is a small set of broad checks used to decide whether a build or environment is stable enough for further testing. For a web application, it might confirm that the application starts and that a user can sign in. Teams sometimes use <strong>sanity check</strong> for a narrower check of the area that changed. Because these terms vary between teams, the important information is what is checked and which decision the result supports.</p>
+
+  <p>The testing required before release should follow the risks introduced by the change. A copy change might need a focused check of rendering and accessibility, while a payment migration needs evidence that existing data is converted correctly and customers cannot be charged twice. A fixed release suite can still provide a useful baseline, but risk determines which additional evidence a particular change requires.</p>
+
+  <h2 id="portfolio">The Test Portfolio</h2>
+  <p class="lede">A useful portfolio combines fast feedback with evidence from the boundaries where important failures can occur.</p>
+
+  <p>A <strong>test portfolio</strong> is the combination of tests and other evaluation activities used to provide evidence about a system. For automated functional testing, the <strong>testing pyramid</strong> offers a useful economic model. It favors many narrow tests because they are usually fast to run and make failures easier to locate. Fewer tests exercise broader boundaries where setup, execution, and diagnosis cost more.</p>
 
   <figure class="figure-wrap">
-    <svg class="figure" viewBox="0 0 620 348" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Testing pyramid diagram. Three stacked trapezoid layers. Top, narrowest layer: End-to-end, few tests, slow, high confidence in real user flows. Middle layer: Integration, including contract tests at service boundaries. Bottom, widest layer: Unit, most tests, fast, cheap. A left-side label reads slower and costlier moving up. A right-side label reads faster and cheaper moving down.">
+    <svg class="figure testing-pyramid" viewBox="0 0 620 348" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A testing pyramid with a wide unit and component layer, a smaller integration and contract layer, and a narrow end-to-end journey layer. Cost and execution time generally rise toward the top.">
       <defs>
         <marker id="pyr-arrow" class="is-muted-color" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
           <path class="figure-arrow" d="M0,0 L10,5 L0,10 z"/>
         </marker>
       </defs>
-      <text class="figure-title" x="20" y="24">Testing pyramid</text>
+
+      <text class="figure-title" x="20" y="24">One functional test portfolio</text>
 
       <polygon class="figure-node is-accent" points="270,40 350,40 410,120 210,120"/>
       <text class="figure-label is-accent-text" x="310" y="76" text-anchor="middle">End-to-end</text>
-      <text class="figure-note" x="310" y="92" text-anchor="middle">Critical paths only</text>
+      <text class="figure-note" x="310" y="94" text-anchor="middle">Selected journeys</text>
 
       <polygon class="figure-node is-info" points="210,120 410,120 480,220 140,220"/>
-      <text class="figure-label is-info-text" x="310" y="160" text-anchor="middle">Integration</text>
-      <text class="figure-note" x="310" y="176" text-anchor="middle">Including contract tests</text>
-      <text class="figure-note" x="310" y="192" text-anchor="middle">at service boundaries</text>
+      <text class="figure-label is-info-text" x="310" y="158" text-anchor="middle">Integration and contract</text>
+      <text class="figure-note" x="310" y="178" text-anchor="middle">Contracts and boundaries</text>
 
       <polygon class="figure-node" points="140,220 480,220 550,320 70,320"/>
-      <text class="figure-label" x="310" y="264" text-anchor="middle">Unit</text>
-      <text class="figure-note" x="310" y="280" text-anchor="middle">Most of the suite</text>
+      <text class="figure-label" x="310" y="262" text-anchor="middle">Units and components</text>
+      <text class="figure-note" x="310" y="282" text-anchor="middle">Fast focused feedback</text>
 
       <line class="figure-connector" x1="32" y1="320" x2="32" y2="40" marker-end="url(#pyr-arrow)"/>
-      <text class="figure-note" text-anchor="start" transform="translate(20 316) rotate(-90)">Faster · cheaper</text>
-      <text class="figure-note" text-anchor="end" transform="translate(20 44) rotate(-90)">Slower · costlier</text>
+      <text class="figure-note" text-anchor="middle" transform="translate(20 180) rotate(-90)">Cost and time usually rise</text>
     </svg>
-    <figcaption>Size represents test count, not importance. A thin top layer still catches what the other two can't.</figcaption>
+    <figcaption>The pyramid favors many narrow tests and fewer broad journey tests because cost and execution time usually rise with scope.</figcaption>
   </figure>
 
-  <p>Teams often misread the pyramid as a ratio to hit, aiming for even counts across the three layers or a fixed percentage split at each level. The shape describes where confidence is cheapest to buy, not a target to engineer toward. The right question for any given piece of code is which layer catches its most likely failure for the least cost. A layer being under-represented in this week's coverage report says nothing about that.</p>
+  <p>The useful shape depends on the architecture and its risks. A frontend application, for example, may place substantial testing at component boundaries because much of its behavior emerges there. Another system may need more evidence at service or data boundaries. The goal is not to reproduce a geometric shape but to obtain useful coverage while keeping feedback fast and failures diagnosable.</p>
 
-  <!-- ═══════════════════════════════════════════════════
-       UNIT
-  ════════════════════════════════════════════════════ -->
-  <h3 id="unit-tests">Unit Tests</h3>
-  <p>A unit test calls one function or one small module directly and checks its output against an expected value, without starting a server, hitting a network, or touching a real database. That isolation is what makes unit tests fast enough to run in the hundreds on every save and cheap enough to write in bulk. Their blind spot is exactly what they exclude. A unit test can pass on every function in a request-handling path and still miss a bug that only shows up once those functions are wired together in the wrong order.</p>
+  <p>Human evaluation complements the automated portfolio. Exploratory testing can investigate unexpected behavior, usability evaluation can reveal whether a workflow supports real users, and security review can challenge assumptions about how the system might be abused. Automation is effective when a check needs to run repeatedly and has an oracle that software can evaluate. A testing strategy combines these forms of evidence according to the risks the system faces.</p>
 
-  <p>For UI code specifically, the unit under test is often a single component rendered in isolation with mocked props and dependencies. It's checked with a tool like Testing Library rather than by calling a plain function directly, but it's still the same layer: no real server, no real network, no real backing store.</p>
+  <h2 id="effective-tests">Effective Test Design</h2>
+  <p class="lede">A useful test has a trustworthy oracle, representative inputs, and one clear, decision-relevant claim.</p>
 
-  <!-- ═══════════════════════════════════════════════════
-       INTEGRATION + CONTRACT
-  ════════════════════════════════════════════════════ -->
-  <h3 id="integration-tests">Integration Tests</h3>
-  <p>An integration test exercises more than one piece at once, such as a function together with a real database, or two internal modules calling each other without any mocks between them. It answers a question a unit test can't: not just whether each piece works alone, but whether they still work once they're connected. Integration tests run slower than unit tests because they touch more real infrastructure, so a team typically writes fewer of them and reserves them for the seams between components rather than every internal detail.</p>
+  <p>A <strong>test technique</strong> guides the selection of test conditions and cases. Specification-based techniques derive cases from required behavior, structure-based techniques use the internal structure of the software, and experience-based techniques draw on domain knowledge and likely failures. These approaches are complementary rather than competing ways to find useful tests.</p>
 
-  <p>A <strong>contract test</strong> checks that one side's requests and the other side's responses still agree on shape. The boundary it checks sits between two services owned by different teams, or between a frontend and a backend built on separate schedules. It's commonly grouped with integration testing, since it targets the same kind of boundary. Many practitioners still treat it as its own technique, because a contract test usually runs without both sides live at the same time. OpenAPI's mock and contract tooling, covered in <a href="restful-api-design.html#openapi">RESTful API Design</a>, works the same territory. A published schema lets each side generate a mock of the other and test against it independently, catching a breaking change before it reaches a shared environment.</p>
+  <h3>Oracles and Inputs</h3>
 
-  <p>Consumer-driven contract testing tools such as Pact take a related but distinct approach. Instead of validating against a shared schema, the consumer records the exact requests it expects to make. That recording is replayed later against the real provider, independently of the consumer, to verify the provider still honors it.</p>
+  <p>A test needs a trustworthy basis for deciding whether its observation is acceptable. The test oracle should come from a requirement, business rule, or another source outside the implementation being checked. Repeating the implementation's reasoning inside the test can reproduce the same mistake and allow both to agree on a wrong result. Inputs should concentrate on places where behavior changes. For a discount that starts at €100, values immediately below, at, and above €100 are usually more informative than several arbitrary totals.</p>
 
-  <!-- ═══════════════════════════════════════════════════
-       E2E
-  ════════════════════════════════════════════════════ -->
-  <h3 id="e2e-tests">End-to-End Tests</h3>
-  <p>An <strong>end-to-end test</strong> drives the full system through a real interface, typically a browser automated with a tool like Playwright, clicking through the same flow a person would. That makes it the closest an automated test gets to proving a feature actually works. The tradeoff is that it's also the slowest and most fragile layer, since it depends on UI timing, network latency, and whatever state the environment happens to be in when the test runs. A layout change, a slow API response, or a leftover row from a previous test run can all fail an end-to-end test without the underlying feature being broken at all.</p>
+  <h3>Coverage as Evidence</h3>
 
-  <p>That fragility is usually called a <strong>flaky test</strong>: one that fails intermittently for reasons unrelated to the code under test. The fix is rarely to write more end-to-end tests and hope. Seeding deterministic test data instead of relying on whatever the environment already contains removes one common source. Retrying a failed run once before marking it broken absorbs transient network or timing noise. And a test that keeps failing without a clear cause is better quarantined into a separate, tracked bucket than left in the main suite, where it trains a team to ignore red builds.</p>
+  <p><strong>Code coverage</strong> reports which parts of the implementation executed during testing. Line or branch coverage can reveal code that no test reaches, but execution alone does not show that the behavior was meaningfully checked. Coverage is therefore most useful for finding gaps rather than establishing quality. <strong>Mutation testing</strong> goes further by deliberately changing program behavior and checking whether the tests detect the change. A surviving mutation can reveal a weak input or assertion even when code coverage is high.</p>
 
-  <p>Because each end-to-end test is expensive to write and run, it should be reserved for critical paths: flows such as sign-up, checkout, or anything that risks corrupting a user's data if it silently breaks. A secondary settings page that's easy to click through and easy to spot when broken is a weaker candidate for this layer than a payment flow nobody looks at until it fails in production.</p>
+  <p>Experience provides another source of test cases. Defects seen in similar systems, knowledge of the domain, and observations made while exploring the application can reveal conditions absent from a specification or coverage report. Exploratory testing and error guessing formalize this kind of learning without requiring every useful case to be known in advance.</p>
 
-  <!-- ═══════════════════════════════════════════════════
-       WRITING A GOOD TEST
-  ════════════════════════════════════════════════════ -->
-  <h2 id="writing-tests">Writing a Good Test</h2>
-  <p class="lede">The pyramid says which layer to test at. These three habits apply no matter which layer you're writing for.</p>
+  <h3>Generated Inputs</h3>
 
-  <p>Most tests, at any layer, follow the same three-part shape known as <strong>AAA</strong>: Arrange, Act, Assert.</p>
-  <ol>
-    <li><strong>Arrange</strong> sets up whatever the test needs, the inputs, the initial state, any fakes standing in for a dependency.</li>
-    <li><strong>Act</strong> runs the one thing under test.</li>
-    <li><strong>Assert</strong> checks that the result is what it should be.</li>
-  </ol>
-  <p>Structuring a test this way, even with comments marking the three parts, makes it easy to scan later and easy to tell which part broke when it fails.</p>
+  <p><strong>Property-based testing</strong> generates many inputs and checks that an invariant continues to hold. A pricing test, for example, might require every valid discounted total to stay between zero and the original total. <strong>Fuzz testing</strong> supplies unexpected or malformed inputs to expose crashes, unsafe parsing, and unhandled states. Both techniques extend testing beyond a small set of examples chosen by hand.</p>
+
+  <h3>Readable Automated Tests</h3>
+
+  <p>Many automated tests can be read as <strong>Arrange, Act, Assert</strong> (AAA). Arrange establishes the relevant state and inputs, Act performs the behavior under examination, and Assert compares the observation with the oracle. Keeping those parts visible makes the claim of the test easier to understand when it passes, fails, or needs to change.</p>
 
   <div class="code-block">
     <div class="code-header">
       <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
       <span class="code-filename">discount.test.ts</span>
-      <span class="code-lang">TS</span>
+      <span class="code-lang">TypeScript</span>
     </div>
     <pre><code><span class="fn">test</span>(<span class="s">"applies the holiday discount"</span>, () =&gt; {
-  <span class="cm">// Arrange</span>
-  <span class="kw">const</span> <span class="n">total</span> = <span class="m">100</span>;
-  <span class="kw">const</span> <span class="n">isHoliday</span> = <span class="kw">true</span>;
+    <span class="kw">const</span> <span class="n">total</span> = <span class="m">100</span>
+    <span class="kw">const</span> <span class="n">holidayDiscount</span> = <span class="m">0.2</span>
 
-  <span class="cm">// Act</span>
-  <span class="kw">const</span> <span class="n">result</span> = <span class="fn">calculateDiscountedTotal</span>(<span class="n">total</span>, <span class="n">isHoliday</span>);
+    <span class="kw">const</span> <span class="n">result</span> = <span class="fn">calculateDiscountedTotal</span>(<span class="n">total</span>, <span class="n">holidayDiscount</span>)
 
-  <span class="cm">// Assert</span>
-  <span class="fn">expect</span>(<span class="n">result</span>).<span class="fn">toBe</span>(<span class="m">80</span>);
-});</code></pre>
+    <span class="fn">expect</span>(<span class="n">result</span>).<span class="fn">toBe</span>(<span class="m">80</span>)
+  })</code></pre>
   </div>
 
-  <p>A second habit is <strong>independence</strong>: a test should pass or fail the same way no matter which other tests ran before it, or in what order. A test that relies on a row another test happens to have left in a shared database, or on a module-level variable a previous test set, is not independent. It works until someone reorders the suite or runs a single test in isolation. At that point it fails for reasons that have nothing to do with the code being tested. Each test should set up the state it needs itself and leave nothing behind for the next one to trip over.</p>
+  <h3>Repeatability and Observable Behavior</h3>
 
-  <p>The third habit is writing from the right <strong>perspective</strong>. A unit test should exercise a function the way its caller actually uses it, through the same arguments and return value the rest of the codebase relies on. Reaching into private internals the function is free to change tomorrow breaks that contract, so a good test avoids it. An end-to-end test should go further and take a human's perspective specifically, clicking, typing, and reading the screen the way a person would. Reaching into implementation details like a CSS class name or an internal component name breaks that same rule, since a person testing the app by hand would never see either one. That distinction is also the design philosophy behind Testing Library, covered next.</p>
+  <p>A reliable automated test produces the same result when the relevant conditions are the same. Tests should create the state they need rather than depend on execution order or state left by another test. Time, randomness, network responses, and asynchronous work need control when they affect the result. This makes failures reproducible instead of dependent on hidden conditions.</p>
 
-  <!-- ═══════════════════════════════════════════════════
-       TESTABILITY
-  ════════════════════════════════════════════════════ -->
-  <h2 id="testability">Testability: What Makes Code Hard or Easy to Test</h2>
-  <p class="lede">The pyramid describes the shapes tests come in. This is about why some code accepts any of those shapes easily, and some resists all of them.</p>
+  <p>Tests should usually make assertions about observable behavior rather than incidental implementation details. A unit test can check the result of an exported function, while a browser test can interact with a control and verify what the user can observe. A test that asserts private state, exact internal call order, or unnecessary markup structure can fail after a harmless refactoring even though the required behavior is unchanged. The opposite problem occurs when a test observes too little and continues to pass despite incorrect behavior. Structure-based techniques such as code coverage and mutation testing can help find these gaps without making the assertions depend on the implementation.</p>
+  <h2 id="testability">Testability in Software Design</h2>
+  <p class="lede">Testable software makes relevant conditions easy to create and meaningful outcomes easy to observe.</p>
 
-  <p>A <strong>pure function</strong> always returns the same output for the same input and has no effect on anything outside itself. That makes it trivial to test: call it, check the return value, done. Nothing needs to be set up first and nothing needs to be cleaned up afterward. React relies on this property directly, since a component's rendered output is meant to depend only on its props and state. That dependency is also what makes it <a href="react-patterns-component-design.html#pillars">testable and predictable</a> in the first place.</p>
+  <p><strong>Testability</strong> describes how easily software can be tested under relevant conditions. <strong>Controllability</strong> means a test can provide inputs and establish relevant state. <strong>Observability</strong> means it can inspect the resulting behavior. When important inputs are hidden or outcomes are difficult to observe, tests require more setup and failures become harder to understand.</p>
 
-  <p>A <strong>side effect</strong> is anything a function does beyond computing and returning a value. Writing to a database, calling <code>fetch</code>, reading or writing <code>localStorage</code>, and triggering a React state update as a byproduct of running are all side effects. None of these are mistakes on their own. Software needs to read files and talk to networks to be useful. The problem shows up when a side effect is buried inside a function that looks like it should be a simple calculation. A test of that function then has to somehow deal with a network call or a browser API it didn't ask for.</p>
+  <p>Software design determines much of that control and observation. A <strong>pure function</strong> is an especially simple example where the same inputs produce the same output without reading or changing external state. A pricing calculation expressed as a pure function can be tested directly without touching side effects such as a database, network, or clock. Real applications still need those external interactions, but keeping decisions separate from infrastructure often makes both easier to test.</p>
 
-  <p>A concrete version of this shows up often in React. A component that reads directly from <code>localStorage</code> inside its render logic is hard to test, since a test would have to seed that storage first just to render the component at all. Passing the stored value in as a prop moves that same side effect to the edge instead of burying it in render. A context provider a test can substitute a fake value into works the same way.</p>
-
-  <p>The other common failure is a unit with too many dependencies, or dependencies it never admits to. A function that reaches into a module-level singleton, calls a static method on some shared class, or imports three levels deep into another feature's internals is fine to call in production. All of that machinery is already wired up there. In a test, every one of those reached-for pieces has to exist too, even though the test only cares about the one calculation the function is actually responsible for.</p>
+  <p>Frontend code has the same design pressure. A component that reads directly from <code>localStorage</code> during rendering requires storage to be prepared before each relevant state can be tested. Passing the stored value as an argument separates the storage from the behavior. The application can still read <code>localStorage</code> at its outer boundary, while the component concentrates on rendering and interaction.</p>
 
   <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:20px 0;">
     <div class="card green">
       <div class="card-label">Easy to test</div>
-      <div class="card-title">Explicit, self-contained</div>
-      <p>Pure functions, dependencies passed in as parameters, no reach into globals, singletons, or the DOM.</p>
+      <div class="card-title">Explicit boundaries</div>
+      <p>Inputs are controllable, outcomes are observable, and external work has a clear interface.</p>
     </div>
     <div class="card red">
       <div class="card-label">Hard to test</div>
-      <div class="card-title">Buried, far-reaching</div>
-      <p>Side effects mixed into calculations, module-level singletons, static methods, or deep imports into unrelated modules.</p>
+      <div class="card-title">Hidden dependencies</div>
+      <p>Code reads global state, constructs dependencies, and mixes decisions with external work.</p>
     </div>
   </div>
 
-  <p>The usual fix for both problems is the same: separate deciding what to do from doing it, and hand a function its dependencies instead of letting it go find them. The code below shows the difference. The first version computes a discount and also reaches for the database, the system clock, and an email service, all inside one function. The second version only computes, and takes exactly the values it needs as arguments.</p>
+  <p>The following example shows the difference. <code>applyDiscount</code> combines a pricing decision with database access, the current time, and email delivery. Testing the calculation therefore requires dealing with dependencies unrelated to the calculation itself. <code>calculateDiscountedTotal</code> receives the values it needs and exposes the result directly. A coordinating function can perform the external work and use the calculation.</p>
 
   <div class="code-block">
     <div class="code-header">
       <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
       <span class="code-filename">discount.ts</span>
-      <span class="code-lang">TS</span>
+      <span class="code-lang">TypeScript</span>
     </div>
-    <pre><code><span class="cm">// Hard to test: hidden dependencies and a side effect, all in one function.</span>
-<span class="kw">async</span> <span class="kw">function</span> <span class="fn">applyDiscount</span>(<span class="n">orderId</span>: <span class="t">string</span>): <span class="t">Promise</span>&lt;<span class="t">number</span>&gt; {
-  <span class="kw">const</span> <span class="n">order</span> = <span class="kw">await</span> <span class="n">db</span>.<span class="n">orders</span>.<span class="fn">find</span>(<span class="n">orderId</span>);   <span class="cm">// hidden dependency: a real database</span>
-  <span class="kw">const</span> <span class="n">discounted</span> = <span class="n">order</span>.<span class="n">total</span> * (<span class="fn">isHoliday</span>(<span class="kw">new</span> <span class="fn">Date</span>()) ? <span class="m">0.8</span> : <span class="m">1</span>);
-  <span class="kw">await</span> <span class="n">emailService</span>.<span class="fn">send</span>(<span class="n">order</span>.<span class="n">customerEmail</span>, <span class="s">`New total: ${discounted}`</span>); <span class="cm">// side effect</span>
-  <span class="kw">return</span> <span class="n">discounted</span>;
-}
+    <pre><code><span class="cm">  // The pricing decision is mixed with external work.</span>
+  <span class="kw">async</span> <span class="kw">function</span> <span class="fn">applyDiscount</span>(<span class="n">orderId</span>: <span class="t">string</span>): <span class="t">Promise</span>&lt;<span class="t">number</span>&gt; {
+    <span class="kw">const</span> <span class="n">order</span> = <span class="kw">await</span> <span class="n">db</span>.<span class="n">orders</span>.<span class="fn">find</span>(<span class="n">orderId</span>)
+    <span class="kw">const</span> <span class="n">discount</span> = <span class="fn">isHoliday</span>(<span class="kw">new</span> <span class="fn">Date</span>()) ? <span class="m">0.2</span> : <span class="m">0</span>
+    <span class="kw">const</span> <span class="n">total</span> = <span class="n">order</span>.<span class="n">total</span> * (<span class="m">1</span> - <span class="n">discount</span>)
+    <span class="kw">await</span> <span class="n">emailService</span>.<span class="fn">send</span>(<span class="n">order</span>.<span class="n">customerEmail</span>, <span class="s">`New total ${total}`</span>)
+    <span class="kw">return</span> <span class="n">total</span>
+  }
 
-<span class="cm">// Easy to test: a pure function, every dependency passed in explicitly.</span>
-<span class="kw">function</span> <span class="fn">calculateDiscountedTotal</span>(<span class="n">total</span>: <span class="t">number</span>, <span class="n">isHoliday</span>: <span class="t">boolean</span>): <span class="t">number</span> {
-  <span class="kw">return</span> <span class="n">total</span> * (<span class="n">isHoliday</span> ? <span class="m">0.8</span> : <span class="m">1</span>);
-}</code></pre>
+  <span class="cm">// The pricing decision has explicit inputs and an observable result.</span>
+  <span class="kw">function</span> <span class="fn">calculateDiscountedTotal</span>(
+    <span class="n">total</span>: <span class="t">number</span>,
+    <span class="n">discount</span>: <span class="t">number</span>
+  ): <span class="t">number</span> {
+    <span class="kw">return</span> <span class="n">total</span> * (<span class="m">1</span> - <span class="n">discount</span>)
+  }</code></pre>
   </div>
 
-  <p>Neither the database call nor the email send disappeared. They moved to the edges of the code instead. That move is <a href="design-principles.html#di">dependency injection</a>: a function receives its dependencies as parameters instead of constructing or reaching for them internally. It's what makes it possible to swap in a fake version for a test without touching the calculation itself. A <a href="react-antipatterns.html#god-components">component that reaches for the whole tree</a> to answer one narrow question suffers from the same root issue at a different scale.</p>
+  <p>A boundary where a test can control an input or substitute an external dependency is sometimes called a <strong>test seam</strong>. <a href="design-principles.html#di"><strong>Dependency injection</strong></a> is one way to create such a boundary by supplying a dependency from outside the code that uses it. A clock, repository, or service client can then use the real implementation in production and a controlled implementation when a test needs specific behavior.</p>
+  <h2 id="test-doubles">Test Doubles and Controlled Dependencies</h2>
+  <p class="lede">A test double controls a dependency so that a test can create specific conditions or observe an interaction.</p>
 
-  <!-- ═══════════════════════════════════════════════════
-       MOCKING
-  ════════════════════════════════════════════════════ -->
-  <h2 id="mocking">Mocking</h2>
-  <p class="lede">Once a dependency is passed in rather than reached for, a test can hand it something fake.</p>
-
-  <p><strong>Mocking</strong> replaces a real dependency with a fake stand-in that a test controls completely. A mock database returns exactly the row a test asks it to, instantly, without a network round trip or any data left behind for the next test to trip over. Continuing the discount example, once <code>emailService</code> is a parameter instead of a reached-for import, a test can substitute a fake one and check that it was called correctly, without ever sending a real email.</p>
-
-  <div class="code-block">
-    <div class="code-header">
-      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-filename">discount.test.ts</span>
-      <span class="code-lang">TS</span>
-    </div>
-    <pre><code><span class="kw">interface</span> <span class="t">EmailService</span> {
-  <span class="fn">send</span>(<span class="n">to</span>: <span class="t">string</span>, <span class="n">body</span>: <span class="t">string</span>): <span class="t">Promise</span>&lt;<span class="t">void</span>&gt;;
-}
-
-<span class="kw">const</span> <span class="n">fakeEmailService</span>: <span class="t">EmailService</span> = { <span class="n">send</span>: <span class="fn">vi</span>.<span class="fn">fn</span>().<span class="fn">mockResolvedValue</span>(<span class="kw">undefined</span>) };
-
-<span class="fn">test</span>(<span class="s">"notifies the customer with the new total"</span>, <span class="kw">async</span> () =&gt; {
-  <span class="kw">await</span> <span class="fn">notifyCustomer</span>(<span class="n">order</span>, <span class="n">fakeEmailService</span>);
-  <span class="fn">expect</span>(<span class="n">fakeEmailService</span>.<span class="n">send</span>).<span class="fn">toHaveBeenCalledWith</span>(
-    <span class="n">order</span>.<span class="n">customerEmail</span>,
-    <span class="fn">expect</span>.<span class="fn">stringContaining</span>(<span class="s">"New total"</span>)
-  );
-});</code></pre>
-  </div>
-
-  <p>Mocking makes otherwise untestable code testable, but it has a failure mode of its own. A test suite that mocks aggressively can end up checking that a function called a fake in the expected way. That's a slightly different claim from checking that the function behaves correctly against something real. If the real email service changes its interface and the mock isn't updated to match, every test built on that mock keeps passing while the actual integration is broken.</p>
-
-  <div class="callout warn">
-    <div class="callout-title">Keeping mocks honest</div>
-    <p>A few habits keep over-mocking in check. Prefer a real dependency over a mock inside integration tests, saving mocks for the unit-test layer where isolation is the point. Reserve mocking for dependencies genuinely external to the code under test, such as a third-party API or a payment provider, rather than mocking internal collaborators out of convenience. Revisit a long-lived mock's shape periodically against the real dependency's current interface, so the fake doesn't quietly drift out of sync with the thing it's standing in for. And in frontend code specifically, prefer intercepting at the network level with a tool like Mock Service Worker over hand-mocking <code>fetch</code> directly. A network-level mock stays honest against the same request and response shapes the real backend actually uses.</p>
-  </div>
-
-  <!-- ═══════════════════════════════════════════════════
-       TOOLS: UNIT & COMPONENT
-  ════════════════════════════════════════════════════ -->
-  <h2 id="unit-tools">Unit and Component Tools</h2>
-  <p class="lede">A test runner, a query philosophy, and one technique worth using carefully.</p>
-
-  <p><strong>Jest</strong> and <strong>Vitest</strong> are the two dominant test runners for JavaScript and TypeScript. Both bundle a test runner, an assertion library, and mocking support into one tool, rather than requiring three separate packages. Jest, built at Facebook for React, has the longer track record and the larger ecosystem of plugins and prior art to search when something goes wrong. Vitest is built on top of Vite and reuses a project's existing Vite configuration instead of needing a separate transform pipeline. That lets it run faster than Jest in a Vite-based project. Vitest's API is close enough to Jest's that most teams can read one having only used the other.</p>
+  <p>A <strong>test double</strong> stands in for a dependency during a test. Different names describe the role it plays. A stub supplies predetermined results, a fake provides a simplified working implementation, and a spy records interactions. A mock defines expected interactions and checks whether they occur. Testing libraries often use <em>mock</em> as a general term, so what the substitute does matters more than what the API calls it.</p>
 
   <div class="table-wrap">
     <table>
-      <thead><tr><th></th><th>Jest</th><th>Vitest</th></tr></thead>
+      <thead>
+        <tr>
+          <th>Double</th>
+          <th>Primary job</th>
+          <th>Example</th>
+        </tr>
+      </thead>
       <tbody>
-        <tr><td>Config</td><td>Its own config file</td><td>Reuses the project's Vite config</td></tr>
-        <tr><td>Module system</td><td>Transforms to CommonJS internally</td><td>Native ESM, matching how Vite already builds</td></tr>
-        <tr><td>Ecosystem</td><td>Larger, older, more prior art</td><td>Smaller, newer, growing quickly</td></tr>
-        <tr><td>Best fit</td><td>Non-Vite projects, existing Jest suites</td><td>Vite-based projects, where it avoids a second toolchain</td></tr>
+        <tr>
+          <td>Stub</td>
+          <td>Supply a result</td>
+          <td>Return a fixed exchange rate</td>
+        </tr>
+        <tr>
+          <td>Fake</td>
+          <td>Provide a lightweight implementation</td>
+          <td>Store orders in memory</td>
+        </tr>
+        <tr>
+          <td>Spy</td>
+          <td>Record an interaction</td>
+          <td>Capture an email request</td>
+        </tr>
+        <tr>
+          <td>Mock</td>
+          <td>Check an expected interaction</td>
+          <td>Require one payment request</td>
+        </tr>
       </tbody>
     </table>
   </div>
 
-  <p><strong>Testing Library</strong> (React Testing Library, Vue Testing Library, and similar bindings for other frameworks) is not a test runner. It's a set of query functions layered on top of one, built specifically around the user-perspective habit described earlier. Instead of selecting an element by a CSS class or a component's internal name, a test asks for the button a user would see. It can query by accessible role, by visible label, or by other text and attributes an actual user would perceive on screen. That constraint is deliberate. If a query is hard to write because the markup has no discernible role or label, that's usually a sign the markup itself is missing something. A real user, including one relying on a screen reader, would be missing that same thing.</p>
+  <p>Suppose a test needs to check that an order confirmation requests the correct email. A spy can record the recipient and message passed to the email gateway without sending a real message. This gives the test evidence about the application’s request to the gateway, but not about whether the production gateway can communicate with the email provider. That connection requires evidence from a test that includes the real adapter or provider boundary.</p>
 
-  <p>Both Jest and Vitest support <strong>snapshot testing</strong>: rendering a component or serializing a data structure to a file once, then failing any future run whose output no longer matches what's saved. It's a cheap way to catch an unintended change to something tedious to assert on by hand, such as a large rendered tree. The habit that undermines it is approving a failed snapshot without reading the diff first. Reviewing a change on faith replaces the saved snapshot with whatever the code now produces, even if that's the bug. The test goes back to passing having caught nothing. Snapshot testing earns its keep only on output small enough that a person will actually read the diff before approving it.</p>
+  <p>This limitation applies to every test double. A substitute controls part of the test by replacing real behavior, so the test cannot establish that the replacement still matches the real dependency. If a payment provider changes its response format, tests using an old stub may continue to pass. Integration or contract tests can detect that disagreement at boundaries where compatibility matters.</p>
 
-  <p>Playwright and Cypress also support <strong>component testing</strong>, mounting a single component in isolation the way Testing Library does, but inside a real browser rather than a simulated DOM like jsdom. That trades some raw speed for catching real rendering and layout behavior a simulated DOM doesn't reproduce.</p>
+  <p>Web applications often use <a href="https://mswjs.io/docs/"><strong>Mock Service Worker (MSW)</strong></a> to intercept network requests and return controlled responses. Because the application still uses its normal HTTP client and response-handling code, these tests exercise more of the request path than replacing the client itself. The simulated response can still drift from the real API, so contract or integration testing should provide evidence about that external agreement.</p>
 
-  <!-- ═══════════════════════════════════════════════════
-       TOOLS: END-TO-END
-  ════════════════════════════════════════════════════ -->
-  <h2 id="e2e-tools">End-to-End Tools</h2>
-  <p class="lede">Three tools, three different ways of getting a browser to do what the test says.</p>
+  <h2 id="automation">Automation Decisions</h2>
+  <p class="lede">Automation is most valuable when useful evidence needs to be produced repeatedly and quickly.</p>
 
-  <p><strong>Selenium</strong> is the oldest of the three and, since version 4, drives a real browser through the W3C WebDriver protocol, a standard implemented natively by every major browser vendor. That standardization is its strength. Selenium supports the widest range of browsers and has bindings for the most programming languages. Large cross-browser compatibility matrices and long-lived enterprise suites still lean on it as a result. The tradeoff is more setup and more code per test than the two newer tools below.</p>
+  <p>A strong automation candidate has a trustworthy oracle that software can evaluate, repeatable setup, and enough regression risk to justify repeated execution. A payment calculation fits because every run can compare the result with an expected value. Usability evaluation is different because judging whether an interaction works well requires human observation. Automation can still prepare accounts, data, and environments so that the person can concentrate on the evaluation.</p>
 
-  <p><strong>Cypress</strong> runs its test code inside the browser, alongside the application under test, rather than remote-controlling the browser from the outside. That architecture is what gives Cypress its well-regarded developer experience, including a time-travel debugger that lets a developer step back through a failed test's commands. It also historically limited Cypress to a single origin per test, a constraint later worked around with an explicit <code>cy.origin()</code> command for the cases that need to cross into a second origin. The underlying difference is still visible next to a tool that drives the browser from entirely outside it.</p>
+  <p>Frequency and timing determine much of automation's value. A check that runs on every change can detect a regression minutes after it is introduced and provide evidence before the change moves forward. A condition examined once during a migration may be cheaper to test manually when automation would require substantial setup that has little future use.</p>
 
-  <p><strong>Playwright</strong> automates Chromium, Firefox, and WebKit through each browser's own remote-debugging protocol, out-of-process, behind one shared API. It waits automatically until an element is actionable, meaning visible, stable, and able to receive input, before interacting with it. This removes a common source of flaky end-to-end tests: a click that fires before the button has actually finished appearing and settling into place. The combination of broad browser coverage and steadier interactions has made Playwright the common default for new end-to-end suites, without erasing Selenium's advantage in raw browser and language coverage or Cypress's advantage in in-browser debugging feel.</p>
+  <p>Maintenance is part of the cost of automation. Brittle selectors, shared state, fixed delays, and duplicated setup make tests fail for reasons unrelated to the behavior they protect. Repeated unreliable failures reduce trust and encourage people to ignore results. A test should be repaired when it still supplies useful evidence and removed when it no longer supports a decision.</p>
 
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Tool</th><th>How it drives the browser</th><th>Where it fits best</th></tr></thead>
-      <tbody>
-        <tr><td>Selenium</td><td>WebDriver protocol, vendor-implemented</td><td>Widest browser/language matrix, long-lived enterprise suites</td></tr>
-        <tr><td>Cypress</td><td>Runs inside the browser, alongside the app</td><td>Fast local feedback, in-browser debugging</td></tr>
-        <tr><td>Playwright</td><td>Each browser's own protocol, out-of-process</td><td>New suites; multi-browser coverage with less flake from timing</td></tr>
-      </tbody>
-    </table>
-  </div>
+  <h2 id="tools">Testing Tools by Job</h2>
+  <p class="lede">Choose testing tools by the job they perform, not by expecting one framework to cover every kind of evidence.</p>
 
-  <!-- ═══════════════════════════════════════════════════
-       AUTOMATION
-  ════════════════════════════════════════════════════ -->
-  <h2 id="automation">What's Worth Automating</h2>
-  <p class="lede">The pyramid already answers most of this, layer by layer.</p>
+  <p>A web testing stack usually has several layers. A test framework discovers and runs tests, an assertion expresses the expected result, and an execution environment supplies Node.js, simulated DOM APIs, or a real browser. Other tools can control network responses or automate browser interaction. Understanding these responsibilities makes tool choices easier and prevents the name of a tool from being confused with the scope or purpose of a test.</p>
 
-  <p>Unit and integration tests are worth automating almost without exception. They're cheap enough to run on every commit, and any regression they'd catch is worth catching before a person ever has to notice it manually. End-to-end automation is worth it selectively, aimed at the critical paths described earlier, and not stretched to cover every screen just because the tooling makes it possible.</p>
+  <h3 id="unit-tools">Vitest and JavaScript Test Frameworks</h3>
 
-  <p><strong>Manual testing</strong> still earns its place in what's left over. A person can explore a new feature and deliberately try to break it in ways no one thought to script in advance. Visual review of a redesign is another case, since "does this look right" doesn't reduce to an assertion. Tools like Percy or Chromatic can automatically flag a pixel-level difference, but a person still has to judge whether the new appearance is correct or just different. Usability judgment is a third case: whether a flow that technically works is pleasant to use. None of that is a gap in the automation strategy. It's work that doesn't automate well, because the thing being checked isn't a fixed expected output but a judgment call a person is better positioned to make.</p>
+  <p><a href="https://vitest.dev/guide/"><strong>Vitest</strong></a> is a test framework designed around Vite and is a common choice for many modern TypeScript and frontend projects. It provides a runner, assertions, test doubles, and coverage while using Vite's transformation and configuration ecosystem. Its API is familiar to developers who have used Jest, which can reduce the work needed to migrate tests or share conventions.</p>
 
-  <p>Coverage tooling reports what percentage of lines or branches a test suite executed, and it's tempting to treat that number as the goal itself. It isn't. A line can run during a test without the test ever checking what that line produced. That's enough to count as covered while catching nothing. Full coverage is achievable and still not the same thing as a correct program. An untested edge case, such as an empty input, a boundary value, or an error path, can sit right next to a hundred well-covered lines that never exercise it. Coverage is worth watching as a rough map of what's untested at all, not as a percentage to chase for its own sake.</p>
+  <p><strong>Jest</strong> provides a similarly integrated testing stack for JavaScript and TypeScript projects. Mocha takes a more composable approach in which surrounding libraries provide more of the stack, while the Node.js test runner provides testing directly through Node.js. The choice depends less on feature counts than on how well the runner fits the project's build system, environment, and existing tests.</p>
 
-  <!-- ═══════════════════════════════════════════════════
-       PIPELINE
-  ════════════════════════════════════════════════════ -->
-  <h2 id="pipeline">Local Dev and CI</h2>
-  <p class="lede">The same tests run in two different places, for two different reasons.</p>
+  <h3 id="ui-tools">Testing Library</h3>
 
-  <p>On a developer's own machine, a test runner's <strong>watch mode</strong> re-runs automatically on every save, often re-running only the tests affected by whatever file just changed rather than the entire suite. That narrower, near-instant loop is what makes writing a test alongside the code it covers practical instead of a chore saved for the end. Some teams add a <strong>pre-commit hook</strong>, commonly wired up with a tool like Husky, that runs the fastest subset of checks, lint plus the affected unit tests, before a commit is even created. It catches an obvious mistake a few seconds after it's made, well before it reaches a shared branch.</p>
+  <p><a href="https://testing-library.com/docs/"><strong>Testing Library</strong></a> provides queries and interaction helpers for testing user interfaces. It is not a test runner, so it is commonly used with Vitest or Jest. Its queries encourage tests to find controls similar to how users do, such as reading labels or accessible roles and names, rather than by CSS classes or component internals. This supports tests that describe observable behavior and are less coupled to implementation details. Testing Library can run against a simulated DOM such as jsdom for fast feedback or as part of a stack that uses a real browser.</p>
 
-  <p>Once a change is pushed, the full suite runs again, this time in a continuous integration pipeline, where automated tests act as a gate a change can't pass without, covered in <a href="ci-cd-devops.html#pipeline-anatomy">CI/CD and DevOps</a>. This second run matters even though the developer's machine already passed the same tests, since it removes any doubt about whether the change also works outside that one machine's particular setup. The most expensive end-to-end suites are sometimes pulled out of that per-change gate entirely. They run instead on a schedule, overnight or a few times a day, when their cost would otherwise slow down every push. This article is about which tests earn a place in that gate and why. The CI/CD article is about what happens once they do.</p>
+  <h3 id="browser-tools">Selenium, Cypress, and Playwright</h3>
+
+  <p><a href="https://www.selenium.dev/documentation/webdriver/"><strong>Selenium</strong></a> automates browsers through the WebDriver ecosystem and supports several programming languages. It has a long-established browser and infrastructure ecosystem, including remote execution with Selenium Grid. Selenium supports projects that need broad language support, existing WebDriver infrastructure, or a large browser matrix. A separate test framework commonly supplies the surrounding suite structure and assertions.</p>
+
+  <p><a href="https://docs.cypress.io/app/core-concepts/introduction-to-cypress"><strong>Cypress</strong></a> provides an integrated JavaScript and TypeScript environment for browser end-to-end and component testing. Its interactive runner, automatic retry behavior, and debugging tools help developers inspect a test as it executes. Cypress combines browser automation with much of the surrounding testing experience rather than treating browser control as a standalone library.</p>
+
+  <p><a href="https://playwright.dev/docs/intro"><strong>Playwright</strong></a> provides browser automation together with an integrated test framework for Node.js projects. It supports isolated browser contexts, automatic waiting for actionable elements, tracing, parallel execution, and control of multiple pages and browser contexts. These capabilities support end-to-end tests that need isolation and detailed failure diagnostics.</p>
+
+  <p>Selenium, Cypress, and Playwright overlap, but their emphasis differs. Selenium offers a mature, protocol-based ecosystem across languages and browser infrastructure. Cypress provides a tightly integrated development and debugging experience for JavaScript and TypeScript teams. Playwright combines browser automation with isolation and diagnostic tooling suited to complex browser workflows. A small trial using one representative journey usually reveals more about setup, reliability, and failure diagnosis than a long feature comparison.</p>
+
+  <h3 id="other-tools">Other Specialized Tools</h3>
+
+  <p>Other tools fill narrower roles in the same testing strategy. Supertest can exercise Node.js HTTP applications, while Pact supports consumer-driven contract testing. Performance, security, and accessibility tools such as k6, ZAP, and axe-core address the quality attributes discussed earlier. These tools add particular forms of evidence rather than defining the level or purpose of the tests that use them.</p>
+
+  <h2 id="feedback-loops">Feedback Loops from Local Development to Production</h2>
+  <p class="lede">Testing is most useful when evidence arrives soon enough to influence the next decision.</p>
+
+  <p>A <strong>feedback loop</strong> connects a change with evidence and a corrective action. A focused test can expose a defect while the changed code is still fresh in the developer's mind. Tests that require databases, browsers, external services, or deployed environments usually take longer and make failures harder to isolate. A testing strategy places each check in the earliest feedback loop that can produce credible evidence for the risk.</p>
+
+  <p>Moving useful feedback earlier is often called <strong>shift-left testing</strong>. During development, type checking and focused automated tests can detect problems within seconds. <a href="ci-cd-devops.html#pipeline-anatomy"><strong>Continuous integration</strong></a> repeats fast checks in a clean environment and can then run tests that require real connections or broader system boundaries. Fast failures arrive first, while more expensive environments are used where their additional evidence matters.</p>
+
+  <p>Tests around deployment need an environment that represents the release being evaluated. The application, database migrations, configuration, and test data must agree closely enough for a failure to mean something. Smoke tests can check a newly deployed version, while broader browser or performance testing can run when the risk justifies its cost.</p>
+
+  <p><strong>Shift-right testing</strong> extends evaluation into deployed and production environments. Synthetic transactions can exercise selected workflows with controlled data, while telemetry shows how the application behaves across real requests and operating conditions. This evidence can reveal failures that earlier environments do not reproduce and can feed what the team learns in production back into requirements, tests, and design.</p>
+
+  <h2 id="build-strategy">Putting the Strategy Together</h2>
+  <p class="lede">A testing strategy works when the team knows which evidence it needs and where that evidence should come from.</p>
+
+  <p>For a frontend web application, testing usually starts close to the code and expands where the risks require more of the system. A calculation may need a unit test, an interactive view may need component tests, and an important checkout journey may need a real browser and connected services. The aim is not to repeat the same behavior at every level, but to place each test where it provides useful evidence with reasonable cost and diagnostic value.</p>
+
+  <h3>Developers keep feedback close</h3>
+
+  <p>Developers need fast feedback while changing the application. Type checking and focused automated tests catch many problems locally or in continuous integration. Component tests can be valuable in frontend applications because they exercise rendering, state, interaction, and accessibility without requiring a complete deployment. When a defect is found at a wider boundary, a focused regression test can often reproduce it closer to the code.</p>
+
+  <h3>Testers investigate what automation does not know</h3>
+
+  <p>Automated checks are strongest when the condition and oracle are already understood, but testers also investigate uncertainty. Exploratory testing can follow unusual states and transitions, while accessibility and usability evaluation examine behavior that requires human judgment. Findings from this work can reveal missing requirements, expose new risks, and identify cases worth preserving as automated regression tests.</p>
+
+  <h3>Architects identify important boundaries</h3>
+
+  <p>Architecture determines where important failures can emerge. A frontend that depends on several services needs evidence that their contracts remain compatible. Authentication, caching, asynchronous processing, and other architectural boundaries can introduce failures that isolated frontend tests cannot expose. Architects help identify which connections need direct testing and which operating conditions need a representative environment.</p>
+
+  <p>The balance changes as the application changes. A new dependency can make contract testing more important, a production incident can expose a missing condition, and an unreliable test can stop providing useful feedback. The strategy should change with that evidence rather than preserve a fixed distribution of tests.</p>
+
+  <p>One question ties the strategy together. What do we need to know about this software, and what evidence would give us a reliable answer?</p>
 
 </main>
-</div><!-- end .shell -->
+</div>
 
 <footer>© Single Threaded AB</footer>
 
