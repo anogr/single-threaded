@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frontend Routing and URL Architecture — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+<style>
+  @media (max-width: 640px) {
+    .routing-figure {
+      overflow-x: auto;
+      overscroll-behavior-inline: contain;
+    }
+
+    .routing-figure .figure {
+      min-width: 620px;
+    }
+  }
+</style>
+</head>
+
+<body>
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Articles</span></a>
+  <button class="hamburger" id="nav-toggle" type="button" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false">&#9776;</button>
+</header>
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+
+  <div class="sidebar-section">Public Contract</div>
+  <a href="#intro">The routing problem</a>
+  <a href="#url-state">URLs as public state</a>
+  <a href="#matching">Route matching</a>
+  <a href="#branches">Route branches</a>
+
+  <div class="sidebar-section">Navigation Lifecycle</div>
+  <a href="#document-client">Document and client routing</a>
+  <a href="#loaders">Route loaders</a>
+  <a href="#mutations">Mutations and actions</a>
+  <a href="#transitions">Navigation transitions</a>
+  <a href="#history">Browser history</a>
+
+  <div class="sidebar-section">Ownership</div>
+  <a href="#redirects-errors">Redirects and failures</a>
+  <a href="#frameworks">Routing frameworks</a>
+  <a href="#designing">Designing the architecture</a>
+</nav>
+
+<main>
+  <div class="eyebrow">Frontend Architecture · Routing</div>
+  <h1>Frontend Routing and URL Architecture</h1>
+  <p class="subtitle">How a public URL becomes matched application behavior while navigation, data, and history stay consistent.</p>
+  <div class="byline">
+    <span>Andreas Ögren</span>
+    <div class="dot"></div><span>~30 min read</span>
+    <div class="dot"></div><span>Last updated August 2026</span>
+  </div>
+
+  <section id="intro">
+    <p>A developer opens an issue in a project tracker and copies its URL. A colleague who follows the link should reach the issue. Reloading the page should open it again. Navigating elsewhere should update the address when the new view has its own URL. Using the Back button should return to the previous view. These are different ways to enter and navigate through the application, but each way depends on a URL having a stable meaning.</p>
+
+    <p><strong>Frontend routing</strong> determines how an application responds to the browser's current URL. <strong>URL architecture</strong> determines which parts of an application have URLs, how those URLs are structured, and what they mean. A good URL structure keeps these meanings understandable as the application changes. Routing code applies the structure when a user follows a link, reloads the page, or navigates within the application.</p>
+
+    <p>This article explains routing by following a URL from the browser into an application. The goal is to show what happens along the way, which layer handles each step, and how one routing decision leads to the next.</p>
+  </section>
+
+  <h2 id="url-state">The URL as Public Application State</h2>
+  <p class="lede">A navigable view needs a stable address.</p>
+
+  <p>A URL represents a navigable view when the application can rebuild that view from the address. Reloading, opening another tab, or sharing the address should reach an equivalent destination. Component state does not provide this durability unless the relevant value is encoded in the URL. A URL therefore becomes part of the application's public state when navigation depends on it.</p>
+
+  <p>Different parts of the URL provide different kinds of input. The <strong>origin</strong> identifies the server and establishes the browser's security boundary. The <strong>path</strong> identifies a location within the application. The <strong>query</strong> can refine how a location is viewed. The <strong>fragment</strong> identifies a position or target inside the loaded document. The <a href="https://url.spec.whatwg.org/">URL Standard</a> defines the syntax of these parts. The application decides what its own paths and query values mean.</p>
+
+  <p>Consider a project tracker. <code>/workspaces/acme/issues</code> can identify the issue list for one workspace. <code>/workspaces/acme/issues/1842</code> can identify one issue within it. Adding <code>?view=comments</code> can show the comments tab. Adding <code>#results</code> can point to the results region inside the loaded document. The browser keeps the fragment out of the HTTP request, so a server cannot use it when selecting a response.</p>
+
+  <div class="figure-wrap routing-figure">
+    <svg class="figure" viewBox="0 0 700 238" role="img" aria-label="An annotated project tracker URL. The origin identifies the server and security boundary, the path identifies the issue list, the query selects the comments view, and the fragment identifies the results region inside the loaded document." xmlns="http://www.w3.org/2000/svg">
+      <rect class="figure-panel" x="18" y="18" width="664" height="202"/>
+      <text class="figure-title" x="36" y="46">One address carries several kinds of input</text>
+      <rect class="figure-node is-accent" x="36" y="68" width="202" height="42"/>
+      <rect class="figure-node is-info" x="244" y="68" width="242" height="42"/>
+      <rect class="figure-node is-gold" x="492" y="68" width="104" height="42"/>
+      <rect class="figure-node is-clay" x="602" y="68" width="62" height="42"/>
+      <text class="figure-label" x="137" y="94" text-anchor="middle">https://app.example.com</text>
+      <text class="figure-label" x="365" y="94" text-anchor="middle">/workspaces/acme/issues</text>
+      <text class="figure-label" x="544" y="94" text-anchor="middle">?view=comments</text>
+      <text class="figure-label" x="633" y="94" text-anchor="middle">#results</text>
+      <line class="figure-connector is-accent-stroke" x1="137" y1="110" x2="137" y2="142"/>
+      <line class="figure-connector" x1="365" y1="110" x2="365" y2="142"/>
+      <line class="figure-connector" x1="544" y1="110" x2="544" y2="142"/>
+      <line class="figure-connector" x1="633" y1="110" x2="633" y2="142"/>
+      <text class="figure-title is-accent-text" x="137" y="162" text-anchor="middle">Origin</text>
+      <text class="figure-note" x="137" y="180" text-anchor="middle">server and security boundary</text>
+      <text class="figure-title is-info-text" x="365" y="162" text-anchor="middle">Path</text>
+      <text class="figure-note" x="365" y="180" text-anchor="middle">navigable location</text>
+      <text class="figure-title" x="544" y="162" text-anchor="middle">Query</text>
+      <text class="figure-note" x="544" y="180" text-anchor="middle">view refinement</text>
+      <text class="figure-title" x="633" y="162" text-anchor="middle">Fragment</text>
+      <text class="figure-note" x="633" y="180" text-anchor="middle">in-document target</text>
+      <text class="figure-note" x="36" y="207">The browser uses the origin as the destination and sends the path and query, but not the fragment.</text>
+    </svg>
+    <figcaption>Each part of the address reaches a different part of the navigation process.</figcaption>
+  </div>
+
+  <h3>Durable and temporary state</h3>
+
+  <p>Some interface state should appear in the URL because another person may need to reproduce the view. An issue identifier is a clear example because it selects a navigable resource. A status filter can qualify for a similar reason when sharing the filtered view is useful. Temporary interaction state usually does not need an address. An open tooltip or an unfinished field value can disappear when the view closes without changing what location the user was visiting.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Placement</th><th>Survives reload</th><th>Reaches server</th><th>Project tracker example</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Path</td><td>Yes</td><td>Yes</td><td>Workspace or issue identity</td></tr>
+        <tr><td>Query</td><td>Yes</td><td>Yes</td><td>Status filter</td></tr>
+        <tr><td>Fragment</td><td>Yes</td><td>No</td><td>Results region inside the document</td></tr>
+        <tr><td>Component state</td><td>Usually no</td><td>No</td><td>Open tooltip</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Public URLs should describe product concepts that are expected to survive implementation changes. Moving a component to another source directory should not force every link to an issue to change. A route based on a stable issue identifier can survive such a refactor because the public address describes the issue rather than the code used to render it. Consistent casing and a predictable trailing-slash policy reduce unnecessary alternate forms. Redirects can later provide a transition from an old address to a preferred one.</p>
+
+  <h3>Treat URL values as external input</h3>
+
+  <p>Route values arrive as input from outside the application. A path parameter can contain an unexpected identifier, and a query value can contain an unsupported value. Routing code therefore needs to parse incoming values before application logic uses them. Validation can reject malformed input, while authorization decides whether the current user may access the requested resource.</p>
+
+  <p>URLs should not carry secrets. Addresses can be stored in browser history and recorded by servers or monitoring tools. They can also be copied into messages or exposed through referrer information.</p>
+  <h2 id="matching">Routes Turn URLs into Application Behavior</h2>
+  <p class="lede">A router compares the current path with route patterns and determines which route matches.</p>
+
+  <p>A <strong>router</strong> reads the browser's current location and compares its path with the routes defined by the application. Each <strong>route</strong> connects a URL pattern to application behavior. When a pattern matches, the router selects the route and extracts any values encoded in the path. The result is a <strong>route match</strong>.</p>
+
+  <h3>Static, dynamic, and catch-all segments</h3>
+
+  <p>The simplest route patterns contain only fixed text. A pattern such as <code>/workspaces/new</code> matches one specific path. A <strong>dynamic segment</strong> replaces one fixed segment with a named placeholder. In <code>/workspaces/:workspaceId/issues/:issueId</code>, the names <code>workspaceId</code> and <code>issueId</code> mark values supplied by the URL. Matching <code>/workspaces/acme/issues/1842</code> therefore produces <code>acme</code> for <code>workspaceId</code> and <code>1842</code> for <code>issueId</code>.</p>
+
+  <p>Some routers support a catch-all pattern for paths with an unknown number of segments. A file browser can use one when the route needs to capture a nested file path. Catch-all patterns accept a much wider range of URLs than ordinary dynamic segments, so they are usually reserved for routes where a variable-length path is intentional.</p>
+
+  <h3>Overlapping route patterns</h3>
+
+  <p>Route patterns can overlap. For example, <code>/workspaces/new</code> can overlap with a dynamic route such as <code>/workspaces/:workspaceId</code> because the dynamic segment can match <code>new</code>. The router needs a predictable rule for selecting one route. <a href="https://reactrouter.com/">React Router</a> ranks route branches and selects the static route in this case. Other routing systems define their own matching rules, so application code must follow the behavior of the selected system.</p>
+
+  <p>Routes can be declared directly in configuration or derived from a file structure. Both approaches eventually give the router enough information to match URLs with application behavior. File-based routing can make route organization visible in the source tree, but moving files should not unintentionally change public URLs. Public URLs should follow the product's navigation model even when the implementation is reorganized.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">routes.ts</span>
+      <span class="code-lang">TypeScript</span>
+    </div>
+    <pre><code>import { index, route, type RouteConfig } from "@react-router/dev/routes";
+
+export default [
+  route("workspaces/new", "./new-workspace.tsx"),
+  route("workspaces/:workspaceId", "./workspace.tsx", [
+    route("issues", "./issues.tsx", [
+      index("./issue-list.tsx"),
+      route(":issueId", "./issue.tsx"),
+    ]),
+  ]),
+] satisfies RouteConfig;</code></pre>
+
+  </div>
+
+  <p>This configuration uses React Router as a concrete example. A parent route contributes part of the path, and a child contributes the next part. The nested <code>:issueId</code> route therefore produces a URL such as <code>/workspaces/acme/issues/1842</code>. The router can then use the matched route to select the code responsible for the issue view.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>URL</th><th>Selected pattern</th><th>Captured values</th><th>Next step</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>/workspaces/new</code></td><td><code>/workspaces/new</code></td><td>None</td><td>Open creation view</td></tr>
+        <tr><td><code>/workspaces/acme</code></td><td><code>/workspaces/:workspaceId</code></td><td><code>workspaceId = acme</code></td><td>Read workspace</td></tr>
+        <tr><td><code>/workspaces/acme/issues/1842</code></td><td><code>.../issues/:issueId</code></td><td><code>issueId = 1842</code></td><td>Read issue</td></tr>
+        <tr><td><code>/unknown</code></td><td>No match</td><td>None</td><td>Handle missing route</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="branches">A URL Matches a Route Branch</h2>
+  <p class="lede">A URL can activate a sequence of nested routes, with each route contributing part of the resulting view.</p>
+
+  <p>Nested routing changes what a successful match looks like. For <code>/workspaces/acme/issues/1842</code>, the router can match a root route, then a workspace route, an issues route, and finally the issue route where <code>1842</code> is captured. Together these matches form a <strong>route branch</strong> from the root to the selected issue. Thinking in branches is important because later responsibilities such as layout and failures can be attached at different levels of the same branch.</p>
+
+  <h3>Layouts follow the matched branch</h3>
+
+  <p>The routes in a branch do not compete to render one page. A parent can provide structure around its matched child. The workspace route, for example, can render workspace navigation while leaving space for the selected workspace view. The issues route can add another layer inside this space before the issue route renders the selected issue.</p>
+
+  <p>A <strong>nested route</strong> usually renders its matched child through an <strong>outlet</strong>. The outlet marks the position where the child view appears. When navigation moves from one issue to another, the workspace and issues layouts can stay mounted while the content in the innermost outlet changes. This structure lets routing preserve interface regions shared by nearby URLs.</p>
+
+  <p>An <strong>index route</strong> handles the parent URL without adding another path segment. At <code>/workspaces/acme/issues</code>, an index route can render the issue list inside the issues outlet. Navigating to <code>/workspaces/acme/issues/1842</code> selects the <code>:issueId</code> child instead. Both are children of the issues route, but only the issue route adds another segment to the URL.</p>
+
+  <p>A <strong>pathless layout route</strong> works differently. It can introduce another level of interface structure without contributing text to the URL. This is useful when several routes need a shared layout but the layout has no useful meaning in the public address.</p>
+
+  <h3>Route boundaries follow behavior</h3>
+
+  <p>Each route in the matched branch creates a <strong>route boundary</strong>. The boundary is a level where the application can attach behavior to one part of the route hierarchy. A route can provide a layout, load data needed by its children, or handle failures from its part of the branch.</p>
+
+  <p>A parent route can provide a <strong>shared layout</strong> for its child routes. The workspace route, for example, can render the workspace header and navigation around an outlet. Every child rendered in that outlet then appears inside the same workspace interface. Moving from the issue list to an individual issue changes the child view while the workspace layout stays in place.</p>
+
+  <p>A parent route can also own data needed throughout its branch. The workspace route can load the selected workspace once and make it available to its children. Farther down, the issue route can load the selected issue. Placing each responsibility at the route where it becomes relevant keeps broader responsibilities higher in the branch and more specific ones closer to the leaf.</p>
+
+  <p>Failure handling can use these boundaries as well. If an issue cannot be found, the issue route can handle the failure at its own boundary. The issue region can then show an error without replacing the workspace layout around it. A failure higher in the branch can replace a larger part of the interface because more child routes depend on that level.</p>
+
+  <div class="figure-wrap routing-figure">
+    <svg class="figure" viewBox="0 0 700 356" role="img" aria-label="The URL for issue 1842 matches four routes in a branch. The root, workspace, issues, and issue routes correspond to nested interface regions on the right. Each parent surrounds its child through an outlet." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="branch-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path class="figure-arrow is-accent-color" d="M0,0 L7,3.5 L0,7 Z"/></marker>
+      </defs>
+      <text class="figure-title" x="22" y="28">Matched route branch</text>
+      <text class="figure-title" x="390" y="28">Composed interface</text>
+      <rect class="figure-node is-accent" x="22" y="50" width="258" height="44"/>
+      <text class="figure-label" x="151" y="76" text-anchor="middle">Root</text>
+      <line class="figure-connector is-accent-stroke" x1="151" y1="94" x2="151" y2="116" marker-end="url(#branch-arrow)"/>
+      <rect class="figure-node is-info" x="42" y="122" width="238" height="44"/>
+      <text class="figure-label" x="161" y="148" text-anchor="middle">workspaces/:workspaceId</text>
+      <line class="figure-connector is-accent-stroke" x1="161" y1="166" x2="161" y2="188" marker-end="url(#branch-arrow)"/>
+      <rect class="figure-node is-gold" x="62" y="194" width="218" height="44"/>
+      <text class="figure-label" x="171" y="220" text-anchor="middle">issues</text>
+      <line class="figure-connector is-accent-stroke" x1="171" y1="238" x2="171" y2="260" marker-end="url(#branch-arrow)"/>
+      <rect class="figure-node is-clay" x="82" y="266" width="198" height="44"/>
+      <text class="figure-label" x="181" y="292" text-anchor="middle">:issueId</text>
+      <rect class="figure-panel" x="390" y="50" width="286" height="260"/>
+      <text class="figure-note" x="404" y="72">Root shell</text>
+      <rect class="figure-panel is-info" x="406" y="84" width="254" height="210"/>
+      <text class="figure-note" x="420" y="106">Workspace layout</text>
+      <rect class="figure-node is-gold" x="422" y="120" width="222" height="158"/>
+      <text class="figure-note" x="436" y="142">Issues layout</text>
+      <rect class="figure-node is-clay" x="438" y="156" width="190" height="102"/>
+      <text class="figure-title" x="533" y="196" text-anchor="middle">Issue 1842</text>
+      <text class="figure-note" x="533" y="216" text-anchor="middle">fills the leaf outlet</text>
+      <text class="figure-note" x="22" y="336">Route boundaries can follow navigation, shared layout, data loading, or failure handling.</text>
+    </svg>
+    <figcaption>The URL selects a route branch. Each level can contribute another region to the resulting interface.</figcaption>
+  </div>
+
+  <p>Not every component needs to become a route. An issue badge can appear throughout the application without having its own URL or position in the route graph. Route boundaries are useful where navigation introduces a meaningful level of application behavior, such as a directly reachable view, a layout shared by several child routes, data needed throughout a branch, or a region with its own failure handling. The route hierarchy therefore reflects navigation and these shared responsibilities rather than copying the component tree.</p>
+
+  <h2 id="document-client">Document and Client Routing</h2>
+  <p class="lede">A URL can be reached by loading a new document or by navigating within the active document.</p>
+
+  <p>A <strong>document navigation</strong> asks the browser to load a URL as a new document. The request reaches the server where routing determines how the URL should be handled. The response includes an HTTP status and usually HTML. The browser replaces the current document with the response, and the application's JavaScript starts again in the new document.</p>
+
+  <p>A <strong>client navigation</strong> keeps the current document alive. When an eligible link is activated, a client router can handle the navigation instead of letting the browser load another document. The router coordinates matching, route code, data, browser history, and the interface update. Network requests may still occur during this process, but the browser does not replace the active document.</p>
+
+  <div class="figure-wrap routing-figure">
+    <svg class="figure" viewBox="0 0 700 470" role="img" aria-label="Document navigation and client navigation reach the same routing work in different ways. Document navigation first requests and loads a new document, then starts the application. Client navigation keeps the current document active. Both paths then match the URL, load required route code and data, and update the interface." xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="nav-flow-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+          <path class="figure-arrow is-accent-color" d="M0,0 L7,3.5 L0,7 Z"/>
+        </marker>
+      </defs>
+
+      <text class="figure-title" x="180" y="28" text-anchor="middle">Document navigation</text>
+      <text class="figure-title" x="520" y="28" text-anchor="middle">Client navigation</text>
+
+      <rect class="figure-node is-accent" x="44" y="50" width="272" height="42"/>
+      <text class="figure-label" x="180" y="76" text-anchor="middle">Browser requests issue URL</text>
+
+      <line class="figure-connector is-accent-stroke" x1="180" y1="92" x2="180" y2="112" marker-end="url(#nav-flow-arrow)"/>
+
+      <rect class="figure-node is-info" x="44" y="118" width="272" height="42"/>
+      <text class="figure-label" x="180" y="144" text-anchor="middle">Server resolves request</text>
+
+      <line class="figure-connector is-accent-stroke" x1="180" y1="160" x2="180" y2="180" marker-end="url(#nav-flow-arrow)"/>
+
+      <rect class="figure-node is-gold" x="44" y="186" width="272" height="42"/>
+      <text class="figure-label" x="180" y="212" text-anchor="middle">HTTP response returns</text>
+
+      <line class="figure-connector is-accent-stroke" x1="180" y1="228" x2="180" y2="248" marker-end="url(#nav-flow-arrow)"/>
+
+      <rect class="figure-node is-clay" x="44" y="254" width="272" height="42"/>
+      <text class="figure-label" x="180" y="280" text-anchor="middle">New document loads</text>
+
+      <line class="figure-connector is-accent-stroke" x1="180" y1="296" x2="180" y2="316" marker-end="url(#nav-flow-arrow)"/>
+
+      <rect class="figure-node is-accent" x="44" y="322" width="272" height="42"/>
+      <text class="figure-label" x="180" y="348" text-anchor="middle">Application starts</text>
+
+      <rect class="figure-node is-accent" x="384" y="50" width="272" height="42"/>
+      <text class="figure-label" x="520" y="76" text-anchor="middle">Client router handles link</text>
+
+      <line class="figure-connector is-accent-stroke" x1="520" y1="92" x2="520" y2="112" marker-end="url(#nav-flow-arrow)"/>
+
+      <rect class="figure-node is-info" x="384" y="118" width="272" height="42"/>
+      <text class="figure-label" x="520" y="144" text-anchor="middle">Current document stays active</text>
+
+      <line class="figure-connector is-accent-stroke" x1="180" y1="364" x2="180" y2="384"/>
+      <line class="figure-connector is-accent-stroke" x1="520" y1="160" x2="520" y2="384"/>
+      <line class="figure-connector is-accent-stroke" x1="180" y1="384" x2="350" y2="384"/>
+      <line class="figure-connector is-accent-stroke" x1="520" y1="384" x2="350" y2="384"/>
+      <line class="figure-connector is-accent-stroke" x1="350" y1="384" x2="350" y2="398" marker-end="url(#nav-flow-arrow)"/>
+
+      <rect class="figure-node is-info" x="214" y="404" width="272" height="42"/>
+      <text class="figure-label" x="350" y="430" text-anchor="middle">Router matches the URL</text>
+    </svg>
+
+    <figcaption>Document navigation first loads and starts the application. Client navigation begins inside an application that is already running. Both paths then continue through the same routing work.</figcaption>
+  </div>
+
+  <h3>Direct visits still reach the server</h3>
+
+  <p>The client router cannot handle a URL before its document exists. Opening a bookmarked application URL therefore begins with a document navigation. Reloading a client-routed page has a similar effect because the browser requests its current URL from the hosting layer. The server must know how to resolve every application URL a user can enter directly.</p>
+
+  <p>This requirement is easy to miss in a client-rendered application. A hosting layer can send the application shell for URLs handled later by the client router. Once the shell loads, the router can inspect the requested path and select the appropriate route. Unknown URLs need different treatment. If the hosting layer returns the application shell with a successful HTTP status for every path, an invalid URL can appear successful to software observing the HTTP response even when the application later shows a not-found view.</p>
+
+  <p>A hash router avoids this requirement by storing the client route after <code>#</code>. For <code>/app#/issues/1842</code>, the server receives <code>/app</code> and the browser-side router reads the fragment. This can support static hosting that cannot route different application paths to the same document. The tradeoff is that the fragment no longer acts only as an in-document target, and the server cannot return route-specific HTML, redirects, or status codes for the hash route.</p>
+
+  <p>An application can use document navigation for its initial entry and client navigation after JavaScript starts. Server-rendered applications can use a similar transition when later navigation is enhanced in the browser. Routing therefore has to give a public URL a consistent destination regardless of which kind of navigation reaches it. How the destination HTML is produced is a separate rendering decision.</p>
+
+  <h3>Client routing preserves link behavior</h3>
+
+  <p>A normal link lets the browser decide how to navigate. A client router can intercept an ordinary click on a link within the application and perform the navigation without loading a new document. Other uses of the link should continue to work as the browser defines them. A modified click can open the destination in another tab, a link with <code>target</code> can open another browsing context, and a download link can start a download. Links to destinations outside the application should follow normal browser navigation as well. The client router therefore handles only the in-app navigations intended to stay within the current document.</p>
+
+
+  <p>Keeping the document alive changes the accessibility work around a route. A document navigation loads a new document, including its title. Client navigation reuses the existing document, so the application must update the title and handle focus or announcements where needed to make the new view clear to the user. <a href="accessibility-in-rendering-architecture.html#navigation">Accessibility in Rendering Architecture</a> discusses these behaviors.</p>
+
+  <h2 id="loaders">Loaders Align Reads with Navigation</h2>
+  <p class="lede">A data router can start the reads required by a destination as part of navigation.</p>
+
+  <p>Matching a route often reveals which data the destination needs. Navigating to <code>/workspaces/acme/issues/1842</code> identifies a workspace and an issue before either view renders. A <strong>data router</strong> can use this information to begin loading data during navigation. A <strong>route loader</strong> performs the read associated with one matched route and makes its result available to the route component.</p>
+
+  <p>A loader receives information from the navigation, including values captured from the URL. Data used by several child routes can be loaded by their parent route. The workspace loader can use <code>workspaceId</code> to read the <code>acme</code> workspace. Farther down the branch, the issue loader can use <code>issueId</code> to read issue <code>1842</code>. Each loader is placed near the route whose behavior depends on its result.</p>
+
+  <p>A loader needs to account for every URL value that changes the data it reads. If <code>?status=open</code> selects a different issue list, changing the status needs another read or a distinct cached result. Routers differ in how they detect these dependencies.</p>
+
+  <h3>Start independent reads together</h3>
+
+  <p>One navigation can activate several loaders. Because the router knows the matched branch before rendering begins, it can start independent reads at the same time. Loading data only after components render can create a sequence when a child cannot render until its parent has finished loading. The parent first renders and starts its request. Once its data arrives, the child can render and start another request. Route loaders let the router start independent reads earlier because matching the destination tells it which loaders to run before their components render.</p>
+
+  <h3>Cancel obsolete work</h3>
+
+  <p>The destination can change before a loader finishes. Suppose the user opens issue <code>1842</code> and immediately navigates to issue <code>1843</code>. The first read may still be running when the second navigation begins. A router can provide an abort signal so the loader can cancel supported work. A late result for issue <code>1842</code> must not replace the data for the newer destination.</p>
+
+  <h2 id="mutations">Mutations and Route Actions</h2>
+  <p class="lede">Some data routers can connect a write to the route where the user performs it.</p>
+
+  <p>Loaders read server-owned data during navigation. Applications need to create, update, and delete server-owned data as well. These changes are often called <strong>mutations</strong>. A form can send a mutation directly to a server endpoint without involving a client router. Some data routers provide another option by associating the submission with a route. The router can then coordinate the write with navigation and with data previously loaded for the route.</p>
+
+  <p>React Router calls the handler for such a submission a <strong>route action</strong>. An action is the write-side counterpart to a loader. A loader reads data for a route, while an action handles a submission associated with one. For an issue edit, the action can identify the issue from the route, validate the submitted input, check whether the operation is allowed, and attempt the update. Other architectures place these responsibilities in a separate data or service layer.</p>
+
+  <h3>Actions handle different submission outcomes</h3>
+
+  <p>An action can produce different outcomes which the application handles differently. Invalid input can return validation information to the issue route so the user can correct the form. A successful edit can leave the user on the issue. Creating a new issue can redirect to the URL of the new record. The action handles the write and returns the information needed for the appropriate navigation or interface update.</p>
+
+  <h3>Writes make loaded data stale</h3>
+
+  <p>A successful write can make previously loaded data stale. Suppose the issue loader returned the title <code>Broken search</code> before an action changed it to <code>Search returns no results</code>. The loader result still contains the old title. React Router can revalidate loader data after the action completes by running the relevant loaders again. The issue route then receives the current server value.</p>
+
+  <p>Some writes should happen without navigating to another URL. Changing the status of an issue from a list is one example. React Router provides a <strong>fetcher</strong> for calling route actions without navigation. The issue row can submit the change while the user stays on the list URL. Since no navigation occurs, the submission does not add a history entry.</p>
+
+  <p>Mutation handling does not have to live in the router. An application can send writes through another data layer and refresh route data after the server accepts a change. The data layer can then control caching and mutation behavior. The application must still connect a successful write with any loaded route data which is now stale.</p>
+
+  <p>An interface can show a change before the server confirms it. This is an <strong>optimistic update</strong>. An issue row, for example, can show a newly selected status while the update is still in flight. If the write fails, the interface can restore the previous value or show the failure. If it succeeds, fresh server data can confirm the result. Routing can coordinate this process when the mutation and subsequent reads belong to routes.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Mechanism</th><th>What it does</th><th>Changes the URL</th><th>After completion</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Route loader</td><td>Reads data for a matched route</td><td>Not by itself</td><td>Provides data to the route</td></tr>
+        <tr><td>Navigating action</td><td>Processes a route submission</td><td>Can</td><td>Can redirect or trigger fresh reads</td></tr>
+        <tr><td>Non-navigating submission</td><td>Processes a submission without navigation</td><td>No</td><td>Can trigger fresh reads</td></tr>
+        <tr><td>External mutation layer</td><td>Sends a write outside the router</td><td>Not by itself</td><td>Application refreshes stale route data</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="transitions">Navigation Is a State Transition</h2>
+  <p class="lede">Client navigation takes time when the destination needs code or data, so the application needs to represent the period before the destination is ready.</p>
+
+  <p>A <strong>navigation transition</strong> begins when client navigation starts and ends when the destination can be shown or the navigation fails. During this period, the router matches the destination and runs the work required by the matched routes. The current view may still be visible while the next one is being prepared.</p>
+
+  <h3>Show pending UI where work is happening</h3>
+
+  <p>Routers expose transition state so the interface can show useful feedback while navigation is in progress. Route boundaries provide natural places for this feedback because different parts of the matched branch can be waiting for different work. If issue details are loading, the workspace layout can stay visible while the issue region shows a pending state. If navigation changes the workspace itself, a larger part of the interface may need to show that it is waiting.</p>
+
+  <h3>Prefetching prepares a likely destination</h3>
+
+  <p>Prefetching can start code or data work before navigation begins when a destination is likely to be used. For example, an application can prefetch an issue when its link receives pointer or keyboard intent. Prefetching does not navigate to the issue or change the current URL. If the user later follows the link, the router can reuse prefetched data when it is still valid instead of starting the work again.</p>
+
+  <h3>A newer navigation supersedes an older one</h3>
+
+  <p>A new navigation can begin before an earlier transition finishes. Suppose the user selects issue <code>1842</code> and then selects issue <code>1843</code> before the first issue loads. The second navigation becomes the current destination. A late result for issue <code>1842</code> must not replace the view for issue <code>1843</code>.</p>
+
+  <p>Writes require a different precaution. Stopping a client while a mutation is in progress does not reverse work already accepted by the server. If an update reaches the server before the user navigates elsewhere, the update may still complete. The server therefore needs its own rules for concurrent writes even when the router can cancel or supersede client-side transitions.</p>
+
+  <h2 id="history">Browser History Is a User-Facing Contract</h2>
+  <p class="lede">Every navigation decision affects what the user will encounter later when using Back and Forward.</p>
+
+  <p>A browser tab keeps a sequence of <strong>session history entries</strong>. Each entry records a location the browser can revisit. Back moves to an earlier entry, while Forward moves toward a later one. During client navigation, the router can add or replace these entries. When the user later returns to one, the application uses its URL to show the corresponding view.</p>
+
+  <h3>Push, replace, or keep the current entry</h3>
+
+  <p>Opening issue <code>1842</code> from an issue list normally creates a new history entry. The list is an earlier stop, so Back can return to it. The History API calls this operation a <strong>push</strong>. A push is appropriate when the destination should become another meaningful stop in the user's navigation path.</p>
+
+  <p>A <strong>replace</strong> changes the current history entry instead of creating another one. This is useful when the previous address should not become a stop of its own. If an obsolete issue URL is corrected to its current address, replacing the obsolete entry prevents Back from returning immediately to an address which only redirects forward again.</p>
+
+  <p>URL changes inside one view require a product decision about what Back should restore. Consider a search field which stores its value in the query string. The user probably should not step backward through every value they typed, so intermediate query changes can replace the current history entry. A completed search or selected filter may be worth returning to later, so that change can create a new entry. The desired Back behavior determines whether a URL change should push or replace an entry.</p>
+
+  <h3>State associated with a history entry</h3>
+
+  <p>A history entry can carry additional data through <code>history.state</code>. This data is associated with the entry without appearing in the visible URL. It can help restore temporary interface details while the user moves through history in one tab. A copied URL does not include <code>history.state</code>, so information another person needs to reproduce the view must be available elsewhere.</p>
+
+  <p>History traversal can restore scroll position as well as location. Document navigation receives browser scroll restoration behavior directly. Client routing may need to coordinate restoration with rendering because the target position can depend on content which has not appeared yet. The <a href="https://html.spec.whatwg.org/multipage/nav-history-apis.html">HTML Standard</a> defines the browser APIs and behavior used for history traversal and scroll restoration.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Interaction</th><th>History choice</th><th>Back behavior</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Open issue 1842 from the list</td><td>Push</td><td>Return to the list</td></tr>
+        <tr><td>Correct an obsolete issue address</td><td>Replace</td><td>Return to the entry before the obsolete address</td></tr>
+        <tr><td>Type a live search query</td><td>Replace intermediate values</td><td>Skip individual keystrokes</td></tr>
+        <tr><td>Save an issue title without leaving the issue</td><td>No new entry</td><td>Return to the previous route</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="redirects-errors">Redirects and Failures Happen at Different Layers</h2>
+  <p class="lede">The reason for a redirect or failure determines which layer can handle it.</p>
+
+  <p>A request can pass through infrastructure and application routing before reaching a route. Each layer knows something different about the destination. Infrastructure can know that a public host has been replaced. Application routing can know that an old product URL has a new address. After a route matches, an issue loader can discover that issue <code>1842</code> does not exist. These are different routing outcomes even though each can change what the client eventually receives.</p>
+
+  <h3>Redirects preserve URL rules</h3>
+
+  <p>A <strong>redirect</strong> tells the client to use another URL. During a document request, the server communicates a redirect with a 3xx HTTP status and a <code>Location</code> header. Redirect statuses distinguish permanent from temporary moves and determine how the client handles the request method when following the new URL.</p>
+
+  <p>Consider an issue which moved from an old public path to a new one. A direct request for the old URL can receive a redirect from the server. If the application is already running, its router can apply the public URL rule during client navigation. In either case, visiting the old address leads to the new one. The behavior belongs to the public URL regardless of how the user reached it.</p>
+
+  <p>Redirect destinations sometimes come from URL input such as <code>?returnTo=...</code>. Allowing this value to name any destination can create an <strong>open redirect</strong>, where a trusted application sends the user to an attacker-controlled site. Applications can avoid this by accepting only known destinations or by validating allowed redirect targets before using them.</p>
+
+  <h3>Matching and lookup fail at different stages</h3>
+
+  <p>A request for <code>/unknown</code> can fail because no route pattern accepts the path. No application resource needs to be looked up because routing cannot select a route. During a document request, the server can return a 404 response. During client navigation, the router can show the corresponding not-found view.</p>
+
+  <p>A URL can match a route and still select a resource which does not exist. The path <code>/workspaces/acme/issues/9999</code> can match the issue route before its loader discovers that issue <code>9999</code> cannot be found. The first case is a failure to find a route. The second is a failure to find the resource identified by a valid route. Both can produce a 404 response, but they arise at different stages of routing.</p>
+
+  <h3>Error boundaries control the visible scope</h3>
+
+  <p>Other failures do not mean anything is missing. A database error while reading an existing issue, for example, means the application could not complete the operation. The interface can show a fallback for the affected region while the application records information needed to investigate the failure. Treating the error as a 404 would incorrectly describe an operational failure as an absent route or resource.</p>
+
+  <p>A <strong>route error boundary</strong> determines how much of the current interface is replaced when route work fails. If loading issue details fails, an issue-level boundary can replace the detail region while leaving the surrounding workspace interface available. A boundary higher in the route branch can replace a larger region when the failure prevents its children from being used.</p>
+
+  <p>Failures do not generally require navigation to an error URL. A validation error can stay with the form where the user can correct the input. A missing issue can be represented at the issue route. A temporary service failure can offer another attempt inside the affected region. A redirect is appropriate when the request should lead to a different destination.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Decision point</th><th>Example</th><th>Routing outcome</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Infrastructure</td><td>Request uses an obsolete public host</td><td>Redirect to the current host</td></tr>
+        <tr><td>Application routing</td><td>Old product URL has a replacement</td><td>Redirect to the current URL</td></tr>
+        <tr><td>Route matching</td><td>No route accepts <code>/unknown</code></td><td>Routing 404</td></tr>
+        <tr><td>Route data</td><td>Issue <code>9999</code> does not exist</td><td>Resource 404</td></tr>
+        <tr><td>Route execution</td><td>Issue lookup fails unexpectedly</td><td>Error boundary and operational reporting</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="frameworks">Routing Frameworks Package Different Responsibilities</h2>
+  <p class="lede">Routing responsibilities can belong to a router, a separate data layer, or a broader application framework.</p>
+
+  <p>The routing model developed so far does not depend on a particular framework. URLs still match routes, routes form branches, navigation interacts with browser history, and routes may need data before they can render. Frameworks differ in which of these responsibilities they coordinate and which they leave to other parts of the application. React Router, TanStack Router, and Next.js illustrate three ways to divide this work.</p>
+
+  <h3>Matching, reads, and writes</h3>
+
+  <p><a href="https://reactrouter.com/start/modes">React Router</a> can take responsibility for progressively more of the routing lifecycle. Declarative Mode provides route matching and navigation. Data Mode adds loaders for route reads and actions for route submissions. The router can start loaders during navigation and revalidate loaded data after an action. Framework Mode builds on this model with route modules, code splitting, and rendering features.</p>
+
+  <p><a href="https://tanstack.com/router/latest/docs/overview">TanStack Router</a> connects route matching closely with TypeScript types, search parameter validation, and data loading. Information from the route tree flows through parameters, navigation APIs, and loaders with types derived from the route definitions. Route loaders can read data before rendering and cache their results for later navigation. Writes are handled outside the router, so mutation code is responsible for invalidating route data which needs to be read again.</p>
+
+  <p><a href="https://nextjs.org/docs/app">Next.js</a> includes routing as part of a broader application framework. In the App Router, folders and special files define the route tree, layouts, loading states, and error boundaries. Server Components can read data while rendering a route, so route reads do not require a separate loader API. Writes can use Server Functions, including Server Actions bound to forms, or Route Handlers. Routing is therefore closely connected to the framework's rendering and server model.</p>
+
+  <h3>The responsibilities still exist</h3>
+
+  <p>These designs put familiar responsibilities in different places. React Router can coordinate matching, route reads, writes, and later revalidation through the router. TanStack Router coordinates matching and route reads while another data layer owns writes. Next.js places routing, server rendering, and much of the data lifecycle inside the framework. A concept such as loading data for a destination exists in all three designs even though only some expose it as a route loader.</p>
+
+  <p>Nested layouts and error handling are expressed differently as well. React Router and TanStack Router attach these responsibilities to routes in the route tree. Next.js uses files such as <code>layout</code>, <code>loading</code>, and <code>error</code> at different levels of its route hierarchy. In each case, the hierarchy determines which interface is shared by child routes and how much of the interface is affected when route work fails.</p>
+
+  <h3>Routing can belong to a larger framework</h3>
+
+  <p>React Router can be used primarily as a router or extended into a broader application framework through Framework Mode. TanStack Router can stay in the routing layer while <a href="https://tanstack.com/start/">TanStack Start</a> provides server and application framework features around it. Next.js starts with the broader framework and includes its router as part of that model. These choices affect where developers configure rendering, data access, and builds.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Responsibility</th><th>React Router</th><th>TanStack Router</th><th>Next.js App Router</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Route definition</td><td>Route configuration or route modules</td><td>Route tree</td><td>File-system route tree</td></tr>
+          <tr><td>Route reads</td><td>Loaders in Data and Framework modes</td><td>Route loaders with built-in caching</td><td>Usually performed while rendering Server Components</td></tr>
+          <tr><td>Writes</td><td>Route actions</td><td>Handled outside the router</td><td>Server Actions or Route Handlers</td></tr>
+          <tr><td>Refreshing data after writes</td><td>Loader revalidation can follow actions</td><td>Mutation code can invalidate route data</td><td>Server data can be revalidated or refreshed</td></tr>
+          <tr><td>Nested layouts and failures</td><td>Route hierarchy</td><td>Route hierarchy</td><td>Files in the route hierarchy</td></tr>
+          <tr><td>Broader framework</td><td>Framework Mode</td><td>TanStack Start</td><td>Built into Next.js</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>Framework APIs become easier to understand when they are mapped back to these responsibilities. A routing-system review can locate how URLs become route matches, where destination data is read, which layer handles writes, how stale data is refreshed, and how nested routes divide the interface. The API names and framework boundaries differ, but each system has to account for these navigation problems.</p>
+
+  <h2 id="designing">Designing a Routing Architecture</h2>
+  <p class="lede">A routing design starts with the locations users need to reach and follows each location through the application.</p>
+
+  <p>Routing design begins with the views which need public URLs. An issue list needs an address because a user may want to return to it or share it. An individual issue needs another address because it can be visited independently of the list. A temporary tooltip has no comparable navigation role, so it can stay outside the URL. Starting from user navigation keeps the public address structure independent of the component tree.</p>
+
+  <h3>Trace reads and writes</h3>
+
+  <p>Once the public URLs are clear, one URL can be traced through its route branch. For <code>/workspaces/acme/issues/1842</code>, the trace identifies the patterns which match the path and the places where <code>acme</code> and <code>1842</code> are validated and used. It then follows the branch to the workspace and issue loaders. If the issue cannot be found, the trace identifies which route handles the failure.</p>
+
+  <p>The next trace follows a write which changes data used by the route. For an issue edit, it identifies where submitted values are validated, where the server update happens, and which loaded data becomes stale. It then shows how fresh data reaches the interface after the update. If success leads to another URL, the trace includes the layer which produces the redirect. This sequence shows which layer owns the write and how its result reaches the routes which depend on it.</p>
+
+  <h3>Test every entry path</h3>
+
+  <p>The URL needs to survive different forms of navigation. A direct request should let the server resolve the destination, and a reload should reconstruct it without hidden client state. An in-app link should reach an equivalent destination without replacing the document. Back and Forward should revisit useful stops rather than expose incidental URL updates.</p>
+
+  <p>An application deployed below the origin root needs one more alignment check. The router's base path, generated links, asset URLs, and hosting rewrites all need to agree on a prefix such as <code>/tracker</code>. A direct request, a reload, and generated links should preserve this prefix at the deployed location.</p>
+
+  <h3>Plan for old and invalid addresses</h3>
+
+  <p>Old and invalid addresses deserve deliberate behavior as well. An old URL with a known replacement can redirect to its current location. A malformed parameter can fail validation before application code treats it as a valid identifier. A well-formed identifier for a missing issue can reach the issue route and produce a not-found result. These cases exercise different parts of the routing design even when users experience each one as a failed attempt to reach a page.</p>
+
+  <p>Public URLs can outlive the implementation which first introduced them. Components may move and route modules may be reorganized while existing links continue to circulate in bookmarks, documentation, messages, and external systems. Changing an established address therefore requires a migration plan when old links still need to work. Redirects provide a way to move those links toward the current address without requiring every stored copy to change at once.</p>
+
+  <h3>A routing review checklist</h3>
+
+  <p>A review can summarize the design by asking a small set of questions after the route has been traced in detail.</p>
+
+  <ol>
+    <li>Does each public URL identify a view which can be reloaded, bookmarked, and shared without hidden client state?</li>
+    <li>Do path and query values have explicit parsing, validation, defaults, and authorization?</li>
+    <li>Do direct visits and client navigations reach equivalent content while preserving the correct HTTP status?</li>
+    <li>Is data loaded at the route level where it is needed, and do writes refresh any data they make stale?</li>
+    <li>Can pending and failed route work be shown in the appropriate part of the interface?</li>
+    <li>Do push, replace, Back, Forward, scroll restoration, title updates, and focus behavior match the navigation users experience?</li>
+    <li>Do the router base path, generated links, server rules, and redirects agree in the deployed environment?</li>
+  </ol>
+
+  <p>A routing architecture is in good shape when each public URL has a predictable meaning however the user reaches it. The route branch determines how the application interprets the address and which work belongs to the destination. Reads and writes connect the route to server data, while browser history records the navigation steps users can return to. Frameworks provide different ways to implement these responsibilities, but the design begins with the URLs users need to reach.</p>
+
+</main>
+</div>
+
+<footer>© Single Threaded AB</footer>
+<script src="articles.js"></script>
+</body>
+</html>
