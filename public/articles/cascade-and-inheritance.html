@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cascade and Inheritance — Single Threaded</title>
+<title>Cascade and Inheritance - Single Threaded</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="articles.css">
@@ -135,7 +135,7 @@
 
   <p>Adding <code>!important</code> marks a declaration as important. Important declarations beat normal declarations, and the order of the three origins reverses. Important user-agent declarations outrank important user declarations, which outrank important author declarations. Reversing the origin order lets a reader's important <code>font-size</code> or <code>color</code> declaration override the site's important styles.</p>
 
-  <p>Animation and transition declarations also participate in the origin-and-importance comparison. A running CSS animation outranks normal declarations for the animated property, but any important declaration still outranks the animation. An active transition has the highest precedence for the property being transitioned and can temporarily replace the value CSS would otherwise use.</p>
+  <p>Animation and transition declarations lao participate in the origin-and-importance comparison. A running CSS animation outranks normal declarations for the animated property, but any important declaration still outranks the animation. An active transition has the highest precedence for the property being transitioned and can temporarily replace the value CSS would otherwise use.</p>
 
   <div class="callout warn">
     <div class="callout-title">!important as a last resort</div>
@@ -149,7 +149,7 @@
 
   <p>Special selectors allow limited styling across the shadow boundary. A <code>:host</code> rule inside the shadow tree and a rule in the outer document can both style the host element. When those rules set the same property, the cascade compares their encapsulation contexts after origin and importance. If both declarations are normal, the outer declaration wins, allowing the page to override a normal host default from the shadow tree. If both are important, the shadow-tree declaration wins. These precedence rules do not change which elements each selector can match.</p>
 
-  <p>The two card declarations come from page stylesheets, so both belong to the document context and remain tied at this comparison. The browser next checks whether either declaration comes from a style attribute.</p>
+  <p>The two card declarations come from page stylesheets, so both belong to the document context and stay tied at this comparison. The browser next checks whether either declaration comes from a style attribute.</p>
 
   <h2 id="style-attributes">Style Attributes</h2>
 
@@ -166,12 +166,12 @@
 
   <p>A style attribute is useful when runtime code supplies a value for one element, such as a <code>width</code> calculated after measuring that element. Static styles shared by several elements are better expressed as style rules. One rule can apply to several elements. When another rule supplies a different value, the cascade chooses between the declarations.</p>
 
-  <p>The two card declarations both come from style rules, so they remain tied.</p>
+  <p>The two card declarations both come from style rules, so they stay tied.</p>
 
   <h2 id="cascade-layers">Cascade Layers</h2>
   <p class="lede">Layers give groups of declarations an explicit priority before specificity is compared.</p>
 
-  <p>A <strong>cascade layer</strong> groups related declarations and gives the group a position in the layer order. Declarations in the same layer remain tied at this comparison. When declarations come from different layers, layer order decides the winner before specificity.</p>
+  <p>A <strong>cascade layer</strong> groups related declarations and gives the group a position in the layer order. Declarations in the same layer stay tied at this comparison. When declarations come from different layers, layer order decides the winner before specificity.</p>
 
   <p>The stylesheet below establishes an order for three layers before adding one style rule to each layer.</p>
 
@@ -212,7 +212,7 @@
   <h2 id="specificity">Specificity</h2>
   <p class="lede">The browser compares selector specificity only after the earlier cascade comparisons tie.</p>
 
-  <p><strong>Specificity</strong> is a weight calculated from a selector's structure. The browser compares it only when declarations from style rules remain tied after the earlier cascade comparisons. Style attributes have no selectors, so specificity does not apply to them. Greater specificity cannot overcome a declaration that won an earlier comparison.</p>
+  <p><strong>Specificity</strong> is a weight calculated from a selector's structure. The browser compares it only when declarations from style rules stay tied after the earlier cascade comparisons. Style attributes have no selectors, so specificity does not apply to them. Greater specificity cannot overcome a declaration that won an earlier comparison.</p>
 
   <p>A selector's specificity is represented by three counts for IDs, classes, and types. The browser compares the counts from left to right and moves to the next count only when the earlier counts tie.</p>
 
@@ -297,7 +297,7 @@
   <p>Specificity should follow from the selector needed to identify the intended elements. Adding an ID or ancestor only to win a conflict makes later overrides harder. When a selector matches the intended elements but still loses, an earlier cascade comparison may already have decided the winner. More specificity cannot change the result of an earlier comparison.</p>
 
   <h2 id="scope-rules">Scope Rules</h2>
-  <p class="lede">A scope limits selector matching to a document region. If scoped declarations otherwise tie, the browser also compares their distance from the scoping root.</p>
+  <p class="lede">A scope limits selector matching to a document region. If scoped declarations otherwise tie, the browser compares their distance from the scoping root.</p>
 
   <p>A <strong>scope rule</strong> begins with <code>@scope</code> and groups style rules that share a matching region. The first selector in parentheses identifies one or more <strong>scoping roots</strong>, which form the upper boundary of each scope. An optional selector after <code>to</code> identifies the <strong>lower boundaries</strong>. Enclosed selectors can match descendants of a scoping root, but not a lower-boundary element or any of its descendants.</p>
 
@@ -327,15 +327,15 @@
 
   <p>The article title is inside <code>.article</code> and outside <code>.comments</code>, so the scoped rule gives it navy text. The comments heading is a descendant of the lower-boundary element and therefore outside the scope. Wrapping the article title in <code>&lt;header&gt;</code> does not change the match because <code>.title</code> can appear at any descendant depth between the boundaries.</p>
 
-  <p>When several rules apply to the article region, <code>@scope</code> gives them one shared boundary. Each enclosed selector can describe the element it styles without repeating <code>.article</code> or excluding <code>.comments</code>. A later boundary change affects the <code>@scope</code> prelude instead of every selector, and the rules for the region remain grouped in one block.</p>
+  <p>When several rules apply to the article region, <code>@scope</code> gives them one shared boundary. Each enclosed selector can describe the element it styles without repeating <code>.article</code> or excluding <code>.comments</code>. A later boundary change affects the <code>@scope</code> prelude instead of every selector, and the rules for the region stay grouped in one block.</p>
 
   <p>Descendant and child combinators express one relationship within one selector. The selector <code>.article .title</code> matches both headings because both are descendants of the article. The selector <code>.article &gt; .title</code> matches neither heading because each one is wrapped in another element. The scope allows the article title to appear at any depth between the two boundaries while excluding the entire comments subtree.</p>
 
-  <p>Scope boundaries do not add specificity to enclosed selectors. The scoped <code>.title</code> selector remains <code>(0, 1, 0)</code>, whereas <code>.article .title</code> has <code>(0, 2, 0)</code>. Specificity reflects the enclosed selector. The selectors that define the region do not contribute.</p>
+  <p>Scope boundaries do not add specificity to enclosed selectors. The scoped <code>.title</code> selector stays <code>(0, 1, 0)</code>, whereas <code>.article .title</code> has <code>(0, 2, 0)</code>. Specificity reflects the enclosed selector. The selectors that define the region do not contribute.</p>
 
   <p>Scoping proximity comes after specificity because CSS uses it as a tie-breaker between equally specific rules. A nearer scoping root therefore cannot make a less specific selector defeat a more specific one.</p>
 
-  <p>If declarations remain tied after specificity, the browser compares <strong>scoping proximity</strong>. It counts the parent or sibling steps between the matched element and each scoping root. The declaration from the nearest root wins. A declaration from an unscoped rule has no scoping root, so it loses to an otherwise tied scoped declaration.</p>
+  <p>If declarations stay tied after specificity, the browser compares <strong>scoping proximity</strong>. It counts the parent or sibling steps between the matched element and each scoping root. The declaration from the nearest root wins. A declaration from an unscoped rule has no scoping root, so it loses to an otherwise tied scoped declaration.</p>
 
   <h2 id="source-order">Source Order</h2>
   <p>If scoping proximity ties, or both rules are unscoped, source order is the final comparison. The later declaration wins whether it appears later in the same stylesheet or in a stylesheet linked afterward.</p>
@@ -465,7 +465,7 @@
 
   <p>CSS processes each property on each element separately. Following one property from its applicable declarations to its computed value shows where the cascade ends and where defaulting begins.</p>
 
-  <p>The stylesheet below supplies two <code>color</code> declarations for the save control. The <code>:root</code> rule also defines a custom property that descendants inherit. In the second trace, no declaration from any origin supplies a <code>border-style</code> value for the save control.</p>
+  <p>The stylesheet below supplies two <code>color</code> declarations for the save control. The <code>:root</code> rule aslo defines a custom property that descendants inherit. In the second trace, no declaration from any origin supplies a <code>border-style</code> value for the save control.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -496,7 +496,7 @@
 
   <ol>
     <li><strong>Candidate collection</strong> gathers valid declarations for that property that apply to the element. A candidate may come from a matching style rule or a <code>style</code> attribute. If a style rule is inside a condition such as <code>@media</code>, that condition must match.</li>
-    <li><strong>Cascade comparison</strong> orders the candidates by precedence and chooses at most one cascaded value. <code>revert-layer</code> can make the cascade continue in a lower-priority layer, and <code>revert</code> can make it continue at a lower-priority origin. If no declaration remains, there is no cascaded value.</li>
+    <li><strong>Cascade comparison</strong> orders the candidates by precedence and chooses at most one cascaded value. <code>revert-layer</code> can make the cascade continue in a lower-priority layer, and <code>revert</code> can make it continue at a lower-priority origin. If no declaration stays, there is no cascaded value.</li>
     <li><strong>Defaulting</strong> produces the specified value. It normally uses the cascaded value. The <code>inherit</code>, <code>initial</code>, and <code>unset</code> keywords instead determine the specified value according to their rules. If there is no cascaded value, an inherited property receives its parent's computed value, or its initial value on the root element. A non-inherited property receives its initial value.</li>
     <li><strong>Computation</strong> resolves dependencies in the specified value that do not require layout, producing the computed value.</li>
   </ol>

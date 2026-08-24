@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CI/CD and DevOps — Single Threaded</title>
+<title>CI/CD and DevOps - Single Threaded</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="articles.css">
@@ -78,7 +78,7 @@
 
   <p><strong>Continuous integration</strong> (CI) means that every developer integrates with the shared codebase at least daily, and often more frequently. Each integration triggers an automated build and a useful set of tests. The short interval is the essential part. Conflicts and incompatible assumptions surface while the change is still small and fresh in the developer's mind.</p>
 
-  <p>Kent Beck developed continuous integration as an Extreme Programming practice in the 1990s. Its value does not depend on adopting the rest of that methodology. A team can use any branching and review workflow that still permits frequent integration, provided the shared branch remains healthy and failures receive prompt attention.</p>
+  <p>Kent Beck developed continuous integration as an Extreme Programming practice in the 1990s. Its value does not depend on adopting the rest of that methodology. A team can use any branching and review workflow that still permits frequent integration, provided the shared branch stays healthy and failures receive prompt attention.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="delivery-vs-deployment">Continuous Delivery vs. Continuous Deployment</h2>
@@ -185,7 +185,7 @@
   <h2 id="deployment-strategies">Deployment Strategies</h2>
   <p class="lede">Which strategy fits is a question about acceptable risk and acceptable downtime, not a technical preference.</p>
 
-  <p>A <strong>rolling update</strong> replaces old instances in batches while some capacity remains available. It can avoid release downtime when the application supports mixed versions and the rollout settings preserve enough healthy instances. A <strong>blue-green deployment</strong> prepares a second environment and redirects traffic after it has been verified. Switching traffic back can be quick, although state and database changes may complicate recovery. A <strong>canary deployment</strong> exposes the new version to a limited share of traffic first, then expands or stops the rollout according to observed results.</p>
+  <p>A <strong>rolling update</strong> replaces old instances in batches while some capacity stays available. It can avoid release downtime when the application supports mixed versions and the rollout settings preserve enough healthy instances. A <strong>blue-green deployment</strong> prepares a second environment and redirects traffic after it has been verified. Switching traffic back can be quick, although state and database changes may complicate recovery. A <strong>canary deployment</strong> exposes the new version to a limited share of traffic first, then expands or stops the rollout according to observed results.</p>
 
   <div class="table-wrap">
     <table>
@@ -235,10 +235,10 @@
       <!-- Blue-green -->
       <text class="figure-title" x="310" y="20" text-anchor="middle">Blue-green</text>
       <rect class="figure-node" x="222" y="34" width="176" height="34"/>
-      <text class="figure-label" x="310" y="55" text-anchor="middle">Blue — live (v1)</text>
+      <text class="figure-label" x="310" y="55" text-anchor="middle">Blue - live (v1)</text>
 
       <rect class="figure-node is-clay" x="222" y="82" width="176" height="34"/>
-      <text class="figure-label" x="310" y="103" text-anchor="middle">Green — idle (v2)</text>
+      <text class="figure-label" x="310" y="103" text-anchor="middle">Green - idle (v2)</text>
 
       <path class="figure-connector" d="M 400 51 C 415 51, 415 99, 400 99" marker-end="url(#cd-r3)"/>
       <text class="figure-label" x="310" y="134" text-anchor="middle">traffic switches all at once,</text>
@@ -255,10 +255,10 @@
       <path class="figure-connector" d="M 528 47 H 648 V 141 H 616" marker-end="url(#cd-r3)"/>
 
       <rect class="figure-node" x="440" y="84" width="176" height="40"/>
-      <text class="figure-label" x="528" y="108" text-anchor="middle">Stable (v1) — most traffic</text>
+      <text class="figure-label" x="528" y="108" text-anchor="middle">Stable (v1) - most traffic</text>
 
       <rect class="figure-node is-gold" x="440" y="126" width="176" height="30"/>
-      <text class="figure-label" x="528" y="146" text-anchor="middle">Canary (v2) — limited traffic</text>
+      <text class="figure-label" x="528" y="146" text-anchor="middle">Canary (v2) - limited traffic</text>
 
       <text class="figure-label" x="528" y="176" text-anchor="middle">small slice verified healthy</text>
       <text class="figure-label" x="528" y="187" text-anchor="middle">before rolling out further</text>
@@ -266,7 +266,7 @@
     <figcaption>Each strategy controls the pace of a rollout and the exposure created before operators can react.</figcaption>
   </figure>
 
-  <p>A <strong>feature flag</strong> separates deployment from release. The code can be present in production while the capability remains hidden or limited to a selected audience. Flags support product experiments and staged exposure, but they also create temporary branches in runtime behavior. Each flag therefore needs an owner and a removal plan.</p>
+  <p>A <strong>feature flag</strong> separates deployment from release. The code can be present in production while the capability stays hidden or limited to a selected audience. Flags support product experiments and staged exposure, but they create temporary branches in runtime behavior. Each flag therefore needs an owner and a removal plan.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="gitops">GitOps and Pull-Based Reconciliation</h2>
@@ -274,9 +274,9 @@
 
   <p>In a push-based deployment, the pipeline authenticates to the target environment and applies a change. <strong>GitOps</strong> uses a different control loop. Desired state is expressed declaratively, stored with version history, pulled automatically by an agent, and continuously reconciled with the running system. A Kubernetes deployment repository might declare an image digest, replica count, and configuration. An in-cluster controller such as Argo CD or Flux observes those declarations and applies the required changes.</p>
 
-  <p>The pull model can remove production credentials from the CI system because the reconciler already runs with the permissions needed inside the target environment. It does not make repository access harmless. A credential that can alter an automatically reconciled production branch may still authorize a production change. Protected branches, review rules, signed commits or artifacts, and narrowly scoped reconciler permissions remain part of the security boundary.</p>
+  <p>The pull model can remove production credentials from the CI system because the reconciler already runs with the permissions needed inside the target environment. It does not make repository access harmless. A credential that can alter an automatically reconciled production branch may still authorize a production change. Protected branches, review rules, signed commits or artifacts, and narrowly scoped reconciler permissions stay part of the security boundary.</p>
 
-  <p>GitOps fits systems whose desired state can be represented declaratively and reconciled repeatedly. Kubernetes resources match that model well. Imperative operations with important intermediate steps need more care because their outcome cannot always be recovered from a final state declaration. In those cases, a conventional deployment job may remain clearer than hiding a sequence of commands behind a declarative wrapper.</p>
+  <p>GitOps fits systems whose desired state can be represented declaratively and reconciled repeatedly. Kubernetes resources match that model well. Imperative operations with important intermediate steps need more care because their outcome cannot always be recovered from a final state declaration. In those cases, a conventional deployment job may stay clearer than hiding a sequence of commands behind a declarative wrapper.</p>
 
   <figure class="figure-wrap">
     <svg class="figure" viewBox="-20 -20 660 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Comparison of push-based and pull-based deployment. In the push model, a CI/CD system pushes changes directly to production infrastructure using write credentials. In the pull model (GitOps), CI commits a new manifest to a Git repository, and an agent running inside the cluster pulls from that repository and reconciles the cluster's actual state to match it.">
@@ -309,13 +309,13 @@
       <text class="figure-heading is-accent-text" x="467" y="28" text-anchor="middle">Pull-based (GitOps)</text>
 
       <rect class="figure-node" x="362" y="50" width="210" height="40"/>
-      <text class="figure-label" x="467" y="74" text-anchor="middle">Git Repo — desired state</text>
+      <text class="figure-label" x="467" y="74" text-anchor="middle">Git Repo - desired state</text>
 
       <rect class="figure-node is-clay" x="362" y="130" width="210" height="40"/>
-      <text class="figure-label" x="467" y="154" text-anchor="middle">Agent — inside cluster</text>
+      <text class="figure-label" x="467" y="154" text-anchor="middle">Agent - inside cluster</text>
 
       <rect class="figure-node" x="362" y="210" width="210" height="40"/>
-      <text class="figure-label" x="467" y="234" text-anchor="middle">Cluster — actual state</text>
+      <text class="figure-label" x="467" y="234" text-anchor="middle">Cluster - actual state</text>
 
       <line class="figure-connector" x1="420" y1="130" x2="420" y2="90" marker-end="url(#cd-r2)"/>
       <text class="figure-label" x="430" y="112">pulls &amp;</text>
@@ -345,7 +345,7 @@
   <h2 id="rollbacks">Rollbacks and Pipeline Health</h2>
   <p class="lede">Recovery works only when the team has preserved a known-good artifact and rehearsed how to restore service.</p>
 
-  <p>Redeploying a previous artifact can be the quickest response to a stateless application regression. It is not a universal rollback. Database migrations, external side effects, and incompatible protocols may require a forward fix or a separate recovery procedure. Immutable artifact promotion still helps because it preserves the exact application version that passed through the earlier environments.</p>
+  <p>Redeploying a previous artifact can be the quickest response to a stateless application regression, but some failures need more than a redeployment. Database migrations, external side effects, and incompatible protocols may require a forward fix or a separate recovery procedure. Immutable artifact promotion still helps because it preserves the exact application version that passed through the earlier environments.</p>
 
   <p>The pipeline needs its own operational care. Rising execution time delays feedback, while flaky tests train developers to distrust failures. Teams should track queue time, stage duration, failure causes, and the rate of reruns or overrides. Production diagnosis belongs to observability, but the deployment record should still connect each release to its artifact, configuration, and source revision.</p>
 
@@ -361,7 +361,7 @@
         <tr><th>Tier</th><th>What it looks like</th><th>Fits</th></tr>
       </thead>
       <tbody>
-        <tr><td>Minimal</td><td>Automated build and focused tests, followed by a documented manual deployment</td><td>A small service released infrequently, while deployment remains simple and low risk.</td></tr>
+        <tr><td>Minimal</td><td>Automated build and focused tests, followed by a documented manual deployment</td><td>A small service released infrequently, while deployment stays simple and low risk.</td></tr>
         <tr><td>Standard</td><td>Automated build, tests, artifact publication, and a repeatable production deployment</td><td>A useful baseline once releases are regular or more than one person operates the service.</td></tr>
         <tr><td>Extended</td><td>Environment promotion, progressive delivery, policy checks, and possibly GitOps reconciliation</td><td>Frequent releases, shared platforms, or services whose failures justify finer control and faster containment.</td></tr>
       </tbody>

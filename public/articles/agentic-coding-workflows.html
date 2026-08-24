@@ -67,7 +67,7 @@
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
-  <p>Andrej Karpathy coined “vibe coding” in 2025 for a specific way of working. The developer describes the desired behavior in natural language, accepts the generated code, and judges it by what the program appears to do rather than by reading every line. The phrase quickly broadened into a label for almost any AI-assisted development, but the original distinction still matters. It describes the verification practice around the tool, not the tool itself.</p>
+  <p>Andrej Karpathy coined “vibe coding” in 2025 for a specific way of working. The developer describes the desired behavior in natural language, accepts the generated code, and judges it by what the program appears to do rather than by reading every line. The phrase quickly broadened into a label for almost any AI-assisted development, but the original distinction is still useful. It describes the verification practice around the tool, not the tool itself.</p>
 
   <p>This article draws the boundary around that practice and explains why the acceptable boundary changes with the cost of failure. It then develops a safer workflow for production work, moving from specifications and executable tests to context management, guardrails, and human approval.</p>
 
@@ -82,7 +82,7 @@
 
   <p>Vibe coding means directing an AI tool in natural language and accepting its output because the result appears to work. The developer may run the program and adjust the prompt several times, but does not build an understanding of the generated implementation. That can be a rational shortcut when the code is disposable. It is not a verification method.</p>
 
-  <p>The habit layered on top of the tool matters more than the tool itself. Two developers can run the same agent on the same task and be doing very different things. One reads every diff before it merges, catches the parts that don't fit, and rejects or rewrites what's wrong. The other accepts the result once it runs. Both count as "using AI to code," but only one of them is vibe coding in the sense that matters for what follows.</p>
+  <p>The working practice around the tool is more important than the tool itself. Two developers can run the same agent on the same task and be doing very different things. One reads every diff before it merges, catches the parts that don't fit, and rejects or rewrites what's wrong. The other accepts the result once it runs. Both count as "using AI to code," but only one of them is vibe coding in the sense used in this article.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="where-it-works">The Legitimate Cases</h2>
@@ -90,7 +90,7 @@
 
   <p>The approach fits work with a deliberately small blast radius. A weekend prototype, a personal script, or a throwaway exploration of an API can all qualify. The codebase does not have to be tiny; the consequence of failure does. If an incorrect result costs little and the artifact can be discarded, understanding every generated line may cost more than it protects.</p>
 
-  <p>That calculation flips the moment the same code has to serve anyone other than the person who wrote it. The tool doesn't get worse when the stakes go up. What changes is the price of the missing verification step. Skipping it cost nothing while only the author's own time was on the line. Now it carries the cost of whatever a stranger does with a bug nobody caught.</p>
+  <p>The calculation changes when the code has to serve anyone other than the person who wrote it. The tool doesn't get worse when the stakes go up. What changes is the price of the missing verification step. Skipping it cost nothing while only the author's own time was on the line. Now it carries the cost of whatever a stranger does with a bug nobody caught.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="production-failures">The Production Failure Pattern</h2>
@@ -102,7 +102,7 @@
 
   <div class="callout warn">
     <div class="callout-title">Behavior is evidence, not understanding</div>
-    <p>A successful demo establishes that one path worked with one set of inputs. Production confidence also needs the relevant invariants, failure paths, security boundaries, and operational effects to be checked. The amount of checking should follow the cost of being wrong.</p>
+    <p>A successful demo establishes that one path worked with one set of inputs. Production confidence needs the relevant invariants, failure paths, security boundaries, and operational effects to be checked. The amount of checking should follow the cost of being wrong.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -141,7 +141,7 @@ contacting support.
 - No indication given whether the email exists in the system</code></pre>
   </div>
 
-  <p>The fragment contains no function names, no file paths, and nothing else that presumes a particular implementation. That's deliberate. A reviewer can catch a missing requirement, like the rate limit or the no-enumeration rule, in the minute it takes to read four bullet points. Catching the same gap in a finished diff means noticing what isn't there, which is a much harder thing to review for.</p>
+  <p>The fragment contains no function names, no file paths, and nothing else that presumes a particular implementation. This is deliberate. A reviewer can catch a missing requirement, like the rate limit or the no-enumeration rule, in the minute it takes to read four bullet points. Catching the same gap in a finished diff means noticing what isn't there, which is a much harder thing to review for.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="tests-from-specs">Tests as the Executable Spec</h2>
@@ -149,7 +149,7 @@ contacting support.
 
   <p>The password-reset example resembles <strong>Easy Approach to Requirements Syntax</strong> (EARS), a set of patterns developed at Rolls-Royce for writing constrained natural-language requirements. Forms such as “when X happens, the system shall Y” make the trigger and required response explicit. The result is easier for a person to review and easier to translate into test cases, although a consistent sentence shape cannot by itself make a requirement complete or unambiguous.</p>
 
-  <p>That's also the cleanest way to see how spec-driven development differs from two older practices it keeps getting compared to. Test-driven development says write the failing test first. Behavior-driven development says write the behavior first, in language a non-engineer on the team can still read, then derive the test from it. Spec-driven development pushes the artifact up one more level. Write the whole spec, with behavior, constraints, and edge cases together, and let an agent generate the code, the tests, and often a first pass at documentation from that single source. Each of the three chooses a different artifact as the one everything else follows from.</p>
+  <p>This makes it easier to see how spec-driven development differs from two older practices it keeps getting compared to. Test-driven development says write the failing test first. Behavior-driven development says write the behavior first, in language a non-engineer on the team can still read, then derive the test from it. Spec-driven development pushes the artifact up one more level. Write the whole spec, with behavior, constraints, and edge cases together, and let an agent generate the code, the tests, and often a first pass at documentation from that single source. Each of the three chooses a different artifact as the one everything else follows from.</p>
 
   <p>Generated tests need their own verification because an agent can satisfy a test task with assertions that prove very little. Mutation testing provides one mechanical check: it introduces small changes into the implementation and measures whether the tests detect them. Surviving mutations can reveal behavior the suite did not protect. Some mutations are equivalent to the original behavior, so the report still needs interpretation. Editing an existing failing test is riskier, because removing or weakening an assertion can make the suite green while discarding the requirement. Such edits need a reviewer to confirm that the test still expresses the intended behavior.</p>
 
@@ -176,9 +176,9 @@ contacting support.
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="harness-engineering">Harness Engineering</h2>
-  <p class="lede">Context engineering asks what the model can see this session. The discipline that has absorbed it asks what stops the same mistake from recurring next session too.</p>
+  <p class="lede">Context engineering asks what the model can see this session. Harness engineering asks a broader question. It asks what stops a mistake from recurring in a later session.</p>
 
-  <p><strong>Harness engineering</strong> moves one level beyond the context of a particular session. The harness is the standing software and policy around the model: tool access, permission checks, feedback loops, isolation, observability, and approval gates. Prompt and context design remain part of the system, but the harness determines which mistakes are possible and which are caught automatically.</p>
+  <p><strong>Harness engineering</strong> moves one level beyond the context of a particular session. The harness is the standing software and policy around the model. It includes tool access, permission checks, feedback loops, isolation, observability, and approval gates. Prompt and context design stay part of the system, but the harness determines which mistakes are possible and which are caught automatically.</p>
 
   <p>A repository instruction can tell an agent not to run a production migration, but the model may misunderstand or overlook the instruction. A harness can withhold the production credential or require an approval before the command executes. The latter control applies to every session and does not depend on the model choosing correctly. This is the central value of the harness: recurring risks become properties of the surrounding system instead of reminders embedded in prose.</p>
 

@@ -66,7 +66,7 @@
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
-  <p>AI coding assistants began as inline completion tools, offering a few characters or lines for a developer to accept or ignore. The same label now covers agents that can inspect a repository, plan a change, edit several files, run commands, and react to failures. Configuration therefore depends on the unit of work being delegated. Guidance that is enough for a line completion may be wholly inadequate for an agent changing a feature across the codebase.</p>
+  <p>AI coding assistants began as inline completion tools, offering a few characters or lines for a developer to accept or ignore. The label now covers agents that can inspect a repository, plan a change, edit several files, run commands, and react to failures. Configuration therefore depends on the unit of work being delegated. Guidance that is enough for a line completion may be wholly inadequate for an agent changing a feature across the codebase.</p>
 
   <p>The sections below follow that range from completion to agentic work. They explain how an assistant discovers relevant code, how repository instructions shape its choices, and when skills or subagents are a better fit than always-loaded guidance. The article closes with the less visible constraints: token cost, maintenance work, and the kinds of task where delegation saves time.</p>
 
@@ -83,7 +83,7 @@
 
   <p>Chat-based assistance sits a step up. A developer asks a question or pastes an error, the model answers with an explanation or a proposed diff, and the developer decides whether to apply it. The unit of work is still small, usually a function or a file, and a human is in the loop on every exchange.</p>
 
-  <p>Agentic tools accept a task rather than a line or a snippet. Given a bug report or feature description, an agent can search for relevant files, form a plan, edit across the change boundary, run the build and tests, then respond to failures. Products differ in their tools and approval settings, but the shift in responsibility is the same: the developer reviews a plan and a finished diff instead of authoring every line.</p>
+  <p>Agentic tools accept a task rather than a line or a snippet. Given a bug report or feature description, an agent can search for relevant files, form a plan, edit across the change boundary, run the build and tests, then respond to failures. Products differ in their tools and approval settings, but responsibility shifts toward review. The developer reviews a plan and a finished diff instead of authoring every line.</p>
 
   <p>The modes can be combined within one task. A plan-first workflow begins like chat: the agent researches the change, proposes an approach, and waits. After approval it switches to execution and works through the plan with its tools. That checkpoint gives the developer a cheap place to correct scope or assumptions before they spread across a multi-file diff.</p>
 
@@ -109,7 +109,7 @@
   <h2 id="context-window">How an Agent Sees a Repository</h2>
   <p class="lede">A model's context window is finite. Almost everything about configuring an agent well comes down to what fills it.</p>
 
-  <p>Every model has a <a href="how-llms-work.html#context-window">context window</a> that limits how many tokens one request can contain. File-oriented assistants usually fill it with the open file and a small amount of nearby or explicitly selected code. That is enough for a local edit. A change that crosses a service boundary also needs distant callers, shared utilities, and tests that the editor may never have opened.</p>
+  <p>Every model has a <a href="how-llms-work.html#context-window">context window</a> that limits how many tokens one request can contain. File-oriented assistants usually fill it with the open file and a small amount of nearby or explicitly selected code. This is enough for a local edit. A change that crosses a service boundary also needs distant callers, shared utilities, and tests that the editor may never have opened.</p>
 
   <p>Repository-aware agents use search to decide what enters the context window. Some products maintain a semantic index and retrieve code related to the task by meaning. Others let the agent explore with file listings, text search, symbol search, and targeted reads. Many combine both approaches. The important change is that relevance is discovered during the task, which lets an agent find a caller or test far from the file where the change began.</p>
 
@@ -126,9 +126,9 @@
   <h2 id="context-files">Context Files: CLAUDE.md and AGENTS.md</h2>
   <p class="lede">If one file determines whether an agent behaves like a senior engineer on the project or a confused newcomer, this is it.</p>
 
-  <p>Most agentic tools can load repository instructions before starting work. These files capture the project knowledge that code search alone may not reveal: exact build and test commands, local conventions, ownership boundaries, and actions that require human approval. Some tools also support nested instruction files so guidance can become more specific inside a subdirectory.</p>
+  <p>Most agentic tools can load repository instructions before starting work. These files capture the project knowledge that code search alone may not reveal: exact build and test commands, local conventions, ownership boundaries, and actions that require human approval. Some tools support nested instruction files so guidance can become more specific inside a subdirectory.</p>
 
-  <p>Products first established their own instruction formats. Claude Code uses <code>CLAUDE.md</code>, while GitHub Copilot supports repository and path-specific custom-instruction files. Cursor also has product-specific project rules. Maintaining complete copies for several tools creates predictable drift, especially when one file changes without the others.</p>
+  <p>Products first established their own instruction formats. Claude Code uses <code>CLAUDE.md</code>, while GitHub Copilot supports repository and path-specific custom-instruction files. Cursor has product-specific project rules. Maintaining complete copies for several tools creates predictable drift, especially when one file changes without the others.</p>
 
   <p><code>AGENTS.md</code> emerged as a portable answer to that duplication. It is a plain-Markdown convention supported by several coding agents and development environments. A file at the repository root can hold shared guidance, while nested files can refine it for a subtree in tools that implement hierarchical lookup. Product-specific instruction files still exist, but a shared file reduces the amount of guidance that must be copied between them.</p>
 
@@ -146,7 +146,7 @@
     </table>
   </div>
 
-  <p>A shared format also helps beyond one repository. Developers know where to look for project guidance, much as they already look for a README or <code>package.json</code>. The saving is small on one project but accumulates across an engineering organization with many repositories.</p>
+  <p>A shared format helps beyond one repository. Developers know where to look for project guidance, much as they already look for a README or <code>package.json</code>. The saving is small on one project but accumulates across an engineering organization with many repositories.</p>
 
   <p>A minimal <code>AGENTS.md</code> is just a few headings of the kind a new engineer's onboarding doc would already have:</p>
 
@@ -178,7 +178,7 @@
 
   <p>Repository instructions consume context whenever the tool loads them, so useful files stay selective. Include exact build and test commands, especially when the project needs unusual flags or setup. Record conventions the source cannot express clearly, ownership boundaries between modules, and actions that need approval. Generated files, production configuration, database migrations, and deployment definitions are common examples, but the boundary should reflect the project rather than a generic checklist.</p>
 
-  <p>What doesn't belong is a restatement of the whole style guide. Modern models already write idiomatic code in whatever language they're given, so telling one to use camelCase in JavaScript spends tokens confirming something it already does. The same goes for restating framework documentation or explaining what a well-known library does. Save the file for the part that's specific to this codebase, usually a small fraction of everything a team could write down about it.</p>
+  <p>What doesn't belong is a restatement of the whole style guide. Modern models already write idiomatic code in whatever language they're given, so telling one to use camelCase in JavaScript spends tokens confirming something it already does. Restating framework documentation or explaining a well-known library wastes space for a similar reason. Save the file for the part that's specific to this codebase, usually a small fraction of everything a team could write down about it.</p>
 
   <div class="concept-grid">
     <div class="card green">
@@ -193,7 +193,7 @@
     </div>
   </div>
 
-  <p>A context file also needs upkeep. Guidance written during a proof of concept may still name a test command that was replaced months later. The agent has no inherent way to distinguish that stale instruction from an accurate one.</p>
+  <p>A context file needs upkeep. Guidance written during a proof of concept may still name a test command that was replaced months later. The agent has no inherent way to distinguish that stale instruction from an accurate one.</p>
 
   <div class="callout warn">
     <div class="callout-title">A stale file actively misleads</div>
@@ -202,15 +202,15 @@
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="ai-docs">Keeping Documentation in Sync</h2>
-  <p class="lede">A context file is one kind of document an agent reads. It's also, more and more, a document an agent writes.</p>
+  <p class="lede">A context file is one kind of document an agent reads. Agents increasingly write this kind of document too.</p>
 
-  <p>Docstrings, READMEs, and architecture decision records share the same failure mode as repository instructions: code changes while prose remains still. An agent that can inspect a diff can often draft the documentation changes implied by it. That draft is useful because it makes the missing update visible, but it still needs review by someone who understands the decision behind the code.</p>
+  <p>Docstrings, READMEs, and architecture decision records can become stale just like repository instructions. Code changes while prose stays unchanged. An agent that can inspect a diff can often draft the documentation changes implied by it. That draft is useful because it makes the missing update visible, but it still needs review by someone who understands the decision behind the code.</p>
 
   <p>Architecture decision records benefit from an explicit trigger. Repository instructions can tell an agent to draft one when a task changes a service boundary, data model, or dependency between modules. The draft does not decide the architecture, and it should not rewrite an earlier decision to make the present change look inevitable. Its value is procedural: a decision that deserves a record is less likely to disappear merely because nobody remembered to start the document.</p>
 
-  <p>An architecture decision record now serves two readers. A future maintainer needs to know what was decided and why. A future agent also needs the constraints that remain true when it proposes another change. Writing those constraints plainly improves the record for both audiences without turning it into tool-specific prompt material.</p>
+  <p>An architecture decision record now serves two readers. A future maintainer needs to know what was decided and why. A future agent needs the constraints that still apply when it proposes another change. Writing those constraints plainly improves the record for both audiences without turning it into tool-specific prompt material.</p>
 
-  <p>Cheaper documentation is useful only if the review step remains. An agent can produce a polished explanation of an incorrect assumption as readily as a correct one. Treat its contribution as a first draft tied to the code change, then review both together before either becomes the project's source of truth.</p>
+  <p>Cheaper documentation is useful only if the review step stays in place. An agent can produce a polished explanation of an incorrect assumption as readily as a correct one. Treat its contribution as a first draft tied to the code change, then review both together before either becomes the project's source of truth.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="bridging">Working Across Multiple Tools</h2>
@@ -272,7 +272,7 @@
 
   <p>Inline completion uses a small amount of context and returns little output. An agentic session may read several files, ingest command output, and carry useful material across multiple iterations. That additional context is part of repository-aware work, but it makes task cost sensitive to how widely the agent searches and how often it retries. The <a href="how-llms-work.html#cost">LLM article</a> explains the underlying input and output costs.</p>
 
-  <p>At team scale, token usage becomes a budget line. Repository instructions can reduce repeated exploration by providing the exact build and test commands up front. Narrow tasks also limit unnecessary file reads and retries. Model routing offers another lever: use a capable tier where the task needs it, and evaluate smaller models for bounded work rather than assuming one tier fits every request.</p>
+  <p>At team scale, token usage becomes a budget line. Repository instructions can reduce repeated exploration by providing the exact build and test commands up front. Narrow tasks limit unnecessary file reads and retries. Model routing offers another lever. use a capable tier where the task needs it, and evaluate smaller models for bounded work rather than assuming one tier fits every request.</p>
 
   <p>The relevant unit is therefore the completed task rather than the individual model call. Track the context read, generated output, retries, and validation work together. A cheap call that sends the agent down a wrong path can cost more overall than a well-scoped request to a more capable model.</p>
 

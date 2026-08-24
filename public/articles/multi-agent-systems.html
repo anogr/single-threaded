@@ -51,9 +51,9 @@
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
-  <p>The agents described so far work through one primary <a href="how-llms-work.html#context-window">context window</a> and one sequence of decisions. That arrangement becomes limiting when a task contains independent work that could run in parallel or when exploration would crowd the main context with unrelated detail. Better prompting cannot create another workspace or make two tool calls finish at the same time.</p>
+  <p>The agents described so far work through one primary <a href="how-llms-work.html#context-window">context window</a> and one sequence of decisions. This arrangement becomes limiting when a task contains independent work that could run in parallel or when exploration would crowd the main context with unrelated detail. Better prompting cannot create another workspace or make two tool calls finish at the same time.</p>
 
-  <p>Multiple agents offer another option by giving separate workers their own context and execution paths. That can add parallelism and keep specialized work isolated. It also adds handoffs, duplicated context, state coordination, and new failure modes. The architecture is useful only when those costs are smaller than the bottleneck it removes.</p>
+  <p>Multiple agents offer another option by giving separate workers their own context and execution paths. Separate workers can add parallelism and keep specialized work isolated. The design adds handoffs, duplicated context, state coordination, and new failure modes. The architecture is useful only when those costs are smaller than the bottleneck it removes.</p>
 
   <div class="callout info">
     <div class="callout-title">Building on earlier articles</div>
@@ -70,7 +70,7 @@
 
   <p>Specialization rests on bounded responsibility. A worker with a narrow objective receives less irrelevant context, and its output can be judged against a clearer contract. The same principle appears in <a href="design-principles.html">single-responsibility design</a> and <a href="microfrontends.html">team-sized frontend ownership</a>: boundaries make both work and failure easier to locate.</p>
 
-  <p>The costs appear in compute, latency, and reliability. Workers repeat shared instructions and the orchestrator must read their results, so total token use rises. Parallel work can shorten one phase, but decomposition and aggregation remain serial. Every worker and handoff also creates another place for timeouts, stale state, or a misleading summary. These costs should be measured against a single-agent baseline.</p>
+  <p>The costs appear in compute, latency, and reliability. Workers repeat shared instructions and the orchestrator must read their results, so total token use rises. Parallel work can shorten one phase, but decomposition and aggregation still run serially. Every worker and handoff creates another place for timeouts, stale state, or a misleading summary. These costs should be measured against a single-agent baseline.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="orchestrator">Orchestrator and Workers</h2>

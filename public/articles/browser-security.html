@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Browser Security — Single Threaded</title>
+<title>Browser Security - Single Threaded</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="articles.css">
@@ -142,7 +142,7 @@
   </figure>
 
   <h3>Defenses</h3>
-  <p>The primary defense is <strong>context-appropriate output encoding</strong>. Untrusted text must remain data when inserted into HTML, attributes, URLs, CSS, or JavaScript; each context has different rules. Frontend frameworks normally encode text interpolation, but escape hatches such as React's <code>dangerouslySetInnerHTML</code>, Vue's <code>v-html</code>, and the DOM's <code>innerHTML</code> deliberately bypass that protection. If the application must accept HTML, sanitize it with a maintained library such as DOMPurify before rendering it.</p>
+  <p>The primary defense is <strong>context-appropriate output encoding</strong>. Untrusted text must stay data when inserted into HTML, attributes, URLs, CSS, or JavaScript. Each context has different rules. Frontend frameworks normally encode text interpolation, but escape hatches such as React's <code>dangerouslySetInnerHTML</code>, Vue's <code>v-html</code>, and the DOM's <code>innerHTML</code> deliberately bypass that protection. If the application must accept HTML, sanitize it with a maintained library such as DOMPurify before rendering it.</p>
 
   <p><strong>HttpOnly cookies</strong> limit token theft but do not prevent XSS. JavaScript cannot read an HttpOnly cookie through <code>document.cookie</code>, so an injected script cannot copy that credential elsewhere. The script can still act through the victim's session while it runs on the page. Session cookies should normally be HttpOnly for this reason.</p>
 
@@ -160,7 +160,7 @@
 
   <p>A <strong>nonce</strong> is an unpredictable value generated for one response and placed in both the CSP header and the legitimate <code>&lt;script&gt;</code> elements. An injected script cannot run without that value. The application must avoid copying the nonce onto attacker-controlled script markup. With <code>'strict-dynamic'</code>, trusted scripts can load further non-parser-inserted scripts, so code that constructs script URLs from untrusted input still needs careful review.</p>
 
-  <p><strong>Trusted Types</strong> addresses DOM injection sinks. With <code>require-trusted-types-for 'script'</code>, covered sinks such as <code>innerHTML</code> reject ordinary strings and accept only the corresponding trusted type. Policies that create those values become the places to audit and, where appropriate, sanitize. Trusted Types became available across the latest major browsers in 2026, but older browser versions may ignore the directive. It remains hardening on top of safe DOM APIs, encoding, and sanitization.</p>
+  <p><strong>Trusted Types</strong> addresses DOM injection sinks. With <code>require-trusted-types-for 'script'</code>, covered sinks such as <code>innerHTML</code> reject ordinary strings and accept only the corresponding trusted type. Policies that create those values become the places to audit and, where appropriate, sanitize. Trusted Types became available across the latest major browsers in 2026, but older browser versions may ignore the directive. It stays hardening on top of safe DOM APIs, encoding, and sanitization.</p>
 
   <div class="header-block">
     <div><span class="hl-name">Content-Security-Policy:</span> <span class="hl-value">require-trusted-types-for 'script'</span></div>
@@ -174,7 +174,7 @@
 
   <div class="callout info">
     <div class="callout-title">CSP in report-only mode</div>
-    <p>Deploying a CSP can block legitimate functionality. <code>Content-Security-Policy-Report-Only</code> reports violations without enforcing the policy, which makes it useful during rollout. Current deployments can use <code>report-to</code> with a Reporting API endpoint and keep <code>report-uri</code> as a compatibility fallback while support remains mixed.</p>
+    <p>Deploying a CSP can block legitimate functionality. <code>Content-Security-Policy-Report-Only</code> reports violations without enforcing the policy, which makes it useful during rollout. Current deployments can use <code>report-to</code> with a Reporting API endpoint and keep <code>report-uri</code> as a compatibility fallback while support stays mixed.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -247,7 +247,7 @@
   <h3>Defenses</h3>
   <p>The <strong>SameSite cookie attribute</strong>, covered in depth in the <a href="http.html">HTTP</a> article, limits when a browser sends cookies across sites. <code>SameSite=Strict</code> withholds the cookie from all cross-site requests. <code>SameSite=Lax</code> permits it on top-level navigations that use safe methods, such as following an ordinary link, but not on the hidden cross-site POST in the example above. Modern browsers generally treat an omitted attribute as Lax, with compatibility rules for recently created cookies. Set the attribute explicitly so the application's policy does not depend on browser defaults.</p>
 
-  <p><strong>CSRF tokens</strong> defend against the same attack as SameSite, but they work at a different layer. That's why sites commonly use both instead of relying on either alone. SameSite is a single point of protection, and it can fail in several ways:</p>
+  <p><strong>CSRF tokens</strong> defend against the same attack as SameSite, but they work at a different layer. Sites therefore commonly use both instead of relying on either alone. SameSite is a single point of protection, and it can fail in several ways:</p>
   <ul>
     <li>Never set, in a browser that doesn't apply Lax by default.</li>
     <li>Misconfigured or disabled outright.</li>
@@ -285,7 +285,7 @@
   <h3>CORS: opting specific origins back in</h3>
   <p>CORS is the mechanism a server uses to tell the browser a particular origin is allowed to read its responses. The header-by-header mechanics, such as the preflight exchange, <code>Access-Control-Allow-Origin</code>, and credentialed requests, are covered in the <a href="http.html#cors">HTTP</a> article. What matters here is why preflight exists at all.</p>
 
-  <p>A request with a custom header, a JSON body, or a method like <code>PUT</code> or <code>DELETE</code> is something a plain HTML form could never produce. Before <code>fetch</code> and XHR existed, no server had a reason to check where a request like that came from, because a cross-origin script had no way to send one. Most servers still don't check the <code>Origin</code> header on every request. A well-written one could reject an unexpected origin itself, but CORS can't assume every server does. So the browser first sends a side-effect-free <code>OPTIONS</code> request, and only sends the real one if the server explicitly answers with the right <code>Access-Control-*</code> headers. A server that's never heard of CORS won't answer correctly, and the real request never goes out. That protects servers that were never written with cross-origin JavaScript in mind, without requiring them to add anything.</p>
+  <p>A request with a custom header, a JSON body, or a method like <code>PUT</code> or <code>DELETE</code> is something a plain HTML form could never produce. Before <code>fetch</code> and XHR existed, no server had a reason to check where a request like that came from, because a cross-origin script had no way to send one. Most servers still don't check the <code>Origin</code> header on every request. A well-written one could reject an unexpected origin itself, but CORS can't assume every server does. So the browser first sends a side-effect-free <code>OPTIONS</code> request, and only sends the real one if the server explicitly answers with the right <code>Access-Control-*</code> headers. A server that's never heard of CORS won't answer correctly, and the real request never goes out. The preflight protects servers that were never written with cross-origin JavaScript in mind, without requiring them to add anything.</p>
 
   <div class="callout danger">
     <div class="callout-title">A common misconfiguration</div>
@@ -295,7 +295,7 @@
   <h3 id="xss-csrf-cors">XSS vs. CSRF vs. CORS</h3>
   <div class="callout info">
     <div class="callout-title">Three different boundaries, not three names for the same thing</div>
-    <p>XSS, CSRF, and CORS have similar names but are different things:</p>
+    <p>XSS, CSRF, and CORS have similar names but address different problems.</p>
     <ul>
       <li><strong>XSS</strong> is an injection attack that lets attacker-controlled code run in a trusted origin. Safe DOM APIs, context-appropriate encoding, sanitization, and a strict CSP prevent or contain it. HttpOnly limits cookie theft but does not prevent XSS.</li>
       <li><strong>CSRF</strong> is an attack that exploits the browser's automatic cookie attachment to forge a state-changing request. Defenses are SameSite cookies and CSRF tokens.</li>
@@ -351,7 +351,7 @@
     <div><span class="hl-name">Strict-Transport-Security:</span> <span class="hl-value">max-age=31536000; includeSubDomains</span></div>
   </div>
 
-  <p><code>max-age</code> is measured in seconds, so 31536000 means one year. <code>includeSubDomains</code> extends the rule to subdomains. The non-standard <code>preload</code> directive is a prerequisite for common preload services, but adding it does not submit the domain. Preloading also requires a separate registration process.</p>
+  <p><code>max-age</code> is measured in seconds, so 31536000 means one year. <code>includeSubDomains</code> extends the rule to subdomains. The non-standard <code>preload</code> directive is a prerequisite for common preload services, but adding it does not submit the domain. Preloading requires a separate registration process.</p>
 
   <h3>The first-visit problem and preloading</h3>
   <p>HSTS solves the problem for <em>returning</em> visitors, but not the first visit. The browser hasn't yet received the HSTS header. The <strong>HSTS preload list</strong> is a list of domains that major browsers ship with, instructing them to always use HTTPS before the first request. Submitting to the preload list at <a href="https://hstspreload.org" target="_blank" rel="noopener">hstspreload.org</a> is free, but it is a significant commitment. Removing a domain takes months and requires coordination with browser vendors. Only submit if every subdomain of the domain is certain to serve HTTPS indefinitely.</p>
@@ -366,7 +366,7 @@
   <p>This is the browser-facing edge of a larger problem. Build tooling, package registries, and CI/CD pipelines can be tampered with the same way, and a compromise there reaches an application before a single script tag is ever written. The <a href="web-security-principles.html#supply-chain">software supply chain</a> section of the web application security article covers that broader threat and the defenses (software bills of materials, dependency scanning, signed artifacts) that apply upstream of the browser.</p>
 
   <h3>Defense: Subresource Integrity</h3>
-  <p>Subresource Integrity (SRI) lets a page specify the expected hash of a resource in the tag itself. The browser refuses to execute a mismatched response. Cross-origin SRI loads also require CORS approval from the resource host, which is why the example includes <code>crossorigin="anonymous"</code>.</p>
+  <p>Subresource Integrity (SRI) lets a page specify the expected hash of a resource in the tag itself. The browser refuses to execute a mismatched response. Cross-origin SRI loads require CORS approval from the resource host, which is why the example includes <code>crossorigin="anonymous"</code>.</p>
 
   <div class="code-block">
     <div class="code-header">

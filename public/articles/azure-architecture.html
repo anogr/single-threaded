@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Azure Architecture — Single Threaded</title>
+<title>Azure Architecture - Single Threaded</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="articles.css">
@@ -67,7 +67,7 @@
   <h2 id="resource-model">Azure's Resource Model</h2>
   <p class="lede">Management groups, subscriptions, resource groups, and resources form the scopes through which Azure is governed.</p>
 
-  <p><strong>Azure Resource Manager</strong> (ARM) is the control plane used to create, update, organize, and secure Azure resources. Portal actions, command-line tools, PowerShell, Bicep, and Terraform all submit management requests through this layer. ARM also supplies the scope hierarchy on which Azure role-based access control and policy operate.</p>
+  <p><strong>Azure Resource Manager</strong> (ARM) is the control plane used to create, update, organize, and secure Azure resources. Portal actions, command-line tools, PowerShell, Bicep, and Terraform all submit management requests through this layer. ARM supplies the scope hierarchy on which Azure role-based access control and policy operate.</p>
 
   <p>A <strong>subscription</strong> contains resources and provides a major scope for access and cost management. Its charges can roll up into a separate billing-account hierarchy, so a subscription is not always the top billing boundary. Within a subscription, a <strong>resource group</strong> collects resources that an organization wants to manage together. Application resources may share a group and lifecycle, while long-lived networks or other shared services often belong in groups of their own.</p>
 
@@ -151,7 +151,7 @@
   <h2 id="storage">Storage: Blob, Disks, and Files</h2>
   <p class="lede">The same three access patterns from the fundamentals article, filled in with Azure's product names and one tiering detail specific to Azure.</p>
 
-  <p><strong>Azure Blob Storage</strong> provides object storage. Its hot, cool, and cold access tiers remain online, with lower storage charges and higher access charges as data becomes less active. Archive is an offline tier that requires rehydration before a blob can be read. Minimum retention periods, availability, supported redundancy options, and retrieval costs also differ, so tier choice involves more than latency alone.</p>
+  <p><strong>Azure Blob Storage</strong> provides object storage. Its hot, cool, and cold access tiers stay online, with lower storage charges and higher access charges as data becomes less active. Archive is an offline tier that requires rehydration before a blob can be read. Minimum retention periods, availability, supported redundancy options, and retrieval costs differ, so tier choice involves more than latency alone.</p>
 
   <p><strong>Azure Data Lake Storage Gen2</strong> refers to Blob Storage accounts with a hierarchical namespace enabled. The namespace adds directory operations and access-control behavior suited to analytical workloads while retaining Blob Storage's object-storage foundation.</p>
 
@@ -165,15 +165,15 @@
 
   <p>Several services control traffic beyond a subnet. A user-defined route can direct traffic through a chosen next hop, while Azure Firewall filters traffic centrally. VPN Gateway connects networks through encrypted tunnels over the public internet. ExpressRoute uses a private connection supplied through a connectivity provider. Bandwidth, latency consistency, redundancy, cost, and security requirements all affect the choice between them.</p>
 
-  <p><strong>Azure Front Door</strong> is a global edge-routing and content-delivery service that can add a web application firewall. <strong>Application Gateway</strong> is a regional layer-seven load balancer, also available with a web application firewall, but it is not a CDN. <a href="web-networking.html#edge">Web Application Networking</a> covers those mechanisms in depth. A <strong>private endpoint</strong> assigns a private VNet address to a supported managed service through Azure Private Link. The service's public endpoint may need to be disabled separately, and private DNS must resolve its name to the private address for connected clients.</p>
+  <p><strong>Azure Front Door</strong> is a global edge-routing and content-delivery service that can add a web application firewall. <strong>Application Gateway</strong> is a regional layer-seven load balancer, available with a web application firewall, but it is not a CDN. <a href="web-networking.html#edge">Web Application Networking</a> covers those mechanisms in depth. A <strong>private endpoint</strong> assigns a private VNet address to a supported managed service through Azure Private Link. The service's public endpoint may need to be disabled separately, and private DNS must resolve its name to the private address for connected clients.</p>
 
-  <p><strong>Azure SQL Database</strong> is a managed relational database based on SQL Server. <strong>Azure SQL Managed Instance</strong> exposes broader SQL Server compatibility and instance-level features, which can reduce changes during some migrations. Azure also provides managed PostgreSQL and MySQL services. Engine compatibility can improve application portability, although extensions, operating features, and service limits still differ.</p>
+  <p><strong>Azure SQL Database</strong> is a managed relational database based on SQL Server. <strong>Azure SQL Managed Instance</strong> exposes broader SQL Server compatibility and instance-level features, which can reduce changes during some migrations. Azure provides managed PostgreSQL and MySQL services. Engine compatibility can improve application portability, although extensions, operating features, and service limits still differ.</p>
 
   <p><strong>Azure Cosmos DB</strong> is a distributed database service with several APIs and configurable consistency levels. It can replicate across regions and support writes in more than one region when configured for that mode. Those choices affect latency, availability, conflict handling, and cost, so multi-region capability does not remove application-level design decisions.</p>
 
   <div class="callout warn">
     <div class="callout-title">Synapse and Fabric</div>
-      <p><strong>Azure Synapse Analytics</strong> combines data integration, SQL analytics, and Spark workloads. <strong>Microsoft Fabric</strong> is a separate software-as-a-service analytics platform that unifies several Microsoft data experiences around OneLake. Both products remain relevant, and their overlapping capabilities do not make them interchangeable. A selection should follow the workload, existing investments, and Microsoft's current product guidance.</p>
+      <p><strong>Azure Synapse Analytics</strong> combines data integration, SQL analytics, and Spark workloads. <strong>Microsoft Fabric</strong> is a separate software-as-a-service analytics platform that unifies several Microsoft data experiences around OneLake. Both products stay relevant, and their overlapping capabilities do not make them interchangeable. A selection should follow the workload, existing investments, and Microsoft's current product guidance.</p>
   </div>
 
   <figure class="figure-wrap">
@@ -244,7 +244,7 @@
 
   <p><strong>Azure Service Bus</strong> provides queues and topics for brokered messaging. Competing consumers receive messages from a queue, while topic subscriptions create separate delivery streams. Delivery can be repeated, so handlers should follow the service's settlement and idempotency model. <strong>Azure Event Grid</strong> routes discrete events to handlers, whereas <strong>Azure Event Hubs</strong> ingests high-volume event streams for consumers that track their own position.</p>
 
-  <p><strong>Azure Key Vault</strong> stores secrets, certificates, and cryptographic keys. A <strong>managed identity</strong> gives an Azure resource an identity in Entra ID without placing a long-lived credential in application configuration. Azure can then issue tokens for Key Vault and other supported services. Authorization remains a separate step because the identity must still receive an appropriate role or access policy.</p>
+  <p><strong>Azure Key Vault</strong> stores secrets, certificates, and cryptographic keys. A <strong>managed identity</strong> gives an Azure resource an identity in Entra ID without placing a long-lived credential in application configuration. Azure can then issue tokens for Key Vault and other supported services. Authorization stays a separate step because the identity must still receive an appropriate role or access policy.</p>
 
   <p><strong>Microsoft Entra ID</strong>, formerly Azure Active Directory, is Microsoft's cloud identity and directory service. Microsoft 365 uses Entra ID, and organizations can synchronize or federate identities from on-premises Active Directory through Microsoft Entra Connect. <strong>Azure role-based access control</strong> (RBAC) grants Azure management and data-plane permissions to those identities. Assignments can begin at a management group, subscription, resource group, or individual resource and normally apply to descendants.</p>
 
@@ -325,7 +325,7 @@
   <h2 id="mapping">Mapping Azure to AWS and GCP</h2>
   <p class="lede">The lookup table a reader arriving from another provider wants.</p>
 
-  <p>The table maps service categories rather than claiming product parity. It also introduces <strong>Azure Monitor</strong>, the Azure platform for collecting and working with telemetry. Generic row labels keep Azure from becoming the reference model against which the other providers are measured.</p>
+  <p>The table maps service categories rather than claiming product parity. It introduces <strong>Azure Monitor</strong>, the Azure platform for collecting and working with telemetry. Generic row labels keep Azure from becoming the reference model against which the other providers are measured.</p>
 
   <div class="table-wrap">
     <table>
@@ -345,8 +345,8 @@
         <tr><td>NoSQL database</td><td>Cosmos DB</td><td>DynamoDB</td><td>Firestore</td></tr>
         <tr><td>Data warehouse</td><td>Synapse Analytics / Fabric</td><td>Redshift</td><td>BigQuery</td></tr>
         <tr><td>Queue</td><td>Service Bus</td><td>SQS</td><td>Pub/Sub</td></tr>
-        <tr><td>Publish/subscribe &amp; event routing</td><td>Event Grid</td><td>EventBridge</td><td>Pub/Sub</td></tr>
-        <tr><td>Identity &amp; access management</td><td>Entra ID</td><td>IAM</td><td>Cloud IAM</td></tr>
+        <tr><td>Publish/subscribe &amp. Event routing</td><td>Event Grid</td><td>EventBridge</td><td>Pub/Sub</td></tr>
+        <tr><td>Identity &amp. Access management</td><td>Entra ID</td><td>IAM</td><td>Cloud IAM</td></tr>
         <tr><td>Secrets management</td><td>Key Vault</td><td>Secrets Manager</td><td>Secret Manager</td></tr>
         <tr><td>Observability</td><td>Azure Monitor</td><td>CloudWatch</td><td>Cloud Monitoring</td></tr>
         <tr><td>Resource hierarchy</td><td>Mgmt group → subscription → resource group</td><td>Organization → account</td><td>Organization → folder → project</td></tr>
@@ -363,11 +363,11 @@
   <h2 id="choosing-azure">When Azure Is the Right Fit</h2>
   <p class="lede">Earned from what this article covered, not a generic strengths list.</p>
 
-  <p>Azure deserves close consideration when an organization already depends on Microsoft identity, administration, or application platforms. Management groups and subscriptions provide governance scopes for many teams. Entra ID connects Azure access with Microsoft 365 and hybrid identity, while App Service and Functions offer managed compute for teams that do not need Kubernetes. AKS remains available when the workload and operating model justify that control.</p>
+  <p>Azure deserves close consideration when an organization already depends on Microsoft identity, administration, or application platforms. Management groups and subscriptions provide governance scopes for many teams. Entra ID connects Azure access with Microsoft 365 and hybrid identity, while App Service and Functions offer managed compute for teams that do not need Kubernetes. AKS stays available when the workload and operating model justify that control.</p>
 
   <p>Azure's AI services use the same governance foundations. <strong>Microsoft Foundry</strong> provides model access and tools for building and operating AI applications within Azure's resource, identity, and networking model. The precise data handling and network options depend on the models and services selected.</p>
 
-  <p>Existing Microsoft investments can lower integration and migration costs, but they do not settle the provider decision. The workload still needs a service-by-service fit, an operating model the team can sustain, and acceptable commercial terms. The <a href="cloud-computing.html#choosing-provider">provider-selection guidance</a> remains the final test.</p>
+  <p>Existing Microsoft investments can lower integration and migration costs, but they do not settle the provider decision. The workload still needs a service-by-service fit, an operating model the team can sustain, and acceptable commercial terms. The <a href="cloud-computing.html#choosing-provider">provider-selection guidance</a> stays the final test.</p>
 
 </main>
 </div><!-- end .shell -->

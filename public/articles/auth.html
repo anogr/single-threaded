@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Authentication — Single Threaded</title>
+<title>Authentication - Single Threaded</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="articles.css">
@@ -121,9 +121,9 @@
 
   <p>Repeatedly transmitting the password is Basic Authentication's central weakness. An intercepted request exposes the reusable credential itself rather than a limited stand-in. The user must then change the password everywhere it was reused. Tokens can instead be given a narrow scope and a limited lifetime, which is one reason user-facing applications generally prefer them.</p>
 
-  <p>Browser support introduces usability problems as well. A Basic challenge opens a native credential dialog outside the page, so the application cannot style or control it like a normal login form. Browsers also cache the credentials, and HTTP does not define a reliable logout mechanism that clears them.</p>
+  <p>Browser support introduces usability problems as well. A Basic challenge opens a native credential dialog outside the page, so the application cannot style or control it like a normal login form. Browsers cache the credentials, and HTTP does not define a reliable logout mechanism that clears them.</p>
 
-  <p>Basic Authentication can still suit a small, non-browser integration whose credential can be issued, rotated, and revoked safely. HTTPS remains mandatory even on an internal network. As the number of clients or required permissions grows, scoped tokens or workload identities usually provide better control.</p>
+  <p>Basic Authentication can still suit a small, non-browser integration whose credential can be issued, rotated, and revoked safely. HTTPS stays mandatory even on an internal network. As the number of clients or required permissions grows, scoped tokens or workload identities usually provide better control.</p>
 
   <div class="callout warn">
     <div class="callout-title">The userinfo URL syntax</div>
@@ -164,7 +164,7 @@
     <div class="card orange">
       <div class="card-label">Tradeoff</div>
       <div class="card-title">Difficult to revoke</div>
-      <p>A self-contained token normally remains usable until it expires. Early revocation requires an online check or shared denylist, while short lifetimes limit the exposure window rather than revoking the token itself.</p>
+      <p>A self-contained token normally stays usable until it expires. Early revocation requires an online check or shared denylist, while short lifetimes limit the exposure window rather than revoking the token itself.</p>
     </div>
   </div>
 
@@ -251,7 +251,7 @@
   </figure>
 
   <h3>Opaque tokens and introspection</h3>
-  <p>An <strong>opaque token</strong> occupies the space between these approaches. It travels in an <code>Authorization</code> header like a JWT, but the value is only a random identifier. The resource server therefore asks the issuer whether the token is active, commonly through the OAuth <strong>token introspection</strong> endpoint covered in the <a href="oauth-oidc.html#tokens">OAuth &amp; OIDC</a> article. Introspection adds a lookup, but it also lets the issuer withdraw access without waiting for the token to expire.</p>
+  <p>An <strong>opaque token</strong> occupies the space between these approaches. It travels in an <code>Authorization</code> header like a JWT, but the value is only a random identifier. The resource server therefore asks the issuer whether the token is active, commonly through the OAuth <strong>token introspection</strong> endpoint covered in the <a href="oauth-oidc.html#tokens">OAuth &amp; OIDC</a> article. Introspection adds a lookup, but it lets the issuer withdraw access without waiting for the token to expire.</p>
 
   <p>Real systems often combine the approaches. A browser may hold an opaque session cookie while a <a href="web-networking.html#bff">Backend for Frontend (BFF)</a> keeps OAuth tokens on the server. Internal APIs can then receive short-lived access tokens without exposing those tokens to browser storage. The <a href="oauth-oidc.html#bff-architecture">OAuth article</a> owns that architecture in detail.</p>
 
@@ -261,7 +261,7 @@
 
   <p>A <strong>JSON Web Token</strong> (JWT) carries a set of JSON claims in a URL-safe format. JWT is a format rather than an authentication scheme. In a common authentication design, an issuer signs a JWT and the client presents it as <code>Authorization: Bearer &lt;token&gt;</code>. A service with the verification key can then validate the token without a session lookup.</p>
 
-  <p>The word <code>Bearer</code> names a separate property. A <strong>bearer token</strong> can be used by whoever possesses the string because the recipient validates the token, not the presenter. JWTs can also appear in sender-constrained designs, and bearer tokens do not have to be JWTs.</p>
+  <p>The word <code>Bearer</code> names a separate property. A <strong>bearer token</strong> can be used by whoever possesses the string because the recipient validates the token, not the presenter. JWTs can appear in sender-constrained designs, and bearer tokens do not have to be JWTs.</p>
 
   <h3 id="jwt-structure">Structure</h3>
   <p>The signed JWT form used here is a compact JSON Web Signature. It has three base64url-encoded segments separated by dots: a <strong>header</strong>, a <strong>payload</strong>, and a <strong>signature</strong>. The header and payload encode JSON objects. An encrypted JWT uses a different five-part representation.</p>
@@ -319,7 +319,7 @@
 
   <p><strong>The <code>alg: none</code> attack.</strong> Some implementations accepted an unsigned token where an application expected a signed authentication token. Configure the allowed algorithm for each token type and reject <code>none</code> in every profile that requires integrity protection. The <a href="oauth-oidc.html#attack-alg-none">OAuth &amp; OIDC attack list</a> shows how that failure becomes an authentication bypass.</p>
 
-  <p><strong>Overly long expiry.</strong> A self-contained token may remain usable after an account is compromised or disabled unless the system adds a revocation check. Keep access tokens short-lived according to the application's threat model, then use a protected refresh token when the client needs a longer session. The <a href="oauth-oidc.html#refresh">OAuth &amp; OIDC</a> article covers that pattern and its rotation requirements.</p>
+  <p><strong>Overly long expiry.</strong> A self-contained token may stay usable after an account is compromised or disabled unless the system adds a revocation check. Keep access tokens short-lived according to the application's threat model, then use a protected refresh token when the client needs a longer session. The <a href="oauth-oidc.html#refresh">OAuth &amp; OIDC</a> article covers that pattern and its rotation requirements.</p>
 
   <p><strong>Storing sensitive data in claims.</strong> The payload of a signed JWT is readable. Include only the claims the recipient needs, and assume logs or diagnostics may capture the token. Use encryption when confidentiality is a protocol requirement rather than treating the signature as privacy protection.</p>
 
@@ -357,7 +357,7 @@
   <h2 id="passkeys">Passkeys and WebAuthn</h2>
   <p class="lede">A public-key credential that replaces the password itself, not just what happens after it.</p>
 
-  <p>A passkey is a discoverable public-key credential created for a particular relying party. The relying party stores the public key, while an authenticator protects the private-key material and uses it to produce signed assertions. Some passkeys remain bound to one authenticator. Others can be backed up and synchronized by a credential provider. Registration and sign-in use <strong>WebAuthn</strong>, the browser API through which a site asks an authenticator to create or use the credential.</p>
+  <p>A passkey is a discoverable public-key credential created for a particular relying party. The relying party stores the public key, while an authenticator protects the private-key material and uses it to produce signed assertions. Some passkeys stay bound to one authenticator. Others can be backed up and synchronized by a credential provider. Registration and sign-in use <strong>WebAuthn</strong>, the browser API through which a site asks an authenticator to create or use the credential.</p>
 
   <p>This changes the password model in a way that matters for security. A password is a shared secret that a user can type into a convincing fake. A passkey never reveals its private key to the relying party, and the user does not type the credential. WebAuthn binds each assertion to the relying party and requesting origin. A lookalike domain therefore cannot obtain an assertion valid for <code>example.com</code>. A stolen table of public keys is not enough to authenticate because public keys cannot create signatures.</p>
 
@@ -370,7 +370,7 @@
     <div class="card orange">
       <div class="card-label">Roaming authenticator</div>
       <div class="card-title">Security keys (YubiKey and similar)</div>
-      <p>A separate authenticator reached through USB, NFC, or another supported transport. Organizations often choose these devices when they need credentials to remain on managed hardware.</p>
+      <p>A separate authenticator reached through USB, NFC, or another supported transport. Organizations often choose these devices when they need credentials to stay on managed hardware.</p>
     </div>
   </div>
 

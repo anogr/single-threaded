@@ -66,7 +66,7 @@
 
   <div class="callout info">
     <div class="callout-title">Same governance as AGENTS.md</div>
-    <p>MCP began at Anthropic and later moved under the Agentic AI Foundation. Neutral stewardship matters for a protocol intended to connect products from different vendors, but governance alone does not make individual servers trustworthy. Each deployment still needs its own authorization and security controls.</p>
+    <p>MCP began at Anthropic and later moved under the Agentic AI Foundation. Neutral stewardship helps a protocol intended to connect products from different vendors, but governance alone does not make individual servers trustworthy. Each deployment still needs its own authorization and security controls.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -75,7 +75,7 @@
 
   <p>Consider a coding assistant that needs to read a ticket from an issue tracker. The integration must authenticate, translate the tracker's API into a model-facing schema, and return the result in a form the host understands. Building that adapter for one assistant is manageable. Repeating it for every assistant creates parallel implementations of the same boundary, each with its own authentication and maintenance work.</p>
 
-  <p>This is the familiar N&times;M integration problem: each of N hosts needs an adapter for each of M systems. MCP aims to move the boundary toward N+M by giving hosts one protocol to implement and systems one server interface to expose. Compatibility still depends on supported protocol versions, capabilities, and authentication, so the reduction is an architectural goal rather than a guarantee of plug-and-play behavior. MCP covers agent-to-tool communication; <a href="multi-agent-systems.html">multi-agent systems</a> covers delegation between agents.</p>
+  <p>This is the familiar N&times;M integration problem. Each of N hosts needs an adapter for each of M systems. MCP aims to move the boundary toward N+M by giving hosts one protocol to implement and systems one server interface to expose. Compatibility still depends on supported protocol versions, capabilities, and authentication, so the reduction is an architectural goal rather than a guarantee of plug-and-play behavior. MCP covers agent-to-tool communication; <a href="multi-agent-systems.html">multi-agent systems</a> covers delegation between agents.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="architecture">Host, Client, and Server</h2>
@@ -85,7 +85,7 @@
 
   <p>The <strong>client</strong> is the protocol component inside the host that speaks MCP. A host typically runs one client per connected server, and each client holds its own private, stateful session. A client talking to a ticket tracker doesn't know anything about a second client talking to a database, even though both live inside the same host. This separation prevents a server from directly addressing another client's protocol session. It is not complete containment. The host may expose capabilities from several sessions to the same model, so its authorization and approval controls must prevent one server's content from inducing actions through another.</p>
 
-  <p>The <strong>server</strong> exposes a focused set of capabilities. A local server can run as a subprocess and communicate over standard input and output. A remote server can use Streamable HTTP, which supports ordinary HTTP requests and optional server-sent events for streaming. The transport affects deployment and authentication, but the same MCP data model sits above both.</p>
+  <p>The <strong>server</strong> exposes a focused set of capabilities. A local server can run as a subprocess and communicate over standard input and output. A remote server can use Streamable HTTP, which supports ordinary HTTP requests and optional server-sent events for streaming. The transport affects deployment and authentication, but both use the MCP data model above the transport layer.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="primitives">Tools, Resources, and Prompts</h2>
@@ -130,7 +130,7 @@
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="gateway">The Gateway Pattern</h2>
-  <p class="lede">Letting every AI application connect directly to every server it needs turns into an operational mess at exactly the scale where it matters most.</p>
+  <p class="lede">Letting every AI application connect directly to every server becomes difficult to govern as the number of applications and servers grows.</p>
 
   <p>An MCP gateway places a controlled data path between hosts and servers, much as an <a href="web-networking.html#api-gateway">API gateway</a> does for application traffic. It can centralize policy, rate limits, server allowlists, argument inspection, and audit logging. The gateway does not remove the need for server-side authorization, but it gives the organization one place to apply controls that should be consistent across hosts.</p>
 

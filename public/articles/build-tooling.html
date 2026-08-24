@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Build Tooling — Single Threaded</title>
+<title>Build Tooling - Single Threaded</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="articles.css">
@@ -70,7 +70,7 @@
        INTRO
   ════════════════════════════════════════════════════ -->
   <section id="intro">
-  <p>A frontend project is written as a graph of source modules and external packages. That graph is convenient for authors, but it is not necessarily the right delivery shape for a browser. Build tools transform unsupported syntax, resolve dependencies, remove code they can prove is unnecessary, and divide the result into deployable assets. The goal is a correct output whose loading behavior suits the application.</p>
+  <p>A frontend project is written as a graph of source modules and external packages. The module graph is convenient for authors, but browsers often need a different delivery shape. Build tools transform unsupported syntax, resolve dependencies, remove code they can prove is unnecessary, and divide the result into deployable assets. The goal is a correct output whose loading behavior suits the application.</p>
 
   <p>Two optimizations shape that output. <strong>Tree-shaking</strong> removes exports and modules that cannot affect the program, while <strong>code-splitting</strong> moves reachable code behind loading boundaries. Development adds a different requirement: transforms and updates must reach the browser quickly enough to preserve flow.</p>
 
@@ -99,7 +99,7 @@
 
   <p>During development, a saved change should reach the browser with minimal invalidation and transformation. Production has different priorities. The build can spend more time removing code, choosing chunk boundaries, compressing syntax, and producing stable asset names because those decisions affect every user.</p>
 
-  <p>Vite treats these as separate workflows. During development it serves application source as transformed ES modules, allowing the browser to request imports as needed. Dependencies receive separate optimization because a package may expose many internal modules or use CommonJS. Vite 8 uses Rolldown to pre-bundle those dependencies and to bundle production output. The workflows share an engine, but application source remains unbundled in the default development mode.</p>
+  <p>Vite treats these as separate workflows. During development it serves application source as transformed ES modules, allowing the browser to request imports as needed. Dependencies receive separate optimization because a package may expose many internal modules or use CommonJS. Vite 8 uses Rolldown to pre-bundle those dependencies and to bundle production output. The workflows share an engine, but application source stays unbundled in the default development mode.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -277,7 +277,7 @@
 
   <p>Shared dependencies complicate splitting. If two route chunks import the same library, the bundler may place that library in a shared chunk instead of duplicating it. Very fine splitting can add request and scheduling overhead, while coarse chunks make visitors download unrelated code. Framework defaults are a useful starting point, but measured loading behavior should decide whether manual boundaries improve the result.</p>
 
-  <p>Content hashes connect chunks to <a href="http.html#caching">HTTP caching</a>. A filename such as <code>settings.a1b2c3.js</code> changes when its content changes, so immutable assets can use a long cache lifetime. A new deployment references new names while unchanged chunks remain reusable. This works only when the HTML or manifest that points to those assets has an appropriate freshness policy of its own.</p>
+  <p>Content hashes connect chunks to <a href="http.html#caching">HTTP caching</a>. A filename such as <code>settings.a1b2c3.js</code> changes when its content changes, so immutable assets can use a long cache lifetime. A new deployment references new names while unchanged chunks stay reusable. This works only when the HTML or manifest that points to those assets has an appropriate freshness policy of its own.</p>
 
   <!-- ═══════════════════════════════════════════════════
        LANDSCAPE
@@ -287,11 +287,11 @@
 
   <p>Vite is a common choice for applications outside frameworks that prescribe their own build pipeline. It combines a native-ESM development server with a plugin API based on Rollup's hooks. Vite 8, released in March 2026, replaced its previous esbuild-and-Rollup pairing with Rolldown for dependency optimization and production builds.</p>
 
-  <p>esbuild remains a fast standalone transformer and bundler with a deliberately compact API. It works well for small packages, command-line tools, and build steps that do not need a large plugin ecosystem. Applications that require framework integration or more control over chunking often encounter it indirectly through higher-level tooling.</p>
+  <p>esbuild is a fast standalone transformer and bundler with a deliberately compact API. It works well for small packages, command-line tools, and build steps that do not need a large plugin ecosystem. Applications that require framework integration or more control over chunking often encounter it indirectly through higher-level tooling.</p>
 
-  <p>Rollup remains oriented toward libraries that need controlled output across module formats. Higher-level wrappers reduce its configuration surface for TypeScript packages. Precise publishing output and an application-oriented development server are different requirements and may lead to different tools.</p>
+  <p>Rollup is oriented toward libraries that need controlled output across module formats. Higher-level wrappers reduce its configuration surface for TypeScript packages. Precise publishing output and an application-oriented development server are different requirements and may lead to different tools.</p>
 
-  <p>webpack remains valuable where a mature application depends on its loaders, plugins, and established configuration. Replacing that pipeline has a real migration cost. Rspack offers a closer transition path by implementing much of webpack's configuration and loader surface on a Rust engine, although compatibility must still be tested against the specific project.</p>
+  <p>webpack is valuable where a mature application depends on its loaders, plugins, and established configuration. Replacing that pipeline has a real migration cost. Rspack offers a closer transition path by implementing much of webpack's configuration and loader surface on a Rust engine, although compatibility must still be tested against the specific project.</p>
 
   <p>Turbopack, Vercel's Rust-based bundler, is tightly coupled to Next.js and is the framework's default for both development and, since Next.js 16, production builds as well. Its value proposition is specific to that coupling. Because Vercel controls both the framework and the bundler, Turbopack can make assumptions and optimizations a general-purpose bundler can't. That comes at the cost of being a poor fit for anything that isn't a Next.js app.</p>
 
@@ -324,9 +324,9 @@
 
   <p>Oxc is a Rust toolchain for parsing, resolving, transforming, minifying, and linting JavaScript and TypeScript. Rolldown builds bundling on that infrastructure while maintaining compatibility with much of Rollup's plugin model. Vite 8 made Rolldown its default bundler in March 2026, replacing two engines with one toolchain.</p>
 
-  <p>VoidZero, the company behind Vite, Vitest, Rolldown, and Oxc, joined Cloudflare in June 2026. The announcement states that the projects will remain open source, vendor-agnostic, and community-driven. The ownership change matters because these tools now provide shared infrastructure for several framework ecosystems, even though their technical governance remains project-specific.</p>
+  <p>VoidZero, the company behind Vite, Vitest, Rolldown, and Oxc, joined Cloudflare in June 2026. The announcement states that the projects will stay open source, vendor-agnostic, and community-driven. The ownership change matters because these tools now provide shared infrastructure for several framework ecosystems, even though their technical governance stays project-specific.</p>
 
-  <p>The convergence is incomplete. esbuild remains a Go project, and webpack continues to support production systems with deep ecosystem dependencies. Rust has become common in newer engines, but implementation language alone does not justify migrating a working pipeline. Existing compatibility costs and measured bottlenecks should drive that decision.</p>
+  <p>The convergence is incomplete. esbuild is a Go project, and webpack continues to support production systems with deep ecosystem dependencies. Rust has become common in newer engines, but implementation language alone does not justify migrating a working pipeline. Existing compatibility costs and measured bottlenecks should drive that decision.</p>
 
   <!-- ═══════════════════════════════════════════════════
        CHOOSING

@@ -147,11 +147,11 @@ Pick one, append it, run the step again.</code></pre>
   <h2 id="sampling">Sampling and Temperature</h2>
   <p class="lede">The distribution is computed. Something still has to choose.</p>
 
-  <p>Prediction produces a probability distribution, but generation still needs one token. <strong>Sampling</strong> is the selection step between the two. A system may always choose the highest-probability candidate, or it may choose randomly with probabilities weighted toward the stronger candidates. Random sampling allows several plausible continuations instead of forcing the same locally most likely path every time.</p>
+  <p>Prediction produces a probability distribution, but generation still needs one token. <strong>Sampling</strong> is the selection step between the two. A system may always choose the highest-probability candidate, or it may choose randomly with probabilities weighted toward the stronger candidates. Random sampling allows several plausible continuations instead of always forcing the locally most likely path.</p>
 
   <p><strong>Temperature</strong> reshapes the distribution before sampling. Lower values concentrate probability on the leading candidates, while higher values spread more probability across unlikely ones. APIs commonly treat zero as a request for the least random mode, although exact determinism still depends on the provider and serving system. A related setting, top-p, limits sampling to the smallest group of candidates whose combined probability reaches a chosen threshold.</p>
 
-  <p>Sampling is one reason the same prompt can produce different answers across runs. Temperature changes the amount of variation, not the truth of the underlying candidates. A lower setting may make a false answer more repeatable if the model already assigns it the highest probability. Temperature is therefore useful for controlling variation, but it cannot substitute for verification.</p>
+  <p>Sampling is one reason a prompt can produce different answers across runs. Temperature changes the amount of variation, not the truth of the underlying candidates. A lower setting may make a false answer more repeatable if the model already assigns it the highest probability. Temperature is therefore useful for controlling variation, but it cannot substitute for verification.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="knowledge">Where the Knowledge Comes From</h2>
@@ -163,7 +163,7 @@ Pick one, append it, run the step again.</code></pre>
 
   <p>A <strong>hallucination</strong> occurs when plausible generation produces an unsupported or false claim. Without a retrieval or tool call, the model is not looking up a fact in a source of record. It is continuing from patterns in its parameters and the current context. Strong support may lead to the correct answer. Thin or conflicting support may instead produce a convincing function name or citation that fits the surrounding pattern but does not exist.</p>
 
-  <p>Fluency makes the failure easy to miss because correct and incorrect continuations can arrive in the same assured prose. Some systems can estimate uncertainty or cite supplied sources, but neither feature turns fluent text into verified fact. Claims that matter still need a check outside the generation step.</p>
+  <p>Fluency makes the failure easy to miss because correct and incorrect continuations can both arrive in assured prose. Some systems can estimate uncertainty or cite supplied sources, but neither feature turns fluent text into verified fact. Claims that matter still need a check outside the generation step.</p>
 
   <p>A system that depends on current, private, or verifiable facts must provide them at request time. Tools can fetch live records or act on external systems, and <a href="mcp-ai-integration.html">MCP</a> standardizes one way to expose those capabilities. <a href="rag.html">Retrieval</a> selects relevant documents and places them in the context before generation. Semantic retrieval depends on one more concept: embeddings.</p>
 
@@ -171,17 +171,17 @@ Pick one, append it, run the step again.</code></pre>
   <h2 id="embeddings">Embeddings</h2>
   <p class="lede">A different job from generating text, and the machinery behind searching by meaning.</p>
 
-  <p>An <strong>embedding</strong> model turns a piece of text into a vector rather than generating a continuation. Training places related texts near one another in the resulting vector space, according to the relationships the model has learned. A password-reset question may therefore sit near account-recovery instructions even when the two share few words, while remaining distant from a passage about database migrations.</p>
+  <p>An <strong>embedding</strong> model turns a piece of text into a vector rather than generating a continuation. Training places related texts near one another in the resulting vector space, according to the relationships the model has learned. A password-reset question may therefore sit near account-recovery instructions even when the two share few words, while staying distant from a passage about database migrations.</p>
 
   <p>Semantic retrieval uses that geometry as an index. The system embeds chunks of the corpus ahead of time, embeds each incoming query, then searches for nearby vectors. Repository indexes can use this approach to find code related by meaning rather than filename. <a href="rag.html">Retrieval-augmented generation</a> uses the same basic step before placing the selected chunks into the model's context. Vector-capable databases provide efficient nearest-neighbor search when the index grows large.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="cost">Why Inference Costs Time and Money</h2>
-  <p class="lede">Latency and price are the same mechanism observed twice.</p>
+  <p class="lede">Latency and price both follow from how much computation inference requires.</p>
 
   <p>Processing more input requires more computation and memory, even though serving systems reuse intermediate work to avoid recalculating the whole prompt for every output token. Longer context therefore tends to increase latency and cost. Providers commonly expose that cost through token-based pricing because token counts closely track the amount of input and output the service processes.</p>
 
-  <p>Input and output affect latency differently. A provider can process the prompt in parallel across its token positions, while autoregressive output must be decoded sequentially. Long answers therefore add visible wall-clock time token by token. Many providers also price output tokens above input tokens, although the ratio is a commercial choice rather than a law of the architecture.</p>
+  <p>Input and output affect latency differently. A provider can process the prompt in parallel across its token positions, while autoregressive output must be decoded sequentially. Long answers therefore add visible wall-clock time token by token. Many providers price output tokens above input tokens, although the ratio is a commercial choice rather than a law of the architecture.</p>
 
   <p>Model tiers can differ substantially in price, so routing is an architectural decision rather than a billing afterthought. The available levers follow from the mechanism: send only useful context, keep output focused, route bounded work to a suitable smaller model, and cache repeated prompt prefixes where the provider supports it. The <a href="ai-coding-assistants.html#cost">assistants article</a> applies these choices to agent workloads, where repeated repository context can dominate usage.</p>
 
@@ -189,11 +189,11 @@ Pick one, append it, run the step again.</code></pre>
   <h2 id="decisions">The Decisions That Follow</h2>
   <p class="lede">Four constraints, each one paying for a habit.</p>
 
-  <p>Because context is finite, it should be budgeted rather than filled by default. Retrieval can improve both cost and reliability when it selects the material a task needs instead of sending everything available. Placement matters as well, especially when important evidence would otherwise be buried inside a long prompt.</p>
+  <p>Because context is finite, it should be budgeted rather than filled by default. Retrieval can improve both cost and reliability when it selects the material a task needs instead of sending everything available. Placement is important too, especially when important evidence would otherwise be buried inside a long prompt.</p>
 
-  <p>Statistical generation also means that verification belongs in the surrounding system. A low temperature can reduce variation, but it cannot establish correctness, and fluent wording does not prove a claim. The <a href="agentic-coding-workflows.html#human-gate">plan review</a> and <a href="ai-code-review.html">risk-tiered code review</a> described elsewhere in the series turn that constraint into concrete gates.</p>
+  <p>Statistical generation means verification belongs in the surrounding system. A low temperature can reduce variation, but it cannot establish correctness, and fluent wording does not prove a claim. The <a href="agentic-coding-workflows.html#human-gate">plan review</a> and <a href="ai-code-review.html">risk-tiered code review</a> described elsewhere in the series turn that constraint into concrete gates.</p>
 
-  <p>Systems that depend on current or private facts need a grounding path. Tools suit live records and actions, while retrieval suits a document corpus. The application must also define what happens when neither path supplies enough evidence, rather than assuming the model will decline on its own.</p>
+  <p>Systems that depend on current or private facts need a grounding path. Tools suit live records and actions, while retrieval suits a document corpus. The application must define what happens when neither path supplies enough evidence, rather than assuming the model will decline on its own.</p>
 
   <p>Finally, token volume makes cost and latency architectural concerns. Context size, output length, caching, and model routing shape both before the first invoice arrives. The necessary design habits follow from a small set of mechanisms: sequential generation, bounded context, statistical prediction, and external grounding when the system needs facts.</p>
 
