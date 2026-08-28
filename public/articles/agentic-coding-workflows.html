@@ -39,88 +39,90 @@
   <a class="sidebar-back" href="index.html">← All articles</a>
 
   <div class="sidebar-section">Landscape</div>
-  <a href="#vibe-coding">What Vibe Coding Means</a>
-  <a href="#where-it-works">The Legitimate Cases</a>
+  <a href="#vibe-coding">Vibe Coding</a>
+  <a href="#where-it-works">Disposable Experiments</a>
 
   <div class="sidebar-section">Failure Modes</div>
-  <a href="#production-failures">The Production Failure Pattern</a>
+  <a href="#production-failures">Failures in Shared Code</a>
 
   <div class="sidebar-section">The Alternative</div>
   <a href="#spec-driven">Spec-Driven Development</a>
-  <a href="#tests-from-specs">Tests as the Executable Spec</a>
+  <a href="#tests-from-specs">Tests from the Specification</a>
   <a href="#context-engineering">Context Engineering</a>
   <a href="#harness-engineering">Harness Engineering</a>
   <a href="#context-blindness">Context Blindness</a>
 
   <div class="sidebar-section">Practice</div>
-  <a href="#human-gate">Where the Human Gate Belongs</a>
+  <a href="#human-gate">Review Gates</a>
 </nav>
 
 <main>
 
   <div class="eyebrow">AI · Software Delivery</div>
   <h1>Agentic Coding Workflows</h1>
-  <p class="subtitle">How specifications, tests, context, and guardrails make agentic development safer once code is meant to last.</p>
+  <p class="subtitle">How stronger evidence turns generated code into work a team can safely maintain.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
     <div class="dot"></div><span>~12 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
-  <p>Andrej Karpathy coined “vibe coding” in 2025 for a specific way of working. The developer describes the desired behavior in natural language, accepts the generated code, and judges it by what the program appears to do rather than by reading every line. The phrase quickly broadened into a label for almost any AI-assisted development, but the original distinction is still useful. It describes the verification practice around the tool, not the tool itself.</p>
+  <p>Andrej Karpathy coined “vibe coding” in 2025 for a specific way of working. A developer tells an AI tool what the program should do and keeps prompting until the result appears to work. They accept the code without reviewing the implementation in detail. The term describes this lightweight verification practice and can apply to assistants as well as agents.</p>
 
-  <p>This article draws the boundary around that practice and explains why the acceptable boundary changes with the cost of failure. It then develops a safer workflow for production work, moving from specifications and executable tests to context management, guardrails, and human approval.</p>
+  <p>Vibe coding can be reasonable for disposable experiments whose failure affects only the developer. Once other people will depend on the code, the team needs stronger evidence. It must agree on the intended behavior before implementation and verify the result before users depend on it. Specifications record this agreement, while tests and guardrails help the team check the result and limit unsafe actions.</p>
 
   <div class="callout info">
     <div class="callout-title">Building on the previous article</div>
-    <p>This article assumes the assistant/agent distinction from <a href="ai-coding-assistants.html">AI Coding Assistants</a>. Vibe coding can happen with either kind of tool. Its risk comes from accepting behavior without understanding or independently verifying the code that produced it.</p>
+    <p>The terms <em>assistant</em> and <em>agent</em> follow the definitions in <a href="ai-coding-assistants.html">AI Coding Assistants</a>. Either kind of tool can be used for vibe coding. The workflow becomes risky when observed behavior is accepted without reviewing the code or checking it independently.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="vibe-coding">What Vibe Coding Means</h2>
-  <p class="lede">The useful boundary is not whether AI wrote the code, but whether anyone established that the result was safe to rely on.</p>
+  <h2 id="vibe-coding">Vibe Coding</h2>
+  <p class="lede">Vibe coding treats observed behavior as enough evidence to accept generated code.</p>
 
-  <p>Vibe coding means directing an AI tool in natural language and accepting its output because the result appears to work. The developer may run the program and adjust the prompt several times, but does not build an understanding of the generated implementation. That can be a rational shortcut when the code is disposable. It is not a verification method.</p>
+  <p>During vibe coding, the developer may run the program and adjust the prompt several times without building an understanding of the generated implementation. The shortcut saves time when the code will be discarded and a failure affects only the developer. Code that other people depend on needs additional checks because one successful run covers only the inputs and conditions used in that run.</p>
 
-  <p>The working practice around the tool is more important than the tool itself. Two developers can run the same agent on the same task and be doing very different things. One reads every diff before it merges, catches the parts that don't fit, and rejects or rewrites what's wrong. The other accepts the result once it runs. Both count as "using AI to code," but only one of them is vibe coding in the sense used in this article.</p>
-
-  <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="where-it-works">The Legitimate Cases</h2>
-  <p class="lede">Karpathy's own later framing draws the boundary better than most of the discourse that followed his original post.</p>
-
-  <p>The approach fits work with a deliberately small blast radius. A weekend prototype, a personal script, or a throwaway exploration of an API can all qualify. The codebase does not have to be tiny; the consequence of failure does. If an incorrect result costs little and the artifact can be discarded, understanding every generated line may cost more than it protects.</p>
-
-  <p>The calculation changes when the code has to serve anyone other than the person who wrote it. The tool doesn't get worse when the stakes go up. What changes is the price of the missing verification step. Skipping it cost nothing while only the author's own time was on the line. Now it carries the cost of whatever a stranger does with a bug nobody caught.</p>
+  <p>Verification determines whether a session counts as vibe coding. One developer may read the diff, compare it with the surrounding code, and reject anything that does not fit. Another may accept the generated change as soon as the program runs. The first developer inspects the implementation. The second relies only on observed behavior, which makes the workflow vibe coding.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="production-failures">The Production Failure Pattern</h2>
-  <p class="lede">Generated code usually fails through ordinary software defects. The workflow makes those defects easier to ship in volume.</p>
+  <h2 id="where-it-works">Disposable Experiments</h2>
+  <p class="lede">The shortcut is reasonable when the developer can spot a failure quickly and discard the result without affecting anyone else.</p>
 
-  <p>An agent can produce code that compiles, passes a narrow happy-path test, and still violates an assumption outside the files it inspected. Authorization rules may live in middleware the agent never opened. A database client may require tenant filtering that is conventional rather than type-checked. A retry may be correct for reads but duplicate a payment when copied into a write path. None of these failures is unique to generated code, and each can survive a demonstration that “works.”</p>
+  <p>A developer exploring an unfamiliar API might ask an agent to produce a small test program, run it with sample data, and discard it afterward. A personal prototype can be treated similarly when an incorrect result has no effect beyond the developer's own work. In these cases, reviewing every generated line may take longer than replacing the whole artifact.</p>
 
-  <p>Agentic speed changes the exposure. A developer can now create a large, internally consistent diff before anyone has challenged the premise behind it. Reviewers must understand more code at once, while the polish of the implementation can make the original assumption harder to notice. The resulting risk comes from scale and misplaced confidence rather than from a new species of bug.</p>
+  <p>Shared code changes who bears the consequences of a defect. A broken experiment wastes its author's time, while a production defect can block users or damage their data. Those users did not choose to skip verification, so the developer must add the checks needed for the possible harm before sharing the code.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="production-failures">Failures in Shared Code</h2>
+  <p class="lede">Generated code has ordinary software defects, but agents can produce and spread them faster.</p>
+
+  <p>An agent can produce code that compiles and passes a narrow happy-path test while violating an assumption outside the files it inspected. For example, a request handler may appear correct even though the agent missed an authorization rule in middleware. A database query may run successfully but omit the tenant filter required by the application. A short demonstration will not exercise either missing constraint.</p>
+
+  <p>An agent can build a large, internally consistent diff before anyone challenges the premise behind it. Reviewers must then understand more code at once, and a polished implementation can hide the false assumption that shaped every file. Speed increases the amount of code built on one premise and makes an early mistake more expensive to unwind.</p>
 
   <div class="callout warn">
-    <div class="callout-title">Behavior is evidence, not understanding</div>
-    <p>A successful demo establishes that one path worked with one set of inputs. Production confidence needs the relevant invariants, failure paths, security boundaries, and operational effects to be checked. The amount of checking should follow the cost of being wrong.</p>
+    <div class="callout-title">A demo proves one path</div>
+    <p>A successful demo shows that one path worked with one set of inputs. Production code must preserve its rules across valid and invalid inputs, and security or operational checks may cover effects that the interface cannot show. Teams should spend more effort on these checks as the possible harm increases.</p>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="spec-driven">Spec-Driven Development</h2>
-  <p class="lede">A specification creates an early review point for intent, before implementation detail makes a mistaken premise expensive to unwind.</p>
+  <p class="lede">A specification lets the team review the intended behavior before implementation spreads a mistaken premise through the codebase.</p>
 
-  <p><strong>Spec-driven development</strong> records what a change should achieve before implementation begins. The specification stays separate from the code, so a reviewer can challenge scope, constraints, and acceptance criteria without first reconstructing intent from a diff. A technical plan and task breakdown can then translate that agreed behavior into implementation steps.</p>
+  <p><strong>Spec-driven development</strong> records what a change should achieve before implementation begins. Reviewers can read the specification to challenge its scope and constraints without first reconstructing the author's intent from a diff. Acceptance criteria describe the observable behavior that reviewers will approve. A technical plan can then map the approved requirements to the codebase and divide the work into implementation tasks.</p>
 
-  <p>GitHub's open-source Spec Kit is one implementation of the pattern. Its core workflow moves through four artifacts:</p>
+  <p>The amount of specification should follow the size and risk of the change. One precise acceptance criterion may be enough for a bounded fix whose effects are easy to test. A feature that changes authorization, stored data, or several services needs enough detail to expose its rules and dependencies before implementation.</p>
+
+  <p>GitHub's open-source Spec Kit is one implementation of the pattern. Its workflow has four main steps, using commands whose exact spelling varies by agent integration. The following list shows one common form.</p>
   <ol>
     <li><code>/speckit.specify</code> develops the feature specification.</li>
     <li><code>/speckit.plan</code> records the technical approach.</li>
     <li><code>/speckit.tasks</code> produces an ordered implementation list.</li>
     <li><code>/speckit.implement</code> executes those tasks.</li>
   </ol>
-  <p>The toolkit supports integrations with several coding agents, but the sequence does not depend on Spec Kit. A team can use the same review points with ordinary Markdown artifacts and its existing development process.</p>
+  <p>Spec Kit automates this sequence for several coding agents, but teams do not need the toolkit to use the workflow. Ordinary Markdown files can provide the specification, plan, and task list within an existing development process.</p>
 
-  <p>A fragment of what a generated specification looks like in practice, before any plan or code exists:</p>
+  <p>The following fragment shows a generated specification before any plan or code exists.</p>
 
   <div class="code-block">
     <div class="code-header">
@@ -141,97 +143,107 @@ contacting support.
 - No indication given whether the email exists in the system</code></pre>
   </div>
 
-  <p>The fragment contains no function names, no file paths, and nothing else that presumes a particular implementation. This is deliberate. A reviewer can catch a missing requirement, like the rate limit or the no-enumeration rule, in the minute it takes to read four bullet points. Catching the same gap in a finished diff means noticing what isn't there, which is a much harder thing to review for.</p>
+  <p>The fragment describes behavior without choosing function names or file paths. A reviewer can therefore notice a missing rule, such as whether issuing a new reset link invalidates older unused links, before implementation begins. In a finished diff, the reviewer would have to infer the intended behavior and then notice that no code implements the missing rule.</p>
+
+  <p>A specification is a working agreement, so discoveries during planning may change it. If repository research shows that the service cannot invalidate one link without invalidating all sessions, the team should revise and approve the requirement before implementation continues. Keeping a link from each task and test back to the relevant criterion makes this change visible and helps reviewers find requirements that received no implementation evidence.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="tests-from-specs">Tests as the Executable Spec</h2>
-  <p class="lede">A well-written acceptance criterion isn't just readable by a person. It's close enough to a test case that turning one into the other is barely a translation.</p>
+  <h2 id="tests-from-specs">Tests from the Specification</h2>
+  <p class="lede">Acceptance criteria state the behavior to preserve. Tests turn selected examples from the criteria into repeatable checks.</p>
 
-  <p>The password-reset example resembles <strong>Easy Approach to Requirements Syntax</strong> (EARS), a set of patterns developed at Rolls-Royce for writing constrained natural-language requirements. Forms such as “when X happens, the system shall Y” make the trigger and required response explicit. The result is easier for a person to review and easier to translate into test cases, although a consistent sentence shape cannot by itself make a requirement complete or unambiguous.</p>
+  <p>Acceptance criteria become easier to test when they name the event, the system state, and the required response. <strong>Easy Approach to Requirements Syntax</strong> (EARS) provides patterns for writing requirements in this form. A criterion such as <code>When a reset link has already been used, the system shall reject it</code> gives a test a concrete case to exercise. EARS makes a known rule more precise. The team must discover missing rules and decide whether each requirement is correct.</p>
 
-  <p>This makes it easier to see how spec-driven development differs from two older practices it keeps getting compared to. Test-driven development says write the failing test first. Behavior-driven development says write the behavior first, in language a non-engineer on the team can still read, then derive the test from it. Spec-driven development pushes the artifact up one more level. Write the whole spec, with behavior, constraints, and edge cases together, and let an agent generate the code, the tests, and often a first pass at documentation from that single source. Each of the three chooses a different artifact as the one everything else follows from.</p>
+  <p>A spec-driven workflow can use test-driven development and behavior-driven development during implementation. <strong>Test-driven development</strong> (TDD) uses a short cycle. The developer writes a failing test, adds enough code to pass it, and then refactors the result. <strong>Behavior-driven development</strong> (BDD) uses discussion and concrete examples to develop shared understanding before turning agreed examples into executable specifications. The project specification supplies the broader intent and constraints for both practices.</p>
 
-  <p>Generated tests need their own verification because an agent can satisfy a test task with assertions that prove very little. Mutation testing provides one mechanical check: it introduces small changes into the implementation and measures whether the tests detect them. Surviving mutations can reveal behavior the suite did not protect. Some mutations are equivalent to the original behavior, so the report still needs interpretation. Editing an existing failing test is riskier, because removing or weakening an assertion can make the suite green while discarding the requirement. Such edits need a reviewer to confirm that the test still expresses the intended behavior.</p>
+  <p>Writing a specification leaves the test design to the team. Spec Kit, for example, adds test tasks only when the specification or user requests them. Some requirements need automated examples or lower-level tests, while others can be checked only by inspecting a running system. The specification records the intended behavior, and each test provides evidence for the cases it exercises.</p>
+
+  <p>An agent can satisfy a test task with assertions that never detect a defect, so generated tests need review. Mutation testing changes the implementation in small ways and checks whether the suite fails. Tests that continue to pass may not protect the affected behavior. Some mutations leave observable behavior unchanged, so a person must interpret the report. Reviewers should examine edits to an existing failing test especially closely because weakening an assertion can remove the requirement that caused the failure.</p>
 
   <div class="concept-grid">
     <div class="card teal">
       <div class="card-label">Generating new tests</div>
       <div class="card-title">Mutation analysis</div>
-      <p>Mutation testing changes the implementation and checks whether the tests notice. A high mutation score is stronger evidence than line coverage alone, but surviving mutants still need review because some are equivalent or irrelevant.</p>
+      <p>Mutation testing changes the implementation and checks whether the tests notice. A high mutation score can give stronger evidence than line coverage alone. Reviewers must examine surviving mutants because some leave behavior unchanged or affect irrelevant code.</p>
     </div>
     <div class="card orange">
       <div class="card-label">Editing existing tests</div>
       <div class="card-title">Human approval gate</div>
-      <p>A test changed to make a red suite green again needs a person to confirm it's still checking the right thing. The failure mode here is silent and doesn't show up in a coverage report.</p>
+      <p>When an agent changes a failing test, a person must confirm that the revised assertion protects the intended behavior. A weakened assertion can make the suite pass without appearing in a coverage report.</p>
     </div>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="context-engineering">Context Engineering</h2>
-  <p class="lede">Prompt wording shapes one request; context engineering shapes the information available throughout the task.</p>
+  <p class="lede">Prompt engineering improves the wording and examples in one request. Context engineering chooses the information available throughout the task.</p>
 
-  <p><strong>Context engineering</strong> is the work of deciding what an agent can see and when it sees it. The managed resource is the finite <a href="how-llms-work.html#context-window">context window</a>, not only the wording of the latest prompt. In a spec-driven workflow, the specification and relevant plan must remain available during implementation without being buried under unrelated tool output.</p>
+  <p><strong>Context engineering</strong> decides what an agent can see and when it sees it. Every instruction, file, and tool result included in a model request uses part of its finite <a href="how-llms-work.html#context-window">context window</a>. During implementation, the agent needs access to the approved specification and the relevant parts of the plan. Unrelated tool output should not crowd out either document.</p>
 
-  <p>The context files covered in the previous article are one piece of this, the stable, rarely-changing part of what an agent should always know about a project. Spec-driven development adds a second, session-specific layer on top. The specification and plan generated for this particular task become part of what the agent references while implementing it, effectively acting as working memory for that one piece of work. <a href="ai-coding-assistants.html#beyond-context-files">Subagents</a> approach the problem from the other direction. They keep a large exploratory side-task out of the main session by returning findings instead of every file and dead end. Getting this right is less about any single clever instruction and more about making sure the right documents are in front of the model at the moment they're needed.</p>
+  <p>The context files covered in the previous article contain stable project knowledge used across many tasks. The specification and plan add information for the current change and can leave the context when the task ends. <a href="ai-coding-assistants.html#beyond-context-files">Subagents</a> can keep exploratory side work in a separate task thread and return only the findings needed by the main task. Together, these techniques reserve the main thread for information that supports the agent's next decision.</p>
+
+  <p>Selection happens again on every model request. An early planning request may need the specification, repository map, and related interfaces. A later debugging request needs the failing test, recent edit, and relevant implementation. Repeating the entire session on every turn spends capacity on stale observations. Summaries and persistent task state can carry decisions forward while the harness reloads authoritative source files when their exact contents are needed.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="harness-engineering">Harness Engineering</h2>
-  <p class="lede">Context engineering asks what the model can see this session. Harness engineering asks a broader question. It asks what stops a mistake from recurring in a later session.</p>
+  <p class="lede">A harness applies tools, permissions, and automated checks across every agent session.</p>
 
-  <p><strong>Harness engineering</strong> moves one level beyond the context of a particular session. The harness is the standing software and policy around the model. It includes tool access, permission checks, feedback loops, isolation, observability, and approval gates. Prompt and context design stay part of the system, but the harness determines which mistakes are possible and which are caught automatically.</p>
+  <p><strong>Harness engineering</strong> designs the software and policy around the model. The harness decides which tools the agent may use and which actions need approval. It can run automated checks and isolate the agent's work. Harness controls apply across sessions and limit which actions the model can take even when its prompt or context is incomplete.</p>
 
-  <p>A repository instruction can tell an agent not to run a production migration, but the model may misunderstand or overlook the instruction. A harness can withhold the production credential or require an approval before the command executes. The latter control applies to every session and does not depend on the model choosing correctly. This is the central value of the harness: recurring risks become properties of the surrounding system instead of reminders embedded in prose.</p>
+  <p>A written instruction cannot guarantee that the model will follow a rule such as a ban on production migrations. The harness can withhold the production credential or require approval before the command executes. Either control enforces the rule when the model overlooks the instruction.</p>
 
-  <p>A harness can be small. A permission policy, an isolated worktree, deterministic tests, and a log of tool calls already provide meaningful control around one agent. Larger systems add persistent task state and coordination across several agents. That expansion introduces a separate set of tradeoffs, covered in <a href="multi-agent-systems.html">multi-agent systems</a>, and should follow a real need for parallel work rather than the availability of more agents.</p>
+  <p>A small harness might isolate the agent in a worktree and deny access to production credentials. After each edit, it can run deterministic tests and record the tool calls. Larger systems can retain task state and coordinate several agents. The <a href="multi-agent-systems.html">multi-agent systems</a> article covers the additional coordination work required when a task genuinely benefits from parallel workers.</p>
+
+  <p>Recorded tool calls make a run inspectable after the generated explanation is gone. The record can show which files the agent read, which command produced a failure, and whether approval preceded an external action. Replaying every model decision may be impossible when a provider or model version changes, but retaining inputs, outputs, tool effects, and versions gives an investigation concrete evidence.</p>
 
   <div class="concept-grid cols-3">
     <div class="card blue">
       <div class="card-label">One request</div>
       <div class="card-title">Prompt Engineering</div>
-      <p>Getting a single request phrased well, one exchange at a time, through the wording, the examples, and the structure.</p>
+      <p>Prompt engineering improves one request by refining its wording, examples, and structure.</p>
     </div>
     <div class="card teal">
       <div class="card-label">One session</div>
       <div class="card-title">Context Engineering</div>
-      <p>Curating what fills the window for a session, such as specs, rules, and prior decisions, so a good prompt has the right material behind it.</p>
+      <p>Context engineering selects the project rules and task-specific decisions that fill one session's window.</p>
     </div>
     <div class="card orange">
       <div class="card-label">Every session</div>
       <div class="card-title">Harness Engineering</div>
-      <p>Building the standing infrastructure around the agent, such as tool permissions, guardrails, feedback loops, and observability, so a whole class of mistake can't recur.</p>
+      <p>Harness engineering builds persistent controls around every session. Permissions and automated feedback prevent recurring mistakes.</p>
     </div>
   </div>
 
-  <p>The earlier controls fit naturally into this layer. Mutation testing gives the agent deterministic feedback about weak tests. A plan checkpoint prevents implementation before a person has approved the intended change. The grounding step in the next section checks whether that plan still matches the repository. Each control assumes that plausible output may be wrong, then catches a different failure before it reaches production.</p>
+  <p>The harness can run mutation tests and return their results to the agent. It can block file edits until a person approves the plan, then require the grounding check described next. Each control catches a specific failure before correction becomes expensive.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="context-blindness">Context Blindness</h2>
-  <p class="lede">A spec can be perfectly well written and still describe a repository that no longer exists.</p>
+  <p class="lede">Repository changes can invalidate a clear plan before implementation begins.</p>
 
-  <p><strong>Context blindness</strong> occurs when an internally consistent plan no longer matches the repository. It may rely on an old function signature, a moved file, or a data model changed by a later migration. Reading the plan alone will not reveal the mismatch because every statement can still fit the plan's own assumptions. The conflict appears only when those assumptions are checked against the current code.</p>
+  <p><strong>Context blindness</strong> occurs when an internally consistent plan no longer matches the repository. It may rely on an old function signature, a moved file, or a data model changed by a later migration. Reading the plan alone will not reveal the mismatch because its statements agree with one another. The conflict appears only when those assumptions are checked against the current code.</p>
 
-  <p>A grounding step checks the plan against the live repository before implementation. It can verify that referenced paths exist, inspect the current function signatures, and compare data-model assumptions with the latest migrations. The check may be performed by the implementing agent or by a separate read-only pass. Either way, the plan is corrected while it is still cheap to change.</p>
+  <p>A grounding step checks the plan against the live repository before implementation. It can verify that referenced paths exist, inspect the current function signatures, and compare data-model assumptions with the latest migrations. The check may be performed by the implementing agent or by a separate read-only pass. At this stage, correcting the plan is cheaper than unwinding an implementation built from obsolete assumptions.</p>
 
   <div class="concept-grid">
     <div class="card orange">
       <div class="card-label">Ungrounded</div>
       <div class="card-title">Plan trusted at face value</div>
-      <p>The plan reads correctly and gets approved. Execution fails partway through, or worse, succeeds against a stale assumption and produces something quietly wrong.</p>
+      <p>The plan appears consistent and receives approval. Implementation may then fail partway through or produce incorrect code based on an obsolete assumption.</p>
     </div>
     <div class="card teal">
       <div class="card-label">Grounded</div>
       <div class="card-title">Plan checked against the repo</div>
-      <p>Before implementation, specific claims in the plan (a signature, a file path, a schema) are verified against the current codebase, and the plan is corrected if reality has moved.</p>
+      <p>Before implementation, the plan's claims about code and data are checked against the current repository so obsolete assumptions can be corrected.</p>
     </div>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="human-gate">Where the Human Gate Belongs</h2>
-  <p class="lede">Review the plan, not just the diff.</p>
+  <h2 id="human-gate">Review Gates</h2>
+  <p class="lede">Review effort should follow the possible harm while giving people a chance to correct intent and approach before implementation hides them.</p>
 
-  <p>Pure vibe coding has no gate at all, which is what makes it fast for a throwaway script and dangerous for anything else. A well-run spec-driven workflow has an obvious place to put one, right after the plan and task list are generated and before any file has changed. A wrong plan takes a few minutes to read and correct. A wrong forty-file diff built from that same wrong plan takes much longer to review. A subtle gap, like the missing rate limit in the earlier example, is far easier to let slip past a diff review than past someone reading four acceptance criteria.</p>
+  <p>Vibe coding lets implementation begin without an independent review. For a consequential change, a controlled spec-driven workflow can ask a person to approve the specification before technical planning begins. A second review can check the grounded plan before the agent changes any files. The first review may find a missing requirement, while the second can correct a mistaken dependency before it spreads through a large diff.</p>
 
-  <p>Plan review does not replace review of the final diff. It catches errors in intent before they become implementation, while diff review checks whether the approved plan was carried out safely. The next article develops that merge-time review. The <a href="mcp-ai-integration.html">MCP article</a> covers the separate problem of governing access when an agent can reach systems beyond the repository.</p>
+  <p>A bounded, reversible change may combine specification and plan review or proceed directly to diff review when its intent is clear and automated checks constrain the result. Changes that affect authorization, personal data, payments, or destructive operations need earlier and more specialized approval. The team should choose each gate from the effect of a failure and the cost of reversing it.</p>
+
+  <p>The final diff needs review against the behavior approved in the specification. Plan review checks the proposed approach against the repository. Diff review then determines whether the agent implemented the approved change safely. The next article develops this merge-time review, while the <a href="mcp-ai-integration.html">MCP article</a> explains how to govern access to systems beyond the repository.</p>
 
 </main>
 </div><!-- end .shell -->

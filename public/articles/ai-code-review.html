@@ -41,12 +41,12 @@
 
   <div class="sidebar-section">How Tools Differ</div>
   <a href="#tool-categories">Rule-Based, AI, and Hybrid Review</a>
-  <a href="#recall">Recall Over Precision</a>
+  <a href="#recall">Precision, Recall, and Reviewer Attention</a>
 
   <div class="sidebar-section">Practice</div>
-  <a href="#risk-based">A Risk-Based Review Strategy</a>
-  <a href="#governance">The Governance Decisions</a>
-  <a href="#human-review">Where Human Review Stays Non-Negotiable</a>
+  <a href="#risk-based">Risk-Tiered Review</a>
+  <a href="#governance">Review Policy and Attribution</a>
+  <a href="#human-review">Human Approval</a>
 </nav>
 
 <main>
@@ -56,73 +56,83 @@
   <p class="subtitle">How to combine deterministic checks, model-based review, and accountable human approval at the merge boundary.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~8 min read</span>
+    <div class="dot"></div><span>~9 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
-  <p>AI assistants reduce the time needed to produce a first draft, but they do not reduce the care required to merge it. A team can therefore generate changes faster than its reviewers can understand them. The practical question is no longer only how to create code efficiently. It is how to direct limited review attention toward the changes where a mistake would matter most.</p>
+  <p>AI assistants let a team produce first drafts faster than reviewers can understand them. Faster drafting does not reduce the evidence needed for a safe merge. Teams must therefore direct limited review time toward the mistakes with the greatest consequences.</p>
 
-  <p>This article focuses on that merge boundary. Earlier articles covered configuring assistants and producing a reviewable change through a controlled workflow. Once the diff exists, its risk is more important than its origin. The sections below separate deterministic checks from model-based review, then turn that distinction into review tiers, approval rules, and a clear role for human judgment.</p>
+  <p>Software teams already split review between automated checks and people. Compilers, linters, and test suites reject properties that can be checked repeatedly. People examine intent, design, and operational consequences. Model-based review adds a probabilistic check between these layers. It can read relationships expressed in ordinary code, but it does not turn those relationships into a proof.</p>
+
+  <p>At the merge boundary, the team should assess what a change can affect and which evidence can reveal a mistake. Earlier articles covered configuring assistants and producing a reviewable change through a controlled workflow. Deterministic tools, model-based review, and people can provide different kinds of evidence for the merge decision.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="bottleneck">From Writing Bottleneck to Review Bottleneck</h2>
-  <p class="lede">Faster drafting moves work into review unless the rest of the delivery system changes with it.</p>
+  <p class="lede">When drafting accelerates, the review queue grows unless the team changes how it checks and routes proposed changes.</p>
 
-  <p>An agent can turn one task description into a multi-file pull request in the time a developer might previously have spent understanding the first file. The review cost does not fall by the same amount. Someone still has to confirm that the change solves the right problem, respects the surrounding architecture, and behaves safely outside the happy path.</p>
+  <p>An agent can turn one task description into a multi-file pull request in the time a developer might previously have spent understanding the first file. Fast generation does not reduce the reviewer's responsibility. The reviewer needs to confirm the intended behavior, check how the change fits the surrounding architecture, and inspect what happens outside the happy path.</p>
 
-  <p>The queue becomes especially visible when agents produce several changes in parallel. More proposals do not create more maintainers with domain knowledge, and a large diff is difficult to review regardless of who authored it. Teams that measure only generation speed can therefore report a local productivity gain while lead time and reviewer load worsen elsewhere.</p>
+  <p>Parallel agents can produce several changes without increasing the number of maintainers who know the affected code. Large diffs take time to understand regardless of who wrote them. A team that measures only generation speed may miss a longer review queue and slower delivery.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="tool-categories">Rule-Based, AI, and Hybrid Review</h2>
-  <p class="lede">A linter and an AI reviewer aren't competing at the same job. They're catching different classes of mistake.</p>
+  <p class="lede">Rule-based tools find violations expressed in their configuration. Model-based reviewers can examine relationships that no rule represents.</p>
 
-  <p><strong>Rule-based review</strong> applies explicit checks through compilers, linters, type systems, security scanners, and policy engines. A fixed configuration produces repeatable findings for a given input. These tools are strong at properties that can be encoded precisely, but they cannot flag a concern no rule or analysis represents.</p>
+  <p><strong>Rule-based review</strong> applies explicit checks with compilers, linters, and other analysis tools. A fixed configuration produces repeatable findings for a given input. Rule-based tools work well when a property can be encoded precisely. They cannot report a concern that no rule or analysis represents.</p>
 
-  <p><strong>Model-based review</strong> can inspect a diff together with selected repository context and describe relationships that were never encoded as rules. It may notice that a new helper duplicates an existing abstraction or that a caller still assumes the old shape of an interface. Its findings are probabilistic, however, and depend on which files reached the model. A plausible comment may be wrong or may miss the relevant code entirely.</p>
+  <p><strong>Model-based review</strong> can inspect a diff together with selected repository context and describe relationships that were never encoded as rules. It may notice a new helper that duplicates an existing abstraction or a caller written for the old shape of an interface. Its findings are probabilistic and depend on which files reached the model. A plausible comment may be wrong or may miss the relevant code entirely.</p>
 
-  <p>A hybrid pipeline gives each kind of tool the work it suits. Deterministic checks run first and reject known violations without spending model time. A model-based pass can then examine the remaining change for context-dependent concerns. Human reviewers receive both sets of findings, along with the evidence needed to accept or dismiss them.</p>
+  <p>In a hybrid pipeline, deterministic checks run first and reject known violations without spending model time. A model-based pass then examines the change for context-dependent concerns. Human reviewers receive the findings and their supporting evidence before deciding whether the change can merge.</p>
 
-  <p>Generated tests deserve a separate check because passing tests may exercise code without protecting behavior. <a href="agentic-coding-workflows.html#tests-from-specs">Mutation testing</a> can deliberately alter the implementation and confirm that the suite detects the change. It does not prove the specification is correct, but it gives stronger evidence than coverage alone that the assertions can fail when behavior changes.</p>
+  <p>Suppose a change adds a field to an API response. A type checker may confirm that the server and generated client agree on its type. A contract test can verify a recorded response. A model reviewer may notice that a hand-written mobile client still assumes the old payload size, provided that caller enters its context. The service owner decides whether the compatibility risk is acceptable. The checks overlap, but each supplies a different kind of evidence.</p>
+
+  <p>Generated tests deserve a separate check because passing tests may exercise code without protecting behavior. <a href="agentic-coding-workflows.html#tests-from-specs">Mutation testing</a> deliberately alters the implementation and checks whether the suite fails. Coverage shows which code ran during a test, while mutation testing shows whether selected code changes can escape the assertions. The team must evaluate the specification separately.</p>
 
   <div class="concept-grid">
     <div class="card blue">
       <div class="card-label">Rule-based</div>
       <div class="card-title">Fixed rulebook</div>
-      <p>Fast and deterministic. Produces repeatable results for a given input. Catches known patterns reliably. Blind to anything outside the rulebook or dependent on the rest of the codebase.</p>
+      <p>Rule-based checks run quickly and produce repeatable results for a given input. They catch known patterns reliably but cannot reason about anything outside the rulebook or the supplied analysis.</p>
     </div>
     <div class="card teal">
       <div class="card-label">AI-based</div>
-      <div class="card-title">Reasons over context</div>
-      <p>Understands how a change relates to the rest of the repository, catching breaking changes, duplicated logic, and architectural drift. Slower and less predictable than a fixed rule.</p>
+      <div class="card-title">Infers from selected context</div>
+      <p>Model-based review can flag breaking changes, duplicated logic, and architectural drift when the necessary context is available. Its findings need supporting evidence because they may be incomplete or wrong.</p>
     </div>
     <div class="card purple">
       <div class="card-label">Hybrid</div>
       <div class="card-title">Rules first, AI second</div>
-      <p>A deterministic pass catches what it reliably can, before an AI pass spends its effort on the context-dependent issues the rule engine was never going to find.</p>
+      <p>A hybrid review runs deterministic checks first. The model then examines context-dependent issues that the encoded rules do not cover.</p>
     </div>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="recall">Recall Over Precision</h2>
-  <p class="lede">The design principle behind a review tool you can trust at the point where code merges.</p>
+  <h2 id="recall">Precision, Recall, and Reviewer Attention</h2>
+  <p class="lede">Reviewers need checks that catch consequential defects without overwhelming them with false warnings.</p>
 
-  <p>Precision and recall pull in different directions. <strong>Precision</strong> measures how many of the things a tool flagged were real problems. <strong>Recall</strong> measures how many of the real problems the tool managed to flag. A traditional linter tends to optimize for precision, minimizing false alarms, because it isn't the last line of defense and a missed issue elsewhere still has other chances to get caught.</p>
+  <p><strong>Precision</strong> measures how many flagged findings are real problems. <strong>Recall</strong> measures how many real problems the tool managed to flag. Lowering a detection threshold can improve recall by reporting more candidates, but it usually reduces precision by admitting more false positives. Neither measure is sufficient on its own because findings consume finite reviewer attention.</p>
 
-  <p>At the merge boundary, that calculation flips. A false positive costs a developer a moment's attention and gets filtered out before anything ships. A missed real vulnerability rides straight through to production, where the cost of finding out is dramatically higher than the cost of a little extra noise during review. A review tool tuned for recall accepts more false alarms in exchange for catching more real problems. It pushes the job of filtering that noise to a separate pass, rather than asking the reviewer itself to be conservative about what it flags.</p>
+  <p>The acceptable tradeoff depends on the finding. A missed authorization flaw can cost more than investigating several plausible warnings, so a security check may favor recall. Repeated low-value warnings slow review and encourage people to skim later findings. Many review products do not expose a numeric detection threshold. A team can still change what reaches reviewers by combining detectors, filtering categories, and setting different escalation rules.</p>
 
-  <p>Too much noise makes reviewers ignore a tool that comments on everything. A practical pipeline can separate detection from presentation. Broad checks collect candidates, then deduplication and confidence thresholds decide which findings deserve attention. High-risk categories can keep a lower threshold, while style preferences should usually stay deterministic or silent.</p>
+  <p>The pipeline should separate detection from presentation. Broad checks may collect many candidates, so filters and category-specific thresholds determine what reaches a reviewer. Each reported finding should name the affected code and explain the concern. Deterministic tools can enforce style rules, which lets model-based review focus on relationships that are difficult to encode.</p>
 
-  <p>Recall is valuable at the merge boundary because the pipeline is meant to compensate for rushed or inconsistent manual checking. It cannot provide perfect coverage, and a model reviewer should never be described as a guarantee. Its role is to add another chance to catch a defect before production, especially where a deterministic rule is unavailable.</p>
+  <p>Measuring precision and recall requires a labeled evaluation set in which the expected findings are known. The set can combine historical defects with carefully constructed changes that represent the repository's risks. Precision can then be calculated from the tool's reported findings, while recall uses the full set of known defects as its denominator. The evaluation should be repeated as the repository and models change. A model reviewer will miss some defects and produce some incorrect findings, so its additional findings must justify the time spent investigating them.</p>
+
+  <p>The unit of evaluation has to be defined before the numbers can be compared. Two comments about one faulty authorization check may count as one underlying defect, while a vague warning with no actionable location may count as no useful finding. Severity belongs beside precision and recall because catching ten minor naming issues does not compensate for missing the security case the review was introduced to detect.</p>
+
+  <p>An offline evaluation measures known cases under repeatable conditions. Production review supplies a different signal through accepted comments, dismissed findings, review time, and defects discovered after merge. Acceptance alone does not prove that a comment was correct, and a low acceptance rate may reflect poor presentation or an unsuitable threshold. Teams need both forms of evidence when a model, prompt, or context-selection method changes.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="risk-based">A Risk-Based Review Strategy</h2>
-  <p class="lede">More code arrives than anyone has time to read with equal care, so decide in advance what deserves that care.</p>
+  <h2 id="risk-based">Risk-Tiered Review</h2>
+  <p class="lede">Review tiers let a team spend more time on changes whose failure would be harmful or difficult to reverse.</p>
 
-  <p>Review effort should follow consequence and reversibility. Generated fixtures or internal documentation are often cheap to validate and cheap to replace. Authentication, payment handling, authorization, destructive data operations, and personal-data processing deserve more scrutiny because a subtle defect can create lasting harm even when the code looks conventional.</p>
+  <p>Generated fixtures or internal documentation are often easy to validate and replace. Code that controls access or handles financial and personal data needs more scrutiny because a subtle defect can create lasting harm. Destructive data operations need similar care because recovery may be slow or impossible.</p>
 
-  <p>Authorship alone is a poor risk signal. A small human-written authorization change may deserve more attention than a large generated test fixture, while a generated refactor can be low risk if behavior is strongly constrained by types and tests. The tier should therefore be assigned from what the change can affect, how easily it can be rolled back, and which controls can verify it.</p>
+  <p>The review tier should depend on the change's possible effect, the difficulty of rollback, and the available verification. A small authorization change may need more review than a large generated test fixture. A generated refactor may need less when types and tests constrain its behavior closely.</p>
 
-  <p>A workable version routes each tier to a different review path. Review effort then follows the cost of a mistake.</p>
+  <p>Risk can change across the delivery path. A database migration may be easy to review as SQL but difficult to reverse after production data has changed. A feature behind a server-side flag may have a safer rollback path than a client release that takes days to reach users. The tier should reflect the deployed effect rather than the size or apparent simplicity of the diff.</p>
+
+  <p>Each tier can require a different combination of automated evidence and human approval, as the following example shows.</p>
 
   <div class="table-wrap">
     <table>
@@ -130,36 +140,38 @@
         <tr><th>Risk tier</th><th>Examples</th><th>Review path</th></tr>
       </thead>
       <tbody>
-        <tr><td>Low</td><td>Generated fixtures, routine docs, approved scaffolding</td><td>Deterministic checks, plus AI review<br><span class="badge badge-green">Auto-merge eligible</span></td></tr>
+        <tr><td>Low</td><td>Generated fixtures, routine docs, approved scaffolding</td><td>Required deterministic checks. Model review is used only where it has measured value.<br><span class="badge badge-green">Auto-merge only by policy</span></td></tr>
         <tr><td>Medium</td><td>Everyday feature code, most bug fixes</td><td>Deterministic checks, AI review, plus one human approver</td></tr>
-        <tr><td>High</td><td>Auth, payments, data validation, PII handling</td><td>Deterministic checks and AI review as a first pass<br><span class="badge badge-red">Named human required</span></td></tr>
+        <tr><td>High</td><td>Authorization, payments, destructive data changes, personal information</td><td>Deterministic checks and model review as supporting evidence<br><span class="badge badge-red">Appropriate human owner required</span></td></tr>
       </tbody>
     </table>
   </div>
 
-  <p>The model-based review still contributes in the high tier, but a clean result is insufficient on its own. A named human reviewer must examine the evidence and accept the risk because an error in this category has consequences beyond redoing a test fixture.</p>
+  <p>Model-based review can contribute findings in the high tier. A named human reviewer must examine the evidence and approve the change because an error may affect users, data, or legal obligations.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="governance">The Governance Decisions</h2>
-  <p class="lede">A strategy nobody wrote down is a preference. Three decisions turn the tiers into policy.</p>
+  <h2 id="governance">Review Policy and Attribution</h2>
+  <p class="lede">A written policy defines permitted agent use, required evidence, and the person who approves each review tier.</p>
 
-  <p>The review tiers need to be written down because deadline pressure otherwise turns them into suggestions. A short policy can identify the high-risk areas, state which automated checks are mandatory, and name the approval required for each tier. It should apply to all changes. AI attribution can inform the reviewer about how the diff was produced, but it should not excuse weak review of human-authored code or replace an assessment of impact.</p>
+  <p>A short policy can identify high-risk areas and state which checks and approvals each tier requires. Applying the tiers to all changes keeps authorship from becoming a substitute for risk assessment. AI attribution can tell reviewers how a diff was produced, but the possible impact should determine its review path.</p>
 
-  <p>The first decision is a usage guideline. It states which work may be delegated, which actions require approval, and which areas an agent must not change without a named owner involved. A team might allow autonomous updates to generated fixtures while requiring a security owner for any password-reset change. The rule governs the path to merge rather than pretending that human first drafts are automatically safe.</p>
+  <p>A usage guideline defines which work may be delegated and which actions require approval. It should identify areas where an agent needs a named owner. A team might allow autonomous updates to generated fixtures while requiring a security owner for any password-reset change. Human-written changes should follow the risk tier as well.</p>
 
-  <p>The second decision is the approval process. Existing pull-request checks and deployment gates usually provide the right foundation. The policy adds the evidence required for each tier, such as mutation results for generated tests or a threat-model review for a new authorization path. Reviewers then know what must be present before they begin reading the diff.</p>
+  <p>The approval process can build on existing pull-request checks and deployment gates. The policy adds the evidence required for each tier, such as mutation results for generated tests or a threat-model review for a new authorization path. Reviewers then know what must be present before they begin reading the diff.</p>
 
-  <p>The third decision is attribution. A pull request can record which tool contributed, what the developer reviewed, and which tests or checks validated the result. That information helps later audits and supports the mixed-authorship questions covered in <a href="ai-data-ip.html">Data and IP in AI Tooling</a>. Attribution should provide provenance, not act as a substitute for ownership by the person submitting the change.</p>
+  <p>Attribution records how the change was produced. A pull request can name the contributing tool, describe the developer's review, and record the checks used to validate the result. The record helps later audits and supports the mixed-authorship questions covered in <a href="ai-data-ip.html">Data and IP in AI Tooling</a>. The review policy should state what evidence the submitter provides and which approver or system owner accepts the risk of merging and operating the change.</p>
 
-  <p>None of this requires elaborate tooling to start. A short usage policy and a habit of flagging AI-authored changes in pull request descriptions cover most of what a team needs before scaling further.</p>
+  <p>A team can begin with a short policy that defines risk tiers, required evidence, and approval owners. Pull requests can record AI contribution when the provenance is useful. Review outcomes and defects found after release should inform later policy changes.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="human-review">Where Human Review Stays Non-Negotiable</h2>
-  <p class="lede">Even a very good AI reviewer has a blind spot no amount of codebase context fixes.</p>
+  <h2 id="human-review">Human Approval</h2>
+  <p class="lede">A model reviewer cannot approve risks that depend on business commitments or organizational responsibility.</p>
 
-  <p>A model reviewer sees only the context the system supplies. It may receive the diff and nearby code but miss the decision record, incident history, customer commitment, or operational constraint that explains why the code has its present shape. A human reviewer can recognize that missing context and seek it out before approving the change.</p>
+  <p>A model reviewer sees only the context supplied by the system. It may receive the diff and nearby code but miss an earlier decision or incident that explains the current design. Customer commitments and operational constraints may be absent as well. A human reviewer can identify missing context and seek it out before approving the change.</p>
 
-  <p>Accountable people still decide architecture, security boundaries, compliance obligations, and product tradeoffs. A model can surface questions and compare a change with repository conventions, but it cannot accept organizational risk. A useful arrangement has several layers. Deterministic tools enforce known rules, a model broadens the search for context-dependent defects, and a human signs off where the cost of error is high.</p>
+  <p>Human approval is useful only when the reviewer can inspect the evidence and has authority over the affected system. A mandatory click from someone unfamiliar with the service creates a record without adding much judgment. High-risk paths should route the change to an owner who understands the failure modes and can request another test, a narrower rollout, or a redesign.</p>
+
+  <p>People who own a system must decide its architecture and product tradeoffs. They approve security boundaries and compliance obligations on behalf of the organization. Deterministic tools can enforce known rules, and a model can search for context-dependent defects. A person must make the final decision when an error could create significant harm.</p>
 
 </main>
 </div><!-- end .shell -->

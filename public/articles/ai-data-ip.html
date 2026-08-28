@@ -24,19 +24,19 @@
 <nav class="sidebar" id="sidebar">
   <a class="sidebar-back" href="index.html">← All articles</a>
 
-  <div class="sidebar-section">The Spine</div>
-  <a href="#ladder">The Deployment Ladder</a>
+  <div class="sidebar-section">Deployment</div>
+  <a href="#ladder">Deployment Models</a>
 
-  <div class="sidebar-section">Along the Ladder</div>
+  <div class="sidebar-section">Data Handling</div>
   <a href="#retention-training">Retention and Training</a>
   <a href="#secrets">Secrets Hygiene</a>
 
   <div class="sidebar-section">The Legal Surface</div>
-  <a href="#ownership">Who Owns Generated Code</a>
+  <a href="#ownership">Copyright in Generated Code</a>
   <a href="#indemnity">Infringement Risk and Indemnity</a>
 
   <div class="sidebar-section">Practice</div>
-  <a href="#checklist">The Procurement Checklist</a>
+  <a href="#checklist">Procurement Review</a>
 </nav>
 
 <main>
@@ -46,111 +46,114 @@
   <p class="subtitle">Where code goes when an assistant reads it, what the vendor may do with it, and who owns what comes back.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~7 min read</span>
+    <div class="dot"></div><span>~11 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
-  <p>Adopting AI development tools raises four questions that the editor cannot answer. The organization needs to know where submitted code is processed, how long the provider retains it, whether it may be used for training, and what contractual protection applies to generated output. Copyright ownership is related but follows a different legal test.</p>
+  <p>Before adopting an AI development tool, an organization needs to know where the provider processes submitted code and how long it stores the content. The governing terms should explain whether the provider may use submissions for training and which claims it will cover if generated output infringes another party's rights. Copyright ownership follows a separate legal test.</p>
 
-  <p>Most data-handling answers depend on the product, plan, deployment, and signed terms rather than on the underlying model. This article follows those choices from consumer software to self-hosting, then separates retention from training and ownership from indemnity. <a href="ai-code-review.html">Governing AI-Written Code</a> covers the development process around the output; this article covers the data and intellectual-property (IP) terms underneath it.</p>
+  <p>The purchased product, deployment, and signed terms determine how submitted content is handled. The deployment assigns operational responsibility, and the contract states what each provider may do with the data. <a href="ai-code-review.html">Governing AI-Written Code</a> explains how teams review generated output. The data and intellectual-property (IP) terms require a separate analysis.</p>
+
+  <p>A product name is too coarse for this review. The editor extension may collect repository context, send it through a vendor gateway, route the request to a separate model provider, and store task state in another service. The organization needs the complete data flow for the plan and features it will enable. A policy based only on the model host can miss the systems that select, log, or cache the content around inference.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="ladder">The Deployment Ladder</h2>
-  <p class="lede">Four rungs, and almost every guarantee changes at each one.</p>
+  <h2 id="ladder">Deployment Models</h2>
+  <p class="lede">A deployment model determines where inference runs and divides control and operational work between the organization and its providers.</p>
 
-  <p>For a hosted service, content submitted for inference is processed outside the developer's machine. That may include the prompt, open files, retrieved repository context, and tool output. An agent can expose more material than a small chat request because it <a href="ai-coding-assistants.html#context-window">explores the repository</a> during the task. Procurement must therefore evaluate what is transmitted, where it is processed, and what each receiving party may do with it.</p>
+  <p>A hosted service sends content outside the developer's machine for inference. The provider may receive the prompt and open files along with repository context or tool output gathered during the task. Because an agent <a href="ai-coding-assistants.html#context-window">explores the repository</a>, it can transmit more material than a short chat request. Procurement must identify every receiving party and record where each party processes the content and what it may do with it.</p>
 
-  <p>The bottom rung is consumer SaaS, the free and individual tiers of the mainstream tools. Guarantees are thinnest here. Controls live in a settings page the vendor can reorganize, defaults change with product announcements, and the contract is a consumer terms-of-service the organization never negotiated.</p>
+  <p><strong>Consumer software as a service</strong> (SaaS) includes free and individual tiers of hosted tools. These plans are governed by standard consumer terms and individual account settings. The provider can change the available settings or defaults under those terms. The organization has no negotiated contract unless it reaches a separate agreement with the provider.</p>
 
-  <p>Enterprise SaaS adds organization-level terms and controls. A <strong>data processing agreement</strong> (DPA) can define roles, subprocessors, retention, security obligations, and whether customer content may be used to train models. Administrative policy, audit logs, identity integration, and managed workspaces then help enforce the purchased terms. The exact commitments vary by vendor and contract, so “enterprise” is a product category rather than a guarantee by itself.</p>
+  <p>Enterprise SaaS adds organization-level terms and controls. A <strong>data processing agreement</strong> (DPA) can define the customer's and provider's roles, identify subprocessors, and set retention and security obligations. It can govern whether customer content may be used to train models. Managed workspaces put administrative policy into practice, while identity integration and audit logs help administrators control and trace access. The word “enterprise” alone does not specify which commitments the vendor provides.</p>
 
-  <p>The third rung uses a managed model service through the organization's cloud account. Existing identity, networking, monitoring, region, and procurement arrangements may extend to that service, but the relevant product terms still determine processing and retention. The <a href="cloud-computing.html">shared-responsibility model</a> applies: the provider operates the service, while the customer remains responsible for configuration, data classification, access, and application behavior.</p>
+  <p>A managed model service runs through the organization's cloud account. Existing identity and network controls may extend to the service, along with established monitoring and regional arrangements. Product terms determine how the service processes and retains data. Under the <a href="cloud-computing.html">shared-responsibility model</a>, the provider operates the service while the customer is responsible for its configuration and application behavior. The customer must classify the data and control who can access it.</p>
 
-  <p>The fourth rung runs an open-weight model in infrastructure the organization controls. Data can remain inside the chosen boundary if telemetry, dependencies, and connected tools are configured accordingly. The organization also assumes responsibility for hardware, serving, patching, model provenance, monitoring, and updates. The choice follows from data sensitivity and operational capacity rather than from an assumption that one rung always provides the best model.</p>
+  <p>A self-hosted open-weight model runs in infrastructure the organization controls. Data can be kept inside the chosen boundary when telemetry, connected tools, and external dependencies do not send content elsewhere. The organization operates the hardware and model-serving stack and takes responsibility for security updates, monitoring, and model provenance. Organizations may choose this deployment when their data requirements justify the additional operational work.</p>
 
-  <figure class="figure-wrap">
-    <svg class="figure" viewBox="0 0 700 300" role="img" aria-label="Four rungs stacked from consumer SaaS at the bottom to self-hosted at the top. An arrow alongside shows control and operational cost increasing together as you climb." xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <marker id="adi-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-          <path class="figure-arrow is-accent-color" d="M 0 0 L 10 5 L 0 10 z"/>
-        </marker>
-      </defs>
-      <text class="figure-title" x="20" y="24">Deployment control and operational cost</text>
+  <p>The four models differ along several dimensions, so they do not form a single scale from weak to strong control. Enterprise SaaS may provide firmer contractual commitments than a managed service purchased under standard cloud terms. Self-hosting gives the organization direct control over infrastructure but makes it responsible for more security and reliability work. A useful comparison covers processing location, retention and training terms, network egress, administrative controls, and operational responsibility.</p>
 
-      <line class="figure-connector figure-emphasis is-accent-stroke" x1="100" y1="264" x2="100" y2="48" marker-end="url(#adi-arrow)"/>
-      <text class="figure-note is-accent-text" x="60" y="156" text-anchor="middle" transform="rotate(-90 60 156)">More control, more operational cost</text>
+  <p>One coding session can cross more than one deployment boundary. A locally running agent may send model requests to a hosted API, download documentation from the internet, and call a remote issue tracker. Local execution controls the agent process and files, but it does not make those remote calls local. Reviewers should trace each source of data to every destination rather than assign one label to the whole product.</p>
 
-      <rect class="figure-node" x="140" y="48" width="300" height="40"/>
-      <text class="figure-label" x="290" y="72" text-anchor="middle">Self-hosted</text>
-      <text class="figure-note" x="464" y="72">Nothing leaves, all operations yours</text>
-
-      <rect class="figure-node" x="140" y="104" width="300" height="40"/>
-      <text class="figure-label" x="290" y="128" text-anchor="middle">Your cloud tenant</text>
-      <text class="figure-note" x="464" y="128">Existing compliance boundary</text>
-
-      <rect class="figure-node" x="140" y="160" width="300" height="40"/>
-      <text class="figure-label" x="290" y="184" text-anchor="middle">Enterprise SaaS</text>
-      <text class="figure-note" x="464" y="184">DPA, no training, admin and audit</text>
-
-      <rect class="figure-node" x="140" y="216" width="300" height="40"/>
-      <text class="figure-label" x="290" y="240" text-anchor="middle">Consumer SaaS</text>
-      <text class="figure-note" x="464" y="240">Settings-page guarantees</text>
-    </svg>
-    <figcaption>The deployment ladder. Retention, training, governance, and indemnity answers all change rung by rung, with the consumer-to-enterprise step as the sharpest.</figcaption>
-  </figure>
+  <div class="table-wrap" role="region" aria-label="Comparison of AI deployment models" tabindex="0">
+    <table>
+      <thead>
+        <tr><th>Deployment</th><th>Processing boundary</th><th>Organizational control</th><th>Operational responsibility</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Consumer SaaS</td><td>Vendor environment under standard terms</td><td>Individual account settings</td><td>Vendor operates the service</td></tr>
+        <tr><td>Enterprise SaaS</td><td>Vendor environment under commercial terms</td><td>Contract and available workspace controls</td><td>Vendor operates the service. Organization manages workspace policy.</td></tr>
+        <tr><td>Managed model service</td><td>Selected cloud service and region</td><td>Cloud identity, network, and service configuration plus product terms</td><td>Provider operates the service. Organization manages the application and configuration.</td></tr>
+        <tr><td>Self-hosted open-weight model</td><td>Organization-controlled infrastructure, subject to egress</td><td>Direct control of infrastructure, model, and logging</td><td>Organization operates the whole stack</td></tr>
+      </tbody>
+    </table>
+  </div>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="retention-training">Retention and Training</h2>
-  <p class="lede">Stored and trained on are different fates, and the difference is contractual.</p>
+  <p class="lede">A provider may store submitted content without using it to train model weights.</p>
 
-  <p><strong>Retention</strong> describes how long a provider stores inputs, outputs, or derived application state. <strong>Training</strong> describes whether submitted content may be used to improve model weights or related systems. The settings vary independently: a provider can retain content for abuse monitoring without training on it. Zero-data-retention controls can remove eligible content from provider logs, but eligibility and application-state exceptions must be checked per endpoint.</p>
+  <p><strong>Retention</strong> describes how long a provider stores inputs, outputs, or derived application state. <strong>Training</strong> describes whether submitted content may be used to improve model weights or related systems. The two settings vary independently, so a provider can retain content for abuse monitoring without training on it. Zero-data-retention controls can remove eligible content from provider logs, but eligibility and application-state exceptions must be checked for each endpoint.</p>
 
-  <p>Consumer products commonly express these choices through account settings and standard terms. Enterprise and API products more often provide organization controls and contractual exclusions, although the details differ. Cloud-hosted model services have their own product terms, while self-hosting moves the question to the organization's own logging, fine-tuning, and data-lifecycle practices.</p>
+  <p>Storage can occur at several layers. Request logs may hold prompts and responses for abuse detection. A coding product may keep conversation history, uploaded files, indexes, or cached tool results as application state. Feedback submitted by a user may enter a separate improvement pipeline. A statement about API log retention may cover only the first layer, so the review should ask about every stored copy and its deletion path.</p>
+
+  <p>Training terms need equal precision. A provider may exclude customer content from general model training while using it for a customer-specific fine-tune, evaluation, safety analysis, or product analytics under separate terms. The relevant question is which permitted purpose applies to each data class. Broad phrases such as service improvement need a contractual definition when sensitive source code enters the service.</p>
+
+  <p>Consumer products commonly express these choices through account settings and standard terms. Enterprise and API products more often provide organization controls and contractual exclusions, although the details differ. Cloud-hosted model services have their own product terms. With self-hosting, the organization decides how its systems log requests and delete stored content. It controls whether collected data is used for fine-tuning.</p>
 
   <div class="callout new">
     <div class="callout-title">A default worth checking</div>
-    <p>GitHub states that, from April 24, 2026, it may use interactions from individual Copilot plans for AI training unless the user opts out; Business and Enterprise data is covered by different terms. Anthropic lets consumer users choose whether chats and coding sessions may be used for improvement, with a longer retention period for content placed in training pipelines. These examples are time-sensitive. Verify the current plan, settings, endpoint, and contract before approving a tool.</p>
+    <p>GitHub states that it may use interactions from individual Copilot plans for AI training unless the user opts out. The change took effect on April 24, 2026. Business and Enterprise data is covered by different terms. Anthropic lets consumer users choose whether chats and coding sessions may be used for improvement. It may keep selected data in a de-identified form for up to five years in its model-training pipelines. Because these examples are time-sensitive, approval should depend on the current plan and settings as well as the endpoint and contract.</p>
   </div>
 
-  <p>A settings toggle is useful operationally, but a negotiated term provides a different form of assurance. Procurement should record both: the contractual commitment and the configuration that activates or supplements it. Product defaults can change, so neither the signed DPA nor the admin console should be reviewed in isolation.</p>
+  <p>A negotiated term binds the provider, while an administrative setting configures the purchased product. Procurement should record the contractual commitment beside the setting that activates or supplements it. A later review must compare both because product defaults and configurations can change after the DPA is signed.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="secrets">Secrets Hygiene</h2>
-  <p class="lede">The biggest leak is often not the vendor's policy but what the tooling was handed.</p>
+  <p class="lede">Provider terms cannot protect a secret after an agent has sent it outside the approved boundary.</p>
 
-  <p>Repositories and working directories often contain material that should never enter a model request. Environment files, local configuration, logs, and credential-bearing scripts may all be reachable during agent exploration. If a hosted agent reads a secret, a promise not to train on customer data does not undo the disclosure. The boundary must prevent the read or redact the content before transmission.</p>
+  <p>Repositories and working directories often contain material that should never enter a model request. An exploring agent may reach environment or local configuration files, logs, and scripts containing credentials. If a hosted agent reads a secret, a promise not to train on customer data does not undo the disclosure. The boundary must prevent the read or redact the content before transmission.</p>
 
-  <p>Use enforceable file-access and ignore rules for known secret-bearing paths, backed by secret scanning and short-lived credentials. A <a href="ai-coding-assistants.html#what-belongs">context file</a> can explain the boundary, but prose is weaker than a sandbox or policy that denies access. Prompts and tool results should appear in the organization's <a href="web-security-principles.html">data-flow threat model</a> as additional channels crossing a trust boundary.</p>
+  <p>Enforceable file-access and ignore rules should protect paths that may contain secrets. Secret scanning and short-lived credentials reduce the effect of a missed rule. A <a href="ai-coding-assistants.html#what-belongs">context file</a> can explain the boundary, while a sandbox or policy can prevent the agent from crossing it. The organization's <a href="web-security-principles.html">data-flow threat model</a> should include prompts and tool results as channels that may carry sensitive data.</p>
+
+  <p>An instruction that says not to read <code>.env</code> helps the model choose its actions but does not enforce the boundary. File permissions, sandbox rules, and tool allowlists can prevent the read. Network policy can restrict where an agent sends data after reading it. Short-lived, narrowly scoped credentials reduce the damage if prevention and detection both fail.</p>
+
+  <p>Secrets can arrive through tool output even when the repository is clean. A diagnostic command may print an authorization header, and an issue description may contain a copied token. Redaction should therefore cover command output and connected services as well as files. When a credential reaches an unapproved provider, rotation is the reliable response because deletion requests cannot prove that every copy or log entry has disappeared.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="ownership">Who Owns Generated Code</h2>
-  <p class="lede">The one question the deployment ladder does not answer.</p>
+  <h2 id="ownership">Copyright in Generated Code</h2>
+  <p class="lede">The deployment location does not determine whether generated code receives copyright protection.</p>
 
-  <p>Copyrightability follows a different analysis from provider data handling. A contract can allocate rights between customer and vendor, but it cannot create copyright protection for material that the law does not protect. Deployment choice therefore does not settle authorship.</p>
+  <p>Copyrightability follows a different analysis from provider data handling. A contract can allocate rights between the customer and vendor. Copyright law determines whether the generated material can receive protection in the first place, so deployment does not settle authorship.</p>
 
-  <p>The US Copyright Office's current guidance requires sufficient human authorship. Purely machine-generated material is not protected, while human selection, arrangement, or creative modification may be protected case by case. The guidance is not a code-specific ownership formula, and other jurisdictions may apply different rules. Legal review is appropriate when ownership materially affects the product or transaction.</p>
+  <p>The US Copyright Office's current guidance requires sufficient human authorship. Purely machine-generated material receives no copyright protection under this guidance. Human selection, arrangement, or creative modification may qualify case by case. Other jurisdictions may apply different rules, and the guidance does not provide a code-specific ownership formula. Legal review is appropriate when ownership affects a product or transaction.</p>
 
-  <p>Real diffs often mix generated material with human choices, edits, and integration work. The <a href="ai-code-review.html#governance">attribution record</a> can preserve that provenance, although a log does not itself establish copyright. It gives counsel and future maintainers evidence about how the work was produced instead of forcing them to reconstruct the process later.</p>
+  <p>Real diffs often mix generated material with human choices, edits, and integration work. The <a href="ai-code-review.html#governance">attribution record</a> can preserve that provenance, although a log does not itself establish copyright. Counsel and future maintainers can use the record to see how the work was produced.</p>
+
+  <p>Three questions often appear in one procurement discussion but need separate answers. The provider contract can assign whatever rights the provider has in the output. Copyright law decides whether protectable authorship exists. Licenses on source material or similar output may impose conditions regardless of who owns the new file. An assignment clause therefore does not guarantee copyright protection or clear third-party rights.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="indemnity">Infringement Risk and Indemnity</h2>
-  <p class="lede">Not what the organization owns, but what it could be accused of copying.</p>
+  <p class="lede">Generated output can create an infringement claim even when the contract assigns the output to the customer.</p>
 
-  <p>A separate risk is that generated output may resemble protected material or carry license obligations the user did not expect. Litigation over model training and output remains unsettled, and its outcome will not necessarily answer every customer's downstream liability. Organizations therefore need both technical controls for matching public code and a clear account of which claims the vendor contract covers.</p>
+  <p>A separate risk is that generated output may resemble protected material or carry license obligations the user did not expect. Litigation over model training and output is unsettled, and its outcome will not necessarily answer every customer's downstream liability. A repository policy may use public-code similarity detection to send matching output for license review. Independently, the organization needs a clear account of which claims the vendor contract covers.</p>
 
-  <p><strong>Indemnification</strong> is a contractual promise to defend or compensate a customer for specified third-party claims. Microsoft's customer copyright commitment is one example and requires covered customers to use applicable safeguards. The scope, exclusions, caps, notice duties, and required settings vary by agreement. A marketing summary should never be treated as the operative promise.</p>
+  <p><strong>Indemnification</strong> is a contractual promise to defend or compensate a customer for specified third-party claims. Microsoft's customer copyright commitment is one example and requires covered customers to use applicable safeguards. Each agreement defines the scope and exclusions of its protection along with any liability cap. Notice duties and required product settings may impose further conditions. A marketing summary should never be treated as the operative promise.</p>
 
-  <p>Any technical condition attached to indemnity belongs in the deployment baseline. Record the required filter or guardrail, verify that it remains enabled, and assign an owner when product settings change. Otherwise the organization may pay for protection while failing to satisfy the condition needed to invoke it.</p>
+  <p>Coverage should be read against realistic claims. An agreement may cover copyright claims arising from unmodified output while excluding prompts that ask the service to reproduce a known work, combinations with customer material, or use after the provider sends a warning. The liability cap may be lower than the cost of a serious dispute. Procurement should record the covered products, eligible users, required settings, exclusions, and procedure for notifying the vendor.</p>
+
+  <p>Any technical condition attached to indemnity belongs in the deployment baseline. The organization should record and enable each required filter or guardrail and assign an owner for later setting changes. Missing a required safeguard may prevent the organization from invoking the protection it purchased.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="checklist">The Procurement Checklist</h2>
-  <p class="lede">The decisions in ladder order, made once and revisited on a schedule.</p>
+  <h2 id="checklist">Procurement Review</h2>
+  <p class="lede">A procurement review connects data classification and enforceable terms to the product's running controls and later checks.</p>
 
-  <p>Begin by classifying the material the tool may read, including content discovered automatically during agent work. Use that classification to choose the product and deployment boundary. Record processing locations, subprocessors, retention, training use, deletion behavior, and incident obligations in the contract where the risk requires it, then map those terms to concrete administrative settings.</p>
+  <p>Procurement begins by classifying the material the tool may read, including content discovered automatically during agent work. The classification should determine the product and deployment boundary. Where the risk requires contractual protection, the agreement should identify processing locations and subprocessors and define retention and training use. Deletion behavior and incident obligations belong there as well. Each term must then map to a concrete administrative setting or operating control.</p>
 
-  <p>Then wire in what the rung provides. Turn on the filters the indemnity depends on, and record that they are on. Connect the admin, policy, and audit surface to the organization's existing identity provider, so access to AI tooling is governed like access to everything else. Extend ignore rules and context-file boundaries to keep secrets out of what agents read.</p>
+  <p>The running configuration must implement the purchased controls. The organization should enable and record filters required by an indemnity term. Connecting administrative policy and audit systems to the identity provider lets AI-tool access follow established account controls. Ignore rules and enforceable file boundaries should prevent agents from reading secrets.</p>
 
-  <p>Re-verify the arrangement on a schedule and after material product changes. Review the DPA, current defaults, endpoint retention, subprocessors, model providers, and indemnity conditions together. The goal is to catch drift between the purchased promise and the running configuration before an audit or incident reveals it.</p>
+  <p>Verification needs evidence that can survive staff changes. The review record can link the signed agreement and current subprocessor list to screenshots or exported settings from the managed workspace. A technical test can confirm that a blocked file is not transmitted and that deleted task history disappears from the user-facing product as documented. Provider attestations may cover infrastructure controls, while product-specific behavior still needs its own check.</p>
+
+  <p>The arrangement should be verified on a schedule and after material product changes. The review should compare the DPA with current defaults and endpoint retention while checking for changes to subprocessors or model providers. Indemnity conditions should be included in this review. The goal is to catch drift between the purchased promise and the running configuration before an audit or incident reveals it.</p>
 
 </main>
 </div><!-- end .shell -->
