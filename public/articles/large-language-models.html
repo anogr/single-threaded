@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Large Language Models — Single Threaded</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="articles.css">
+<style>
+  .figure-scroll { overflow-x: auto; }
+  .figure-scroll .figure-label,
+  .figure-scroll .figure-note { font-size: 11px; }
+  @media (max-width: 760px) {
+    .figure-scroll .wide-figure { width: 700px; max-width: none; }
+  }
+</style>
+</head>
+
+<body>
+
+<!-- Mobile header -->
+<header class="mobile-header">
+  <a class="mobile-logo" href="index.html">Single Threaded <span>— Articles</span></a>
+  <button class="hamburger" id="nav-toggle" type="button" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false">&#9776;</button>
+</header>
+
+<div class="nav-overlay" id="nav-overlay"></div>
+
+<div class="shell">
+
+<nav class="sidebar" id="sidebar">
+  <a class="sidebar-back" href="index.html">← All articles</a>
+
+  <div class="sidebar-section">Foundations</div>
+  <a href="#tokens">Tokenization</a>
+  <a href="#network">The Neural Network</a>
+  <a href="#prediction">Next-Token Prediction</a>
+
+  <div class="sidebar-section">Requests</div>
+  <a href="#sampling">Choosing the Next Token</a>
+  <a href="#context-window">The Context Window</a>
+
+  <div class="sidebar-section">Consequences</div>
+  <a href="#knowledge">Grounding and Hallucinations</a>
+  <a href="#embeddings">Retrieval Embeddings</a>
+  <a href="#cost">Inference Cost and Latency</a>
+  <a href="#decisions">Application Design</a>
+</nav>
+
+<main>
+
+  <div class="eyebrow">AI · Foundations</div>
+  <h1>Large Language Models</h1>
+  <p class="subtitle">How models turn a finite request into generated text, and why their mechanism shapes reliability, latency, and cost.</p>
+  <div class="byline">
+    <span>Andreas Ögren</span>
+    <div class="dot"></div><span>~19 min read</span>
+    <div class="dot"></div><span>Last updated August 2026</span>
+  </div>
+
+  <p>Most software depends on knowing what its input will look like. Developers define fields, formats, and valid values, then write code that handles them. Language does not fit neatly into that model. A person can make the same request in countless ways. They can rely on context, omit information that seems obvious, or combine instructions with prose and code. Trying to account for all of these possibilities with explicit rules quickly becomes impractical.</p>
+
+  <p>Large language models take a different approach. Instead of defining how every possible request should be interpreted, they learn patterns from large amounts of data. Before a generative <strong>large language model</strong> (LLM) receives an input, a <strong>tokenizer</strong> divides the input into a sequence of units called <em>tokens</em>. An LLM predicts what token is likely to come next. The software running the model selects a token based on that prediction, adds it to the input and sends the extended sequence through the model for the next prediction. This cycle repeats until the software stops generation and returns the response. What looks like answering a question, translating a passage, or writing code is produced through this repeated prediction process.</p>
+
+  <p>The repeated prediction process determines what information can influence a response and which checks the surrounding application still needs to perform. This article follows that process from the input to the output the model generates. The focus is on <strong>inference</strong>, the work performed by an already trained model when it handles a request. Training is covered only where it explains inference. Training infrastructure and comparisons among particular models are outside the scope.</p>
+
+<!-- ══════════════════════════════════════════════════ -->
+  <h2 id="tokens">Tokens and Tokenization</h2>
+  <p class="lede">A tokenizer divides text into the units that a model reads and generates.</p>
+
+  <p>A model does not receive raw text directly. Before the text reaches the model, a <strong>tokenizer</strong> divides it into tokens. Each token has a numeric identifier, and the complete set of tokens recognized by the model is its <strong>vocabulary</strong>. A token can contain a whole word, part of a word, punctuation, or whitespace.</p>
+
+  <p>The tokenizer does not divide every word into pieces of the same size. Common words and character sequences can have tokens of their own, while less familiar text is built from smaller tokens. This approach is known as <strong>subword tokenization</strong>. It allows a fixed vocabulary to represent words, names, and identifiers that do not have tokens of their own.</p>
+
+  <p>Compare these examples of familiar and unfamiliar text. A common word may fit into a single token, a recognizable identifier may split into several familiar parts, but an unusual string may need to be divided into much smaller pieces.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">tokenization.txt</span>
+      <span class="code-lang">Text</span>
+    </div>
+    <pre><code>"The quick brown fox"   →  [The] [ quick] [ brown] [ fox]      4 tokens
+"getUserById"           →  [get] [User] [By] [Id]              4 tokens
+"x7f3a9"                →  [x] [7] [f] [3] [a] [9]             6 tokens
+
+(Illustrative. Boundaries differ between tokenizers.)</code></pre>
+  </div>
+
+  <p>Different tokenizers use different vocabularies, so identical text can produce different token sequences and token counts. Character count and word count can provide a rough estimate because longer text generally requires more tokens, but there is no fixed conversion between them. Familiar prose may fit into relatively few tokens, while unusual names, identifiers, or other less familiar sequences can require more.</p>
+
+  <p>Because the request and response are both token sequences, usage is measured in tokens. <strong>Input tokens</strong> are supplied to the model, while <strong>output tokens</strong> are generated by the model. These counts can affect both the amount of text a request can contain and its cost. After tokenization, the model processes the resulting sequence using numerical values learned during training.</p>
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="network">The Neural Network</h2>
+  <p class="lede">A language model transforms tokens through a neural network whose learned numerical values determine how information influences the result.</p>
+
+  <h3>Weights and Parameters</h3>
+
+  <p>A <strong>neural network</strong> is a system of connected numerical calculations. The name comes from an analogy with networks of neurons in the brain. In an artificial neural network, the connected components are mathematical operations rather than biological neurons.</p>
+
+  <p>A neural network organizes its calculations into layers of nodes. The input enters the first layer, and each later layer transforms values produced by the layer before it. The final layer produces the network's output. A <strong>weight</strong> controls how strongly one incoming value contributes to a calculation. Because the calculations use different weights, one incoming value can have more influence than another. A weight is one kind of <strong>parameter</strong>, the general name for an adjustable number stored in the model. The complete set of parameters determines how the network transforms an input token sequence into a prediction of the next token.</p>
+
+  <figure class="figure-wrap">
+    <div class="figure-scroll" role="region" aria-label="Simplified neural network" tabindex="0">
+    <svg class="figure wide-figure" viewBox="0 0 700 300" role="img" aria-labelledby="network-title network-desc" xmlns="http://www.w3.org/2000/svg">
+      <title id="network-title">A simplified neural network</title>
+      <desc id="network-desc">Input values pass through connected nodes. Each connection has a numerical weight that affects the calculation performed by the next node.</desc>
+
+      <text class="figure-title is-info-text" x="82" y="42" text-anchor="middle">INPUT</text>
+      <text class="figure-title is-accent-text" x="350" y="42" text-anchor="middle">NETWORK</text>
+      <text class="figure-title is-info-text" x="618" y="42" text-anchor="middle">OUTPUT</text>
+
+      <g fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.35">
+        <line x1="108" y1="110" x2="254" y2="80"/>
+        <line x1="108" y1="110" x2="254" y2="150"/>
+        <line x1="108" y1="110" x2="254" y2="220"/>
+        <line x1="108" y1="190" x2="254" y2="80"/>
+        <line x1="108" y1="190" x2="254" y2="150"/>
+        <line x1="108" y1="190" x2="254" y2="220"/>
+
+        <line x1="306" y1="80" x2="394" y2="80"/>
+        <line x1="306" y1="80" x2="394" y2="150"/>
+        <line x1="306" y1="80" x2="394" y2="220"/>
+        <line x1="306" y1="150" x2="394" y2="80"/>
+        <line x1="306" y1="150" x2="394" y2="150"/>
+        <line x1="306" y1="150" x2="394" y2="220"/>
+        <line x1="306" y1="220" x2="394" y2="80"/>
+        <line x1="306" y1="220" x2="394" y2="150"/>
+        <line x1="306" y1="220" x2="394" y2="220"/>
+
+        <line x1="446" y1="80" x2="592" y2="150"/>
+        <line x1="446" y1="150" x2="592" y2="150"/>
+        <line x1="446" y1="220" x2="592" y2="150"/>
+      </g>
+
+      <text class="figure-label" x="150" y="94">w₁</text>
+      <text class="figure-label" x="150" y="118">w₂</text>
+      <text class="figure-label" x="150" y="140">w₃</text>
+
+      <circle class="figure-node" cx="82" cy="110" r="26"/>
+      <circle class="figure-node" cx="82" cy="190" r="26"/>
+
+      <circle class="figure-node is-accent" cx="280" cy="80" r="26"/>
+      <circle class="figure-node is-accent" cx="280" cy="150" r="26"/>
+      <circle class="figure-node is-accent" cx="280" cy="220" r="26"/>
+
+      <circle class="figure-node is-accent" cx="420" cy="80" r="26"/>
+      <circle class="figure-node is-accent" cx="420" cy="150" r="26"/>
+      <circle class="figure-node is-accent" cx="420" cy="220" r="26"/>
+
+      <circle class="figure-node is-info" cx="618" cy="150" r="26"/>
+
+      <text class="figure-note" x="350" y="272" text-anchor="middle">Each connection has a learned weight</text>
+    </svg>
+    </div>
+    <figcaption>A simplified neural network. Each connection has a numerical weight such as w₁, w₂, or w₃. The weights determine how strongly values from one node affect the calculations in the next layer.</figcaption>
+  </figure>
+
+  <p>The diagram isolates how weights give incoming values different amounts of influence. Real language models use many more parameters and more structured calculations to transform the information represented by the input tokens.</p>
+
+  <h3>Learning the Parameters</h3>
+
+  <p><strong>Training</strong> is the process that finds useful values for these parameters. During <strong>pretraining</strong>, the model receives token sequences and predicts what comes next. Its predictions are compared with the tokens that actually followed, and the parameters are adjusted to reduce the gap. Repeating this process across large amounts of text gradually produces parameters that capture useful statistical relationships among tokens and the contexts in which they appear.</p>
+
+  <p>Additional <strong>post-training</strong> can further adjust these parameters so the model is more likely to follow instructions and produce useful responses. The methods vary among models and depend on the behavior the training process is intended to encourage. Once training is complete, the resulting parameters are used to process new requests.</p>
+
+  <p>This creates a clear boundary between learning and use. Training changes the model's parameters based on examples. During inference, those parameters are fixed while the model calculates a response to new input. The next section looks more closely at what happens during that calculation.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="prediction">From Tokens to Predictions</h2>
+  <p class="lede">A Transformer processes the tokens in a sequence and scores the possible next tokens.</p>
+
+  <h3>Building a Contextual Representation</h3>
+
+  <p>The tokenizer supplies an identifier for each token, but an identifier only names an entry in the vocabulary. The model uses that identifier to look up a learned <strong>token vector</strong>, which is a list of numbers representing information the model has learned about that token and its relationships to other tokens. Every occurrence of a token begins with the same vector, so the starting vector does not represent what the token means in a particular context.</p>
+
+  <p>The phrases <code>dog bites man</code> and <code>man bites dog</code> contain the same words in a different order, even though the words play different roles. In <code>she deposited cash at the bank</code>, <code>bank</code> has a different meaning than in <code>she sat beside the river bank</code>. Position information distinguishes the order of tokens, while information from earlier tokens helps determine the role and meaning of each token in the sequence.</p>
+
+  <p>A <strong>Transformer</strong> is a neural-network architecture that updates token vectors using position information and information from other token positions. In the generative model described here, each position can use only itself and earlier positions. This processing turns a starting token vector into a representation of that token in the current sequence. The starting vector for <code>bank</code> can therefore be updated differently in the two sentences because the preceding tokens are different.</p>
+
+  <p>To build these representations, the Transformer uses <strong>self-attention</strong> to compare information at the current position with information from earlier positions and decide what to combine. For example, consider code containing <code>const retryLimit = 5</code> followed later by <code>attempts >= retryLimit</code>. When processing the later occurrence of <code>retryLimit</code>, the comparison can identify the earlier declaration as relevant and allow information from that position to contribute to the updated representation. This connects the use of the identifier with information supplied at its declaration.</p>
+
+  <p>The result is a <strong>contextual representation</strong>, a numerical representation that reflects both the current position and information drawn from earlier in the sequence. The model uses the representation at the final position to predict what token should come next. The figure summarizes how a token identifier becomes this contextual representation.</p>
+
+  <figure class="figure-wrap">
+    <div class="figure-scroll" role="region" aria-label="Scrollable diagram from token identifiers to a contextual representation" tabindex="0">
+    <svg class="figure wide-figure" viewBox="0 0 700 190" role="img" aria-labelledby="prediction-flow-title prediction-flow-desc" xmlns="http://www.w3.org/2000/svg">
+      <title id="prediction-flow-title">From token identifiers to a contextual representation</title>
+      <desc id="prediction-flow-desc">A token identifier selects a token vector. The Transformer uses position information and self-attention to produce a contextual representation at the final position.</desc>
+      <defs>
+        <marker id="llm-prediction-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <polygon class="figure-arrow" points="0,0 10,5 0,10"/>
+        </marker>
+      </defs>
+
+      <rect class="figure-node" x="20" y="56" width="128" height="78"/>
+      <text class="figure-title is-info-text" x="84" y="78" text-anchor="middle">TOKEN ID</text>
+      <text class="figure-label" x="84" y="105" text-anchor="middle">Selects a</text>
+      <text class="figure-label" x="84" y="122" text-anchor="middle">vocabulary entry</text>
+
+      <line class="figure-connector" x1="154" y1="95" x2="178" y2="95" marker-end="url(#llm-prediction-arrow)"/>
+
+      <rect class="figure-node" x="184" y="44" width="142" height="102"/>
+      <text class="figure-title is-info-text" x="255" y="78" text-anchor="middle">TOKEN VECTOR</text>
+      <text class="figure-label" x="255" y="106" text-anchor="middle">Starting numerical</text>
+      <text class="figure-label" x="255" y="123" text-anchor="middle">representation</text>
+
+      <line class="figure-connector" x1="332" y1="95" x2="356" y2="95" marker-end="url(#llm-prediction-arrow)"/>
+
+      <rect class="figure-node is-accent" x="362" y="44" width="154" height="102"/>
+      <text class="figure-title is-accent-text" x="439" y="72" text-anchor="middle">TRANSFORMER</text>
+      <text class="figure-label" x="439" y="101" text-anchor="middle">Uses token position</text>
+      <text class="figure-label" x="439" y="124" text-anchor="middle">Relates sequence positions</text>
+
+      <line class="figure-connector" x1="522" y1="95" x2="546" y2="95" marker-end="url(#llm-prediction-arrow)"/>
+
+      <rect class="figure-node is-info" x="552" y="56" width="128" height="78"/>
+      <text class="figure-title is-info-text" x="616" y="78" text-anchor="middle">FINAL POSITION</text>
+      <text class="figure-label" x="616" y="105" text-anchor="middle">Contextual</text>
+      <text class="figure-label" x="616" y="122" text-anchor="middle">representation</text>
+    </svg>
+    </div>
+    <figcaption>A token identifier selects a starting token vector. The Transformer uses position information and earlier tokens to produce a contextual representation at the final position.</figcaption>
+  </figure>
+
+  <h3>From Context to Candidate Scores</h3>
+
+  <p>The contextual representation at the final position does not identify a single next token. The model uses it to produce one score for every token in the vocabulary. A higher score means that a candidate fits the current sequence better than a candidate with a lower score. The serving software can convert the complete set of scores into a <strong>probability distribution</strong>, where every value is non-negative and all values sum to one. This distribution gives the software a basis for selecting the next token.</p>
+
+  <p>The complete input supplied before generation begins is the <strong>prompt</strong>. As the response grows, the current sequence contains the prompt followed by the tokens generated so far. For example, consider a fictional documentation assistant called Northstar that answers questions from a product manual. Suppose its prompt contains the manual instruction and question shown below. After the model has generated <code>Start by creating</code>, the serving software might derive this distribution from the model's scores.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">one-prediction-step.txt</span>
+      <span class="code-lang">Text</span>
+    </div>
+    <pre><code>Prompt
+  Manual:       "Create a replacement key before revoking the old key."
+  Question:     "How do I rotate an API key?"
+
+Generated so far: "Start by creating"
+
+Candidates:    a       0.72
+               the     0.12
+               new     0.08
+               your    0.03
+
+Remaining probability across the vocabulary: 0.05
+
+(Probabilities are illustrative.)</code></pre>
+  </div>
+
+  <p>The value <code>0.72</code> gives <code>a</code> a 72 percent share of the distribution for this exact sequence. It does not mean that the response has a 72 percent chance of being factually correct. The manual supplies request-specific evidence through its tokens, while the model's parameters supply relationships learned during training.</p>
+
+  <h3>Generating a Response</h3>
+
+  <p>Once the distribution is available, the serving software selects one token, appends it to the current sequence, and sends the expanded sequence through the model again. This repeated process is <strong>autoregressive generation</strong>. Each selected token becomes input to the next prediction, so one choice can change every token that follows.</p>
+
+  <p>Generation stops when the serving software selects a special token that marks the end of the response or reaches another stopping condition. The tokenizer converts the generated token identifiers back into text. Selecting <code>a</code> rather than <code>new</code> changes every later prediction in the Northstar response, so the next section examines how the serving software makes that choice.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="sampling">Choosing the Next Token</h2>
+  <p class="lede">A decoding strategy selects one candidate from the model's probability distribution.</p>
+
+  <p>A <strong>decoding strategy</strong> determines how the serving software selects a token from the probability distribution. <strong>Greedy decoding</strong> always selects the highest-probability token, which makes the choice deterministic for a given distribution. <strong>Sampling</strong> instead makes a weighted random choice, so high-probability tokens are more likely without being guaranteed. In the Northstar example, greedy decoding selects <code>a</code>, while sampling could select <code>new</code>. Sampling allows different candidates to be selected, but an early choice changes the sequence used for every later prediction and can produce a different response.</p>
+
+  <p><strong>Temperature</strong> reshapes the distribution before sampling. A lower temperature concentrates probability on the leading candidates, while a higher temperature gives weaker candidates more chance of selection. The setting changes variation rather than evidence. If an incorrect token already has the highest probability, concentrating the distribution can make that error more repeatable.</p>
+
+  <p>When another program has to parse the output, variation in its structure creates a different problem. <strong>Schema-constrained generation</strong> lets the serving system rule out choices that would make the output violate a required JSON structure. This can enforce the structure, but a valid field can still contain the wrong identifier or an unsupported claim. Structural validity and factual support therefore require separate checks.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="context-window">The Context Window</h2>
+  <p class="lede">Every prediction can use only the bounded token sequence available in its current request.</p>
+
+  <p>The <strong>context window</strong> is the maximum number of tokens that can take part in one model request. Instructions, messages, supplied documents, and tool results use this capacity. The generated response uses it as well. The model and service determine how the limit is shared, so allowing room for a longer response can reduce the space available for input.</p>
+
+  <p>The context window belongs to a request rather than to an entire conversation. A chat application creates continuity by selecting earlier messages and sending them again with each new request. History stored by the application cannot affect a prediction until the application returns it to the model as input.</p>
+
+  <p>The Northstar application may store the first question and answer before receiving a follow-up. Storage alone does not give the model access to either message. The application has to select them and place them in the next request, as the figure shows.</p>
+
+  <figure class="figure-wrap">
+    <div class="figure-scroll" role="region" aria-label="Scrollable diagram of application history becoming model context" tabindex="0">
+    <svg class="figure wide-figure" viewBox="0 0 700 328" role="img" aria-labelledby="history-context-title history-context-desc" xmlns="http://www.w3.org/2000/svg">
+      <title id="history-context-title">Stored conversation history affects a model only when the application resends it</title>
+      <desc id="history-context-desc">Application storage contains an earlier question, an earlier answer, a follow-up, and an omitted note. The application selects the first three items and adds instructions and a manual passage to the next model request. The omitted note has no path to the model.</desc>
+      <defs>
+        <marker id="llm-history-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <polygon class="figure-arrow" points="0,0 10,5 0,10"/>
+        </marker>
+      </defs>
+
+      <text class="figure-title" x="34" y="36">APPLICATION STORAGE</text>
+      <rect class="figure-panel" x="22" y="50" width="194" height="246"/>
+      <rect class="figure-node" x="42" y="72" width="154" height="46"/>
+      <text class="figure-label" x="119" y="91" text-anchor="middle">Earlier question</text>
+      <text class="figure-note" x="119" y="108" text-anchor="middle">Rotate an API key</text>
+      <rect class="figure-node" x="42" y="130" width="154" height="46"/>
+      <text class="figure-label" x="119" y="149" text-anchor="middle">Earlier answer</text>
+      <text class="figure-note" x="119" y="166" text-anchor="middle">Create replacement first</text>
+      <rect class="figure-node" x="42" y="188" width="154" height="46"/>
+      <text class="figure-label" x="119" y="207" text-anchor="middle">Follow-up</text>
+      <text class="figure-note" x="119" y="224" text-anchor="middle">Will the old key work?</text>
+      <rect class="figure-node is-muted" x="42" y="246" width="154" height="32"/>
+      <text class="figure-note" x="119" y="266" text-anchor="middle">Omitted note</text>
+
+      <text class="figure-heading" x="232" y="140">select</text>
+      <text class="figure-heading" x="232" y="158">and resend</text>
+      <line class="figure-connector" x1="232" y1="178" x2="282" y2="178" marker-end="url(#llm-history-arrow)"/>
+      <path class="figure-connector is-dashed" d="M 216 262 H 264"/>
+      <path class="figure-connector" d="M 266 255 L 278 269 M 278 255 L 266 269"/>
+      <text class="figure-note" x="247" y="284" text-anchor="middle">no path</text>
+
+      <text class="figure-title is-accent-text" x="310" y="36">NEXT MODEL REQUEST</text>
+      <rect class="figure-panel is-info" x="294" y="50" width="222" height="246"/>
+      <rect class="figure-node" x="314" y="72" width="182" height="38"/>
+      <text class="figure-label" x="405" y="96" text-anchor="middle">Instructions</text>
+      <rect class="figure-node" x="314" y="120" width="182" height="38"/>
+      <text class="figure-label" x="405" y="144" text-anchor="middle">Northstar manual passage</text>
+      <rect class="figure-node" x="314" y="168" width="182" height="38"/>
+      <text class="figure-label" x="405" y="192" text-anchor="middle">Earlier question and answer</text>
+      <rect class="figure-node is-accent" x="314" y="216" width="182" height="46"/>
+      <text class="figure-label" x="405" y="235" text-anchor="middle">Follow-up</text>
+      <text class="figure-note" x="405" y="252" text-anchor="middle">Will the old key work?</text>
+
+      <line class="figure-connector" x1="522" y1="180" x2="552" y2="180" marker-end="url(#llm-history-arrow)"/>
+      <rect class="figure-node is-info" x="558" y="122" width="118" height="116"/>
+      <text class="figure-label" x="617" y="165" text-anchor="middle">LLM</text>
+      <text class="figure-note" x="617" y="188" text-anchor="middle">Uses only tokens</text>
+      <text class="figure-note" x="617" y="206" text-anchor="middle">inside this request</text>
+    </svg>
+    </div>
+    <figcaption>The earlier exchange influences the follow-up because the application sends it again. The omitted note stays in storage and cannot affect this model request.</figcaption>
+  </figure>
+
+  <p>Long-term memory is therefore an application feature rather than a larger context window. The application may summarize old messages or retrieve selected records when they become relevant. Either method decides what returns in a later request. Information omitted from that request is unavailable to the model for its prediction.</p>
+
+  <p>Capacity does not guarantee effective use. In <a href="https://direct.mit.edu/tacl/article/doi/10.1162/tacl_a_00638/119630/Lost-in-the-Middle-How-Language-Models-Use-Long">Lost in the Middle</a>, researchers tested several language models on tasks that required information placed at different positions in a long input. The models often performed better when the relevant information appeared near the beginning or end than when it appeared in the middle. This position-dependent behavior is called <strong>lost in the middle</strong>. Its shape and severity vary by model, task, and prompt length, so the curve below represents an observed pattern rather than a universal performance law.</p>
+
+  <figure class="figure-wrap">
+    <div class="figure-scroll" role="region" aria-label="Scrollable long-context position diagram" tabindex="0">
+    <svg class="figure wide-figure" viewBox="0 0 700 248" role="img" aria-label="An illustrative U-shaped performance curve observed in some long-context evaluations. Performance is higher when relevant information is at the start or end and lower when it is in the middle." xmlns="http://www.w3.org/2000/svg">
+      <!-- axes -->
+      <line class="figure-guide" x1="70" y1="32" x2="70" y2="180"/>
+      <line class="figure-guide" x1="70" y1="180" x2="650" y2="180"/>
+      <!-- y label -->
+      <text class="figure-heading" x="30" y="106" text-anchor="middle" transform="rotate(-90 30 106)">Task performance</text>
+      <!-- U curve -->
+      <path class="figure-connector figure-emphasis is-accent-stroke" d="M 90 52 C 200 130, 280 148, 360 148 C 440 148, 520 126, 630 60"/>
+      <!-- markers -->
+      <circle class="is-accent-text" cx="90" cy="52" r="4"/>
+      <circle class="is-accent-text" cx="360" cy="148" r="4"/>
+      <circle class="is-accent-text" cx="630" cy="60" r="4"/>
+      <!-- x labels -->
+      <text class="figure-label" x="90" y="202" text-anchor="middle">Start of context</text>
+      <text class="figure-label" x="360" y="202" text-anchor="middle">Middle</text>
+      <text class="figure-label" x="630" y="202" text-anchor="middle">End of context</text>
+      <text class="figure-note" x="360" y="224" text-anchor="middle">Position of a fact inside a long prompt</text>
+    </svg>
+    </div>
+    <figcaption>The curve illustrates the pattern reported in the evaluation. Its shape varies, so a model should be tested with evidence at different positions in the prompts an application will use.</figcaption>
+  </figure>
+
+  <p>Useful context still has to be selected even when all available material fits. Similar passages can disagree, and an old instruction can conflict with a newer one. Including source and version information lets the application preserve that distinction in the prompt. Unrelated documents consume capacity without contributing relevant evidence.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="knowledge">Grounding and Hallucinations</h2>
+  <p class="lede">Reliable factual output depends on relevant evidence supplied during inference and, where necessary, checks performed outside the model.</p>
+
+  <p>A trained model's parameters can encode information learned during training, but they should not be treated as an authoritative source for current or private facts. <strong>Grounding</strong> supplies identified evidence during inference, such as a document or a result read from a live system. The Northstar manual passage enters the context as tokens, which makes its contents available to the next-token calculation. Grounding changes the model's input rather than its trained parameters.</p>
+
+  <p>A <strong>hallucination</strong> is generated content that presents false information as though it were true. The term is also sometimes used more broadly for claims that are not supported by the available evidence. A claim can be unsupported by the supplied evidence even when it happens to be correct. For an assistant that is expected to answer from the Northstar manual, both outcomes are failures, but under the narrower definition used here, only the false claim is a hallucination.</p>
+
+  <p>The generation mechanism explains how a hallucination can occur. Pretraining improves next-token prediction rather than turning the parameters into an authoritative source lookup. During inference, the model scores possible tokens according to learned relationships and the current context, and the serving system chooses the next token according to its decoding strategy. Without the Northstar passage, this process could produce a plausible menu path that the manual never states. If the response presents that path as a fact about Northstar, fluent wording provides no guarantee that the claim is true.</p>
+
+  <p>Sampling can change which false or unsupported continuation appears, but removing randomness cannot establish truth. The application can show which passages were supplied by attaching references to the documents it selected. A citation written by the model is itself generated output and therefore must be verified. The application still has to determine whether the cited passage actually supports the answer. A consequential answer may also require validation against the system that authoritatively stores the relevant fact.</p>
+
+  <p>Tools and retrieval provide two grounding paths. A tool can read a live record or perform an action. The model can request the operation, but the application decides whether it is allowed. If the application performs the operation, its result can enter the context as new input. <a href="rag.html">Retrieval-augmented generation</a> instead selects passages from a document collection and places them in the context. In both cases, the model generates in light of the supplied result. The surrounding system remains responsible for obtaining adequate evidence, verifying claims where necessary, and controlling any action.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="embeddings">Retrieval Embeddings</h2>
+  <p class="lede">An embedding represents text as a vector so a retrieval system can compare semantic similarity without sending the whole collection to the LLM.</p>
+
+  <p>A document collection may be too large to place in every prompt. An <strong>embedding model</strong> converts a query or passage into a fixed-length vector designed for comparison. It is trained so texts with related meanings tend to be near one another in the resulting vector space. The Northstar rotation question can therefore be close to a passage about replacing credentials even when they share few exact words. A retrieval vector represents a whole query or passage. It serves a different purpose from the token vectors and contextual representations inside the LLM, which help produce next-token scores.</p>
+
+  <p>The retrieval system stores a vector for each searchable passage. When a query arrives, it converts the query into another vector and compares it with the stored vectors. Passages with more similar vectors rank higher, which gives the system a way to select text that may answer the query before the LLM processes it.</p>
+
+  <p>Similarity is a ranking signal rather than proof that a passage answers the query. Related passages can disagree, and the highest-scoring passage can still miss an exact identifier or other crucial detail. Retrieval returns selected passages as ordinary text, which the application can insert into the model's context. An embedding is therefore neither a larger context window nor a hidden store that the LLM can consult by itself. The <a href="rag.html">RAG article</a> explains how a retrieval pipeline finds and evaluates this evidence.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="cost">Inference Cost and Latency</h2>
+  <p class="lede">Input processing and sequential output generation create different kinds of work.</p>
+
+  <p>Before the first output token can be selected, the serving system has to process the input tokens. This initial phase is often called <strong>prefill</strong>. Calculations for different input positions can be parallelized, but a longer input still requires more computation and memory. Retrieved passages add input tokens like any other part of the prompt. More input therefore tends to increase the time before the first output token appears.</p>
+
+  <p>Output generation follows the autoregressive loop explained earlier. Each selected token becomes part of the sequence used to predict the next token, so output positions cannot all be calculated at once. A longer response adds another sequential prediction step for every additional token. This dependency tends to increase the time required to produce a longer response.</p>
+
+  <p>When a provider charges by token usage, cost depends on the number of input and output tokens it meters and the rate applied to each. Repeating the Northstar manual passage increases input usage, while requesting a longer response increases output usage. The application can influence these quantities through context selection and output limits.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="decisions">Application Design</h2>
+  <p class="lede">An application has to supply evidence, constrain operations, and validate results around the model.</p>
+
+  <p>The model computes scores used to predict the next token from its parameters and current context. The serving system runs inference and applies a decoding strategy to select tokens from those scores. The surrounding application supplies evidence, controls permitted operations, and decides whether generated results may be used. The table separates these responsibilities.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Component</th><th>Responsibility</th><th>Boundary</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Model</td><td>Produces next-token scores from parameters and context</td><td>Does not independently retrieve sources, execute external operations, or establish that its output is correct</td></tr>
+        <tr><td>Serving system</td><td>Runs inference, selects tokens according to a decoding strategy, and may apply decoding constraints</td><td>Token selection does not establish which evidence is authoritative or whether generated claims are true</td></tr>
+        <tr><td>Application</td><td>Selects context, controls tools and permissions, validates results, and decides whether they may be used</td><td>Cannot recover evidence that was never retrieved or otherwise supplied merely by changing token selection</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>For the Northstar assistant, the retrieval system selects the API-key passage and preserves its source and version. The application places the passage beside the question and defines what should happen when no adequate evidence supports an answer. The LLM can explain the supplied material, but its generation does not establish that the material is authoritative.</p>
+
+  <p>Each failure in this example has to be addressed at the boundary that can detect or control it. The application tests whether retrieval returns adequate evidence for the question and verifies generated claims where the required level of assurance warrants it. Schema constraints can enforce response structure, while application code checks whether structured values are permitted and valid for the intended operation. Increasing context size or lowering temperature does not repair evidence that was never supplied.</p>
+
+  <p>Token budgets follow from this request path. Selecting only relevant evidence reduces input work and preserves context capacity for other required information and generated output. A focused output requirement can reduce the number of sequential generation steps. These choices can reduce latency and cost without changing which evidence supports the answer.</p>
+
+  <p>The final table connects each mechanism to an observable application behavior and a control that can address it.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Mechanism</th><th>Observable consequence</th><th>Application response</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Next-token generation</td><td>Fluent output can lack factual support</td><td>Important factual claims are verified against authoritative evidence</td></tr>
+        <tr><td>Bounded context</td><td>Information omitted from the current context cannot directly influence that inference</td><td>Context selection or retrieval supplies relevant information</td></tr>
+        <tr><td>Sampling</td><td>Repeated requests can produce different continuations</td><td>Decoding settings control variability where needed, while application validation checks requirements independently of decoding strategy</td></tr>
+        <tr><td>Schema constraints</td><td>A valid structure can contain an invalid value</td><td>Application code validates field values after structural constraints are enforced</td></tr>
+        <tr><td>Autoregressive generation</td><td>Longer responses require more sequential decoding steps</td><td>A focused output requirement limits response length where appropriate</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Generated results require verification in proportion to their consequence. A documentation answer can be checked against source material supplied by the application, while a proposed software change may require <a href="ai-code-review.html">risk-tiered code review</a>. The application should decide whether a result may be used only after the checks required for that use have passed.</p>
+
+</main>
+</div><!-- end .shell -->
+
+<footer>© Single Threaded AB</footer>
+
+<script src="articles.js"></script>
+
+</body>
+</html>
