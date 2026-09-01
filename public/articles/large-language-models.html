@@ -55,23 +55,25 @@
   <p class="subtitle">How models turn a finite request into generated text, and why their mechanism shapes reliability, latency, and cost.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~19 min read</span>
-    <div class="dot"></div><span>Last updated August 2026</span>
+    <div class="dot"></div><span>~30 min read</span>
+    <div class="dot"></div><span>Last updated September 2026</span>
   </div>
 
   <p>Most software depends on knowing what its input will look like. Developers define fields, formats, and valid values, then write code that handles them. Language does not fit neatly into that model. A person can make the same request in countless ways. They can rely on context, omit information that seems obvious, or combine instructions with prose and code. Trying to account for all of these possibilities with explicit rules quickly becomes impractical.</p>
 
-  <p>Large language models take a different approach. Instead of defining how every possible request should be interpreted, they learn patterns from large amounts of data. Before a generative <strong>large language model</strong> (LLM) receives an input, a <strong>tokenizer</strong> divides the input into a sequence of units called <em>tokens</em>. An LLM predicts what token is likely to come next. The software running the model selects a token based on that prediction, adds it to the input and sends the extended sequence through the model for the next prediction. This cycle repeats until the software stops generation and returns the response. What looks like answering a question, translating a passage, or writing code is produced through this repeated prediction process.</p>
+  <p>Large language models take a different approach. Instead of defining how every possible request should be interpreted, they learn patterns from large amounts of data. Before a generative <strong>large language model</strong> (LLM) receives an input, a <strong>tokenizer</strong> divides the input into a sequence of units called <em>tokens</em>. An LLM predicts what token is likely to come next. The software running the model selects a token based on that prediction, adds it to the sequence, and runs the extended sequence through the model for the next prediction. This cycle repeats until the software stops generation and returns the response. What looks like answering a question, translating a passage, or writing code is produced through this repeated prediction process.</p>
 
-  <p>The repeated prediction process determines what information can influence a response and which checks the surrounding application still needs to perform. This article follows that process from the input to the output the model generates. The focus is on <strong>inference</strong>, the work performed by an already trained model when it handles a request. Training is covered only where it explains inference. Training infrastructure and comparisons among particular models are outside the scope.</p>
+  <p>This mechanism is the underlying reason behind both the model's capabilities and its limitations. The model can use patterns learned during training together with information supplied in the current request, but it does not independently look up facts, remember every earlier conversation, or verify that a plausible sentence is true. The repeated prediction process therefore determines what information can influence a response and which checks the surrounding application still needs to perform.</p>
 
-<!-- ══════════════════════════════════════════════════ -->
+  <p>This article follows the process from the input to the output the model generates. The focus is on <strong>inference</strong>, the work performed by an already trained model when it handles a request. Training is covered only where it explains inference. Training infrastructure and comparisons among particular models are outside the scope.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
   <h2 id="tokens">Tokens and Tokenization</h2>
   <p class="lede">A tokenizer divides text into the units that a model reads and generates.</p>
 
   <p>A model does not receive raw text directly. Before the text reaches the model, a <strong>tokenizer</strong> divides it into tokens. Each token has a numeric identifier, and the complete set of tokens recognized by the model is its <strong>vocabulary</strong>. A token can contain a whole word, part of a word, punctuation, or whitespace.</p>
 
-  <p>The tokenizer does not divide every word into pieces of the same size. Common words and character sequences can have tokens of their own, while less familiar text is built from smaller tokens. This approach is known as <strong>subword tokenization</strong>. It allows a fixed vocabulary to represent words, names, and identifiers that do not have tokens of their own.</p>
+  <p>The tokenizer does not divide every word into pieces of the same size. Common words and character sequences can have tokens of their own, while less familiar text is built from smaller tokens. This approach is known as <strong>subword tokenization</strong>. It solves a practical vocabulary problem. A model cannot have a separate vocabulary entry for every possible name, product identifier, misspelling, or newly invented word, but it still needs a way to represent them. Combining reusable pieces allows a finite vocabulary to represent effectively unbounded text.</p>
 
   <p>Compare these examples of familiar and unfamiliar text. A common word may fit into a single token, a recognizable identifier may split into several familiar parts, but an unusual string may need to be divided into much smaller pieces.</p>
 
@@ -90,7 +92,10 @@
 
   <p>Different tokenizers use different vocabularies, so identical text can produce different token sequences and token counts. Character count and word count can provide a rough estimate because longer text generally requires more tokens, but there is no fixed conversion between them. Familiar prose may fit into relatively few tokens, while unusual names, identifiers, or other less familiar sequences can require more.</p>
 
+  <p>This means two passages with the same number of words need not consume the same amount of model capacity. A paragraph of ordinary English and a paragraph filled with UUIDs, source code, or uncommon names can have very different token counts. Tokenization therefore affects how much material fits into a request and how usage is measured.</p>
+
   <p>Because the request and response are both token sequences, usage is measured in tokens. <strong>Input tokens</strong> are supplied to the model, while <strong>output tokens</strong> are generated by the model. These counts can affect both the amount of text a request can contain and its cost. After tokenization, the model processes the resulting sequence using numerical values learned during training.</p>
+
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="network">The Neural Network</h2>
   <p class="lede">A language model transforms tokens through a neural network whose learned numerical values determine how information influences the result.</p>
@@ -157,7 +162,7 @@
     <figcaption>A simplified neural network. Each connection has a numerical weight such as w₁, w₂, or w₃. The weights determine how strongly values from one node affect the calculations in the next layer.</figcaption>
   </figure>
 
-  <p>The diagram isolates how weights give incoming values different amounts of influence. Real language models use many more parameters and more structured calculations to transform the information represented by the input tokens.</p>
+  <p>The diagram isolates how weights give incoming values different amounts of influence. Real language models use billions of parameters and more structured calculations to transform the information represented by the input tokens.</p>
 
   <h3>Learning the Parameters</h3>
 
@@ -175,13 +180,15 @@
 
   <p>The tokenizer supplies an identifier for each token, but an identifier only names an entry in the vocabulary. The model uses that identifier to look up a learned <strong>token vector</strong>, which is a list of numbers representing information the model has learned about that token and its relationships to other tokens. Every occurrence of a token begins with the same vector, so the starting vector does not represent what the token means in a particular context.</p>
 
-  <p>The phrases <code>dog bites man</code> and <code>man bites dog</code> contain the same words in a different order, even though the words play different roles. In <code>she deposited cash at the bank</code>, <code>bank</code> has a different meaning than in <code>she sat beside the river bank</code>. Position information distinguishes the order of tokens, while information from earlier tokens helps determine the role and meaning of each token in the sequence.</p>
+  <p>The phrases <code>dog bites man</code> and <code>man bites dog</code> contain the same words in a different order, even though the words play different roles. In <code>she deposited cash at the bank</code>, <code>bank</code> has a different meaning than in <code>she sat beside the river bank</code>. A starting token vector based only on token identity cannot express either difference. Position information preserves the order of the sequence, while information from earlier tokens lets each later position reflect what preceded it.</p>
 
-  <p>A <strong>Transformer</strong> is a neural-network architecture that updates token vectors using position information and information from other token positions. In the generative model described here, each position can use only itself and earlier positions. This processing turns a starting token vector into a representation of that token in the current sequence. The starting vector for <code>bank</code> can therefore be updated differently in the two sentences because the preceding tokens are different.</p>
+  <p>A <strong>Transformer</strong> is a neural-network architecture that updates token vectors using position information and information from other token positions. In the generative model described here, each position can use only itself and earlier positions when predicting the next token. This processing turns a starting token vector into a representation of that token at that point in the sequence. The starting vector for <code>bank</code> can therefore be updated differently in the two sentences because the preceding tokens are different.</p>
 
-  <p>To build these representations, the Transformer uses <strong>self-attention</strong> to compare information at the current position with information from earlier positions and decide what to combine. For example, consider code containing <code>const retryLimit = 5</code> followed later by <code>attempts >= retryLimit</code>. When processing the later occurrence of <code>retryLimit</code>, the comparison can identify the earlier declaration as relevant and allow information from that position to contribute to the updated representation. This connects the use of the identifier with information supplied at its declaration.</p>
+  <p>To build these representations, the Transformer uses <strong>self-attention</strong> to compare information at the current position with information from earlier positions and determine what should contribute strongly to the update. Attention does not mean that the model retrieves a complete earlier sentence unchanged. It provides a learned way for information at one position to influence the representation at another.</p>
 
-  <p>The result is a <strong>contextual representation</strong>, a numerical representation that reflects both the current position and information drawn from earlier in the sequence. The model uses the representation at the final position to predict what token should come next. The figure summarizes how a token identifier becomes this contextual representation.</p>
+  <p>For example, consider code containing <code>const retryLimit = 5</code> followed later by <code>attempts >= retryLimit</code>. When processing the later occurrence of <code>retryLimit</code>, the model can give the earlier declaration strong influence. That helps its representation of the later identifier reflect information introduced at the declaration. Other attention patterns may simultaneously connect the comparison operator, the variable <code>attempts</code>, and surrounding code.</p>
+
+  <p>The result is a <strong>contextual representation</strong>, a numerical representation that reflects both the current position and information drawn from the sequence. The token vector represents a vocabulary item before this particular context has been processed, while the contextual representation reflects what that token is doing here. The model ultimately uses the representation at the final position to predict what token should come next.</p>
 
   <figure class="figure-wrap">
     <div class="figure-scroll" role="region" aria-label="Scrollable diagram from token identifiers to a contextual representation" tabindex="0">
@@ -252,31 +259,47 @@ Remaining probability across the vocabulary: 0.05
 (Probabilities are illustrative.)</code></pre>
   </div>
 
-  <p>The value <code>0.72</code> gives <code>a</code> a 72 percent share of the distribution for this exact sequence. It does not mean that the response has a 72 percent chance of being factually correct. The manual supplies request-specific evidence through its tokens, while the model's parameters supply relationships learned during training.</p>
+  <p>The value <code>0.72</code> assigns 72 percent of the next-token distribution to <code>a</code> for this exact sequence. It compares <code>a</code> with the other candidates for the next position. It does not mean that the completed response has a 72 percent chance of being factually correct. The manual supplies request-specific evidence through its tokens, while the model's parameters supply relationships learned during training.</p>
 
   <h3>Generating a Response</h3>
 
   <p>Once the distribution is available, the serving software selects one token, appends it to the current sequence, and sends the expanded sequence through the model again. This repeated process is <strong>autoregressive generation</strong>. Each selected token becomes input to the next prediction, so one choice can change every token that follows.</p>
 
-  <p>Generation stops when the serving software selects a special token that marks the end of the response or reaches another stopping condition. The tokenizer converts the generated token identifiers back into text. Selecting <code>a</code> rather than <code>new</code> changes every later prediction in the Northstar response, so the next section examines how the serving software makes that choice.</p>
+  <p>Thus, later tokens depend on earlier generated tokens that did not exist when generation began. If Northstar generates <code>a</code>, the next prediction is conditioned on <code>Start by creating a</code>. If it instead generates <code>new</code>, the next prediction is conditioned on <code>Start by creating new</code>. The model is now continuing a different sequence.</p>
+
+  <p>The tokenizer converts the generated token identifiers back into text and a response is created one token at a time. Generation stops when the serving software selects a special token that marks the end of the response or reaches another stopping condition.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="sampling">Choosing the Next Token</h2>
   <p class="lede">A decoding strategy selects one candidate from the model's probability distribution.</p>
 
-  <p>A <strong>decoding strategy</strong> determines how the serving software selects a token from the probability distribution. <strong>Greedy decoding</strong> always selects the highest-probability token, which makes the choice deterministic for a given distribution. <strong>Sampling</strong> instead makes a weighted random choice, so high-probability tokens are more likely without being guaranteed. In the Northstar example, greedy decoding selects <code>a</code>, while sampling could select <code>new</code>. Sampling allows different candidates to be selected, but an early choice changes the sequence used for every later prediction and can produce a different response.</p>
+  <p>A <strong>decoding strategy</strong> determines how the serving software selects a token from the probability distribution. <strong>Greedy decoding</strong> always selects the highest-probability token, which makes the choice deterministic for a given distribution. <strong>Sampling</strong> instead makes a weighted random choice, so high-probability tokens are more likely without being guaranteed. In the Northstar example, greedy decoding selects <code>a</code>, while sampling could select <code>new</code>.</p>
 
-  <p><strong>Temperature</strong> reshapes the distribution before sampling. A lower temperature concentrates probability on the leading candidates, while a higher temperature gives weaker candidates more chance of selection. The setting changes variation rather than evidence. If an incorrect token already has the highest probability, concentrating the distribution can make that error more repeatable.</p>
+  <p>The benefit of greedy decoding is consistency. The drawback is that repeatedly taking the locally most probable next token does not guarantee the best complete response, and deterministic output can still be deterministically wrong. Sampling introduces variation, which can be useful when several continuations are reasonable, such as when drafting prose or generating alternatives.</p>
 
-  <p>When another program has to parse the output, variation in its structure creates a different problem. <strong>Schema-constrained generation</strong> lets the serving system rule out choices that would make the output violate a required JSON structure. This can enforce the structure, but a valid field can still contain the wrong identifier or an unsupported claim. Structural validity and factual support therefore require separate checks.</p>
+  <p><strong>Temperature</strong> changes how strongly sampling favors the leading candidates. A lower temperature concentrates probability around candidates the model already scores highly, while a higher temperature gives lower-scoring candidates more opportunity to be selected. If an incorrect continuation already receives a strong score, lowering the temperature can make that same mistake more repeatable rather than correcting it.</p>
+
+  <p>There is another kind of uncertainty that temperature does not solve. When another program must parse the output, the application may care less about varied wording than about whether the response is syntactically valid. A model asked to return JSON could otherwise generate a missing quote, an unexpected field, or ordinary prose around the object.</p>
+
+  <p><strong>Schema-constrained generation</strong> addresses that structural problem by ruling out token choices that would make the output violate a required structure. For example, if a field must be one of <code>"active"</code>, <code>"revoked"</code>, or <code>"expired"</code>, the serving system can constrain generation to that shape and set of allowed representations.</p>
+
+  <p>Structural validity is not the same as factual validity. A perfectly valid JSON response such as <code>{"status":"revoked"}</code> can still be wrong if the key is actually active. Schema constraints can rule out invalid syntax, but they do not prove that the value describes reality.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="context-window">The Context Window</h2>
   <p class="lede">Every prediction can use only the bounded token sequence available in its current request.</p>
 
-  <p>The <strong>context window</strong> is the maximum number of tokens that can take part in one model request. Instructions, messages, supplied documents, and tool results use this capacity. The generated response uses it as well. The model and service determine how the limit is shared, so allowing room for a longer response can reduce the space available for input.</p>
+  <h3>Request Capacity</h3>
 
-  <p>The context window belongs to a request rather than to an entire conversation. A chat application creates continuity by selecting earlier messages and sending them again with each new request. History stored by the application cannot affect a prediction until the application returns it to the model as input.</p>
+  <p>The model does not process an unlimited amount of text at once. For each request, it works with a bounded sequence of tokens called the <strong>context window</strong>. The limit exists because relating more token positions requires more computation and memory inside the model. Supporting a larger context window therefore makes inference more expensive, so every model is designed and served with some maximum sequence length rather than an unlimited one.</p>
+
+  <p>Everything the model needs to use for that request has to fit inside this token budget. That can include system instructions, the user's current message, earlier conversation turns that the application sends again, documents supplied by the application, and results obtained from external systems. The generated response also extends the sequence, so services generally have to leave capacity for output rather than filling the entire available window with input.</p>
+
+  <p>For example, suppose an application has a 100,000-token context budget. A long system instruction might use 2,000 tokens, conversation history 15,000, supplied documents 60,000, and the current question 500. Those pieces have already consumed most of the available space before the model begins answering. Adding another large document may require the application to remove older conversation history, include fewer passages, summarize material, or leave less room for the response.</p>
+
+  <h3>Conversation History and Memory</h3>
+
+  <p>The context window is therefore best understood as the model's <em>working space for one request</em>, not as its permanent memory. Information stored elsewhere by the application does not consume context-window space until it is included in a request, but it also cannot influence the model while it remains outside that request. A chat application creates the appearance of continuous memory by storing earlier messages and choosing which of them to send again. If an old message is not resent, summarized, or otherwise brought back into the current context, the model cannot use it for that inference.</p>
 
   <p>The Northstar application may store the first question and answer before receiving a follow-up. Storage alone does not give the model access to either message. The application has to select them and place them in the next request, as the figure shows.</p>
 
@@ -334,96 +357,187 @@ Remaining probability across the vocabulary: 0.05
     <figcaption>The earlier exchange influences the follow-up because the application sends it again. The omitted note stays in storage and cannot affect this model request.</figcaption>
   </figure>
 
-  <p>Long-term memory is therefore an application feature rather than a larger context window. The application may summarize old messages or retrieve selected records when they become relevant. Either method decides what returns in a later request. Information omitted from that request is unavailable to the model for its prediction.</p>
+  <p>Long-term memory is therefore an application feature rather than another name for a large context window. The two solve related but different problems. A larger context window allows more information to be considered at once, while long-term memory lets an application keep information outside the current request and decide when to bring it back. The application might resend an old message verbatim, summarize several messages, or select a stored fact only when it becomes relevant.</p>
 
-  <p>Capacity does not guarantee effective use. In <a href="https://direct.mit.edu/tacl/article/doi/10.1162/tacl_a_00638/119630/Lost-in-the-Middle-How-Language-Models-Use-Long">Lost in the Middle</a>, researchers tested several language models on tasks that required information placed at different positions in a long input. The models often performed better when the relevant information appeared near the beginning or end than when it appeared in the middle. This position-dependent behavior is called <strong>lost in the middle</strong>. Its shape and severity vary by model, task, and prompt length, so the curve below represents an observed pattern rather than a universal performance law.</p>
+  <h3>Fitting and Using Information</h3>
+
+  <p>A large context window does not mean that every included token will influence the answer equally well. Long-context evaluations have found tasks where a model uses relevant information near the beginning or end more reliably than information in the middle. This position-dependent behavior is called <strong>lost in the middle</strong>. Its shape and severity vary by model, task, and prompt length, so the curve below represents an observed pattern rather than a universal performance law.</p>
 
   <figure class="figure-wrap">
     <div class="figure-scroll" role="region" aria-label="Scrollable long-context position diagram" tabindex="0">
     <svg class="figure wide-figure" viewBox="0 0 700 248" role="img" aria-label="An illustrative U-shaped performance curve observed in some long-context evaluations. Performance is higher when relevant information is at the start or end and lower when it is in the middle." xmlns="http://www.w3.org/2000/svg">
-      <!-- axes -->
       <line class="figure-guide" x1="70" y1="32" x2="70" y2="180"/>
       <line class="figure-guide" x1="70" y1="180" x2="650" y2="180"/>
-      <!-- y label -->
       <text class="figure-heading" x="30" y="106" text-anchor="middle" transform="rotate(-90 30 106)">Task performance</text>
-      <!-- U curve -->
       <path class="figure-connector figure-emphasis is-accent-stroke" d="M 90 52 C 200 130, 280 148, 360 148 C 440 148, 520 126, 630 60"/>
-      <!-- markers -->
       <circle class="is-accent-text" cx="90" cy="52" r="4"/>
       <circle class="is-accent-text" cx="360" cy="148" r="4"/>
       <circle class="is-accent-text" cx="630" cy="60" r="4"/>
-      <!-- x labels -->
       <text class="figure-label" x="90" y="202" text-anchor="middle">Start of context</text>
       <text class="figure-label" x="360" y="202" text-anchor="middle">Middle</text>
       <text class="figure-label" x="630" y="202" text-anchor="middle">End of context</text>
       <text class="figure-note" x="360" y="224" text-anchor="middle">Position of a fact inside a long prompt</text>
     </svg>
     </div>
-    <figcaption>The curve illustrates the pattern reported in the evaluation. Its shape varies, so a model should be tested with evidence at different positions in the prompts an application will use.</figcaption>
+    <figcaption>The curve illustrates the lost-in-the-middle pattern. Its shape varies, so a model should be tested with evidence at different positions in the prompts an application will use.</figcaption>
   </figure>
 
-  <p>Useful context still has to be selected even when all available material fits. Similar passages can disagree, and an old instruction can conflict with a newer one. Including source and version information lets the application preserve that distinction in the prompt. Unrelated documents consume capacity without contributing relevant evidence.</p>
+  <p>This creates an important difference between <em>fitting</em> information and <em>using</em> information. A document can fit within the advertised context limit yet still be difficult for the model to use reliably for a particular task. Context-window size is therefore a capacity specification, not a guarantee of perfect recall.</p>
+
+  <p>Useful context also has to be selected even when all available material fits. Similar passages can disagree, an old instruction can conflict with a newer one, and irrelevant passages compete for attention while consuming tokens. Including source and version information lets the application preserve distinctions such as “manual version 4.2” versus “manual version 3.8.” The goal is not to fill the context window. It is to supply the smallest set of information that gives the model the evidence and instructions it needs.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="knowledge">Grounding and Hallucinations</h2>
   <p class="lede">Reliable factual output depends on relevant evidence supplied during inference and, where necessary, checks performed outside the model.</p>
 
-  <p>A trained model's parameters can encode information learned during training, but they should not be treated as an authoritative source for current or private facts. <strong>Grounding</strong> supplies identified evidence during inference, such as a document or a result read from a live system. The Northstar manual passage enters the context as tokens, which makes its contents available to the next-token calculation. Grounding changes the model's input rather than its trained parameters.</p>
+  <h3>Evidence at Inference Time</h3>
 
-  <p>A <strong>hallucination</strong> is generated content that presents false information as though it were true. The term is also sometimes used more broadly for claims that are not supported by the available evidence. A claim can be unsupported by the supplied evidence even when it happens to be correct. For an assistant that is expected to answer from the Northstar manual, both outcomes are failures, but under the narrower definition used here, only the false claim is a hallucination.</p>
+  <p>A language model creates a particular reliability problem because it can generate a sentence in the same fluent style whether that sentence is well supported, poorly supported, or false. Fluency is produced by next-token prediction, so fluent wording is not itself evidence that the underlying claim has been checked.</p>
 
-  <p>The generation mechanism explains how a hallucination can occur. Pretraining improves next-token prediction rather than turning the parameters into an authoritative source lookup. During inference, the model scores possible tokens according to learned relationships and the current context, and the serving system chooses the next token according to its decoding strategy. Without the Northstar passage, this process could produce a plausible menu path that the manual never states. If the response presents that path as a fact about Northstar, fluent wording provides no guarantee that the claim is true.</p>
+  <p>Consider Northstar without the manual passage. A user asks how to rotate an API key. The model may have encountered many descriptions of API-key rotation during training and may produce a perfectly reasonable procedure. But Northstar's product could use a different sequence. The general answer might say to revoke the current key first, while Northstar requires the replacement to be created first. The problem is not that the model cannot produce useful general knowledge. It is that general knowledge and product-specific authority are different things.</p>
 
-  <p>Sampling can change which false or unsupported continuation appears, but removing randomness cannot establish truth. The application can show which passages were supplied by attaching references to the documents it selected. A citation written by the model is itself generated output and therefore must be verified. The application still has to determine whether the cited passage actually supports the answer. A consequential answer may also require validation against the system that authoritatively stores the relevant fact.</p>
+  <p><strong>Grounding</strong> addresses that problem by supplying identified evidence during inference, such as a manual passage, database record, or result read from a live system. The Northstar manual passage enters the context as tokens, which gives the model request-specific information it can use while generating the answer. Grounding changes the model's input rather than its trained parameters.</p>
 
-  <p>Tools and retrieval provide two grounding paths. A tool can read a live record or perform an action. The model can request the operation, but the application decides whether it is allowed. If the application performs the operation, its result can enter the context as new input. <a href="rag.html">Retrieval-augmented generation</a> instead selects passages from a document collection and places them in the context. In both cases, the model generates in light of the supplied result. The surrounding system remains responsible for obtaining adequate evidence, verifying claims where necessary, and controlling any action.</p>
+  <p>This distinguishes grounding from training. If Northstar changes its key-rotation procedure tomorrow, retraining an LLM would be a slow and indirect way to communicate one changed fact. Supplying the new manual during inference gives the current request access to the new procedure immediately. Training is useful for teaching broad patterns and behavior. Grounding is useful when a response must depend on particular evidence available at request time.</p>
+
+  <h3>Unsupported and False Claims</h3>
+
+  <p>A <strong>hallucination</strong> is generated content that presents false information as though it were true. The term is also sometimes used more broadly for claims that are not supported by the available evidence. Those ideas overlap but are not identical. A statement can be true but unsupported by the supplied source, while another statement can be both unsupported and false.</p>
+
+  <p>For example, suppose the Northstar manual contains only the following instruction.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">evidence-example.txt</span>
+      <span class="code-lang">Text</span>
+    </div>
+    <pre><code>Manual:
+"Create a replacement key before revoking the old key."</code></pre>
+  </div>
+
+  <p>If the model adds, “The old key remains valid for 24 hours,” that claim is unsupported by the passage. It might accidentally be true according to some other Northstar document, but this evidence does not establish it. If Northstar actually invalidates the key immediately, the same statement is also a hallucination under the narrower definition used here. Applications that must answer from specified sources often need to reject unsupported claims whether or not they happen to be true.</p>
+
+  <p>The generation mechanism explains why these failures are possible. Pretraining improves next-token prediction rather than turning the parameters into an authoritative database lookup. During inference, the model scores continuations according to its learned relationships and the current context. A plausible but unsupported continuation can therefore receive a high score. Nothing in the basic next-token mechanism performs a separate factual check before the token is emitted.</p>
+
+  <p>This is why reducing sampling randomness does not solve hallucinations. Suppose the unsupported phrase <code>for 24 hours</code> receives the highest score. Greedy decoding can select it every time. Lower temperature may make the same error more consistent. Decoding controls which continuation is selected from the model's candidates. It does not introduce missing evidence.</p>
+
+  <h3>Sources, Tools, and Retrieval</h3>
+
+  <p>Citations have a similar distinction. If the application already knows which manual passages it supplied, it can attach those source references to the response. If the model itself generates a citation such as “Section 8.4,” that citation is another sequence of generated tokens. It may be correct, but generation alone does not prove that Section 8.4 exists or supports the claim. A citation is valuable evidence only when the application can connect it to an actual source and, where needed, verify that the source entails the statement being made.</p>
+
+  <p>Different facts also require different kinds of grounding. A product manual is appropriate evidence for documented procedure. It may be poor evidence for a live fact such as whether key <code>abc123</code> is currently active. That value belongs to the system that stores current key state. For consequential operations, the application should use the source that is authoritative for the particular fact rather than assuming that all grounding sources are interchangeable.</p>
+
+  <p>Tools and retrieval provide two common grounding paths. A <strong>tool</strong> lets the application read from or act on another system, such as looking up the current status of a key. The model can propose or request the operation, but the application decides whether the operation is permitted and executes it through controlled code. The result can then enter the context as new input.</p>
+
+  <p><a href="rag.html">Retrieval-augmented generation</a>, or RAG, instead searches a document collection for passages that appear relevant and places selected passages in the context. Retrieval is useful when the evidence already exists as documents but the collection is too large to send in every request. Both tools and retrieval obtain evidence outside the model and place useful results in the current context so generation can use them.</p>
+
+  <p>Grounding therefore improves the information available to generation, but it does not remove every failure mode. Retrieval can select the wrong document. A live tool can return stale or misunderstood data. The model can misread a correct passage. An application that requires stronger assurance must test the whole evidence path rather than treating the presence of “RAG” or “tools” as a guarantee of correctness.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="embeddings">Retrieval Embeddings</h2>
   <p class="lede">An embedding represents text as a vector so a retrieval system can compare semantic similarity without sending the whole collection to the LLM.</p>
 
-  <p>A document collection may be too large to place in every prompt. An <strong>embedding model</strong> converts a query or passage into a fixed-length vector designed for comparison. It is trained so texts with related meanings tend to be near one another in the resulting vector space. The Northstar rotation question can therefore be close to a passage about replacing credentials even when they share few exact words. A retrieval vector represents a whole query or passage. It serves a different purpose from the token vectors and contextual representations inside the LLM, which help produce next-token scores.</p>
+  <h3>Searching by Meaning</h3>
 
-  <p>The retrieval system stores a vector for each searchable passage. When a query arrives, it converts the query into another vector and compares it with the stored vectors. Passages with more similar vectors rank higher, which gives the system a way to select text that may answer the query before the LLM processes it.</p>
+  <p>Grounding creates a selection problem. Suppose the Northstar manual contains 20,000 passages but only three concern API-key rotation. Sending the entire manual with every question would consume context capacity and input computation even though most of the text is irrelevant. The application therefore needs a way to find promising passages before it calls the LLM.</p>
 
-  <p>Similarity is a ranking signal rather than proof that a passage answers the query. Related passages can disagree, and the highest-scoring passage can still miss an exact identifier or other crucial detail. Retrieval returns selected passages as ordinary text, which the application can insert into the model's context. An embedding is therefore neither a larger context window nor a hidden store that the LLM can consult by itself. The <a href="rag.html">RAG article</a> explains how a retrieval pipeline finds and evaluates this evidence.</p>
+  <p>Exact keyword search solves part of this problem. If the question contains <code>rotate API key</code> and the manual contains exactly those words, a text search may work well. But people and documents often describe the same idea differently. A user may ask, “How do I replace a credential without breaking access?” while the manual says, “Create a replacement key before revoking the old key.” Few words match even though the meanings are closely related.</p>
+
+  <h3>Retrieval Vectors</h3>
+
+  <p>An <strong>embedding model</strong> provides another kind of search signal. It converts a query or passage into a fixed-length vector designed so that texts with related meanings tend to have similar vectors. A retrieval system can therefore compare the vector for the user's question with vectors previously created for manual passages. The Northstar question about replacing credentials can rank near the key-rotation passage even without exact wording.</p>
+
+  <p>This use of vectors resembles the token vectors introduced earlier, but the purpose is different. A token vector inside the LLM is part of the model's internal computation for one vocabulary token. A contextual representation changes as the Transformer processes that token in a particular sequence. A <strong>retrieval embedding</strong>, by contrast, usually represents a complete query or passage so an external search system can compare it with other queries or passages.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">retrieval-concept.txt</span>
+      <span class="code-lang">Text</span>
+    </div>
+    <pre><code>User query
+"How can I replace a credential without losing access?"
+                 │
+                 ▼
+          embedding model
+                 │
+                 ▼
+          query vector
+                 │
+        compare with stored
+          passage vectors
+                 │
+                 ▼
+Manual passage
+"Create a replacement key before revoking the old key."</code></pre>
+  </div>
+
+  <p>The retrieval system normally computes passage embeddings ahead of time and stores them in an index. When a question arrives, it creates an embedding for the query and measures how similar that vector is to the stored vectors. Passages with stronger similarity scores rank higher. Only the selected passages need to be inserted into the LLM's context.</p>
+
+  <p>This creates a useful division of labor. The embedding model indicates which passages seem semantically related to the query. The LLM then receives the actual text of those passages and answers the user's question. The embedding itself does not contain a passage that the LLM secretly reads. It is primarily a numerical search representation used to decide which text should be retrieved.</p>
+
+  <h3>The Limits of Similarity</h3>
+
+  <p>Similarity is therefore a ranking signal, not proof. Two passages can discuss the same topic while giving different instructions. A document titled “Legacy API-key rotation” may be extremely similar to the query while being obsolete. A nearby passage may describe revoking user sessions rather than API keys. Embedding search can narrow a large collection efficiently, but even the highest-ranked passage remains a candidate rather than established evidence.</p>
+
+  <p>This also explains why embeddings do not solve the context-window problem by making the context window effectively infinite. A vector index can represent millions of passages for search, but only selected passage text enters the model's current request. Information that remains only in the index does not directly influence generation. Retrieval expands what the application can choose from, while the context window still limits what the LLM can consider during a particular inference.</p>
+
+  <p>The <a href="rag.html">RAG article</a> explains how retrieval systems divide documents into searchable passages, combine different search signals, rank candidates, and evaluate whether the resulting evidence actually improves answers.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="cost">Inference Cost and Latency</h2>
   <p class="lede">Input processing and sequential output generation create different kinds of work.</p>
 
-  <p>Before the first output token can be selected, the serving system has to process the input tokens. This initial phase is often called <strong>prefill</strong>. Calculations for different input positions can be parallelized, but a longer input still requires more computation and memory. Retrieved passages add input tokens like any other part of the prompt. More input therefore tends to increase the time before the first output token appears.</p>
+  <h3>Processing the Input</h3>
 
-  <p>Output generation follows the autoregressive loop explained earlier. Each selected token becomes part of the sequence used to predict the next token, so output positions cannot all be calculated at once. A longer response adds another sequential prediction step for every additional token. This dependency tends to increase the time required to produce a longer response.</p>
+  <p>A user experiences a generated response as one operation, but inference contains two computationally different phases. Understanding that distinction explains why adding a large document often affects the delay before the answer starts, while requesting a long answer affects how long generation continues afterward.</p>
 
-  <p>When a provider charges by token usage, cost depends on the number of input and output tokens it meters and the rate applied to each. Repeating the Northstar manual passage increases input usage, while requesting a longer response increases output usage. The application can influence these quantities through context selection and output limits.</p>
+  <p>Before the first output token can be selected, the model has to process the input tokens and build the internal information needed to begin generation. This initial phase is often called <strong>prefill</strong>. Calculations across the supplied input can make substantial use of parallel hardware, but longer input still requires more computation and memory. Instructions, conversation history, and retrieved passages all contribute to this work because all of them are input tokens.</p>
+
+  <p>For Northstar, compare two requests that ask exactly the same question. One includes a 200-token passage containing the relevant rotation procedure. The other includes the entire 40,000-token manual. Even if both eventually produce the same short answer, the second request gives the model far more input to process before it can begin generating. This is why indiscriminately filling a large context window can increase latency even when the extra text provides no useful evidence.</p>
+
+  <p>The delay before the first generated token is often discussed separately from total response time because it affects how responsive an application feels. A system that begins streaming an answer after half a second feels different from one that remains silent for several seconds, even if both finish at nearly the same time. Reducing unnecessary input can therefore improve the time before generation begins.</p>
+
+  <h3>Generating the Output</h3>
+
+  <p>After prefill, the model enters the autoregressive generation loop described earlier. The first output token is selected, then that token becomes part of the sequence used to calculate the second, and so on. This phase is often called <strong>decoding</strong>. Here, decoding names the complete output phase. During each step of that phase, the decoding strategy determines how the serving software selects the next token.</p>
+
+  <p>Decoding has a dependency that prefill does not. Token 80 cannot be selected until token 79 is known. The model may perform enormous amounts of parallel numerical work inside each individual prediction step, but the output positions themselves form a sequence. Asking for another 500 generated tokens therefore adds roughly another 500 sequential selection steps.</p>
+
+  <p>This creates two different optimization levers. If Northstar takes too long to <em>start</em> responding, the application should examine how much input it sends and how efficiently that input is processed. If it starts quickly but takes too long to <em>finish</em>, response length and decoding speed become more important. Treating all latency as one problem can hide which part of the request is actually expensive.</p>
+
+  <h3>Token Usage and Cost</h3>
+
+  <p>Token usage can also affect monetary cost. When a provider meters input and output tokens separately, repeating a large manual passage increases input usage, while requesting a longer explanation increases output usage. The prices need not be the same for the two categories, so reducing 1,000 input tokens and reducing 1,000 output tokens do not necessarily save the same amount.</p>
+
+  <p>This does not imply that shorter prompts are always better. Removing the passage that establishes the correct Northstar procedure may reduce cost while making the answer less reliable. The practical goal is to keep the instructions and evidence the task needs while omitting material that does not help. The requested output should be no longer than the user or downstream system needs.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="decisions">Application Design</h2>
   <p class="lede">An application has to supply evidence, constrain operations, and validate results around the model.</p>
 
-  <p>The model computes scores used to predict the next token from its parameters and current context. The serving system runs inference and applies a decoding strategy to select tokens from those scores. The surrounding application supplies evidence, controls permitted operations, and decides whether generated results may be used. The table separates these responsibilities.</p>
+  <h3>Separate the Responsibilities</h3>
 
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr><th>Component</th><th>Responsibility</th><th>Boundary</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>Model</td><td>Produces next-token scores from parameters and context</td><td>Does not independently retrieve sources, execute external operations, or establish that its output is correct</td></tr>
-        <tr><td>Serving system</td><td>Runs inference, selects tokens according to a decoding strategy, and may apply decoding constraints</td><td>Token selection does not establish which evidence is authoritative or whether generated claims are true</td></tr>
-        <tr><td>Application</td><td>Selects context, controls tools and permissions, validates results, and decides whether they may be used</td><td>Cannot recover evidence that was never retrieved or otherwise supplied merely by changing token selection</td></tr>
-      </tbody>
-    </table>
-  </div>
+  <p>The mechanisms in the preceding sections create a useful engineering boundary. An LLM is good at transforming supplied context into likely continuations. It is not, by itself, the entire application. Other components have information and powers the model does not have. A retrieval system can search a document collection, application code can enforce permissions, a database can provide authoritative state, and a validator can reject values that violate business rules.</p>
 
-  <p>For the Northstar assistant, the retrieval system selects the API-key passage and preserves its source and version. The application places the passage beside the question and defines what should happen when no adequate evidence supports an answer. The LLM can explain the supplied material, but its generation does not establish that the material is authoritative.</p>
+  <p>Changing the prompt or decoding settings cannot correct a failure at every boundary. A prompt can tell the model to use a particular source, but it cannot retrieve a document that the application never supplied. A lower temperature can make output more consistent, but it cannot prove that an account number exists. A JSON schema can enforce a field's shape, but it cannot authorize the operation represented by that field.</p>
 
-  <p>Each failure in this example has to be addressed at the boundary that can detect or control it. The application tests whether retrieval returns adequate evidence for the question and verifies generated claims where the required level of assurance warrants it. Schema constraints can enforce response structure, while application code checks whether structured values are permitted and valid for the intended operation. Increasing context size or lowering temperature does not repair evidence that was never supplied.</p>
+  <p>The model computes scores used to predict the next token from its parameters and current context. The serving system runs inference and applies a decoding strategy to turn those scores into generated tokens. The surrounding application decides what information enters the request, what external operations are available, and what must be checked before a result is trusted or acted upon.</p>
 
-  <p>Token budgets follow from this request path. Selecting only relevant evidence reduces input work and preserves context capacity for other required information and generated output. A focused output requirement can reduce the number of sequential generation steps. These choices can reduce latency and cost without changing which evidence supports the answer.</p>
+  <h3>The Northstar Request Path</h3>
 
-  <p>The final table connects each mechanism to an observable application behavior and a control that can address it.</p>
+  <p>Consider the complete Northstar path. A user asks, “How do I rotate an API key?” The application first needs evidence. Its retrieval system searches the product documentation and selects the passage stating that a replacement key must be created before the old key is revoked. The application preserves information such as the document version so an obsolete procedure is not silently treated as current.</p>
+
+  <p>The LLM then receives the question and selected passage and explains the procedure in natural language. At this point, generation is useful because the source may be terse while the user wants an explanation. The model can turn “Create a replacement key before revoking the old key” into a clearer sequence and explain why that order avoids losing access.</p>
+
+  <p>Now suppose the user asks, “Can you revoke the old key for me?” The problem has changed. Explaining an operation requires information, while performing an operation requires authority. The application might expose a revocation tool, but it should determine which key may be revoked, whether the user has permission, and whether a replacement exists before executing anything. Those checks belong in controlled application logic rather than in generated prose.</p>
+
+  <p>The Northstar path places each control where the relevant information is available. Document selection can reject obsolete sources before they enter the prompt, while the revocation boundary can check authority and current key state before an operation executes. Generated structure and values need separate checks because a schema cannot evaluate the business rules behind a field.</p>
+
+  <h3>Match Controls to Causes</h3>
+
+  <p>The final table connects the major model mechanisms to their visible consequences. The important pattern is that the application response should match the cause of the problem rather than treating the model as a single black box with one universal reliability setting.</p>
 
   <div class="table-wrap">
     <table>
@@ -431,16 +545,19 @@ Remaining probability across the vocabulary: 0.05
         <tr><th>Mechanism</th><th>Observable consequence</th><th>Application response</th></tr>
       </thead>
       <tbody>
-        <tr><td>Next-token generation</td><td>Fluent output can lack factual support</td><td>Important factual claims are verified against authoritative evidence</td></tr>
-        <tr><td>Bounded context</td><td>Information omitted from the current context cannot directly influence that inference</td><td>Context selection or retrieval supplies relevant information</td></tr>
-        <tr><td>Sampling</td><td>Repeated requests can produce different continuations</td><td>Decoding settings control variability where needed, while application validation checks requirements independently of decoding strategy</td></tr>
-        <tr><td>Schema constraints</td><td>A valid structure can contain an invalid value</td><td>Application code validates field values after structural constraints are enforced</td></tr>
-        <tr><td>Autoregressive generation</td><td>Longer responses require more sequential decoding steps</td><td>A focused output requirement limits response length where appropriate</td></tr>
+        <tr><td>Next-token generation</td><td>Fluent wording does not by itself establish factual support</td><td>Supply authoritative evidence and verify consequential claims against it</td></tr>
+        <tr><td>Bounded context</td><td>Information omitted from the current request cannot directly influence that inference</td><td>Select, summarize, or retrieve information that should participate in the request</td></tr>
+        <tr><td>Sampling</td><td>Repeated requests can follow different continuation paths</td><td>Choose decoding settings appropriate to the desired variation, while validating requirements independently</td></tr>
+        <tr><td>Schema constraints</td><td>Output can have a guaranteed structure while containing an incorrect value</td><td>Enforce structure during generation and validate field values against application rules afterward</td></tr>
+        <tr><td>Retrieval by similarity</td><td>A highly related passage can still be obsolete, incomplete, or wrong for the question</td><td>Treat retrieved passages as candidates and check that selected evidence is current and appropriate</td></tr>
+        <tr><td>Autoregressive generation</td><td>Longer responses require more sequential decoding steps</td><td>Request focused output when additional generated text does not improve the task</td></tr>
       </tbody>
     </table>
   </div>
 
-  <p>Generated results require verification in proportion to their consequence. A documentation answer can be checked against source material supplied by the application, while a proposed software change may require <a href="ai-code-review.html">risk-tiered code review</a>. The application should decide whether a result may be used only after the checks required for that use have passed.</p>
+  <p>Generated results therefore require verification in proportion to what happens if they are wrong. A documentation answer may need only to remain faithful to source material supplied by the application. A generated identifier used in an API call should be checked against permitted values. A proposed software change may require tests and <a href="ai-code-review.html">risk-tiered code review</a>. An irreversible or security-sensitive operation may require explicit authorization before any tool is allowed to execute it.</p>
+
+  <p>The central design lesson follows directly from how the model works. An LLM generates continuations from learned parameters and a bounded current context. Applications become reliable by deciding what evidence enters that context, what actions exist outside it, and which checks must succeed before generated output is trusted. Model capability matters, but application design determines how that capability is connected to real information and real consequences.</p>
 
 </main>
 </div><!-- end .shell -->
