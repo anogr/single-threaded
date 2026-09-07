@@ -35,17 +35,18 @@
   <div class="sidebar-section">Foundations</div>
   <a href="#model-input">Model Input</a>
   <a href="#tokens">Tokenization</a>
-  <a href="#network">The Neural Network</a>
-  <a href="#prediction">Next-Token Prediction</a>
+  <a href="#prediction">Generating Text</a>
+  <a href="#sampling">Choosing the Next Token</a>
+  <a href="#network">Inside the Transformer</a>
+  <a href="#training">Training and Post-Training</a>
 
   <div class="sidebar-section">Requests</div>
-  <a href="#sampling">Choosing the Next Token</a>
   <a href="#context-window">The Context Window</a>
+  <a href="#cost">Inference Cost and Latency</a>
 
   <div class="sidebar-section">Consequences</div>
   <a href="#knowledge">Grounding and Hallucinations</a>
-  <a href="#embeddings">Retrieval Embeddings</a>
-  <a href="#cost">Inference Cost and Latency</a>
+  <a href="#embeddings">Embeddings for Retrieval</a>
   <a href="#decisions">Application Design</a>
 </nav>
 
@@ -56,7 +57,7 @@
   <p class="subtitle">How large language models generate responses and what that means for their reliability, latency, and cost.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~34 min read</span>
+    <div class="dot"></div><span>~35 min read</span>
     <div class="dot"></div><span>Last updated September 2026</span>
   </div>
 
@@ -79,7 +80,7 @@
 
   <p>Files and web pages remain outside the model until something obtains their contents. A file reference such as <code>@src/session.ts</code> is meaningful to a coding application, which can check access to the file, read it, and select relevant source text. A URL in a message is otherwise just a sequence of characters. The application or an available retrieval tool has to fetch the page and place selected contents into the model input before the model can use the page.</p>
 
-  <p>Images follow a different input path from ordinary text. An application can supply image data to a model with visual capabilities, and model-specific processing turns that image into numerical representations. Providers may count those representations as image tokens, but a text tokenizer does not read an image by dividing its visible contents into words. A document application may extract embedded text, use <strong>optical character recognition</strong> (OCR) for text captured in an image, preserve page images, or combine these approaches. The exact preparation depends on the file format, application, and model.</p>
+  <p>Images follow a different input path from ordinary text. An application can supply image data to a model with visual capabilities, and model-specific processing turns that image into numerical representations. Providers may count those representations as image tokens, but a text tokenizer does not read an image by dividing its visible contents into words. A document application may extract embedded text, use <strong>optical character recognition</strong> (OCR) to extract text captured in an image, preserve page images, or combine these approaches. The exact preparation depends on the file format, application, and model.</p>
 
   <p>This preparation creates a firm boundary. The model can use the representations supplied for the current inference, while an omitted file, an unfetched page, or an image left only in the interface cannot influence the response. The figure shows the surrounding application selecting several kinds of information before text and images enter their respective encoding paths.</p>
 
@@ -150,7 +151,7 @@
   <h2 id="tokens">Tokens and Tokenization</h2>
   <p class="lede">A tokenizer divides text into the units that a model reads and generates.</p>
 
-  <p>Before text reaches the model's neural network, a <strong>tokenizer</strong> divides it into tokens. Each token has a numeric identifier, and the complete set of tokens recognized by the model is its <strong>vocabulary</strong>. A token can represent a whole word, part of a word, whitespace, special characters, or combinations of these.</p>
+  <p>Before text reaches the model, a <strong>tokenizer</strong> divides it into tokens. Each token has a numeric identifier, and the complete set of tokens recognized by the model is its <strong>vocabulary</strong>. A token can represent a whole word, part of a word, whitespace, special characters, or combinations of these.</p>
 
   <p>The tokenizer does not divide every word into pieces of the same size. Common words and character sequences can have tokens of their own, while less familiar text is built from smaller tokens. This approach is known as <strong>subword tokenization</strong>. It solves a practical vocabulary problem. A model cannot have a separate vocabulary entry for every possible name, product identifier, misspelling, or newly invented word, but it still needs a way to represent them. Combining reusable pieces allows a finite vocabulary to represent effectively unbounded text.</p>
 
@@ -176,106 +177,22 @@
   <p>Because the request and response are both token sequences, usage is measured in tokens. <strong>Input tokens</strong> are supplied to the model, while <strong>output tokens</strong> are generated by the model. These counts can affect both the amount of text a request can contain and its cost. After tokenization, the model processes the resulting sequence using numerical values learned during training.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="network">The Neural Network</h2>
-  <p class="lede">A language model transforms tokens through a neural network whose learned numerical values determine how information influences the result.</p>
-
-  <h3>Weights and Parameters</h3>
-
-  <p>A <strong>neural network</strong> is a system of connected numerical calculations. The name comes from an analogy with networks of neurons in the brain but in an artificial neural network, the connected components are mathematical operations rather than biological neurons.</p>
-
-  <p>A neural network organizes its calculations into layers of nodes. The input enters the first layer, and each later layer transforms values produced by the layer before it. The final layer produces the network's output. A <strong>weight</strong> controls how strongly one incoming value contributes to a calculation. Because the calculations use different weights, one incoming value can have more influence than another. A weight is one kind of <strong>parameter</strong>, the general name for an adjustable number stored in the model. The complete set of parameters determines how the network transforms an input token sequence into a prediction of the next token.</p>
-
-  <figure class="figure-wrap">
-    <div class="figure-scroll" role="region" aria-label="Simplified neural network" tabindex="0">
-    <svg class="figure wide-figure" viewBox="0 0 700 300" role="img" aria-labelledby="network-title network-desc" xmlns="http://www.w3.org/2000/svg">
-      <title id="network-title">A simplified neural network</title>
-      <desc id="network-desc">Input values pass through connected nodes. Each connection has a numerical weight that affects the calculation performed by the next node.</desc>
-
-      <text class="figure-title is-info-text" x="82" y="42" text-anchor="middle">INPUT</text>
-      <text class="figure-title is-accent-text" x="350" y="42" text-anchor="middle">NETWORK</text>
-      <text class="figure-title is-info-text" x="618" y="42" text-anchor="middle">OUTPUT</text>
-
-      <g fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.35">
-        <line x1="108" y1="110" x2="254" y2="80"/>
-        <line x1="108" y1="110" x2="254" y2="150"/>
-        <line x1="108" y1="110" x2="254" y2="220"/>
-        <line x1="108" y1="190" x2="254" y2="80"/>
-        <line x1="108" y1="190" x2="254" y2="150"/>
-        <line x1="108" y1="190" x2="254" y2="220"/>
-
-        <line x1="306" y1="80" x2="394" y2="80"/>
-        <line x1="306" y1="80" x2="394" y2="150"/>
-        <line x1="306" y1="80" x2="394" y2="220"/>
-        <line x1="306" y1="150" x2="394" y2="80"/>
-        <line x1="306" y1="150" x2="394" y2="150"/>
-        <line x1="306" y1="150" x2="394" y2="220"/>
-        <line x1="306" y1="220" x2="394" y2="80"/>
-        <line x1="306" y1="220" x2="394" y2="150"/>
-        <line x1="306" y1="220" x2="394" y2="220"/>
-
-        <line x1="446" y1="80" x2="592" y2="150"/>
-        <line x1="446" y1="150" x2="592" y2="150"/>
-        <line x1="446" y1="220" x2="592" y2="150"/>
-      </g>
-
-      <text class="figure-label" x="150" y="94">w₁</text>
-      <text class="figure-label" x="150" y="118">w₂</text>
-      <text class="figure-label" x="150" y="140">w₃</text>
-
-      <circle class="figure-node" cx="82" cy="110" r="26"/>
-      <circle class="figure-node" cx="82" cy="190" r="26"/>
-
-      <circle class="figure-node is-accent" cx="280" cy="80" r="26"/>
-      <circle class="figure-node is-accent" cx="280" cy="150" r="26"/>
-      <circle class="figure-node is-accent" cx="280" cy="220" r="26"/>
-
-      <circle class="figure-node is-accent" cx="420" cy="80" r="26"/>
-      <circle class="figure-node is-accent" cx="420" cy="150" r="26"/>
-      <circle class="figure-node is-accent" cx="420" cy="220" r="26"/>
-
-      <circle class="figure-node is-info" cx="618" cy="150" r="26"/>
-
-      <text class="figure-note" x="350" y="272" text-anchor="middle">Each connection has a learned weight</text>
-    </svg>
-    </div>
-    <figcaption>A simplified neural network. Each connection has a numerical weight such as w₁, w₂, or w₃. The weights determine how strongly values from one node affect the calculations in the next layer.</figcaption>
-  </figure>
-
-  <p>The diagram isolates how weights give incoming values different amounts of influence. Real language models use billions of parameters and more structured calculations to transform the information represented by the input tokens.</p>
-
-  <h3>Learning the Parameters</h3>
-
-  <p><strong>Training</strong> is the process that finds useful values for these parameters. During <strong>pretraining</strong>, the model receives token sequences and predicts what comes next. Its predictions are compared with the tokens that actually followed, and the parameters are adjusted to reduce the gap. Repeating this process across large amounts of text gradually produces parameters that capture useful statistical relationships among tokens and the contexts in which they appear.</p>
-
-  <p>Additional <strong>post-training</strong> can further adjust these parameters so the model is more likely to follow instructions and produce useful responses. The methods vary among models and depend on the behavior the training process is intended to encourage. Once training is complete, the resulting parameters are used to process new requests.</p>
-
-  <p>This creates a clear boundary between learning and use. Training changes the model's parameters based on examples. During inference, those parameters are fixed while the model calculates a response to new input. The next section looks more closely at what happens during that calculation.</p>
-
-  <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="prediction">From Tokens to Predictions</h2>
-  <p class="lede">A stack of Transformer layers uses self-attention and other learned calculations to turn token vectors into a next-token prediction.</p>
+  <h2 id="prediction">How an LLM Generates Text</h2>
+  <p class="lede">A trained Transformer turns the current token sequence into a probability distribution, selects one token, and repeats the process to generate a response.</p>
 
   <h3>The Transformer</h3>
 
   <p>The tokenizer supplies an identifier for each token, but an identifier only names an entry in the vocabulary. The model uses that identifier to look up a learned <strong>token vector</strong>, which is a list of numbers representing information the model has learned about that token and its relationships to other tokens. Every occurrence of a token begins with the same vector, so the starting vector does not represent what the token means in a particular context.</p>
 
-  <p>A <strong>Transformer</strong> is the neural-network architecture that turns these starting vectors into context-sensitive representations. It processes a representation at every token position through a stack of Transformer layers. Each layer contains self-attention and additional learned calculations that update the representation at each position. The outputs from one layer become the inputs to the next, so later layers can build on relationships formed in earlier ones.</p>
+  <p>A <strong>neural network</strong> is a system of connected numerical calculations whose behavior is shaped during training.</p>
 
-  <p>Position information is added so the same tokens in a different order can produce different results. The Transformer therefore has access to both which tokens occur and where they occur. The layers use that information to update each position without changing the token sequence itself.</p>
+  <p>A <strong>Transformer</strong> is a type of neural network that turns starting token vectors into context-sensitive representations. It processes a representation at every token position through a stack of Transformer layers. Each layer contains <strong>self-attention</strong>, a mechanism that moves information between token positions, and additional learned calculations that update each representation. The outputs from one layer become the inputs to the next, so later layers can build on relationships formed in earlier ones.</p>
 
-  <h3>Self-Attention</h3>
+  <p>Many text-generating LLMs use a <strong>decoder-only Transformer</strong>, which predicts each new token from the tokens that precede it. The rest of this article follows that architecture.</p>
 
-  <p>Within each Transformer layer, <strong>self-attention</strong> lets one token position draw information from other permitted positions in the same sequence. It compares the current representations and calculates how strongly information from each permitted position should contribute to an update. This is the part of the layer that carries information between positions. Other learned calculations transform each position after that information has been combined.</p>
+  <p>The model also incorporates position information so the same tokens in a different order can produce different results. The Transformer therefore has access to both which tokens occur and where they occur. The layers use that information to update each position without changing the token sequence itself.</p>
 
-  <p>The word <em>self</em> means that the positions come from the same sequence. The sequence is not itself an actor that pays attention. Self-attention is one component inside a Transformer layer rather than another name for the complete Transformer.</p>
-
-  <p>A text-generating model prevents a position from using tokens that come after it. Each position can attend to itself and earlier positions, while later positions are hidden by a <strong>causal mask</strong>. Other Transformer architectures can allow attention in both directions, but doing so during training here would reveal the token that the model is supposed to predict.</p>
-
-  <p>Consider <code>The server crashed because it ran out of memory.</code> The starting vector for <code>it</code> identifies that token but does not state what the pronoun refers to. As its representation passes through Transformer layers, self-attention lets information from earlier positions such as <code>server</code> and <code>crashed</code> influence it. Later layers can therefore represent <code>it</code> in a way that reflects its likely relationship to the server.</p>
-
-  <p>The token <code>memory</code> comes later, so it cannot influence the representation at <code>it</code>. When the Transformer processes the final position, however, that position can draw from the entire preceding sentence. This direction matters because the model uses the representation at the final position to predict what token should come next.</p>
-
-  <p>The result is a <strong>contextual representation</strong>, a numerical representation that reflects both the current position and information drawn from the sequence. The token vector represents a vocabulary item before this particular context has been processed, while the contextual representation reflects what that token is doing here. The model ultimately uses the representation at the final position to predict what token should come next.</p>
+  <p>The result of these layers is a <strong>contextual representation</strong> at every position. Each representation reflects both its current position and information drawn from the sequence. A token vector represents a vocabulary item before this particular context has been processed, while a contextual representation reflects what that token is doing here. The model ultimately uses the representation at the final position to predict what token should come next.</p>
 
   <figure class="figure-wrap">
     <div class="figure-scroll" role="region" aria-label="Scrollable diagram from token identifiers through Transformer layers to a contextual representation" tabindex="0">
@@ -348,11 +265,11 @@ Remaining probability across the vocabulary: 0.05
 (Token boundaries and probabilities are illustrative.)</code></pre>
   </div>
 
-  <p>The value <code>0.72</code> assigns 72 percent of the next-token distribution to <code>undefined</code> for this exact sequence. It compares that candidate with the other candidates for the next position. It does not mean that the completed explanation has a 72 percent chance of being correct. The supplied code provides request-specific evidence through its tokens, while the model's parameters provide relationships learned during training.</p>
+  <p>The value <code>0.72</code> assigns 72 percent of the next-token distribution to <code>undefined</code> for this exact sequence. It compares that candidate with the other candidates for the next position. It does not mean that the completed explanation has a 72 percent chance of being correct. The supplied code provides request-specific evidence through its tokens, while the model's learned numerical values provide relationships established during training.</p>
 
   <h3>Generating a Response</h3>
 
-  <p>Once the distribution is available, the serving software selects one token, appends it to the current sequence, and sends the expanded sequence through the model again. This repeated process is <strong>autoregressive generation</strong>. Each selected token becomes input to the next prediction, so one choice can change every token that follows.</p>
+  <p>Once the distribution is available, the serving software selects one token, appends it to the current sequence, and uses the model to calculate another distribution for the expanded sequence. This repeated process is <strong>autoregressive generation</strong>. Each selected token becomes input to the next prediction, so one choice can change every token that follows.</p>
 
   <p>Thus, later tokens depend on earlier generated tokens that did not exist when generation began. If the model generates <code>undefined</code>, the next prediction is conditioned on <code>The function can return undefined</code>. If it instead generates <code>null</code>, the next prediction is conditioned on <code>The function can return null</code>. The model is now continuing a different sequence.</p>
 
@@ -368,11 +285,103 @@ Remaining probability across the vocabulary: 0.05
 
   <p><strong>Temperature</strong> changes how strongly sampling favors the leading candidates. A lower temperature concentrates probability around candidates the model already scores highly, while a higher temperature gives lower-scoring candidates more opportunity to be selected. If an incorrect continuation already receives a strong score, lowering the temperature can make that same mistake more repeatable rather than correcting it.</p>
 
-  <p>There is another kind of uncertainty that temperature does not solve. When another program must parse the output, the application may care less about varied wording than about whether the response is syntactically valid. A model asked to return JSON could otherwise generate a missing quote, an unexpected field, or ordinary prose around the object.</p>
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="network">Inside the Transformer</h2>
+  <p class="lede">Transformer layers use learned parameters and self-attention to decide how the tokens in a sequence influence each prediction.</p>
 
-  <p><strong>Schema-constrained generation</strong> addresses that structural problem by ruling out token choices that would make the output violate a required structure. For example, a diagnostic could require a file path, a line number, and a severity whose value is <code>"error"</code>, <code>"warning"</code>, or <code>"info"</code>. The serving system can constrain generation to that shape and set of allowed representations.</p>
+  <h3>Weights and Parameters</h3>
 
-  <p>Structural validity is not the same as factual validity. A perfectly valid diagnostic can still name the wrong file or line. Schema constraints can rule out invalid syntax, but they do not prove that a diagnostic describes the code correctly.</p>
+  <p>The name <em>neural network</em> comes from an analogy with networks of neurons in the brain. In an artificial neural network, however, the connected components are mathematical operations rather than biological neurons.</p>
+
+  <p>A neural network organizes its calculations into layers of nodes. The input enters the first layer, and each later layer transforms values produced by the layer before it. The final layer produces the network's output. A <strong>weight</strong> controls how strongly one incoming value contributes to a calculation. Because the calculations use different weights, one incoming value can have more influence than another. A weight is one kind of <strong>parameter</strong>, the general name for an adjustable number stored in the model. The complete set of parameters determines how the network transforms an input token sequence into a prediction of the next token.</p>
+
+  <p>The next figure is deliberately generic. It shows only how weights give incoming values different amounts of influence. It does not depict the structure of a Transformer layer.</p>
+
+  <figure class="figure-wrap">
+    <div class="figure-scroll" role="region" aria-label="Simplified neural network" tabindex="0">
+    <svg class="figure wide-figure" viewBox="0 0 700 300" role="img" aria-labelledby="network-title network-desc" xmlns="http://www.w3.org/2000/svg">
+      <title id="network-title">A simplified neural network</title>
+      <desc id="network-desc">Input values pass through connected nodes. Each connection has a numerical weight that affects the calculation performed by the next node.</desc>
+
+      <text class="figure-title is-info-text" x="82" y="42" text-anchor="middle">INPUT</text>
+      <text class="figure-title is-accent-text" x="350" y="42" text-anchor="middle">NETWORK</text>
+      <text class="figure-title is-info-text" x="618" y="42" text-anchor="middle">OUTPUT</text>
+
+      <g fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.35">
+        <line x1="108" y1="110" x2="254" y2="80"/>
+        <line x1="108" y1="110" x2="254" y2="150"/>
+        <line x1="108" y1="110" x2="254" y2="220"/>
+        <line x1="108" y1="190" x2="254" y2="80"/>
+        <line x1="108" y1="190" x2="254" y2="150"/>
+        <line x1="108" y1="190" x2="254" y2="220"/>
+
+        <line x1="306" y1="80" x2="394" y2="80"/>
+        <line x1="306" y1="80" x2="394" y2="150"/>
+        <line x1="306" y1="80" x2="394" y2="220"/>
+        <line x1="306" y1="150" x2="394" y2="80"/>
+        <line x1="306" y1="150" x2="394" y2="150"/>
+        <line x1="306" y1="150" x2="394" y2="220"/>
+        <line x1="306" y1="220" x2="394" y2="80"/>
+        <line x1="306" y1="220" x2="394" y2="150"/>
+        <line x1="306" y1="220" x2="394" y2="220"/>
+
+        <line x1="446" y1="80" x2="592" y2="150"/>
+        <line x1="446" y1="150" x2="592" y2="150"/>
+        <line x1="446" y1="220" x2="592" y2="150"/>
+      </g>
+
+      <text class="figure-label" x="150" y="94">w₁</text>
+      <text class="figure-label" x="150" y="118">w₂</text>
+      <text class="figure-label" x="150" y="140">w₃</text>
+
+      <circle class="figure-node" cx="82" cy="110" r="26"/>
+      <circle class="figure-node" cx="82" cy="190" r="26"/>
+
+      <circle class="figure-node is-accent" cx="280" cy="80" r="26"/>
+      <circle class="figure-node is-accent" cx="280" cy="150" r="26"/>
+      <circle class="figure-node is-accent" cx="280" cy="220" r="26"/>
+
+      <circle class="figure-node is-accent" cx="420" cy="80" r="26"/>
+      <circle class="figure-node is-accent" cx="420" cy="150" r="26"/>
+      <circle class="figure-node is-accent" cx="420" cy="220" r="26"/>
+
+      <circle class="figure-node is-info" cx="618" cy="150" r="26"/>
+
+      <text class="figure-note" x="350" y="272" text-anchor="middle">Each connection has a learned weight</text>
+    </svg>
+    </div>
+    <figcaption>A simplified neural network. Each connection has a numerical weight such as w₁, w₂, or w₃. The weights determine how strongly values from one node affect the calculations in the next layer.</figcaption>
+  </figure>
+
+  <p>Large language models can use billions of parameters and more structured calculations to transform the information represented by the input tokens.</p>
+
+  <h3>Self-Attention</h3>
+
+  <p>Within each Transformer layer, self-attention lets one token position draw information from other permitted positions in the same sequence. It compares the current representations and calculates how strongly information from each permitted position should contribute to an update. This is the part of the layer that carries information between positions. Other learned calculations transform each position after that information has been combined.</p>
+
+  <p>The word <em>self</em> means that the positions come from the same sequence. The sequence is not itself an actor that pays attention. Self-attention is one component inside a Transformer layer rather than another name for the complete Transformer.</p>
+
+  <p>A decoder-only Transformer prevents a position from using tokens that come after it. Each position can attend to itself and earlier positions, while later positions are hidden by a <strong>causal mask</strong>. Other Transformer architectures can allow attention in both directions, but doing so during training here would reveal the token that the model is supposed to predict.</p>
+
+  <p>Consider <code>The server crashed because it ran out of memory.</code> The starting vector for <code>it</code> identifies that token but does not state what the pronoun refers to. As its representation passes through Transformer layers, self-attention lets information from earlier positions such as <code>server</code> and <code>crashed</code> influence it. Later layers can therefore represent <code>it</code> in a way that reflects its likely relationship to the server.</p>
+
+  <p>The token <code>memory</code> comes later, so it cannot influence the representation at <code>it</code>. When the Transformer processes the final position, however, that position can draw from the entire preceding sentence. This direction matters because the model uses the representation at the final position to predict what token should come next.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="training">Training and Post-Training</h2>
+  <p class="lede">Training finds the parameters used during inference, while post-training shapes how the model responds to instructions.</p>
+
+  <h3>Pretraining</h3>
+
+  <p><strong>Training</strong> is the process that finds useful values for these parameters. During <strong>pretraining</strong>, the model receives token sequences and predicts what comes next. Its predictions are compared with the tokens that actually followed, and the parameters are adjusted to reduce the gap. Repeating this process across large amounts of text gradually produces parameters that capture useful statistical relationships among tokens and the contexts in which they appear.</p>
+
+  <h3>Post-Training</h3>
+
+  <p>Additional <strong>post-training</strong> can further adjust these parameters so the model is more likely to follow instructions and produce useful responses. The methods vary among models and depend on the behavior the training process is intended to encourage. Once training is complete, the resulting parameters are used to process new requests.</p>
+
+  <p>The model produced by pretraining is often called a <strong>base model</strong>. It has learned to continue token sequences, but it has not necessarily learned the conversational behavior users expect from an assistant. Post-training can produce an <strong>instruction-tuned model</strong> that is more likely to interpret a request as an instruction and follow conversational roles. Both models still generate responses by predicting tokens.</p>
+
+  <p>This creates a clear boundary between learning and use. Training changes the model's parameters based on examples. During inference, those parameters are fixed while the model calculates a response to new input. A prompt can guide the current inference by changing its input, but it does not normally update those parameters.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="context-window">The Context Window</h2>
@@ -396,7 +405,7 @@ Remaining probability across the vocabulary: 0.05
 
   <h3>Fitting and Using Information</h3>
 
-  <p>A large context window does not mean that every included token will influence the answer equally well. Long-context evaluations have found tasks where a model uses relevant information near the beginning or end more reliably than information in the middle. This position-dependent behavior is called <strong>lost in the middle</strong>. Its shape and severity vary by model, task, and prompt length, so the curve below represents an observed pattern rather than a universal performance law.</p>
+  <p>A large context window does not mean that every included token will influence the answer equally well. <a href="https://arxiv.org/abs/2307.03172">Long-context evaluations</a> have found tasks where a model uses relevant information near the beginning or end more reliably than information in the middle. This position-dependent behavior is called <strong>lost in the middle</strong>. Its shape and severity vary by model, task, and prompt length, so the curve below represents an observed pattern rather than a universal performance law.</p>
 
   <figure class="figure-wrap">
     <div class="figure-scroll" role="region" aria-label="Scrollable long-context position diagram" tabindex="0">
@@ -420,6 +429,34 @@ Remaining probability across the vocabulary: 0.05
   <p>This creates an important difference between <em>fitting</em> information and <em>using</em> information. A large source file can fit within the advertised context limit yet still be difficult for the model to use reliably for a particular task. Context-window size is therefore a capacity specification, not a guarantee of perfect recall.</p>
 
   <p>Useful context also has to be selected even when all available material fits. Two branches can contain different versions of a function, generated files can repeat source code, and irrelevant modules consume tokens while competing for attention. Including paths and repository revision information helps the application preserve these distinctions. The goal is not to fill the context window. It is to supply the smallest set of code, evidence, and instructions that the task needs.</p>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <h2 id="cost">Inference Cost and Latency</h2>
+  <p class="lede">Input processing and sequential output generation create different kinds of work.</p>
+
+  <h3>Processing the Input</h3>
+
+  <p>A user experiences a generated response as one operation, but inference contains two computationally different phases. Understanding that distinction explains why adding large source files often affects the delay before the answer starts, while requesting a long explanation or patch affects how long generation continues afterward.</p>
+
+  <p>Before the first output token can be selected, the model has to process the input tokens and build the internal information needed to begin generation. This initial phase is often called <strong>prefill</strong>. Calculations across the supplied input can make substantial use of parallel hardware, but longer input still requires more computation and memory. Instructions, conversation history, referenced files, and retrieved code all contribute to this work because all of them are input tokens.</p>
+
+  <p>Compare two requests that ask why <code>getSession</code> can return <code>undefined</code>. One includes the function, its return type, and the relevant caller. The other includes every file in the authentication directory. Even if both eventually produce the same short explanation, the second request gives the model far more input to process before it can begin generating. This is why indiscriminately filling a large context window can increase latency even when the extra code provides no useful evidence.</p>
+
+  <p>The delay before the first generated token is often discussed separately from total response time because it affects how responsive an application feels. A system that begins streaming an answer after half a second feels different from one that remains silent for several seconds, even if both finish at nearly the same time. Reducing unnecessary input can therefore improve the time before generation begins.</p>
+
+  <h3>Generating the Output</h3>
+
+  <p>After prefill, the model enters the autoregressive generation loop described earlier. The first output token is selected, then that token becomes part of the sequence used to calculate the second, and so on. This phase is often called <strong>decoding</strong>. Here, decoding names the complete output phase. During each step of that phase, the decoding strategy determines how the serving software selects the next token.</p>
+
+  <p>Decoding has a dependency that prefill does not. Token 80 cannot be selected until token 79 is known. The model may perform enormous amounts of parallel numerical work inside each individual prediction step, but the output positions themselves form a sequence. Asking for another 500 generated tokens therefore adds roughly another 500 sequential selection steps.</p>
+
+  <p>This creates two different optimization levers. If a coding assistant takes too long to <em>start</em> responding, the application should examine how much source text it sends and how efficiently that input is processed. If it starts quickly but takes too long to <em>finish</em>, response length and decoding speed become more important. Treating all latency as one problem can hide which part of the request is actually expensive.</p>
+
+  <h3>Token Usage and Cost</h3>
+
+  <p>Token usage can also affect monetary cost. When a provider meters input and output tokens separately, repeatedly including large source files increases input usage, while requesting a longer explanation or patch increases output usage. The prices need not be the same for the two categories, so reducing 1,000 input tokens and reducing 1,000 output tokens do not necessarily save the same amount.</p>
+
+  <p>This does not imply that shorter prompts are always better. Omitting the type or caller that explains the behavior may reduce cost while making the answer less reliable. The practical goal is to keep the instructions and code the task needs while omitting material that does not help. The requested output should be no longer than the user or downstream system needs.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="knowledge">Grounding and Hallucinations</h2>
@@ -473,8 +510,8 @@ export function getSession(id: string): Session | undefined {
   <p>Grounding therefore improves the information available to generation, but it does not remove every failure mode. Retrieval can select a similarly named function from the wrong module or branch. A tool can return stale or misunderstood output. The model can misread correct code. An application that requires stronger assurance must test the whole evidence path rather than treating the presence of retrieval or tools as a guarantee of correctness.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="embeddings">Retrieval Embeddings</h2>
-  <p class="lede">An embedding represents text as a vector so a retrieval system can compare semantic similarity without sending the whole collection to the LLM.</p>
+  <h2 id="embeddings">Embeddings for Retrieval</h2>
+  <p class="lede">A separate embedding model can represent text as vectors so an external retrieval system can select useful context for the LLM.</p>
 
   <h3>Searching by Meaning</h3>
 
@@ -524,34 +561,6 @@ Source excerpt
   <p>The <a href="rag.html">RAG article</a> explains how retrieval systems divide documents into searchable passages, combine different search signals, rank candidates, and evaluate whether the resulting evidence actually improves answers.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
-  <h2 id="cost">Inference Cost and Latency</h2>
-  <p class="lede">Input processing and sequential output generation create different kinds of work.</p>
-
-  <h3>Processing the Input</h3>
-
-  <p>A user experiences a generated response as one operation, but inference contains two computationally different phases. Understanding that distinction explains why adding large source files often affects the delay before the answer starts, while requesting a long explanation or patch affects how long generation continues afterward.</p>
-
-  <p>Before the first output token can be selected, the model has to process the input tokens and build the internal information needed to begin generation. This initial phase is often called <strong>prefill</strong>. Calculations across the supplied input can make substantial use of parallel hardware, but longer input still requires more computation and memory. Instructions, conversation history, referenced files, and retrieved code all contribute to this work because all of them are input tokens.</p>
-
-  <p>Compare two requests that ask why <code>getSession</code> can return <code>undefined</code>. One includes the function, its return type, and the relevant caller. The other includes every file in the authentication directory. Even if both eventually produce the same short explanation, the second request gives the model far more input to process before it can begin generating. This is why indiscriminately filling a large context window can increase latency even when the extra code provides no useful evidence.</p>
-
-  <p>The delay before the first generated token is often discussed separately from total response time because it affects how responsive an application feels. A system that begins streaming an answer after half a second feels different from one that remains silent for several seconds, even if both finish at nearly the same time. Reducing unnecessary input can therefore improve the time before generation begins.</p>
-
-  <h3>Generating the Output</h3>
-
-  <p>After prefill, the model enters the autoregressive generation loop described earlier. The first output token is selected, then that token becomes part of the sequence used to calculate the second, and so on. This phase is often called <strong>decoding</strong>. Here, decoding names the complete output phase. During each step of that phase, the decoding strategy determines how the serving software selects the next token.</p>
-
-  <p>Decoding has a dependency that prefill does not. Token 80 cannot be selected until token 79 is known. The model may perform enormous amounts of parallel numerical work inside each individual prediction step, but the output positions themselves form a sequence. Asking for another 500 generated tokens therefore adds roughly another 500 sequential selection steps.</p>
-
-  <p>This creates two different optimization levers. If a coding assistant takes too long to <em>start</em> responding, the application should examine how much source text it sends and how efficiently that input is processed. If it starts quickly but takes too long to <em>finish</em>, response length and decoding speed become more important. Treating all latency as one problem can hide which part of the request is actually expensive.</p>
-
-  <h3>Token Usage and Cost</h3>
-
-  <p>Token usage can also affect monetary cost. When a provider meters input and output tokens separately, repeatedly including large source files increases input usage, while requesting a longer explanation or patch increases output usage. The prices need not be the same for the two categories, so reducing 1,000 input tokens and reducing 1,000 output tokens do not necessarily save the same amount.</p>
-
-  <p>This does not imply that shorter prompts are always better. Omitting the type or caller that explains the behavior may reduce cost while making the answer less reliable. The practical goal is to keep the instructions and code the task needs while omitting material that does not help. The requested output should be no longer than the user or downstream system needs.</p>
-
-  <!-- ══════════════════════════════════════════════════ -->
   <h2 id="decisions">Application Design</h2>
   <p class="lede">An application has to supply evidence, constrain operations, and validate results around the model.</p>
 
@@ -559,9 +568,17 @@ Source excerpt
 
   <p>The mechanisms in the preceding sections create a useful engineering boundary. An LLM is good at transforming supplied context into likely continuations. It is not, by itself, the entire coding application. Other components have information and powers the model does not have. A repository index can find relevant symbols, application code can enforce file permissions, a compiler can check types, and a test runner can exercise behavior.</p>
 
-  <p>Changing the prompt or decoding settings cannot correct a failure at every boundary. A prompt can tell the model to inspect a file, but it cannot supply source code that the application never read. A lower temperature can make output more consistent, but it cannot prove that a proposed change type-checks. A JSON schema can enforce the shape of a diagnostic, but it cannot prove that the named line contains a defect.</p>
+  <p>Changing the prompt or decoding settings cannot correct a failure at every boundary. A prompt can tell the model to inspect a file, but it cannot supply source code that the application never read. A lower temperature can make output more consistent, but it cannot prove that a proposed change type-checks.</p>
 
   <p>The LLM computes scores for the next token from its parameters and current context. The model-serving software tokenizes the assembled text, runs the network, applies a decoding strategy to select generated tokens, and converts those tokens back into text. The surrounding application decides what information enters the request, what external operations are available, and what must be checked before a result is trusted or acted upon.</p>
+
+  <h3>Structured Output</h3>
+
+  <p>When another program must parse the output, the application may care less about varied wording than about whether the response is syntactically valid. Changing temperature cannot guarantee valid JSON because it changes candidate probabilities without ruling out syntactically invalid continuations. A model asked to return JSON could otherwise generate a missing quote, an unexpected field, or ordinary prose around the object.</p>
+
+  <p><strong>Schema-constrained generation</strong> addresses that structural problem by ruling out token choices that would make the output violate a required structure. For example, a diagnostic could require a file path, a line number, and a severity whose value is <code>"error"</code>, <code>"warning"</code>, or <code>"info"</code>. The serving system can constrain generation to that shape and set of allowed representations.</p>
+
+  <p>Structural validity is not the same as factual validity. A perfectly valid diagnostic can still name the wrong file or line. Schema constraints can rule out invalid syntax, but they do not prove that a diagnostic describes the code correctly.</p>
 
   <h3>A Code Request Path</h3>
 
