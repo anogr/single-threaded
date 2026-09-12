@@ -63,89 +63,76 @@
 
   <p>A conventional computer program follows instructions that developers have written in advance. Its code defines how to process inputs, make decisions, and produce outputs. This works well when the relevant inputs and rules can be specified explicitly. Natural language is harder to handle this way because the same request can be expressed in many forms, and its meaning often depends on context.</p>
 
-  <p>A <strong>large language model</strong> (LLM) takes a different approach. Instead of relying on developers to write rules for every possible request, it learns statistical patterns from large amounts of data during training. When given some text, it uses those learned patterns to predict what should come next. It does this one small piece at a time, repeatedly using the text generated so far as context for the next prediction.</p>
+  <p>A <strong>large language model</strong> (LLM) takes a different approach. Instead of relying on developers to write rules for every possible request, it learns statistical patterns from large amounts of data during training. When given some text, it uses the learned patterns to predict what is likely to come next. It generates a response one small piece at a time, repeatedly using the text produced so far as context for the next prediction.</p>
 
-  <p>This simple process can produce remarkably varied results. An LLM can answer questions, write prose, generate code, and work through problems because all of these tasks can be expressed as a continuation of the text it receives. But generating plausible text is not the same as verifying that it is correct. A response can be fluent, detailed, and convincing while still containing mistakes.</p>
+  <p>This simple generation process can produce remarkably varied results. It can answer questions, write prose, generate code, and work through problems. But generating a plausible continuation is not the same as verifying that it is correct. A response can be fluent, detailed, and convincing while still containing mistakes.</p>
 
-  <p>This article explains how an LLM turns input into a response and how that process gives rise to both its capabilities and its limitations. The focus is on <strong>inference</strong>, the work an already trained model performs when handling a request. Training is covered only where it helps explain inference. Training infrastructure, model comparisons, and the details of building foundation models are outside the scope.</p>
+  <p>This article explains how an LLM turns input into a response and how this process gives rise to both its capabilities and its limitations. The focus is on <strong>inference</strong>, the work an already trained model performs when handling a request. Training is covered only where it helps explain inference. Training infrastructure, model comparisons, and the details of building foundation models are outside the scope.</p>
 
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="model-input">Model Input at Inference Time</h2>
-  <p class="lede">Before an already trained model generates a response, the surrounding application gathers and prepares the information for that inference.</p>
+  <p class="lede">An LLM does not directly interact with the user, files, or the web. A surrounding application decides what information to send to the model for each inference.</p>
 
-  <p>The path through the rest of this article follows one inference request. Training has already shaped the model's learned behavior. Handling the request uses that behavior to produce a response, but the request does not normally teach the model or change what it learned during training.</p>
+  <p>The user interacts with an <strong>application</strong>, which in turn interacts with the model. The application handles features such as the user interface, conversation history, file access, and web access. It gathers information, sends selected information to the model, and receives the model's response. The model itself only receives input from the application and generates a response from that input.</p>
 
-  <p>The user interacts with an application rather than with the model alone. The application can combine the user's message with its own instructions, selected conversation history, and information from other sources. In this article, the complete input assembled before generation begins is the <strong>prompt</strong>. The message written by the user can therefore be only one part of the prompt.</p>
+  <p>The text the user submits to the application is the <strong>prompt</strong>. Before sending anything to the model, the application can add other <strong>context</strong>, such as its own instructions, parts of the conversation history, contents of attached files, or information retrieved from the web. The prompt together with the context supplied by the application forms the <strong>model input</strong> for that inference. In this article, <em>prompt</em> means the text submitted by the user, while <em>model input</em> means everything supplied to the model for one inference. The term <em>prompt</em> is sometimes used more broadly for the complete model input, but we'll use the more narrow definition.</p>
 
-  <p>Files and web pages remain outside the model until something obtains their contents. A file reference such as <code>@src/session.ts</code> is meaningful to a coding application, which can check access to the file, read it, and select relevant source text. A URL in a message is otherwise just a sequence of characters. The application or an available retrieval tool has to fetch the page and place selected contents into the model input before the model can use the page.</p>
+  <p>An attachment to a user message is thus not automatically part of the model input. Consider a coding application in which the user writes <code>Explain @src/session.ts</code>. The prompt contains the user's request and the file reference, but the model cannot open the file by itself. The application can interpret the reference, read its contents, and include relevant source code as context in the model input. If the application does not include the file contents, the model will not receive them. A URL works in much the same way. A prompt containing a URL does not by itself give the model access to the page. The application can fetch the page and include some or all of its contents as context. Applications that provide web search or browsing features perform this work outside the model.</p>
 
-  <p>Images follow a different input path from ordinary text. An application can supply image data to a model with visual capabilities, and model-specific processing turns that image into numerical representations. Providers may count those representations as image tokens, but a text tokenizer does not read an image by dividing its visible contents into words. A document application may extract embedded text, use <strong>optical character recognition</strong> (OCR) to extract text captured in an image, preserve page images, or combine these approaches. The exact preparation depends on the file format, application, and model.</p>
+  <p>The same rule applies to conversation history. A model does not have access to an earlier message merely because it appeared earlier in the interface. An application may include some earlier messages as context for a particular inference. Information from a previous message can influence the current response only when the application includes it in the current model input.</p>
 
-  <p>This preparation creates a firm boundary. The model can use the representations supplied for the current inference, while an omitted file, an unfetched page, or an image left only in the interface cannot influence the response. The figure shows the surrounding application selecting several kinds of information before text and images enter their respective encoding paths.</p>
+  <p>Images and documents are usually supported. The application can include attached images in the model input. For a document, the application might extract its text, send images of its pages, or use another supported approach. An attachment shown in the interface and the content actually sent to the model are therefore not necessarily the same thing.</p>
 
   <figure class="figure-wrap">
-    <div class="figure-scroll" role="region" aria-label="Scrollable diagram of an application preparing text, external sources, and images for one model inference" tabindex="0">
+    <div class="figure-scroll" role="region" aria-label="Scrollable diagram showing a prompt and other context being assembled into model input" tabindex="0">
     <svg class="figure wide-figure" viewBox="0 0 700 300" role="img" aria-labelledby="model-input-title model-input-desc" xmlns="http://www.w3.org/2000/svg">
-      <title id="model-input-title">From user request to model input</title>
-      <desc id="model-input-desc">A user message, files, web pages, and images begin outside the model. The application selects and retrieves information. Text passes through a tokenizer while images pass through visual processing. The encoded input then reaches the already trained language model.</desc>
+      <title id="model-input-title">From prompt and context to model input</title>
+      <desc id="model-input-desc">The application receives the user's prompt and has access to other information such as conversation history, files, web pages, and images. It selects context and combines it with the prompt to create the model input. The language model receives that input and generates a response.</desc>
       <defs>
         <marker id="llm-input-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
           <polygon class="figure-arrow" points="0,0 10,5 0,10"/>
         </marker>
       </defs>
 
-      <text class="figure-title" x="78" y="34" text-anchor="middle">AVAILABLE INPUTS</text>
-      <rect class="figure-panel" x="18" y="48" width="120" height="218"/>
-      <rect class="figure-node" x="34" y="68" width="88" height="42"/>
-      <text class="figure-label" x="78" y="94" text-anchor="middle">User message</text>
-      <rect class="figure-node" x="34" y="124" width="88" height="42"/>
-      <text class="figure-label" x="78" y="143" text-anchor="middle">Files and</text>
-      <text class="figure-label" x="78" y="158" text-anchor="middle">web pages</text>
-      <rect class="figure-node" x="34" y="180" width="88" height="42"/>
-      <text class="figure-label" x="78" y="206" text-anchor="middle">Images</text>
-      <text class="figure-note" x="78" y="246" text-anchor="middle">Outside the model</text>
+      <text class="figure-title" x="86" y="34" text-anchor="middle">APPLICATION</text>
+      <rect class="figure-panel" x="18" y="48" width="136" height="218"/>
+      <rect class="figure-node" x="34" y="64" width="104" height="36"/>
+      <text class="figure-label" x="86" y="87" text-anchor="middle">User prompt</text>
+      <rect class="figure-node" x="34" y="110" width="104" height="36"/>
+      <text class="figure-label" x="86" y="133" text-anchor="middle">Conversation</text>
+      <rect class="figure-node" x="34" y="156" width="104" height="36"/>
+      <text class="figure-label" x="86" y="179" text-anchor="middle">Files / web</text>
+      <rect class="figure-node" x="34" y="202" width="104" height="36"/>
+      <text class="figure-label" x="86" y="225" text-anchor="middle">Images</text>
+      <text class="figure-note" x="86" y="254" text-anchor="middle">Available information</text>
 
-      <line class="figure-connector" x1="144" y1="157" x2="170" y2="157" marker-end="url(#llm-input-arrow)"/>
+      <line class="figure-connector" x1="160" y1="157" x2="194" y2="157" marker-end="url(#llm-input-arrow)"/>
 
-      <text class="figure-title is-accent-text" x="249" y="34" text-anchor="middle">APPLICATION</text>
-      <rect class="figure-panel is-info" x="176" y="48" width="146" height="218"/>
-      <rect class="figure-node is-accent" x="192" y="77" width="114" height="58"/>
-      <text class="figure-label" x="249" y="101" text-anchor="middle">Selects instructions</text>
-      <text class="figure-label" x="249" y="119" text-anchor="middle">and history</text>
-      <rect class="figure-node is-accent" x="192" y="151" width="114" height="58"/>
-      <text class="figure-label" x="249" y="175" text-anchor="middle">Reads or retrieves</text>
-      <text class="figure-label" x="249" y="193" text-anchor="middle">external sources</text>
-      <text class="figure-note" x="249" y="239" text-anchor="middle">Assembles the prompt</text>
+      <text class="figure-title is-accent-text" x="292" y="34" text-anchor="middle">MODEL INPUT</text>
+      <rect class="figure-panel is-info" x="200" y="48" width="184" height="218"/>
+      <rect class="figure-node is-accent" x="220" y="82" width="144" height="58"/>
+      <text class="figure-label" x="292" y="106" text-anchor="middle">Prompt</text>
+      <text class="figure-label" x="292" y="124" text-anchor="middle">from the user</text>
+      <rect class="figure-node is-accent" x="220" y="158" width="144" height="58"/>
+      <text class="figure-label" x="292" y="182" text-anchor="middle">Selected</text>
+      <text class="figure-label" x="292" y="200" text-anchor="middle">context</text>
 
-      <line class="figure-connector" x1="328" y1="157" x2="354" y2="157" marker-end="url(#llm-input-arrow)"/>
+      <line class="figure-connector" x1="390" y1="157" x2="424" y2="157" marker-end="url(#llm-input-arrow)"/>
 
-      <text class="figure-title" x="423" y="34" text-anchor="middle">ENCODING</text>
-      <rect class="figure-panel" x="360" y="48" width="126" height="218"/>
-      <rect class="figure-node is-info" x="376" y="83" width="94" height="54"/>
-      <text class="figure-label" x="423" y="106" text-anchor="middle">Text</text>
-      <text class="figure-label" x="423" y="124" text-anchor="middle">tokenizer</text>
-      <rect class="figure-node is-info" x="376" y="161" width="94" height="54"/>
-      <text class="figure-label" x="423" y="184" text-anchor="middle">Visual</text>
-      <text class="figure-label" x="423" y="202" text-anchor="middle">processing</text>
-
-      <line class="figure-connector" x1="492" y1="157" x2="518" y2="157" marker-end="url(#llm-input-arrow)"/>
-
-      <text class="figure-title is-accent-text" x="606" y="34" text-anchor="middle">INFERENCE</text>
-      <rect class="figure-panel is-info" x="524" y="48" width="158" height="218"/>
-      <rect class="figure-node is-accent" x="544" y="86" width="118" height="92"/>
-      <text class="figure-label" x="603" y="117" text-anchor="middle">Already trained</text>
-      <text class="figure-label" x="603" y="137" text-anchor="middle">language model</text>
-      <text class="figure-note" x="603" y="160" text-anchor="middle">Uses supplied input</text>
-      <line class="figure-connector" x1="603" y1="184" x2="603" y2="207" marker-end="url(#llm-input-arrow)"/>
-      <text class="figure-label" x="603" y="232" text-anchor="middle">Response tokens</text>
+      <text class="figure-title is-accent-text" x="552" y="34" text-anchor="middle">INFERENCE</text>
+      <rect class="figure-panel is-info" x="430" y="48" width="252" height="218"/>
+      <rect class="figure-node is-accent" x="470" y="82" width="164" height="76"/>
+      <text class="figure-label" x="552" y="111" text-anchor="middle">Already trained</text>
+      <text class="figure-label" x="552" y="131" text-anchor="middle">language model</text>
+      <line class="figure-connector" x1="552" y1="166" x2="552" y2="198" marker-end="url(#llm-input-arrow)"/>
+      <text class="figure-label" x="552" y="226" text-anchor="middle">Response</text>
     </svg>
     </div>
-    <figcaption>The application determines what reaches the model. Text and images require different preparation before the already trained model can use them during inference.</figcaption>
+    <figcaption>The user's prompt and the complete model input are not necessarily the same. The application can add selected context before sending the input to the model.</figcaption>
   </figure>
 
-  <p>Once the application has prepared the request, the serving system encodes each included input into numerical values the model can process. The next section follows the text path and explains how a tokenizer turns text into tokens. Later sections return to the capacity of the complete input and to the tools that can bring external evidence into a request.</p>
-
+  <p>The user therefore sees a larger system than the LLM itself. Features such as file access, conversation history, and web retrieval belong to the surrounding application. For each inference, the model receives the prompt together with additional context the application includes. The next section looks at how the text in this input is represented for the model.</p>
 
   <!-- ══════════════════════════════════════════════════ -->
   <h2 id="tokens">Tokens and Tokenization</h2>
