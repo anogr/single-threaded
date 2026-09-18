@@ -14,14 +14,14 @@
     padding-bottom: 8px;
   }
   .wc-figure-scroll .figure { min-width: 660px; }
-  .contract-grid {
+  .technology-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 14px;
     max-width: var(--content-w);
     margin: 20px 0;
   }
-  .contract-grid .card { margin: 0; }
+  .technology-grid .card { margin: 0; }
   .boundary-lab {
     max-width: var(--content-w);
     margin: 24px 0 28px;
@@ -100,7 +100,7 @@
     overflow-wrap: anywhere;
   }
   @media (max-width: 680px) {
-    .contract-grid { grid-template-columns: 1fr; }
+    .technology-grid { grid-template-columns: 1fr; }
     .boundary-lab-controls { align-items: stretch; }
     .boundary-lab-field,
     .boundary-lab-action { width: 100%; }
@@ -129,15 +129,16 @@
 <nav class="sidebar" id="sidebar">
   <a class="sidebar-back" href="index.html">← All articles</a>
   <a href="#intro">Introduction</a>
-  <div class="sidebar-section">The element</div>
-  <a href="#element-boundary">The element boundary</a>
-  <a href="#custom-elements">Definition and upgrade</a>
+  <div class="sidebar-section">Foundations</div>
+  <a href="#technologies">Three technologies</a>
+  <a href="#custom-elements">Custom elements</a>
   <a href="#lifecycle">Connection and cleanup</a>
-  <a href="#attributes-properties">Attributes and properties</a>
   <div class="sidebar-section">The component tree</div>
   <a href="#shadow-dom">Shadow DOM</a>
   <a href="#templates">Templates</a>
   <a href="#slots">Slots</a>
+  <div class="sidebar-section">Public interface</div>
+  <a href="#attributes-properties">Attributes and properties</a>
   <a href="#styling">Styling the boundary</a>
   <a href="#events">Events</a>
   <a href="#boundary-lab">Boundary lab</a>
@@ -152,46 +153,37 @@
 <main>
   <div class="eyebrow">Code Architecture · Custom Elements</div>
   <h1>Web Components</h1>
-  <p class="subtitle">How browser-managed elements combine behavior, DOM composition, style boundaries, and a stable public interface.</p>
+  <p class="subtitle">How custom elements, Shadow DOM, and HTML templates work together as browser-native components.</p>
   <div class="byline">
     <span>Andreas Ögren</span>
-    <div class="dot"></div><span>~20 min read</span>
+    <div class="dot"></div><span>~21 min read</span>
     <div class="dot"></div><span>Last updated July 2026</span>
   </div>
 
   <section id="intro">
-    <p>Component libraries are often built around a single application framework. Reusing a control in another framework, an older application, or a server-rendered page can be difficult when its interface and update model depend on the original environment.</p>
-    <p>Web Components can be used to define new HTML elements in the browser. Behavior and markup can be contained within each element, while familiar HTML, DOM, and CSS interfaces are available outside it.</p>
-    <p>A small <code>&lt;base-button&gt;</code> is used throughout the article. Because little application logic is involved, the explanation can concentrate on the boundary around a component. Routing, application state, and server-data orchestration are outside its scope.</p>
+    <p>Component libraries consist of reusable interface elements such as buttons, menus, and form controls. Each component brings together its markup, styling, and behavior behind a defined interface. Developers can use these building blocks across an application instead of implementing controls repeatedly. A shared library helps keep interfaces consistent and makes it easier to improve a control in one place.</p>
+
+    <p>Many component libraries are built around a single application framework, but reusing a control in another framework, an older application, or a server-rendered page can be difficult when its interface and update model depend on the original environment. A component designed for React, for example, cannot be used directly in a Vue application without additional work.</p>
+
+    <p>Web Components can be used to define reusable HTML elements without depending on a particular application framework. Behavior and markup can be encapsulated within an element while familiar HTML, DOM, and CSS interfaces are exposed outside it. A shared component can be integrated into applications built with different technologies.</p>
+
+    <p>We will write a small <code>&lt;base-button&gt;</code> web component throughout the article. Because little application logic is involved, the explanation can concentrate on how a component is defined, how it is used in a page, and where its boundaries lie.</p>
   </section>
 
-  <h2 id="element-boundary">The element boundary</h2>
-  <p>A custom element is used much like any other HTML element. It can be configured with attributes, content can be placed between its tags, supported styles can be applied through its CSS interface, and interaction can be observed through DOM events.</p>
+  <h2 id="technologies">Three technologies</h2>
+  <p>Web Components is an umbrella term for three browser technologies. A new HTML element is defined with Custom Elements, its internal DOM can be isolated with Shadow DOM, and reusable markup can be stored in an HTML template. Positions for content supplied in page markup can be marked with slots. These technologies are independent, but they are commonly combined in a component.</p>
 
-  <div class="code-block">
-    <div class="code-header">
-      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
-      <span class="code-filename">page.html</span><span class="code-lang">HTML</span>
-    </div>
-    <pre><code>&lt;base-button variant="primary" size="lg"&gt;
-  &lt;svg slot="prefix" aria-hidden="true"&gt;...&lt;/svg&gt;
-  Save changes
-&lt;/base-button&gt;</code></pre>
+  <div class="technology-grid">
+    <div class="card blue"><div class="card-label">Identity and behavior</div><div class="card-title">Custom Elements</div><p>A tag name is associated with a JavaScript class so every instance receives the defined behavior.</p></div>
+    <div class="card teal"><div class="card-label">Internal structure</div><div class="card-title">Shadow DOM</div><p>A separate DOM tree can be attached to the element with boundaries for queries and CSS selectors.</p></div>
+    <div class="card gold"><div class="card-label">Reusable markup</div><div class="card-title">Templates and slots</div><p>Markup can be parsed without being rendered and cloned into each instance, where page content can be inserted at slot positions.</p></div>
   </div>
 
-  <p>A <strong>custom element</strong> is a browser-managed DOM element with a tag name and behavior defined in application code. Its <strong>public contract</strong> consists of every interface available outside the element. The contract includes the tag name and HTML attributes, JavaScript properties and methods, content passed through slots, DOM events, and any supported CSS custom properties or shadow parts.</p>
+  <p>In a typical component, the element class is registered first. A shadow root is attached when an instance is created, and a clone of the template is placed inside it. The custom element is the part represented in page markup, while the shadow tree and cloned template form its internal structure.</p>
 
-  <div class="contract-grid">
-    <div class="card blue"><div class="card-label">Configuration</div><div class="card-title">Attributes and properties</div><p>Serializable configuration can be written as HTML attributes, while richer JavaScript values belong in properties.</p></div>
-    <div class="card teal"><div class="card-label">Composition</div><div class="card-title">Children and slots</div><p>Nodes supplied in light DOM are rendered at positions defined by slots without a change in ownership.</p></div>
-    <div class="card gold"><div class="card-label">Communication</div><div class="card-title">Methods and events</div><p>Methods provide commands, while events make results and interactions observable outside the element.</p></div>
-    <div class="card purple"><div class="card-label">Appearance</div><div class="card-title">Custom properties and parts</div><p>Supported style changes are exposed through named CSS interfaces.</p></div>
-  </div>
-
-  <p>Custom elements, Shadow DOM, and templates are often used together, but each has a different purpose. Registration and lifecycle callbacks are part of the Custom Elements API. A separate DOM root with selector and query boundaries can be created through Shadow DOM, while parsed markup can be stored in a template and cloned for each instance. Any combination of these features can be used.</p>
-
-  <h2 id="custom-elements">Definition and upgrade</h2>
-  <p>An unfamiliar tag can be parsed before its class is registered. Before registration, <code>&lt;base-button&gt;</code> exists in the DOM as an undefined element without any behavior from the class. The markup and defining module can be loaded in either order.</p>
+  <h2 id="custom-elements">Custom elements</h2>
+  <p>A <strong>custom element</strong> is a browser-managed DOM element with a tag name and behavior defined by a JavaScript class. It can be written in page markup and accessed through standard DOM APIs, just like a built-in element.</p>
+  <p>Before the class can be used, its tag name and constructor must be added to the custom-element registry. The registry for the document is available through <code>customElements</code>, and a definition is added with <code>define()</code>.</p>
 
   <div class="code-block">
     <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-filename">base-button.ts</span><span class="code-lang">TypeScript</span></div>
@@ -204,8 +196,23 @@
 customElements.define('base-button', BaseButton);</code></pre>
   </div>
 
-  <p>An element is registered by passing a valid name and constructor to <code>customElements.define()</code>. An <strong>autonomous custom element</strong> extends <code>HTMLElement</code>, and its name must include a hyphen to avoid collisions with built-in tags. Customized built-in elements are another option, but their HTML syntax and browser support can make cross-browser use more difficult.</p>
-  <p>When <code>define()</code> is called, existing elements matching the new definition are <strong>upgraded</strong>. During upgrade, the registered prototype is applied, the constructor runs, and reactions are queued for observed attributes already present. <code>connectedCallback()</code> then runs if the element is connected to the document. Elements created after registration use the registered class immediately.</p>
+  <p>An <strong>autonomous custom element</strong> extends <code>HTMLElement</code>, and its name must include a hyphen to avoid collisions with built-in tags. Customized built-in elements are another option, but their HTML syntax and browser support can make cross-browser use more difficult.</p>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div>
+      <span class="code-filename">page.html</span><span class="code-lang">HTML</span>
+    </div>
+    <pre><code>&lt;base-button variant="primary" size="lg"&gt;
+  Save changes
+&lt;/base-button&gt;</code></pre>
+  </div>
+
+  <p>Once registered, <code>&lt;base-button&gt;</code> is available as an ordinary HTML tag. Everything exposed outside the element is part of its <strong>public contract</strong>. The contract is developed throughout the article as each underlying browser feature is explained.</p>
+
+  <h3>Upgrade</h3>
+  <p>An unfamiliar tag can be parsed before its class is registered. Before registration, <code>&lt;base-button&gt;</code> exists in the DOM as an undefined element without any behavior from the class. The markup and defining module can be loaded in either order.</p>
+  <p>When <code>define()</code> is called, existing elements matching the new definition are <strong>upgraded</strong>. During upgrade, the registered prototype is applied and the constructor is run. If the class declares attributes to observe, reactions are then queued for existing values. <code>connectedCallback()</code> is called next when the element is connected to the document. For elements created after registration, the registered class is applied immediately.</p>
 
   <figure class="figure-wrap">
     <div class="wc-figure-scroll" role="region" aria-label="Scrollable custom-element upgrade timeline" tabindex="0">
@@ -229,7 +236,7 @@ customElements.define('base-button', BaseButton);</code></pre>
   </figure>
 
   <p>The constructor is suitable for basic setup after <code>super()</code>, including private state, a shadow root, and internal nodes. Host attributes and child nodes may be unavailable during construction, so any setup involving them belongs in a later callback.</p>
-  <p>A definition in the document’s default registry is available for the lifetime of the page, and a second registration of its name or constructor causes an exception. For a module that may be evaluated more than once, the registry should be checked before <code>define()</code> is called.</p>
+  <p>A definition in the document’s default registry is available for the lifetime of the page, and an exception is thrown if its name or constructor is registered again. For a module that may be evaluated more than once, the registry should be checked before <code>define()</code> is called.</p>
 
   <div class="code-block">
     <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-filename">base-button.ts</span><span class="code-lang">TypeScript</span></div>
@@ -240,7 +247,7 @@ customElements.define('base-button', BaseButton);</code></pre>
 await customElements.whenDefined('base-button');</code></pre>
   </div>
 
-  <p><code>whenDefined()</code> can be awaited before methods or properties from the custom class are used. Rendering requires no wait because matching elements are upgraded automatically after registration.</p>
+  <p><code>whenDefined()</code> can be awaited before methods or properties from the custom class are used. No wait is required for rendering because matching elements are upgraded automatically after registration.</p>
 
   <h2 id="lifecycle">Connection and cleanup</h2>
   <p>A custom element may be connected, disconnected, and connected again during its lifetime. Its connection state can change through DOM reordering, conditional rendering, or movement between documents, with a lifecycle callback invoked after each transition.</p>
@@ -248,6 +255,102 @@ await customElements.whenDefined('base-button');</code></pre>
   <p>Work begun during connection should be stopped in <strong><code>disconnectedCallback()</code></strong> after the element is disconnected. This cleanup avoids duplicate observers, listeners, and subscriptions after reconnection. Listeners attached to nodes inside the shadow tree usually require no cleanup because the nodes are disconnected with the host.</p>
   <p>No document-level listeners, observers, or subscriptions are created in the <code>&lt;base-button&gt;</code> example. Only property assignments made before definition are recovered during the first connection, so no work is required in <code>disconnectedCallback()</code>.</p>
   <p><strong><code>attributeChangedCallback()</code></strong> is called when an observed attribute is added, replaced, or removed. Attribute names must appear in <code>observedAttributes</code>, and values already present are processed during upgrade, possibly before the first connection.</p>
+
+  <h2 id="shadow-dom">Shadow DOM</h2>
+  <p>A <strong>shadow root</strong> is a separate DOM root attached to a host element. The host is part of the document tree, while nodes written between its tags belong to the light DOM and internal nodes belong to the shadow tree. During rendering, nodes from both trees can appear together through slot assignment without a change in DOM ownership.</p>
+
+  <p>Nodes inside the shadow tree are unavailable to ordinary document-level selectors and queries. ID lookup within the component is limited to the shadow root, so internal nodes are outside the scope of page selectors and internal selectors are limited to their own tree.</p>
+  <p>The boundary can be crossed in specific ways, including inheritance of CSS properties, language, and text direction from the host. Other controlled connections are available through slots, event propagation, focus navigation, and explicit styling hooks.</p>
+
+  <div class="code-block">
+    <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-filename">base-button.ts</span><span class="code-lang">TypeScript</span></div>
+    <pre><code>const root = this.attachShadow({ mode: 'open' });
+const control = document.createElement('button');
+control.type = 'button';
+control.textContent = 'Save changes';
+root.append(control);</code></pre>
+  </div>
+
+  <p>An open root is accessible through <code>element.shadowRoot</code>, while the property returns <code>null</code> for a closed root. The reference returned by <code>attachShadow()</code> can still be retained inside the component. A closed root should be treated as private API, though it is not a security boundary, and open roots are usually easier to inspect, test, and integrate.</p>
+
+  <h2 id="templates">Templates</h2>
+  <p>Markup inside a <strong>template</strong> is parsed without being rendered in the surrounding document. The parsed nodes are available from its <code>content</code> property as a <code>DocumentFragment</code>, which can be cloned when the internal nodes for each instance are created.</p>
+
+  <div class="code-block">
+    <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-filename">base-button.ts</span><span class="code-lang">TypeScript</span></div>
+    <pre><code>const template = document.createElement('template');
+template.innerHTML = `
+  &lt;style&gt;...&lt;/style&gt;
+  &lt;button type="button"&gt;Save changes&lt;/button&gt;
+`;
+
+this.shadowRoot?.append(template.content.cloneNode(true));</code></pre>
+  </div>
+
+  <p>When a fragment is appended, its nodes are moved into the destination. Appending the template's original fragment directly would leave it empty after the first use, so a clone is normally created for each instance. An equivalent structure can be created with ordinary DOM methods when a template is unnecessary.</p>
+
+  <h2 id="slots">Slots</h2>
+  <p>A <strong>slot</strong> is a position in the shadow tree where light-DOM content can be rendered. A child with <code>slot="prefix"</code> is assigned to <code>&lt;slot name="prefix"&gt;</code>, while children without a <code>slot</code> attribute are assigned to the default slot.</p>
+  <p>Markup inside a slot element is used as fallback content whenever no light-DOM node has been assigned. A useful default can be provided there and replaced through page markup.</p>
+
+  <div class="code-block">
+    <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-filename">base-button.ts</span><span class="code-lang">TypeScript</span></div>
+    <pre><code>template.innerHTML = `
+  &lt;button type="button"&gt;
+    &lt;slot name="prefix"&gt;&lt;/slot&gt;
+    &lt;slot&gt;&lt;/slot&gt;
+    &lt;slot name="suffix"&gt;&lt;/slot&gt;
+  &lt;/button&gt;
+`;</code></pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-filename">page.html</span><span class="code-lang">HTML</span></div>
+    <pre><code>&lt;base-button&gt;
+  &lt;svg slot="prefix" aria-hidden="true"&gt;...&lt;/svg&gt;
+  Save changes
+&lt;/base-button&gt;</code></pre>
+  </div>
+
+  <figure class="figure-wrap">
+    <div class="wc-figure-scroll" role="region" aria-label="Scrollable light DOM and shadow DOM composition diagram" tabindex="0">
+      <svg class="figure" viewBox="0 0 720 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Three-panel diagram of a base-button. Its light DOM contains a prefix icon and Save changes text. Its shadow tree contains an internal button with prefix, default, and suffix slots. In the rendered result, the icon and text appear at those slot positions but retain their light-DOM parents.">
+        <defs><marker id="tree-arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><polygon class="figure-arrow is-accent-color" points="0 0, 10 5, 0 10"/></marker></defs>
+        <text class="figure-title" x="24" y="28">One component has separate ownership and rendering views</text>
+        <rect class="figure-panel" x="20" y="50" width="205" height="320"/><text class="figure-heading" x="122" y="77" text-anchor="middle">Light DOM</text>
+        <rect class="figure-node is-accent" x="42" y="95" width="161" height="54"/><text class="figure-label is-accent-text" x="122" y="127" text-anchor="middle">&lt;base-button&gt;</text>
+        <rect class="figure-node" x="58" y="174" width="129" height="46"/><text class="figure-label" x="122" y="202" text-anchor="middle">svg slot="prefix"</text>
+        <rect class="figure-node" x="58" y="238" width="129" height="46"/><text class="figure-label" x="122" y="266" text-anchor="middle">Save changes</text>
+        <text class="figure-note" x="122" y="322" text-anchor="middle">Nodes supplied in</text><text class="figure-note" x="122" y="339" text-anchor="middle">page markup</text>
+        <rect class="figure-panel is-info" x="258" y="50" width="205" height="320"/><text class="figure-heading is-info-text" x="360" y="77" text-anchor="middle">Shadow tree</text>
+        <rect class="figure-node is-info" x="280" y="95" width="161" height="54"/><text class="figure-label is-info-text" x="360" y="127" text-anchor="middle">internal button</text>
+        <rect class="figure-node" x="296" y="174" width="129" height="42"/><text class="figure-label" x="360" y="200" text-anchor="middle">slot name="prefix"</text>
+        <rect class="figure-node" x="296" y="230" width="129" height="42"/><text class="figure-label" x="360" y="256" text-anchor="middle">default slot</text>
+        <rect class="figure-node" x="296" y="286" width="129" height="42"/><text class="figure-label" x="360" y="312" text-anchor="middle">slot name="suffix"</text><text class="figure-note" x="360" y="350" text-anchor="middle">Private component tree</text>
+        <rect class="figure-panel" x="496" y="50" width="204" height="320"/><text class="figure-heading" x="598" y="77" text-anchor="middle">Rendered composition</text>
+        <rect class="figure-node is-gold" x="518" y="95" width="160" height="166"/><text class="figure-label" x="598" y="122" text-anchor="middle">internal button</text>
+        <rect class="figure-node" x="536" y="148" width="124" height="38"/><text class="figure-label" x="598" y="172" text-anchor="middle">supplied svg</text>
+        <rect class="figure-node" x="536" y="202" width="124" height="38"/><text class="figure-label" x="598" y="226" text-anchor="middle">Save changes</text>
+        <text class="figure-note" x="598" y="299" text-anchor="middle">Positions set by slot assignment</text><text class="figure-note" x="598" y="316" text-anchor="middle">without changing ownership</text>
+        <path class="figure-connector is-accent-stroke" d="M187 197 C235 197 250 194 296 194" marker-end="url(#tree-arrow)"/><path class="figure-connector is-accent-stroke" d="M187 261 C235 261 250 251 296 251" marker-end="url(#tree-arrow)"/>
+      </svg>
+    </div>
+    <figcaption>Light-DOM nodes are rendered at slot positions in the shadow tree. Their DOM parents do not change.</figcaption>
+  </figure>
+
+  <div class="code-block">
+    <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-filename">slot-observation.ts</span><span class="code-lang">TypeScript</span></div>
+    <pre><code>const prefix = this.shadowRoot?.querySelector&lt;HTMLSlotElement&gt;(
+  'slot[name="prefix"]'
+);
+
+prefix?.addEventListener('slotchange', () =&gt; {
+  const visibleNodes = prefix.assignedElements({ flatten: true });
+  this.toggleAttribute('has-prefix', visibleNodes.length &gt; 0);
+});</code></pre>
+  </div>
+
+  <p>A <code>slotchange</code> event is dispatched whenever the set of assigned nodes changes. Changes deeper inside an assigned subtree do not affect slot assignment, so no event is dispatched for them. The current assignment can be inspected through <code>assignedNodes()</code> or <code>assignedElements()</code>.</p>
 
   <h2 id="attributes-properties">Attributes and properties</h2>
   <p>Element configuration is represented differently in HTML and JavaScript. Attributes are serialized as text in markup, while properties are read and written on the element object. These interfaces are often synchronized for built-in elements, and the convention should be followed when one custom-element value is available through both markup and JavaScript.</p>
@@ -270,17 +373,17 @@ attributeChangedCallback(name: string) {
 }</code></pre>
   </div>
 
-  <p>The property <strong>reflects</strong> to the attribute. Setting <code>button.disabled = true</code> adds the attribute, while removal of the attribute causes the property getter to return false. The serialized value is stored in HTML and represented as a boolean in JavaScript.</p>
+  <p>The property <strong>reflects</strong> to the attribute, so setting <code>button.disabled = true</code> adds the attribute while removing it causes the property getter to return false. The serialized value is stored in HTML and represented as a boolean in JavaScript.</p>
   <p>Four steps are involved in copying a property assignment to the internal button.</p>
   <ol>
     <li><code>button.disabled = true</code> is assigned.</li>
     <li>The property setter adds <code>disabled</code> to the host.</li>
-    <li>The browser calls <code>attributeChangedCallback()</code>.</li>
+    <li><code>attributeChangedCallback()</code> is called.</li>
     <li><code>syncDisabled()</code> sets the native button's <code>disabled</code> property to <code>true</code>.</li>
   </ol>
   <p>A change made directly in markup is handled from step three onward. If <code>disabled</code> is removed from the host, the property getter returns false and the internal button is enabled during synchronization. In both directions, the public value is stored in the attribute and used to update the internal control.</p>
   <p>Reflection is suitable for values with a clear HTML representation. Objects, functions, and large data structures usually exist only as properties. Commands such as <code>show()</code> or <code>reset()</code> are best represented by methods, while readable or assignable state belongs in properties.</p>
-  <p>A property assignment made before definition creates an own property on the unresolved element. After upgrade, the accessor on the class prototype is hidden by the own property. The early value can be recovered by reading it, deleting the own property, and assigning the value again after connection so it passes through the setter.</p>
+  <p>If a property is assigned before definition, an own property is created on the unresolved element. After upgrade, the accessor on the class prototype is hidden by the own property. The early value can be recovered by reading it, deleting the own property, and assigning the value again after connection so it passes through the setter.</p>
 
   <div class="code-block">
     <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-filename">base-button.ts</span><span class="code-lang">TypeScript</span></div>
@@ -295,86 +398,8 @@ attributeChangedCallback(name: string) {
 
   <p>In the complete example, recovery is limited to the first connection by a guard. Once the early assignments have passed through their setters, the internal button can be synchronized from the resulting host state.</p>
 
-  <h2 id="shadow-dom">Shadow DOM</h2>
-  <p>A <strong>shadow root</strong> is a separate DOM root attached to a host element. The host is part of the document tree, while nodes written between its tags belong to the light DOM and internal nodes belong to the shadow tree. During rendering, nodes from both trees can appear together through slot assignment without a change in DOM ownership.</p>
-
-  <figure class="figure-wrap">
-    <div class="wc-figure-scroll" role="region" aria-label="Scrollable light DOM and shadow DOM composition diagram" tabindex="0">
-      <svg class="figure" viewBox="0 0 720 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Three-panel diagram of a base-button. Its light DOM contains a prefix icon and Save changes text. Its shadow tree contains an internal button with prefix, default, and suffix slots. In the rendered result, the icon and text appear at those slot positions but retain their light-DOM parents.">
-        <defs><marker id="tree-arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><polygon class="figure-arrow is-accent-color" points="0 0, 10 5, 0 10"/></marker></defs>
-        <text class="figure-title" x="24" y="28">One component has separate ownership and rendering views</text>
-        <rect class="figure-panel" x="20" y="50" width="205" height="320"/><text class="figure-heading" x="122" y="77" text-anchor="middle">Light DOM</text>
-        <rect class="figure-node is-accent" x="42" y="95" width="161" height="54"/><text class="figure-label is-accent-text" x="122" y="127" text-anchor="middle">&lt;base-button&gt;</text>
-        <rect class="figure-node" x="58" y="174" width="129" height="46"/><text class="figure-label" x="122" y="202" text-anchor="middle">svg slot="prefix"</text>
-        <rect class="figure-node" x="58" y="238" width="129" height="46"/><text class="figure-label" x="122" y="266" text-anchor="middle">Save changes</text>
-        <text class="figure-note" x="122" y="322" text-anchor="middle">Nodes supplied in</text><text class="figure-note" x="122" y="339" text-anchor="middle">page markup</text>
-        <rect class="figure-panel is-info" x="258" y="50" width="205" height="320"/><text class="figure-heading is-info-text" x="360" y="77" text-anchor="middle">Shadow tree</text>
-        <rect class="figure-node is-info" x="280" y="95" width="161" height="54"/><text class="figure-label is-info-text" x="360" y="127" text-anchor="middle">button part="control"</text>
-        <rect class="figure-node" x="296" y="174" width="129" height="42"/><text class="figure-label" x="360" y="200" text-anchor="middle">slot name="prefix"</text>
-        <rect class="figure-node" x="296" y="230" width="129" height="42"/><text class="figure-label" x="360" y="256" text-anchor="middle">default slot</text>
-        <rect class="figure-node" x="296" y="286" width="129" height="42"/><text class="figure-label" x="360" y="312" text-anchor="middle">slot name="suffix"</text><text class="figure-note" x="360" y="350" text-anchor="middle">Private component tree</text>
-        <rect class="figure-panel" x="496" y="50" width="204" height="320"/><text class="figure-heading" x="598" y="77" text-anchor="middle">Rendered composition</text>
-        <rect class="figure-node is-gold" x="518" y="95" width="160" height="166"/><text class="figure-label" x="598" y="122" text-anchor="middle">internal button</text>
-        <rect class="figure-node" x="536" y="148" width="124" height="38"/><text class="figure-label" x="598" y="172" text-anchor="middle">supplied svg</text>
-        <rect class="figure-node" x="536" y="202" width="124" height="38"/><text class="figure-label" x="598" y="226" text-anchor="middle">Save changes</text>
-        <text class="figure-note" x="598" y="299" text-anchor="middle">Slot assignment sets positions</text><text class="figure-note" x="598" y="316" text-anchor="middle">without changing ownership</text>
-        <path class="figure-connector is-accent-stroke" d="M187 197 C235 197 250 194 296 194" marker-end="url(#tree-arrow)"/><path class="figure-connector is-accent-stroke" d="M187 261 C235 261 250 251 296 251" marker-end="url(#tree-arrow)"/>
-      </svg>
-    </div>
-    <figcaption>Light-DOM nodes are rendered at slot positions in the shadow tree. Their DOM parents do not change.</figcaption>
-  </figure>
-
-  <p>Nodes inside the shadow tree are unavailable to ordinary document-level selectors and queries. ID lookup within the component is limited to the shadow root, so internal nodes are outside the scope of page selectors and internal selectors are limited to their own tree.</p>
-  <p>The boundary can be crossed in specific ways. CSS properties may be inherited from the host, along with language and text direction. Other controlled connections are available through slots, event propagation, focus navigation, and explicit styling hooks.</p>
-
-  <div class="code-block">
-    <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-filename">base-button.ts</span><span class="code-lang">TypeScript</span></div>
-    <pre><code>const root = this.attachShadow({ mode: 'open' });
-root.append(template.content.cloneNode(true));</code></pre>
-  </div>
-
-  <p>An open root is accessible through <code>element.shadowRoot</code>. For a closed root, the property returns <code>null</code>, although the reference returned by <code>attachShadow()</code> can be retained inside the component. A closed root should be treated as private API, though it is not a security boundary. Open roots are usually easier to inspect, test, and integrate.</p>
-
-  <h2 id="templates">Templates</h2>
-  <p>Markup inside a <strong>template</strong> is parsed without being rendered in the surrounding document. The parsed nodes are available from its <code>content</code> property as a <code>DocumentFragment</code>, which can be cloned when the internal nodes for each instance are created.</p>
-
-  <div class="code-block">
-    <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-filename">base-button.ts</span><span class="code-lang">TypeScript</span></div>
-    <pre><code>const template = document.createElement('template');
-template.innerHTML = `
-  &lt;style&gt;...&lt;/style&gt;
-  &lt;button type="button" part="control"&gt;
-    &lt;slot name="prefix"&gt;&lt;/slot&gt;
-    &lt;slot&gt;&lt;/slot&gt;
-    &lt;slot name="suffix"&gt;&lt;/slot&gt;
-  &lt;/button&gt;
-`;
-
-this.shadowRoot?.append(template.content.cloneNode(true));</code></pre>
-  </div>
-
-  <p>When a fragment is appended, its nodes are moved into the destination. Appending the template's original fragment directly would leave it empty after the first use, so a clone is normally created for each instance. An equivalent structure can be created with ordinary DOM methods when a template is unnecessary.</p>
-
-  <h2 id="slots">Slots</h2>
-  <p>A <strong>slot</strong> is a position in the shadow tree where light-DOM content can be rendered. A child with <code>slot="prefix"</code> is assigned to <code>&lt;slot name="prefix"&gt;</code>, while children without a <code>slot</code> attribute are assigned to the default slot.</p>
-  <p>Markup inside a slot element is used as fallback content whenever no light-DOM node has been assigned. A useful default can be provided there and replaced through page markup.</p>
-
-  <div class="code-block">
-    <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-filename">slot-observation.ts</span><span class="code-lang">TypeScript</span></div>
-    <pre><code>const prefix = this.shadowRoot?.querySelector&lt;HTMLSlotElement&gt;(
-  'slot[name="prefix"]'
-);
-
-prefix?.addEventListener('slotchange', () =&gt; {
-  const visibleNodes = prefix.assignedElements({ flatten: true });
-  this.toggleAttribute('has-prefix', visibleNodes.length &gt; 0);
-});</code></pre>
-  </div>
-
-  <p>A <code>slotchange</code> event is dispatched whenever the set of assigned nodes changes. Changes deeper inside an assigned subtree do not affect slot assignment, so no event is dispatched for them. The current assignment can be inspected through <code>assignedNodes()</code> or <code>assignedElements()</code>.</p>
-
   <h2 id="styling">Styling the boundary</h2>
-  <p>Nodes in a shadow tree cannot be reached by ordinary selectors outside the component. Supported style changes must therefore be exposed through explicit CSS interfaces.</p>
+  <p>Nodes in a shadow tree cannot be reached by ordinary selectors outside the component. Supported style changes must be exposed through explicit CSS interfaces.</p>
 
   <div class="table-wrap"><table><thead><tr><th>Mechanism</th><th>What it exposes</th><th>Typical use</th></tr></thead><tbody>
     <tr><td><code>:host</code></td><td>The custom element itself from internal CSS</td><td>Display, host state, and layout participation</td></tr>
@@ -401,7 +426,7 @@ base-button::part(control) { font-weight: 700; }</code></pre>
   <p>A style element inside the template is a clear starting point. If many shadow roots use identical styles, a constructed stylesheet can be assigned to each root through <code>adoptedStyleSheets</code>. An unchanged external CSS interface can be provided with either approach.</p>
 
   <h2 id="events">Events</h2>
-  <p>Inside a shadow tree, the usual capture and bubble phases still apply. Propagation beyond the tree depends on two flags. With <code>bubbles: true</code>, the event is propagated through ancestor nodes. With <code>composed: true</code>, its path may cross a shadow boundary.</p>
+  <p>Inside a shadow tree, the usual capture and bubble phases still apply, while propagation beyond the tree depends on two flags. With <code>bubbles: true</code>, the event is propagated through ancestor nodes. With <code>composed: true</code>, its path may cross a shadow boundary.</p>
   <p>Browser-dispatched interface events such as <code>click</code> are composed, so a click from the internal button can be received outside the component. At the shadow boundary, the event is <strong>retargeted</strong>, and <code>event.target</code> contains the <code>&lt;base-button&gt;</code> host for an outside listener. The full propagation path can be inspected with <code>event.composedPath()</code>, subject to the visibility rules for closed roots.</p>
 
   <figure class="figure-wrap">
@@ -479,10 +504,10 @@ base-button::part(control) { font-weight: 700; }</code></pre>
   <p>The serialized attribute, JavaScript property, and native button state appear in the first three rows. The remaining rows contain the target seen outside the shadow tree and the relevant part of the composed path, so the public host state can be compared with the private implementation.</p>
 
   <h2 id="accessibility">Accessibility and forms</h2>
-  <p>Shadow DOM changes DOM and CSS boundaries, but accessibility must still be built into the component. Correct semantics, an accessible name, keyboard behavior, visible focus, and state perceivable by assistive technology all require deliberate support. When a native control is used, its browser behavior is retained instead of being recreated on a generic element.</p>
-  <p>In this example, the default slot is placed inside a native <code>&lt;button&gt;</code>, so visible text such as “Save changes” becomes the button label. Keyboard activation and disabled behavior are inherited from the native control. Content in the prefix and suffix slots should be decorative or add information missing from the label. An <code>aria-label</code> on the custom-element host is not automatically applied to the internal button, so component code must forward its value when the attribute is supported.</p>
+  <p>DOM and CSS boundaries are created with Shadow DOM, but accessibility must still be built into the component. Correct semantics, an accessible name, keyboard behavior, visible focus, and state perceivable by assistive technology all require deliberate support. When a native control is used, its browser behavior is retained instead of being recreated on a generic element.</p>
+  <p>In this example, the default slot is placed inside a native <code>&lt;button&gt;</code>, so visible text such as “Save changes” becomes the button label. Keyboard activation and disabled behavior are inherited from the native control. Content in the prefix and suffix slots should be decorative or add information missing from the label. An <code>aria-label</code> on the custom-element host is not automatically applied to the internal button, so its value must be forwarded by the implementation when the attribute is supported.</p>
   <p>A clear public interface is needed for programmatic focus because a reference to <code>&lt;base-button&gt;</code> points to the host while the focusable button is inside the shadow tree. Calls to the public <code>focus(options)</code> method are forwarded to the internal button, and its focus indicator is styled with <code>:focus-visible</code>.</p>
-  <p>Extra support is required for form participation because a native control inside a shadow tree does not automatically make the custom-element host part of the surrounding form. The internal control in this example has <code>type="button"</code>, which gives the host the behavior of an ordinary action button.</p>
+  <p>Extra support is required for form participation because a native control inside a shadow tree does not automatically make the custom-element host part of the surrounding form. The internal control in this example has <code>type="button"</code>, so the host behaves as an ordinary action button.</p>
   <p>For an input-like autonomous custom element, form association can be enabled with <code>static formAssociated = true</code> and <code>attachInternals()</code>. Submission values, validity, labels, form ownership, and form lifecycle callbacks can then be configured through <code>ElementInternals</code>.</p>
 
   <div class="callout info"><div class="callout-title">Accessibility testing crosses the boundary</div><p>Testing should cover keyboard input, browser accessibility inspection, supported screen readers, zoom, forced colors, and high-contrast settings. Screenshots can show focus and visible labels, but accessible names, roles, states, and announcements require browser inspection or assistive-technology testing.</p></div>
@@ -509,9 +534,9 @@ base-button::part(control) { font-weight: 700; }</code></pre>
 
   <h2 id="when-to-use">When to use Web Components</h2>
   <p>Web Components are a good fit for controls and widgets that need a stable browser interface across frameworks or applications. Typical examples include design-system primitives, embedded tools, media controls, and independently delivered microfrontend surfaces.</p>
-  <p>Portability requires additional API work. Attribute and property semantics must be kept consistent, slots and parts must be versioned, accessibility must cross the shadow boundary, and server rendering and loading need deliberate design. For a component used in one framework application, the framework's component model and tooling may be a better choice.</p>
+  <p>Portability requires additional API work because attribute and property semantics must be kept consistent, slots and parts must be versioned, accessibility must cross the shadow boundary, and server rendering and loading need deliberate design. For a component used in one framework application, the framework's component model and tooling may be a better choice.</p>
   <p>Within framework code, a custom element is represented as a DOM node, while its shadow tree and lifecycle are handled by the custom-element class. A wrapper can be added for adapted names, TypeScript declarations, refs, defaults, and application policy without changing the DOM implementation. This pattern is covered in <a href="wrapping-web-components-in-react.html">Wrapping Web Components in React</a>.</p>
-  <p>Web Components are particularly useful as a lower-level interface beneath application frameworks when an element needs to work across several runtimes or without a framework. Wider reuse can justify the extra work involved in API and lifecycle design.</p>
+  <p>Web Components are particularly useful as a lower-level interface beneath application frameworks when an element is intended for several runtimes or for use without a framework. The extra work involved in API and lifecycle design is easier to justify when reuse extends across those environments.</p>
 
   <h2 id="full-source">Complete example</h2>
   <p>In the complete implementation, the public contract consists of reflected <code>disabled</code>, <code>variant</code>, and <code>size</code> properties, a focus method, three content slots, one shadow part, and the native click event. If an open declarative shadow root already exists during upgrade, it is reused, and the internal control is always created with <code>type="button"</code>.</p>
