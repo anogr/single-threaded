@@ -130,7 +130,7 @@
   <a class="sidebar-back" href="index.html">← All articles</a>
   <a href="#intro">Introduction</a>
   <div class="sidebar-section">Foundations</div>
-  <a href="#technologies">Three technologies</a>
+  <a href="#technologies">Main building blocks</a>
   <a href="#custom-elements">Custom elements</a>
   <div class="sidebar-section">DOM structure</div>
   <a href="#shadow-dom">Shadow DOM</a>
@@ -170,23 +170,23 @@
     <p>Throughout this article, we'll build a small <code>&lt;base-button&gt;</code> Web Component to explore how they are defined, used in a page, and encapsulated. By keeping the example simple, we can focus on the underlying browser APIs and how they work together.</p>
   </section>
 
-  <h2 id="technologies">Three technologies</h2>
+  <h2 id="technologies">Main building blocks</h2>
 
-  <p>Web Components is an umbrella term for three browser technologies: <strong>Custom Elements</strong>, <strong>Shadow DOM</strong>, and <strong>HTML templates</strong>. Each addresses a different part of building reusable components. Custom Elements let us define new HTML elements, Shadow DOM provides a way to encapsulate their internal structure, and HTML templates let us prepare markup that can be reused across instances.</p>
+  <p>Several browser technologies can be used when implementing a Web Component, and each covers a different part of the component. The most important one, a new tag name, is associated with a JavaScript class through <strong>Custom Elements</strong>. Internal elements can be placed in a separate tree through <strong>Shadow DOM</strong>. Markup that will be copied into each instance is stored in <strong>HTML templates</strong>. Finally, positions where content from the page will be rendered are marked with <strong>slots</strong>.</p>
 
   <div class="technology-grid">
-    <div class="card blue"><div class="card-label">Identity and behavior</div><div class="card-title">Custom Elements</div><p>A tag name is associated with a JavaScript class so every instance receives the defined behavior.</p></div>
-    <div class="card teal"><div class="card-label">Internal structure</div><div class="card-title">Shadow DOM</div><p>A separate DOM tree can be attached to the element with boundaries for queries and CSS selectors.</p></div>
-    <div class="card gold"><div class="card-label">Reusable markup</div><div class="card-title">HTML templates</div><p>Markup can be parsed without being rendered and cloned into each custom-element instance.</p></div>
+    <div class="card blue"><div class="card-label">Identity and behavior</div><div class="card-title">Custom Elements</div><p>A tag name is associated with a JavaScript class that extends an HTMLElement.</p></div>
+    <div class="card teal"><div class="card-label">Internal structure</div><div class="card-title">Shadow DOM</div><p>A separate DOM tree with encapsulated internal elements can be attached to the custom element.</p></div>
+    <div class="card gold"><div class="card-label">Reusable markup</div><div class="card-title">HTML Templates</div><p>Prepared markup can be reused, and slots define where content supplied by the page is rendered.</p></div>
   </div>
 
-  <p>These technologies solve different problems and can be used independently. A custom element does not need a shadow DOM or an HTML template, and Shadow DOM can be used with supported built-in HTML elements. However, combining them provides a useful foundation for building components with their own behavior, internal structure, and reusable markup.</p>
+  <p>CSS has specific behavior and features for a shadow DOM. Selectors inside and outside a shadow DOM have separate scopes, while inheritance and a small set of special selectors cross the boundary in controlled ways. Rules inside the shadow DOM can come from <code>&lt;style&gt;</code> elements or <strong>constructed stylesheets</strong>, and both can be used together.</p>
 
-  <p>Consider our <code>&lt;base-button&gt;</code> component. Custom Elements lets us register the tag name and associate it with a JavaScript class. When the browser encounters <code>&lt;base-button&gt;</code> in a page, it can create an instance with the behavior defined by that class.</p>
+  <p>The technologies can be combined as needed. A custom element does not require a shadow root, and the contents of a shadow root can be created without a template. Using all of the building blocks is useful when a new element needs its own behavior, separate internal structure, reusable markup, and styles shared across instances.</p>
 
-  <p>The component can then attach a shadow DOM tree. This gives the button a place for its internal elements and styles without exposing them as ordinary children in the surrounding page. Instead of creating those elements individually with JavaScript, the component can clone an HTML template containing the markup it needs.</p>
+  <p>The <code>&lt;base-button&gt;</code> used throughout the article combines these technologies. Its tag name and class are registered through Custom Elements. Each instance has a shadow root containing a native button. The internal markup is copied from a template, slots provide positions for the label and optional icons, and a constructed stylesheet contains the CSS shared by every instance.</p>
 
-  <p>Together, these technologies let us use <code>&lt;base-button&gt;</code> as an HTML element while keeping its implementation separate from the page that uses it. The following sections explore each technology individually before bringing them together in the component.</p>
+  <p>The following sections explain each technology in more detail.</p>
 
   <h2 id="custom-elements">Custom elements</h2>
 
@@ -498,7 +498,7 @@ export class BaseButton extends HTMLElement {
 
   <p>The page stylesheet and the stylesheet inside a shadow tree use separate selector scopes. Page selectors can match the <code>&lt;base-button&gt;</code> host and its light-DOM children, but they cannot match the native button in the shadow tree. Selectors inside the shadow tree can match the native button, but they cannot match elements elsewhere on the page. CSS provides several mechanisms for styling across this boundary without removing the separation between the trees.</p>
 
-  <p>The shadow-tree styles for <code>BaseButton</code> are written in the <code>&lt;style&gt;</code> element inside its HTML template. When the template is cloned into a shadow root, the style element becomes part of the root and its rules receive shadow-tree scope. The examples labeled <code>base-button.ts · template style</code> belong in this element. Examples labeled <code>page.css</code> belong to the stylesheet of the surrounding page.</p>
+  <p>The first examples keep the shadow-tree styles in the <code>&lt;style&gt;</code> element inside the HTML template. When the template is cloned, the style element becomes part of the shadow root and its rules receive shadow-tree scope. The examples labeled <code>base-button.ts · template style</code> belong in this element. Examples labeled <code>page.css</code> belong to the stylesheet of the surrounding page. After the styling boundary has been explained, these internal rules will be moved into a constructed stylesheet shared by every <code>BaseButton</code> instance.</p>
 
   <h3>Selector boundaries</h3>
 
@@ -639,6 +639,59 @@ button {
   </div>
 
   <p><code>::slotted()</code> does not select descendants of an assigned element, and text nodes cannot be selected with it. The page can style light-DOM content directly, while the shadow stylesheet can provide defaults for elements assigned to the component's slots.</p>
+
+  <h3>Constructed stylesheets</h3>
+
+  <p>When a template contains a <code>&lt;style&gt;</code> element, every cloned shadow tree contains a style element. With a constructed stylesheet, the CSS is kept in a JavaScript object that can be included in the <code>adoptedStyleSheets</code> list of several shadow roots. Updating the object then updates the rules used by every root that adopted it.</p>
+
+  <p><code>CSSStyleSheet()</code> creates an empty stylesheet, and <code>replaceSync()</code> fills it with CSS. A shadow root begins using the stylesheet when the object is added to its <code>adoptedStyleSheets</code> list. Its selectors are still scoped to that shadow root, just like selectors in a <code>&lt;style&gt;</code> element inside the root.</p>
+
+  <p>For <code>BaseButton</code>, the template created earlier stays at module scope. A constructed stylesheet is created beside it, and the template content is changed so it contains only the internal DOM structure. The constructor attaches a shadow root, adopts the stylesheet, and copies the template content into the root for each instance.</p>
+
+  <div class="code-block">
+    <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-filename">base-button.ts</span><span class="code-lang">TypeScript</span></div>
+    <pre><code>// Create one stylesheet when the module is evaluated.
+const baseButtonStyles = new CSSStyleSheet();
+baseButtonStyles.replaceSync(`
+  :host {
+    display: inline-flex;
+  }
+
+  button {
+    border-radius: var(--base-button-radius, 0.375rem);
+    font: inherit;
+  }
+`);
+
+// Replace the earlier template content. Its style element is no longer needed.
+template.innerHTML = `
+  &lt;button type="button" part="control"&gt;
+    &lt;slot name="prefix"&gt;&lt;/slot&gt;
+    &lt;slot&gt;&lt;/slot&gt;
+    &lt;slot name="suffix"&gt;&lt;/slot&gt;
+  &lt;/button&gt;
+`;
+
+export class BaseButton extends HTMLElement {
+  constructor() {
+    super();
+
+    const root = this.attachShadow({ mode: 'open' });
+
+    // Apply the shared stylesheet to this shadow root.
+    root.adoptedStyleSheets = [baseButtonStyles];
+
+    // Clone the button and slots from the markup-only template.
+    root.append(template.content.cloneNode(true));
+
+    // Query and store the internal button as shown in the Templates section.
+  }
+
+  // ...
+}</code></pre>
+  </div>
+
+  <p>Every <code>BaseButton</code> shadow root now refers to one stylesheet object. If its rules are replaced later, the updated rules are used by every root that adopted it. The button and slots still come from the template because a stylesheet contains CSS rules rather than DOM elements.</p>
 
   <h2 id="events">Events</h2>
   <p>Page code should be able to handle activation of <code>&lt;base-button&gt;</code> without reaching into its shadow tree. The internal native button already provides native click activation for pointer and keyboard input. Browser-dispatched click events bubble and cross shadow boundaries, so a listener attached to the custom-element host receives the event.</p>
@@ -839,18 +892,21 @@ button?.disabled = true;</code></pre>
     <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-filename">server-rendered.html</span><span class="code-lang">HTML</span></div>
     <pre><code>&lt;base-button variant="primary"&gt;
   &lt;template shadowrootmode="open"&gt;
-    &lt;style&gt;...&lt;/style&gt;
+    &lt;style&gt;
+      :host { display: inline-flex; }
+      button { font: inherit; }
+    &lt;/style&gt;
     &lt;button type="button" part="control"&gt;&lt;slot&gt;&lt;/slot&gt;&lt;/button&gt;
   &lt;/template&gt;
   Save changes
 &lt;/base-button&gt;</code></pre>
   </div>
 
-  <p>In this markup, the native button, its style, and its slot are available during parsing. The light-DOM text is rendered through the slot just as it is in the client-created version. Registration is still needed for the <code>disabled</code> property, focus method, and other class behavior.</p>
+  <p>In this markup, the native button, its initial style, and its slot are available during parsing. A constructed stylesheet cannot be included directly in HTML because it is created and adopted through JavaScript. The <code>&lt;style&gt;</code> element supplies the appearance before the module runs. When <code>BaseButton</code> is upgraded, its constructor adopts the shared constructed stylesheet into this existing shadow root. Registration is still needed for the <code>disabled</code> property, focus method, and other class behavior.</p>
 
   <p>This order works when the declarative markup is parsed before <code>BaseButton</code> is registered. If the definition already exists when the opening <code>&lt;base-button&gt;</code> tag is parsed, the constructor runs before the parser reaches the nested template. The constructor attaches the programmatic shadow root, and the parser cannot attach a second root when it later encounters <code>shadowrootmode</code>. Server-rendered declarative markup should therefore appear before the module registers the element.</p>
 
-  <p>The constructor must account for the two supported starting points. It reuses <code>this.shadowRoot</code> when declarative markup created an open shadow root before registration. Otherwise it attaches a new root and clones the shared template. The complete example below follows this branch explicitly.</p>
+  <p>The constructor must account for the two supported starting points. It reuses <code>this.shadowRoot</code> when declarative markup created an open shadow root before registration. Otherwise it attaches a new root and clones the shared template. In both cases, the constructed stylesheet is adopted by the resulting root. The complete example below follows this branch explicitly.</p>
 
   <h2 id="when-to-use">When to use Web Components</h2>
   <p>Web Components fit controls and widgets that need a stable browser interface across several applications or frameworks. The useful boundary is the HTML element itself. Markup supplies attributes and slotted content, JavaScript uses properties, methods, and events, and CSS uses the styling interfaces chosen by the component. <a href="design-systems.html">Design-system primitives</a> and embedded tools often benefit from this kind of portability.</p>
@@ -858,52 +914,55 @@ button?.disabled = true;</code></pre>
   <p>This portability requires deliberate API design. Attribute and property behavior must agree, exposed slots and parts need stable meanings, and accessibility must work across the shadow boundary. A component used by only one framework application can often use that framework's component model with less integration work. When a custom element is used from React, a wrapper can adapt names, types, refs, and application conventions as described in <a href="wrapping-web-components-in-react.html">Wrapping Web Components in React</a>.</p>
 
   <h2 id="full-source">Complete example</h2>
-  <p>The complete implementation brings together the features developed in the article. Its public interface contains a reflected <code>disabled</code> property, textual <code>variant</code> and <code>size</code> attributes, three content slots, a focus method, one shadow part, and the native click event. The constructor reuses an open declarative shadow root created before registration and otherwise clones the shared template. A <code>disabled</code> property assigned before upgrade is reapplied through the class setter when the element is connected.</p>
+  <p>The complete implementation brings together the features developed in the article. Its public interface contains a reflected <code>disabled</code> property, textual <code>variant</code> and <code>size</code> attributes, three content slots, a focus method, one shadow part, and the native click event. One constructed stylesheet is shared by every instance. The constructor adopts it into either an existing declarative shadow root or a newly attached root, then clones the template when the internal markup is not already present. A <code>disabled</code> property assigned before upgrade is reapplied through the class setter when the element is connected.</p>
 
   <div class="code-block">
     <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-filename">base-button.ts</span><span class="code-lang">TypeScript</span></div>
-    <pre><code>// The template is created once when the module is evaluated.
+    <pre><code>// The stylesheet is created once when the module is evaluated.
+const baseButtonStyles = new CSSStyleSheet();
+baseButtonStyles.replaceSync(`
+  :host {
+    display: inline-flex;
+  }
+
+  :host([variant="secondary"]) button {
+    background: transparent;
+    color: var(--base-button-secondary-color, CanvasText);
+    border-color: var(--base-button-secondary-border, currentColor);
+  }
+
+  :host([disabled]) { opacity: 0.55; }
+
+  button {
+    border: 1px solid transparent;
+    border-radius: var(--base-button-radius, 0.375rem);
+    background: var(--base-button-primary-background, Highlight);
+    color: var(--base-button-primary-color, HighlightText);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5em;
+    font: inherit;
+    padding: 0.5em 1em;
+  }
+
+  ::slotted([slot="prefix"]),
+  ::slotted([slot="suffix"]) {
+    inline-size: 1em;
+    block-size: 1em;
+    flex: none;
+  }
+
+  :host([size="sm"]) button { font-size: 0.8125rem; }
+  :host([size="lg"]) button { font-size: 1.0625rem; padding: 0.65em 1.2em; }
+  button:disabled { cursor: default; }
+  button:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+`);
+
+// The template contains only the internal markup.
 const template = document.createElement('template');
 template.innerHTML = `
-  &lt;style&gt;
-    :host {
-      display: inline-flex;
-    }
-
-    :host([variant="secondary"]) button {
-      background: transparent;
-      color: var(--base-button-secondary-color, CanvasText);
-      border-color: var(--base-button-secondary-border, currentColor);
-    }
-
-    :host([disabled]) { opacity: 0.55; }
-
-    button {
-      border: 1px solid transparent;
-      border-radius: var(--base-button-radius, 0.375rem);
-      background: var(--base-button-primary-background, Highlight);
-      color: var(--base-button-primary-color, HighlightText);
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5em;
-      font: inherit;
-      padding: 0.5em 1em;
-    }
-
-    ::slotted([slot="prefix"]),
-    ::slotted([slot="suffix"]) {
-      inline-size: 1em;
-      block-size: 1em;
-      flex: none;
-    }
-
-    :host([size="sm"]) button { font-size: 0.8125rem; }
-    :host([size="lg"]) button { font-size: 1.0625rem; padding: 0.65em 1.2em; }
-    button:disabled { cursor: default; }
-    button:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
-  &lt;/style&gt;
   &lt;button type="button" part="control"&gt;
     &lt;slot name="prefix"&gt;&lt;/slot&gt;
     &lt;slot&gt;&lt;/slot&gt;
@@ -922,6 +981,12 @@ export class BaseButton extends HTMLElement {
 
     // Reuse declarative shadow DOM parsed before registration, or create a root.
     const root = this.shadowRoot ?? this.attachShadow({ mode: 'open' });
+
+    // Apply the module's stylesheet without discarding other adopted sheets.
+    if (!root.adoptedStyleSheets.includes(baseButtonStyles)) {
+      root.adoptedStyleSheets = [...root.adoptedStyleSheets, baseButtonStyles];
+    }
+
     if (!root.hasChildNodes()) {
       // Client-created roots receive a clone of the shared template.
       root.append(template.content.cloneNode(true));
